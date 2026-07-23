@@ -21,13 +21,14 @@ app.get('/api/features', async (req, res) => {
       query: 'SELECT [System.Id], [System.Title], [System.IterationPath] FROM workitems WHERE [System.WorkItemType] = "Feature" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")'
     });
 
-    const validIterations = ['2026\\Q2', '2026\\Q3', '2026\\Q4', '2027\\Q1'];
-    const filtered = resp.data.workItems.filter(item => {
-    const iter = item.fields?.['System.IterationPath'] || '';
-    return validIterations.some(v => iter.includes(v));
-    });
+//    const validIterations = ['2026\\Q2', '2026\\Q3', '2026\\Q4', '2027\\Q1'];
+//    const filtered = resp.data.workItems.filter(item => {
+//    const iter = item.fields?.['System.IterationPath'] || '';
+//    return validIterations.some(v => iter.includes(v));
+//    });
     
-    const ids = filtered.map(i => i.id);
+//    const ids = filtered.map(i => i.id);
+    const ids = resp.data.workItems.map(i => i.id);
     if (!ids.length) return res.json({ features: [] });
     
     const batch = await client.post('/wit/workitemsbatch?api-version=7.0', {
