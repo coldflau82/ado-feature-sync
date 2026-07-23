@@ -218,7 +218,7 @@ app.get('/dashboard', (req, res) => {
       async function loadFeatures() {
         try {
           setLoading(true);
-          const response = await fetch('/api/features');
+          const response = await fetch(window.location.origin + '/api/features');
           
           if (!response.ok) {
             throw new Error(\`Error \${response.status}\`);
