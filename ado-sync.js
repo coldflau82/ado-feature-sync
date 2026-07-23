@@ -32,10 +32,12 @@ app.get('/api/features', async (req, res) => {
       query: 'SELECT [System.Id], [System.Title], [System.AreaPath], [System.State] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.State] = "In Process" AND [System.ChangedDate] >= @today - 90'
     });
     
-    const filtered = resp.data.workItems.filter(item => {
-      const areaPath = item.fields && item.fields['System.AreaPath'];
-      return areaPath && areaFilters.some(area => areaPath.includes(area));
-    }).slice(0, 200);
+    // Log para debuggear
+console.log('Total items:', resp.data.workItems.length);
+console.log('First item:', JSON.stringify(resp.data.workItems[0], null, 2));
+
+const filtered = resp.data.workItems.slice(0, 200); // Sin filtro por ahora
+console.log('Filtered:', filtered.length);
     
     const ids = filtered.map(i => i.id);
     if (ids.length === 0) return res.json({ features: [], summary: { total: 0 } });
