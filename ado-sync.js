@@ -29,24 +29,14 @@ app.get('/api/health', (req, res) => {
 app.get('/api/features', async (req, res) => {
   try {
     const resp = await client.post('/wit/wiql?api-version=7.0', {
-      query: 'SELECT [System.Id], [System.Title], [System.AreaPath], [System.State] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.State] = "In Process" AND [System.ChangedDate] >= @today - 90'
+      query: 'SELECT [System.Id], [System.Title], [System.AreaPath], [System.State] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.State] = "In Process"'
     });
     
-    // Log para debuggear
-console.log('Total items:', resp.data.workItems.length);
-console.log('First item:', JSON.stringify(resp.data.workItems[0], null, 2));
-
-const filtered = resp.data.workItems.filter(item => {
-  const areaPath = item.fields && item.fields['System.AreaPath'];
-  return areaPath && areaFilters.some(area => areaPath.includes(area));
-}).slice(0, 200);
-
-// Crear mapa de id -> areaPath
-const areaPathMap = {};
-filtered.forEach(item => {
-  areaPathMap[item.id] = item.fields['System.AreaPath'] || '';
-});
-   
+    const filtered = resp.data.workItems.filter(item => {
+      const areaPath = item.fields && item.fields['System.AreaPath'];
+      return areaPath && areaFilters.some(area => areaPath.includes(area));
+    }).slice(0, 200);
+    
     const ids = filtered.map(i => i.id);
     if (ids.length === 0) return res.json({ features: [], summary: { total: 0 } });
     
@@ -55,21 +45,26 @@ filtered.forEach(item => {
       fields: ['System.Id', 'System.Title', 'System.State', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing']
     });
     
-   res.json({
-    features: batch.data.value.map(i => ({
-      id: i.id,
-      title: i.fields['System.Title'] || '',
-      state: i.fields['System.State'] || '',
-      areaPath: areaPathMap[i.id] || '',
-      estimation: {
-        be: i.fields['Custom.BEEstimate'] || '',
-        fe: i.fields['Custom.FEEstimates'] || '',
-        qa: i.fields['Custom.QASizing'] || '',
-        estimatedSprints: 0
-      },
-    actualStoryPoints: 0,
-    risk: 'unknown'
-  })),
+    const areaMap = {};
+    filtered.forEach(item => {
+      areaMap[item.id] = item.fields['System.AreaPath'];
+    });
+    
+    res.json({
+      features: batch.data.value.map(i => ({
+        id: i.id,
+        title: i.fields['System.Title'] || '',
+        state: i.fields['System.State'] || '',
+        areaPath: areaMap[i.id] || '',
+        estimation: {
+          be: i.fields['Custom.BEEstimate'] || '',
+          fe: i.fields['Custom.FEEstimates'] || '',
+          qa: i.fields['Custom.QASizing'] || '',
+          estimatedSprints: 0
+        },
+        actualStoryPoints: 0,
+        risk: 'unknown'
+      })),
       summary: { total: batch.data.value.length }
     });
   } catch (error) {
