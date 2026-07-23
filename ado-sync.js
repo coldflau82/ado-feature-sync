@@ -32,28 +32,22 @@ app.get('/api/features', async (req, res) => {
       query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature"'
     });
     
-    console.log('Total items from ADO:', resp.data.workItems.length);
-    
-    // Filtrar por areaPath en código (no en WIQL)
     const filtered = resp.data.workItems.filter(item => {
-      const areaPath = item.fields?.['System.AreaPath'] || '';
-      return areaFilters.some(area => areaPath.includes(area));
+      const areaPath = item.fields && item.fields['System.AreaPath'];
+      return areaPath && areaFilters.some(area => areaPath.includes(area));
     }).slice(0, 200);
     
-    console.log('Filtered items:', filtered.length);
-    
     const ids = filtered.map(i => i.id);
-    if (ids.length === 0) return res.json({ features: [] });
+    if (ids.length === 0) return res.json({ features: [], summary: { total: 0 } });
     
     const batch = await client.post('/wit/workitemsbatch?api-version=7.0', {
       ids: ids,
       fields: ['System.Id', 'System.Title', 'System.State', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing']
     });
     
-    // Crear mapa de areaPath
     const areaMap = {};
     filtered.forEach(item => {
-      areaMap[item.id] = item.fields?.['System.AreaPath'] || '';
+      areaMap[item.id] = item.fields && item.fields['System.AreaPath'] ? item.fields['System.AreaPath'] : '';
     });
     
     res.json({
@@ -72,7 +66,6 @@ app.get('/api/features', async (req, res) => {
       }))
     });
   } catch (error) {
-    console.error('Error:', error.response?.data?.message || error.message);
     res.status(500).json({ error: error.message });
   }
 });
