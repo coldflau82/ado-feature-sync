@@ -36,8 +36,18 @@ app.get('/api/features', async (req, res) => {
 console.log('Total items:', resp.data.workItems.length);
 console.log('First item:', JSON.stringify(resp.data.workItems[0], null, 2));
 
-const filtered = resp.data.workItems.slice(0, 200); // Sin filtro por ahora
-console.log('Filtered:', filtered.length);
+const filtered = resp.data.workItems.filter(item => {
+  const areaPath = item.fields && item.fields['System.AreaPath'];
+  return areaPath && areaFilters.some(area => areaPath.includes(area));
+}).slice(0, 200);
+
+// Crear mapa de id -> areaPath
+const areaPathMap = {};
+filtered.forEach(item => {
+  areaPathMap[item.id] = item.fields['System.AreaPath'] || '';
+});
+
+const ids = filtered.map(i => i.id);
     
     const ids = filtered.map(i => i.id);
     if (ids.length === 0) return res.json({ features: [], summary: { total: 0 } });
@@ -47,12 +57,12 @@ console.log('Filtered:', filtered.length);
       fields: ['System.Id', 'System.Title', 'System.State', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing']
     });
     
-    res.json({
-    features: batch.data.value.map((i, idx) => ({
+   res.json({
+    features: batch.data.value.map(i => ({
       id: i.id,
       title: i.fields['System.Title'] || '',
       state: i.fields['System.State'] || '',
-      areaPath: filtered[idx]?.fields?.['System.AreaPath'] || '',
+      areaPath: areaPathMap[i.id] || '',
       estimation: {
         be: i.fields['Custom.BEEstimate'] || '',
         fe: i.fields['Custom.FEEstimates'] || '',
