@@ -6,6 +6,7 @@ const cors = require('cors');
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static('.')); // Sirve archivos desde la carpeta raíz
 
 const ADO_ORG = process.env.ADO_ORG;
 const ADO_PROJECT = process.env.ADO_PROJECT;
