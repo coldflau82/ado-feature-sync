@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADO Features Dashboard</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 5px;
+    }
+    
+    .header p {
+      color: #666;
+      font-size: 14px;
+    }
+    
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .metric-card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      text-align: center;
+      border-left: 4px solid #007bff;
+    }
+    
+    .metric-card.ok {
+      border-left-color: #28a745;
+    }
+    
+    .metric-card.warning {
+      border-left-color: #ffc107;
+    }
+    
+    .metric-card.danger {
+      border-left-color: #dc3545;
+    }
+    
+    .metric-value {
+      font-size: 32px;
+      font-weight: bold;
+      color: #007bff;
+      margin: 10px 0;
+    }
+    
+    .metric-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+    }
+    
+    .filters {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    
+    .filter-btn {
+      padding: 8px 16px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: white;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    
+    .filter-btn:hover {
+      border-color: #007bff;
+      color: #007bff;
+    }
+    
+    .filter-btn.active {
+      background: #007bff;
+      color: white;
+      border-color: #007bff;
+    }
+    
+    .table-container {
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    
+    th {
+      background: #f9f9f9;
+      padding: 15px;
+      text-align: left;
+      font-weight: 600;
+      color: #666;
+      border-bottom: 2px solid #eee;
+    }
+    
+    td {
+      padding: 15px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    tr:hover {
+      background: #f9f9f9;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    
+    .badge.ok {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .badge.warning {
+      background: #fff3cd;
+      color: #856404;
+    }
+    
+    .badge.danger {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // COMPONENTE PRINCIPAL
+    function Dashboard() {
+      // Estado: variables que pueden cambiar
+      const [features, setFeatures] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+      const [filterRisk, setFilterRisk] = useState('all');
+
+      // useEffect: se ejecuta cuando el componente carga (una sola vez)
+      useEffect(() => {
+        loadFeatures();
+      }, []);
+
+      // Función para cargar features de tu API
+      async function loadFeatures() {
+        try {
+          setLoading(true);
+          const response = await fetch('/api/features');
+          
+          if (!response.ok) {
+            throw new Error(`Error ${response.status}`);
+          }
+          
+          const data = await response.json();
+          setFeatures(data.features || []);
+          setError(null);
+        } catch (err) {
+          setError(err.message);
+          console.error('Error loading features:', err);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      // Filtrar features según el riesgo seleccionado
+      const filteredFeatures = filterRisk === 'all' 
+        ? features 
+        : features.filter(f => f.risk === filterRisk);
+
+      // Contar por tipo de riesgo
+      const riskCounts = {
+        all: features.length,
+        none: features.filter(f => f.risk === 'none').length,
+        no_stories: features.filter(f => f.risk === 'no_stories').length,
+        no_estimate: features.filter(f => f.risk === 'no_estimate').length,
+        at_risk: features.filter(f => f.risk === 'at_risk').length
+      };
+
+      // Función para obtener clase CSS según riesgo
+      function getRiskClass(risk) {
+        switch(risk) {
+          case 'none': return 'ok';
+          case 'no_stories': return 'danger';
+          case 'no_estimate': return 'warning';
+          case 'at_risk': return 'danger';
+          default: return 'ok';
+        }
+      }
+
+      // Función para obtener etiqueta legible del riesgo
+      function getRiskLabel(risk) {
+        const labels = {
+          'none': '✓ OK',
+          'no_stories': '🔴 Sin Historias',
+          'no_estimate': '⚠ Sin Estimación',
+          'at_risk': '📈 En Riesgo'
+        };
+        return labels[risk] || risk;
+      }
+
+      // RENDERIZADO (lo que ves en pantalla)
+      return (
+        <div className="container">
+          {/* HEADER */}
+          <div className="header">
+            <h1>ADO Features Visibility Dashboard</h1>
+            <p>Monitoreo en vivo de Features, Estimaciones y Capacidad</p>
+          </div>
+
+          {/* MÉTRICAS DE RESUMEN */}
+          <div className="metrics">
+            <div className="metric-card ok">
+              <div className="metric-label">Total Features</div>
+              <div className="metric-value">{riskCounts.all}</div>
+            </div>
+            <div className="metric-card ok">
+              <div className="metric-label">OK (Alineadas)</div>
+              <div className="metric-value">{riskCounts.none}</div>
+            </div>
+            <div className="metric-card danger">
+              <div className="metric-label">Sin Historias</div>
+              <div className="metric-value">{riskCounts.no_stories}</div>
+            </div>
+            <div className="metric-card warning">
+              <div className="metric-label">En Riesgo</div>
+              <div className="metric-value">{riskCounts.at_risk}</div>
+            </div>
+          </div>
+
+          {/* FILTROS */}
+          <div className="filters">
+            <button 
+              className={`filter-btn ${filterRisk === 'all' ? 'active' : ''}`}
+              onClick={() => setFilterRisk('all')}
+            >
+              Todas ({riskCounts.all})
+            </button>
+            <button 
+              className={`filter-btn ${filterRisk === 'none' ? 'active' : ''}`}
+              onClick={() => setFilterRisk('none')}
+            >
+              OK ({riskCounts.none})
+            </button>
+            <button 
+              className={`filter-btn ${filterRisk === 'no_stories' ? 'active' : ''}`}
+              onClick={() => setFilterRisk('no_stories')}
+            >
+              Sin Historias ({riskCounts.no_stories})
+            </button>
+            <button 
+              className={`filter-btn ${filterRisk === 'at_risk' ? 'active' : ''}`}
+              onClick={() => setFilterRisk('at_risk')}
+            >
+              En Riesgo ({riskCounts.at_risk})
+            </button>
+            <button 
+              className="filter-btn" 
+              onClick={loadFeatures}
+              style={{ marginLeft: 'auto' }}
+            >
+              🔄 Actualizar
+            </button>
+          </div>
+
+          {/* ESTADO: CARGANDO O ERROR */}
+          {loading && <div className="loading">Cargando Features...</div>}
+          {error && <div className="error">Error: {error}</div>}
+
+          {/* TABLA DE FEATURES */}
+          {!loading && !error && (
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Feature</th>
+                    <th>Estado</th>
+                    <th>BE</th>
+                    <th>FE</th>
+                    <th>QA</th>
+                    <th>Story Points Reales</th>
+                    <th>Sprints Est.</th>
+                    <th>Riesgo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredFeatures.map(feature => (
+                    <tr key={feature.id}>
+                      <td>
+                        <strong>{feature.title.substring(0, 50)}</strong><br/>
+                        <span style={{color: '#999', fontSize: '11px'}}>ID: {feature.id}</span>
+                      </td>
+                      <td>{feature.state}</td>
+                      <td>{feature.estimation.be || '-'}</td>
+                      <td>{feature.estimation.fe || '-'}</td>
+                      <td>{feature.estimation.qa || '-'}</td>
+                      <td>
+                        <strong>{feature.actualStoryPoints}</strong>
+                      </td>
+                      <td>{feature.estimation.estimatedSprints}</td>
+                      <td>
+                        <span className={`badge ${getRiskClass(feature.risk)}`}>
+                          {getRiskLabel(feature.risk)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {!loading && filteredFeatures.length === 0 && (
+            <div style={{textAlign: 'center', padding: '40px', color: '#666'}}>
+              No hay features en esta categoría
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // MONTAR EL COMPONENTE EN EL DOM
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<Dashboard />);
+  </script>
+</body>
+</html>
