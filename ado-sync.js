@@ -29,25 +29,15 @@ app.get('/api/health', (req, res) => {
 app.get('/api/features', async (req, res) => {
   try {
     const resp = await client.post('/wit/wiql?api-version=7.0', {
-      query: 'SELECT [System.Id], [System.Title], [System.AreaPath], [System.State] FROM workitems WHERE [System.WorkItemType] = "Feature"'
+      query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature"'
     });
     
-    const filtered = resp.data.workItems.filter(item => {
-      const areaPath = item.fields && item.fields['System.AreaPath'];
-      return areaPath && areaFilters.some(area => areaPath.includes(area));
-    }).slice(0, 200);
-    
-    const ids = filtered.map(i => i.id);
-    if (ids.length === 0) return res.json({ features: [], summary: { total: 0 } });
+    const ids = resp.data.workItems.slice(0, 50).map(i => i.id);
+    if (ids.length === 0) return res.json({ features: [] });
     
     const batch = await client.post('/wit/workitemsbatch?api-version=7.0', {
       ids: ids,
       fields: ['System.Id', 'System.Title', 'System.State', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing']
-    });
-    
-    const areaMap = {};
-    filtered.forEach(item => {
-      areaMap[item.id] = item.fields['System.AreaPath'];
     });
     
     res.json({
@@ -55,20 +45,17 @@ app.get('/api/features', async (req, res) => {
         id: i.id,
         title: i.fields['System.Title'] || '',
         state: i.fields['System.State'] || '',
-        areaPath: areaMap[i.id] || '',
+        areaPath: 'N/A',
         estimation: {
           be: i.fields['Custom.BEEstimate'] || '',
           fe: i.fields['Custom.FEEstimates'] || '',
           qa: i.fields['Custom.QASizing'] || '',
           estimatedSprints: 0
         },
-        actualStoryPoints: 0,
         risk: 'unknown'
-      })),
-      summary: { total: batch.data.value.length }
+      }))
     });
   } catch (error) {
-    console.error(error.response?.data || error.message);
     res.status(500).json({ error: error.message });
   }
 });
