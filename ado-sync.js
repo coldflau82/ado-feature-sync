@@ -24,29 +24,26 @@ function tShirtToSprints(size) {
 }
 
 async function fetchFeatures() {
-  const response = await adoClient.post('/wit/wiql?api-version=7.0', {
-    query: 'SELECT [System.Id], [System.Title], [System.State] FROM workitems WHERE [System.WorkItemType] = "Feature"'
-  });
-
-  const ids = response.data.workItems.map(item => item.id);
-  if (ids.length === 0) return [];
-
-  const batch = await adoClient.post('/wit/workitemsbatch?api-version=7.0', {
-    ids: ids,
-    fields: ['System.Id', 'System.Title', 'System.State', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing']
-  });
-
-  return batch.data.value.map(item => ({
-    id: item.id,
-    title: item.fields['System.Title'] || '',
-    state: item.fields['System.State'] || '',
-    estimation: {
-      be: item.fields['Custom.BEEstimate'] || '',
-      fe: item.fields['Custom.FEEstimates'] || '',
-      qa: item.fields['Custom.QASizing'] || '',
-      estimatedSprints: tShirtToSprints(item.fields['Custom.BEEstimate'] || item.fields['Custom.FEEstimates'] || item.fields['Custom.QASizing'] || 'XS')
-    }
-  }));
+  try {
+    const response = await adoClient.post('/wit/wiql?api-version=7.0', {
+      query: 'SELECT [System.Id], [System.Title], [System.State] FROM workitems WHERE [System.WorkItemType] = "Feature"'
+    });
+    const ids = response.data.workItems.map(item => item.id);
+    if (ids.length === 0) return [];
+    const batch = await adoClient.post('/wit/workitemsbatch?api-version=7.0', {
+      ids: ids,
+      fields: ['System.Id', 'System.Title', 'System.State', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing']
+    });
+    return batch.data.value.map(item => ({
+      id: item.id,
+      title: item.fields['System.Title'] || '',
+      state: item.fields['System.State'] || '',
+      estimation: { be: item.fields['Custom.BEEstimate'] || '', fe: item.fields['Custom.FEEstimates'] || '', qa: item.fields['Custom.QASizing'] || '', estimatedSprints: 0 }
+    }));
+  } catch (error) {
+    console.error('ADO Error:', error.response?.data || error.message);
+    throw error;
+  }
 }
 
 async function fetchStories() {
