@@ -7,71 +7,64 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Configuración
 const ADO_ORG = process.env.ADO_ORG;
 const ADO_PROJECT = process.env.ADO_PROJECT;
 const ADO_PAT = process.env.ADO_PAT;
 
+console.log('Starting ADO Sync...');
 console.log('ADO_ORG:', ADO_ORG);
 console.log('ADO_PROJECT:', ADO_PROJECT);
-console.log('ADO_PAT:', ADO_PAT ? 'SET' : 'MISSING');
+console.log('ADO_PAT provided:', !!ADO_PAT);
 
 if (!ADO_ORG || !ADO_PROJECT || !ADO_PAT) {
-  console.error('Error: Faltan variables de entorno');
+  console.error('Missing environment variables');
   process.exit(1);
 }
 
-// Base64 encode PAT
 const authHeader = Buffer.from(`:${ADO_PAT}`).toString('base64');
 
-// Cliente ADO
 const adoClient = axios.create({
   baseURL: `https://dev.azure.com/${ADO_ORG}/${ADO_PROJECT}/_apis`,
   headers: {
-    Authorization: `Basic ${authHeader}`,
+    'Authorization': `Basic ${authHeader}`,
     'Content-Type': 'application/json'
   }
 });
 
-// Obtener Features
 async function fetchFeatures() {
   try {
-    console.log('Fetching features...');
+    console.log('Fetching from:', `https://dev.azure.com/${ADO_ORG}/${ADO_PROJECT}/_apis/wit/wiql?api-version=7.0`);
+    
     const response = await adoClient.post('/wit/wiql?api-version=7.0', {
-      query: `SELECT [System.Id], [System.Title], [System.State] FROM workitems WHERE [System.WorkItemType] = 'Feature'`
+      query: 'SELECT [System.Id], [System.Title], [System.State] FROM workitems WHERE [System.WorkItemType] = "Feature"'
     });
 
-    console.log('Features found:', response.data.workItems.length);
-    
+    console.log('Success! Found features:', response.data.workItems.length);
     const ids = response.data.workItems.map(item => item.id);
+    
     if (ids.length === 0) return [];
 
-    // Obtener detalles
-    const detailsResponse = await adoClient.post('/wit/workitemsbatch?api-version=7.0', {
+    const batch = await adoClient.post('/wit/workitemsbatch?api-version=7.0', {
       ids: ids,
       fields: ['System.Id', 'System.Title', 'System.State', 'System.TargetDate']
     });
 
-    return detailsResponse.data.value.map(item => ({
+    return batch.data.value.map(item => ({
       id: item.id,
-      title: item.fields['System.Title'],
-      state: item.fields['System.State'],
-      targetDate: item.fields['System.TargetDate'] || '',
-      estimated: 0,
-      actual: 0,
-      risk: 'unknown'
+      title: item.fields['System.Title'] || '',
+      state: item.fields['System.State'] || '',
+      targetDate: item.fields['System.TargetDate'] || ''
     }));
   } catch (error) {
-    console.error('Error fetching features:', error.message);
+    console.error('Error:', error.message);
     if (error.response) {
-      console.error('Response status:', error.response.status);
-      console.error('Response data:', error.response.data);
+      console.error('Status:', error.response.status);
+      console.error('Data:', JSON.stringify(error.response.data, null, 2));
     }
     throw error;
   }
 }
 
-// Endpoints
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -81,19 +74,19 @@ app.get('/api/features', async (req, res) => {
     const features = await fetchFeatures();
     res.json({
       features: features,
-      summary: {
-        total: features.length,
-        timestamp: new Date().toISOString()
-      }
+      count: features.length,
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error('API Error:', error.message);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      error: error.message,
+      details: error.response?.data || 'No additional details'
+    });
   }
 });
 
-// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`ADO Sync API running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
