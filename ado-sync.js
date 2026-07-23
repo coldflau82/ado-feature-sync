@@ -13,7 +13,10 @@ const ADO_PROJECT = process.env.ADO_PROJECT;
 const ADO_PAT = process.env.ADO_PAT;
 
 if (!ADO_ORG || !ADO_PROJECT || !ADO_PAT) {
-  console.error('Error: Faltan variables de entorno (ADO_ORG, ADO_PROJECT, ADO_PAT)');
+  console.error('Error: Faltan variables de entorno');
+  console.error('ADO_ORG:', ADO_ORG);
+  console.error('ADO_PROJECT:', ADO_PROJECT);
+  console.error('ADO_PAT:', ADO_PAT ? 'SET' : 'MISSING');
   process.exit(1);
 }
 
