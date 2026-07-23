@@ -58,11 +58,11 @@ const ids = filtered.map(i => i.id);
     });
     
    res.json({
-    features: batch.data.value.map(i => ({
-      id: i.id,
-      title: i.fields['System.Title'] || '',
-      state: i.fields['System.State'] || '',
-      areaPath: areaPathMap[i.id] || '',
+  features: batch.data.value.map(i => ({
+    id: i.id,
+    title: i.fields['System.Title'] || '',
+    state: i.fields['System.State'] || '',
+    areaPath: areaPathMap[i.id] || '',
       estimation: {
         be: i.fields['Custom.BEEstimate'] || '',
         fe: i.fields['Custom.FEEstimates'] || '',
