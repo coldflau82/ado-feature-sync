@@ -36,7 +36,7 @@ async function fetchFeatures() {
     console.log('Fetching from:', `https://dev.azure.com/${ADO_ORG}/${ADO_PROJECT}/_apis/wit/wiql?api-version=7.0`);
     
     const response = await adoClient.post('/wit/wiql?api-version=7.0', {
-      query: 'SELECT TOP 200 [System.Id], [System.Title], [System.State] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.AreaPath] UNDER "Commercial Engineering" AND [System.State] IN ("New", "In Planning", "In Shaping", "In Process", "Planned")'
+      query: 'SELECT TOP 200 [System.Id], [System.Title], [System.State] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.AreaPath] UNDER "Commercial Engineering" AND [System.State] IN ("New", "In Planning", "In Shaping", "In Process", "Planned") ORDER BY [System.ChangedDate] DESC'
     });
 
     console.log('Success! Found features:', response.data.workItems.length);
