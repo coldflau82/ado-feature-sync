@@ -1,0 +1,22 @@
+{
+  "name": "ado-feature-sync",
+  "version": "1.0.0",
+  "description": "Sincronización de Features y User Stories desde Azure DevOps con cálculo de métricas",
+  "main": "ado-sync.js",
+  "scripts": {
+    "start": "node ado-sync.js",
+    "dev": "nodemon ado-sync.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}

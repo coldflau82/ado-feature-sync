@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "ado-sync.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "ado-sync.js"
+    }
+  ],
+  "env": {
+    "ADO_ORG": "@ado_org",
+    "ADO_PROJECT": "@ado_project",
+    "ADO_PAT": "@ado_pat"
+  }
+}
