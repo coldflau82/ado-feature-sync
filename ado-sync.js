@@ -21,10 +21,16 @@ app.get('/api/features', async (req, res) => {
       query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")'
     });
     
-    const ids = resp.data.workItems.slice(0, 100).map(i => i.id);
-    if (!ids.length) return res.json({ features: [] });
-    
-    const batch = await client.post('/wit/workitemsbatch?api-version=7.0', {
+    // Filtrar por estado: excluir "Removed"
+const filtered = resp.data.workItems.filter(item => {
+  const state = item.fields?.['System.State'];
+  return state !== 'Removed';
+});
+
+const ids = filtered.map(i => i.id);
+if (!ids.length) return res.json({ features: [] });
+
+const batch = await client.post('/wit/workitemsbatch?api-version=7.0', {
       ids: ids,
       fields: ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing']
     });
