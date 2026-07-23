@@ -46,9 +46,7 @@ const areaPathMap = {};
 filtered.forEach(item => {
   areaPathMap[item.id] = item.fields['System.AreaPath'] || '';
 });
-
-const ids = filtered.map(i => i.id);
-    
+   
     const ids = filtered.map(i => i.id);
     if (ids.length === 0) return res.json({ features: [], summary: { total: 0 } });
     
@@ -58,11 +56,11 @@ const ids = filtered.map(i => i.id);
     });
     
    res.json({
-  features: batch.data.value.map(i => ({
-    id: i.id,
-    title: i.fields['System.Title'] || '',
-    state: i.fields['System.State'] || '',
-    areaPath: areaPathMap[i.id] || '',
+    features: batch.data.value.map(i => ({
+      id: i.id,
+      title: i.fields['System.Title'] || '',
+      state: i.fields['System.State'] || '',
+      areaPath: areaPathMap[i.id] || '',
       estimation: {
         be: i.fields['Custom.BEEstimate'] || '',
         fe: i.fields['Custom.FEEstimates'] || '',
