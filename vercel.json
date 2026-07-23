@@ -1,5 +1,14 @@
 {
   "version": 2,
+  "builds": [
+    {
+      "src": "ado-sync.js",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": "ado-sync.js"
+      }
+    }
+  ],
   "routes": [
     {
       "src": "/(.*)",
