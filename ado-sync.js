@@ -20,7 +20,7 @@ app.get('/api/features', async (req, res) => {
     });
     
     const resp = await client.post('/wit/wiql?api-version=7.0', {
-      query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" ORDER BY [System.Id] DESC'
+      query: query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND ([System.AreaPath] = "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] = "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] = "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] = "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] = "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] = "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")'
     });
     
     const ids = resp.data.workItems.slice(0, 10).map(i => i.id);
