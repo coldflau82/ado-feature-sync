@@ -39,7 +39,7 @@ async function fetchFeatures() {
   try {
     const response = await adoClient.get('/wit/wiql?api-version=7.0', {
       data: {
-        query: `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType], [Custom.HLEstimate], [System.TargetDate], [Custom.PlannedMonth]
+        query: `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType]
                 FROM workitems
                 WHERE [System.WorkItemType] = 'Feature'
                 AND [System.AreaPath] UNDER 'Commercial Engineering'`
@@ -53,26 +53,21 @@ async function fetchFeatures() {
     const detailsResponse = await adoClient.get('/wit/workitemsbatch?api-version=7.0', {
       data: {
         ids: ids,
-        fields: ['System.Id', 'System.Title', 'System.State', 'Custom.BEEstimate', 'Custom.FEEstimate', 'Custom.QASizing', 'System.TargetDate', 'Custom.PlannedMonth']
+        fields: ['System.Id', 'System.Title', 'System.State', 'System.TargetDate']
       }
     });
 
-    return detailsResponse.data.value.map(item => {
-      const be = parseInt(item.fields['Custom.BEEstimate'] || 0) || 0;
-      const fe = parseInt(item.fields['Custom.FEEstimate'] || 0) || 0;
-      const qa = parseInt(item.fields['Custom.QASizing'] || 0) || 0;
-      const estimated = be + fe + qa;
-
+  return detailsResponse.data.value.map(item => {
       return {
         id: item.id,
         title: item.fields['System.Title'],
         state: item.fields['System.State'],
-        be,
-        fe,
-        qa,
-        estimated,
+        be: 0,
+        fe: 0,
+        qa: 0,
+        estimated: 0,
         targetDate: item.fields['System.TargetDate'] || '',
-        plannedMonth: item.fields['Custom.PlannedMonth'] || ''
+        plannedMonth: ''
       };
     });
   } catch (error) {
