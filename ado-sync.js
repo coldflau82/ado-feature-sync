@@ -29,10 +29,20 @@ app.get('/api/health', (req, res) => {
 app.get('/api/features', async (req, res) => {
   try {
     const resp = await client.post('/wit/wiql?api-version=7.0', {
-      query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature"'
+      query: 'SELECT [System.Id], [System.Title], [System.AreaPath], [System.State] FROM workitems WHERE [System.WorkItemType] = "Feature"'
     });
     
-    const ids = resp.data.workItems.slice(0, 50).map(i => i.id);
+    console.log('Total items from ADO:', resp.data.workItems.length);
+    
+    // Filtrar por areaPath en código (no en WIQL)
+    const filtered = resp.data.workItems.filter(item => {
+      const areaPath = item.fields?.['System.AreaPath'] || '';
+      return areaFilters.some(area => areaPath.includes(area));
+    }).slice(0, 200);
+    
+    console.log('Filtered items:', filtered.length);
+    
+    const ids = filtered.map(i => i.id);
     if (ids.length === 0) return res.json({ features: [] });
     
     const batch = await client.post('/wit/workitemsbatch?api-version=7.0', {
@@ -40,12 +50,18 @@ app.get('/api/features', async (req, res) => {
       fields: ['System.Id', 'System.Title', 'System.State', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing']
     });
     
+    // Crear mapa de areaPath
+    const areaMap = {};
+    filtered.forEach(item => {
+      areaMap[item.id] = item.fields?.['System.AreaPath'] || '';
+    });
+    
     res.json({
       features: batch.data.value.map(i => ({
         id: i.id,
         title: i.fields['System.Title'] || '',
         state: i.fields['System.State'] || '',
-        areaPath: 'N/A',
+        areaPath: areaMap[i.id] || '',
         estimation: {
           be: i.fields['Custom.BEEstimate'] || '',
           fe: i.fields['Custom.FEEstimates'] || '',
@@ -56,6 +72,7 @@ app.get('/api/features', async (req, res) => {
       }))
     });
   } catch (error) {
+    console.error('Error:', error.response?.data?.message || error.message);
     res.status(500).json({ error: error.message });
   }
 });
