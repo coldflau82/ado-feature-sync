@@ -40,7 +40,7 @@ const adoClient = axios.create({
 // Obtener Features de ADO
 async function fetchFeatures() {
   try {
-    const response = await adoClient.get('/wit/wiql?api-version=7.0', {
+    const response = await adoClient.post('/wit/wiql?api-version=7.0', {
       data: {
         query: `SELECT [System.Id], [System.Title], [System.State], [System.WorkItemType]
                 FROM workitems
@@ -82,7 +82,7 @@ async function fetchFeatures() {
 // Obtener User Stories (relacionadas con Features)
 async function fetchStories() {
   try {
-    const response = await adoClient.get('/wit/wiql?api-version=7.0', {
+    const response = await adoClient.post('/wit/wiql?api-version=7.0', {
       data: {
         query: `SELECT [System.Id], [System.Title], [System.State], [System.Parent], [Microsoft.VSTS.Scheduling.StoryPoints]
                 FROM workitems
