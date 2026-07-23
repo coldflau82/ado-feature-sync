@@ -32,9 +32,10 @@ app.get('/api/features', async (req, res) => {
       query: 'SELECT [System.Id], [System.Title], [System.AreaPath], [System.State] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.State] = "In Process" AND [System.ChangedDate] >= @today - 90'
     });
     
-    const filtered = resp.data.workItems.filter(item => 
-      areaFilters.some(area => item.fields['System.AreaPath'] && item.fields['System.AreaPath'].includes(area))
-    ).slice(0, 200);
+    const filtered = resp.data.workItems.filter(item => {
+      const areaPath = item.fields && item.fields['System.AreaPath'];
+      return areaPath && areaFilters.some(area => areaPath.includes(area));
+    }).slice(0, 200);
     
     const ids = filtered.map(i => i.id);
     if (ids.length === 0) return res.json({ features: [], summary: { total: 0 } });
