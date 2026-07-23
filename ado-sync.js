@@ -29,7 +29,7 @@ app.get('/api/health', (req, res) => {
 app.get('/api/features', async (req, res) => {
   try {
     const resp = await client.post('/wit/wiql?api-version=7.0', {
-      query: 'SELECT [System.Id], [System.Title], [System.AreaPath], [System.State] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.State] = "In Process"'
+      query: 'SELECT [System.Id], [System.Title], [System.AreaPath], [System.State] FROM workitems WHERE [System.WorkItemType] = "Feature"'
     });
     
     const filtered = resp.data.workItems.filter(item => {
