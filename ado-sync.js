@@ -20,15 +20,8 @@ app.get('/api/features', async (req, res) => {
     const resp = await client.post('/wit/wiql?api-version=7.0', {
       query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")'
     });
-
-//    const validIterations = ['2026\\Q2', '2026\\Q3', '2026\\Q4', '2027\\Q1'];
-//    const filtered = resp.data.workItems.filter(item => {
-//    const iter = item.fields?.['System.IterationPath'] || '';
-//    return validIterations.some(v => iter.includes(v));
-//    });
     
-//    const ids = filtered.map(i => i.id);
-    const ids = resp.data.workItems.map(i => i.id);
+    const ids = resp.data.workItems.slice(0, 100).map(i => i.id);
     if (!ids.length) return res.json({ features: [] });
     
     const batch = await client.post('/wit/workitemsbatch?api-version=7.0', {
@@ -101,19 +94,9 @@ app.get('/dashboard', (req, res) => {
           });
       }, []);
 
-      // Obtener áreas únicas
       const areas = [...new Set(features.map(f => f.areaPath).filter(a => a))];
-
-      // Filtrar features según área seleccionada
-      const filtered = filterArea === 'all' 
-        ? features 
-        : features.filter(f => f.areaPath === filterArea);
-
-      // Contar por área
-      const counts = {
-        all: features.length,
-        ...Object.fromEntries(areas.map(a => [a, features.filter(f => f.areaPath === a).length]))
-      };
+      const filtered = filterArea === 'all' ? features : features.filter(f => f.areaPath === filterArea);
+      const counts = { all: features.length, ...Object.fromEntries(areas.map(a => [a, features.filter(f => f.areaPath === a).length])) };
 
       const getAreaName = (path) => {
         if (!path) return 'N/A';
@@ -131,52 +114,26 @@ app.get('/dashboard', (req, res) => {
           </div>
 
           <div className="filters">
-            <button
-              className={\`filter-btn \${filterArea === 'all' ? 'active' : ''}\`}
-              onClick={() => setFilterArea('all')}
-            >
-              Todas ({counts.all})
-            </button>
-            
+            <button className={\`filter-btn \${filterArea === 'all' ? 'active' : ''}\`} onClick={() => setFilterArea('all')}>Todas ({counts.all})</button>
             {areas.map(area => (
-              <button
-                key={area}
-                className={\`filter-btn \${filterArea === area ? 'active' : ''}\`}
-                onClick={() => setFilterArea(area)}
-              >
+              <button key={area} className={\`filter-btn \${filterArea === area ? 'active' : ''}\`} onClick={() => setFilterArea(area)}>
                 {getAreaName(area)} ({counts[area]})
               </button>
             ))}
           </div>
 
-          {loading ? (
-            <div className="loading">Cargando Features...</div>
-          ) : (
+          {loading ? <div className="loading">Cargando...</div> : (
             <div className="table-wrapper">
               <table>
                 <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Feature</th>
-                    <th>Area Path</th>
-                    <th>BE</th>
-                    <th>FE</th>
-                    <th>QA</th>
-                    <th>Estado</th>
-                  </tr>
+                  <tr><th>ID</th><th>Feature</th><th>Area Path</th><th>BE</th><th>FE</th><th>QA</th><th>Estado</th></tr>
                 </thead>
                 <tbody>
                   {filtered.map(f => (
                     <tr key={f.id}>
-                      <td>
-                        <a href={adoLink(f.id)} target="_blank" rel="noopener noreferrer">
-                          {f.id}
-                        </a>
-                      </td>
+                      <td><a href={adoLink(f.id)} target="_blank">{f.id}</a></td>
                       <td>{f.title.substring(0, 60)}</td>
-                      <td style={{ fontSize: '11px', color: '#666' }}>
-                        {getAreaName(f.areaPath)}
-                      </td>
+                      <td style={{ fontSize: '11px', color: '#666' }}>{getAreaName(f.areaPath)}</td>
                       <td>{f.estimation.be || '-'}</td>
                       <td>{f.estimation.fe || '-'}</td>
                       <td>{f.estimation.qa || '-'}</td>
@@ -199,4 +156,4 @@ app.get('/dashboard', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('Server ok'));
+app.listen(PORT, () => console.log('Server running'));
