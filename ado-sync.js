@@ -46,14 +46,14 @@ async function fetchFeatures() {
 
     const batch = await adoClient.post('/wit/workitemsbatch?api-version=7.0', {
       ids: ids,
-      fields: ['System.Id', 'System.Title', 'System.State', 'System.TargetDate']
+      fields: ['System.Id', 'System.Title', 'System.State', 'Microsoft.VSTS.Scheduling.TargetDate']
     });
 
     return batch.data.value.map(item => ({
       id: item.id,
       title: item.fields['System.Title'] || '',
       state: item.fields['System.State'] || '',
-      targetDate: item.fields['System.TargetDate'] || ''
+      targetDate: item.fields['Microsoft.VSTS.Scheduling.TargetDate'] || ''
     }));
   } catch (error) {
     console.error('Error:', error.message);
