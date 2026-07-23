@@ -158,8 +158,15 @@ app.get('/dashboard', (req, res) => {
       
       useEffect(() => {
         fetch('/api/features')
-          .then(r => r.json())
-          .then(data => {
+          .then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+          })
+          .then(text => {
+            console.log('Response:', text.substring(0, 100));
+            return JSON.parse(text);
+          })
+  .then(data => {
             setFeatures(data.features || []);
             setLoading(false);
           })
