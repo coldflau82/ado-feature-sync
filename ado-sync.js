@@ -29,7 +29,7 @@ app.get('/api/health', (req, res) => {
 app.get('/api/features', async (req, res) => {
   try {
     const resp = await client.post('/wit/wiql?api-version=7.0', {
-      query: 'SELECT [System.Id], [System.Title], [System.AreaPath], [System.State] FROM workitems WHERE [System.WorkItemType] = "Feature"'
+      query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature"'
     });
     
     console.log('Total items from ADO:', resp.data.workItems.length);
