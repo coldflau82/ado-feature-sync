@@ -30,9 +30,7 @@ app.get('/api/features', async (req, res) => {
     });
     
     res.json({
-      features: batch.data.value
-        .filter(i => i.fields['System.State'] !== 'Removed')
-        .map(i => ({
+      features: batch.data.value.map(i => ({
           id: i.id,
           title: i.fields['System.Title'] || '',
           state: i.fields['System.State'] || '',
