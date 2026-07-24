@@ -15,7 +15,7 @@ app.get('/api/features', async (req, res) => {
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
       headers: { Authorization: `Basic ${Buffer.from(`:${process.env.ADO_PAT}`).toString('base64')}`, 'Content-Type': 'application/json' }
     });
-    const r = await c.post('/wit/wiql?api-version=7.0', { query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")' });
+    const r = await c.post('/wit/wiql?api-version=7.0', { query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature"' }
     const ids = r.data.workItems.map(i => i.id);
     if (!ids.length) return res.json({ features: [] });
     const b = await c.post('/wit/workitemsbatch?api-version=7.0', { ids, fields: ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing'] });
