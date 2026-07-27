@@ -20,7 +20,7 @@ app.get('/api/features', async (req, res) => {
     });
 
     const r = await c.post('/wit/wiql?api-version=7.0', {
-      query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.State] = "In Process"'
+      query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.State] <> "Closed" AND [System.State] <> "Removed"'
     });
 
     const ids = r.data.workItems.map(i => i.id);
