@@ -1,4 +1,4 @@
-require('dotenv').config();
+  require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 
@@ -102,7 +102,8 @@ app.get('/dashboard', (req, res) => {
         fetch('/api/features')
           .then(r => r.json())
           .then(d => {
-            const filtered = (d.features || []).filter(f => allowedAreas.includes(f.areaPath));
+            const filtered = (d.features || []).filter(f => allowedAreas.some(area => f.areaPath && f.areaPath.includes(area.substring(0, 25)))
+              );
             setFeatures(filtered);
             setLoading(false);
           });
