@@ -23,9 +23,26 @@ app.get('/api/features', async (req, res) => {
       query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.State] = "In Process"'
     });
 
-    res.json({ 
-      total: r.data.workItems.length,
-      first5: r.data.workItems.slice(0, 5)
+    const ids = r.data.workItems.map(i => i.id);
+    if (!ids.length) return res.json({ features: [] });
+
+    const b = await c.post('/wit/workitemsbatch?api-version=7.0', {
+      ids: ids,
+      fields: ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing']
+    });
+
+    res.json({
+      features: b.data.value.map(i => ({
+        id: i.id,
+        title: i.fields['System.Title'] || '',
+        state: i.fields['System.State'] || '',
+        areaPath: i.fields['System.AreaPath'] || '',
+        estimation: {
+          be: i.fields['Custom.BEEstimate'] || '',
+          fe: i.fields['Custom.FEEstimates'] || '',
+          qa: i.fields['Custom.QASizing'] || ''
+        }
+      }))
     });
   } catch (error) {
     res.status(500).json({ 
