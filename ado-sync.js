@@ -21,37 +21,36 @@ app.get('/api/features', async (req, res) => {
 
     const r = await c.post('/wit/wiql?api-version=7.0', {
       query: 'SELECT
-    [System.Id],
-    [System.WorkItemType],
-    [System.Title],
-    [System.AssignedTo],
-    [System.State],
-    [System.Tags],
-    [Microsoft.VSTS.Scheduling.StoryPoints],
-    [System.IterationPath],
-    [Microsoft.VSTS.Scheduling.TargetDate],
-    [System.Parent]
-FROM workitems
-WHERE
-    [System.TeamProject] = 'Commercial Engineering'
-    AND (
-        [System.ChangedDate] > @today - 180
-        AND [System.WorkItemType] = 'User Story'
+      [System.Id],
+      [System.WorkItemType],
+      [System.Title],
+      [System.AssignedTo],
+      [System.State],
+      [System.Tags],
+      [Microsoft.VSTS.Scheduling.StoryPoints],
+      [System.IterationPath],  
+      [Microsoft.VSTS.Scheduling.TargetDate],
+      [System.Parent]
+      FROM workitems
+      WHERE
+        [System.TeamProject] = 'Commercial Engineering'
         AND (
-            [System.AreaPath] = 'Commercial Engineering\Go To Market\Digital Sales Enablement\Service-Online'
-            OR [System.AreaPath] = 'Commercial Engineering\Digital\Acquisition\Cart and Checkout'
-            OR [System.AreaPath] = 'Commercial Engineering\Digital\Acquisition\Global Product 1'
-            OR [System.AreaPath] = 'Commercial Engineering\Digital\Acquisition\Global Product 2'
-            OR [System.AreaPath] = 'Commercial Engineering\Digital\Acquisition\Global Product 3'
-            OR [System.AreaPath] = 'Commercial Engineering\Go To Market\Digital Sales Enablement\Service-Print'
-        )
-        AND (
-            [System.State] <> 'Closed'
-            AND [System.State] <> 'Resolved'
-            AND [System.State] <> 'Removed'
-        )
-    )
-'
+          [System.ChangedDate] > @today - 180
+            AND [System.WorkItemType] = 'Features'
+            AND (
+                [System.AreaPath] = 'Commercial Engineering\Go To Market\Digital Sales Enablement\Service-Online'
+                OR [System.AreaPath] = 'Commercial Engineering\Digital\Acquisition\Cart and Checkout'
+                OR [System.AreaPath] = 'Commercial Engineering\Digital\Acquisition\Global Product 1'
+                OR [System.AreaPath] = 'Commercial Engineering\Digital\Acquisition\Global Product 2'
+                OR [System.AreaPath] = 'Commercial Engineering\Digital\Acquisition\Global Product 3'
+                OR [System.AreaPath] = 'Commercial Engineering\Go To Market\Digital Sales Enablement\Service-Print'
+            )
+            AND (
+                [System.State] <> 'Closed'
+                AND [System.State] <> 'Resolved'
+                AND [System.State] <> 'Removed'
+                )
+            )';
     });
 
     const ids = r.data.workItems.map(i => i.id);
