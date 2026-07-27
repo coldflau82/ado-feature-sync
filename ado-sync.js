@@ -76,45 +76,89 @@ app.get('/dashboard', (req, res) => {
   <div id="root"></div>
   <script type="text/babel">
     const { useState, useEffect } = React;
-    function Dashboard() {
-      const [features, setFeatures] = useState([]);
-      const [loading, setLoading] = useState(true);
-      useEffect(() => {
-        fetch('/api/features')
-          .then(r => r.json())
-          .then(d => {
-            setFeatures(d.features || []);
-            setLoading(false);
-          });
-      }, []);
-      return (
-        <div className="container">
-          <div className="header">
-            <h1>ADO Features ({features.length})</h1>
-          </div>
-          {loading ? <div>Cargando...</div> : (
-            <table>
-              <thead>
-                <tr><th>ID</th><th>Feature</th><th>State</th><th>BE</th><th>FE</th><th>QA</th></tr>
-              </thead>
-              <tbody>
-                {features.map(f => (
-                  <tr key={f.id}>
-                    <td><a href={"https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/" + f.id} target="_blank">{f.id}</a></td>
-                    <td>{f.title.substring(0, 60)}</td>
-                    <td>{f.state}</td>
-                    <td>{f.estimation.be || '-'}</td>
-                    <td>{f.estimation.fe || '-'}</td>
-                    <td>{f.estimation.qa || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      );
-    }
-    ReactDOM.createRoot(document.getElementById('root')).render(<Dashboard />);
+
+function Dashboard() {
+  const [features, setFeatures] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterArea, setFilterArea] = useState('all');
+
+  useEffect(() => {
+    fetch('/api/features')
+      .then(r => r.json())
+      .then(d => {
+        setFeatures(d.features || []);
+        setLoading(false);
+      });
+  }, []);
+
+  const areas = [...new Set(features.map(f => f.areaPath).filter(a => a))];
+  const filtered = filterArea === 'all' ? features : features.filter(f => f.areaPath === filterArea);
+  const counts = { all: features.length, ...Object.fromEntries(areas.map(a => [a, features.filter(f => f.areaPath === a).length])) };
+
+  const getAreaName = (path) => {
+    if (!path) return 'N/A';
+    const parts = path.split('\\\\');
+    return parts[parts.length - 1].substring(0, 30);
+  };
+
+  const adoLink = (id) => `https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/${id}`;
+
+  return (
+    <div className="container">
+      <div className="header">
+        <h1>ADO Features ({filtered.length} de {features.length})</h1>
+      </div>
+
+      <div className="filters">
+        <button 
+          className={`filter-btn ${filterArea === 'all' ? 'active' : ''}`} 
+          onClick={() => setFilterArea('all')}
+        >
+          Todas ({counts.all})
+        </button>
+        {areas.map(area => (
+          <button
+            key={area}
+            className={`filter-btn ${filterArea === area ? 'active' : ''}`}
+            onClick={() => setFilterArea(area)}
+          >
+            {getAreaName(area)} ({counts[area]})
+          </button>
+        ))}
+      </div>
+
+      {loading ? <div>Cargando...</div> : (
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Feature</th>
+              <th>Area Path</th>
+              <th>BE</th>
+              <th>FE</th>
+              <th>QA</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(f => (
+              <tr key={f.id}>
+                <td><a href={adoLink(f.id)} target="_blank">{f.id}</a></td>
+                <td>{f.title.substring(0, 60)}</td>
+                <td style={{ fontSize: '11px', color: '#666' }}>{getAreaName(f.areaPath)}</td>
+                <td>{f.estimation.be || '-'}</td>
+                <td>{f.estimation.fe || '-'}</td>
+                <td>{f.estimation.qa || '-'}</td>
+                <td>{f.state}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Dashboard />);
   </script>
 </body>
 </html>
