@@ -23,8 +23,8 @@ app.get('/api/features', async (req, res) => {
      query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= @today - 180 AND [System.State] <> "Closed" AND [System.State] <> "Removed" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")'
     });
 
-    const ids = r.data.workItems.map(i => i.id);
-    if (!ids.length) return res.json({ features: [] });
+    const ids = r.data.workItems.slice(0, 200).map(i => i.id);
+      if (!ids.length) return res.json({ features: [] });
 
     const b = await c.post('/wit/workitemsbatch?api-version=7.0', {
       ids: ids,
