@@ -67,32 +67,26 @@ app.get('/api/features', async (req, res) => {
       }
     }
 
-   // Investigar estructura de User Stories
+   // Investigar qué tipos de work items existen
 const storiesByFeature = {};
 let totalStoriesFound = 0;
 let storyInvestigation = null;
 
 try {
-  // Buscar cualquier User Story sin filtros
-  const anyStoryQuery = 'SELECT [System.Id] FROM workitems WHERE [System.WorkItemType] = "User Story" ORDER BY [System.Id] DESC';
+  // Buscar items sin filtrar por tipo
+  const anyItemQuery = 'SELECT [System.Id], [System.WorkItemType] FROM workitems ORDER BY [System.Id] DESC';
   
-  const anyStoryResponse = await c.post('/wit/wiql?api-version=7.0', {
-    query: anyStoryQuery
+  const anyItemResponse = await c.post('/wit/wiql?api-version=7.0', {
+    query: anyItemQuery
   });
   
-  if (anyStoryResponse.data.workItems.length > 0) {
-    const firstStoryId = anyStoryResponse.data.workItems[0].id;
-    
-    // Obtener detalles completos del primer User Story
-    const storyDetail = await c.get(`/workitems/${firstStoryId}`);
-    
-    storyInvestigation = {
-      id: firstStoryId,
-      fields: Object.keys(storyDetail.data.fields),
-      parentField: storyDetail.data.fields['System.Parent'] || 'NOT FOUND',
-      relations: storyDetail.data.relations ? storyDetail.data.relations.map(r => r.rel) : 'NO RELATIONS'
-    };
-  }
+  const allTypes = [...new Set(anyItemResponse.data.workItems.map(i => i.fields['System.WorkItemType']))];
+  
+  storyInvestigation = {
+    totalItems: anyItemResponse.data.workItems.length,
+    workItemTypes: allTypes,
+    firstFewIds: anyItemResponse.data.workItems.slice(0, 5).map(i => ({ id: i.id, type: i.fields['System.WorkItemType'] }))
+  };
 } catch (e) {
   storyInvestigation = { error: e.message };
 }
