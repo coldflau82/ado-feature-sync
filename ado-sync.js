@@ -203,13 +203,14 @@ app.get('/dashboard', (req, res) => {
       const [warnings, setWarnings] = useState([]);
       const [filterAreaPath, setFilterAreaPath] = useState([]);
       const [filterIteration, setFilterIteration] = useState([]);
-      const [filterState, setFilterState] = useState([]);
-      const [filterTargetDate, setFilterTargetDate] = useState([]);
       const [currentPage, setCurrentPage] = useState('features');
       const [expandedRows, setExpandedRows] = useState({});
       const [searchTitle, setSearchTitle] = useState('');
       const [sortColumn, setSortColumn] = useState('id');
       const [sortOrder, setSortOrder] = useState('asc');
+      const currentYear = String(new Date().getFullYear());
+      const [filterState, setFilterState] = useState([]);
+      const [filterTargetDate, setFilterTargetDate] = useState([currentYear]);
 
       useEffect(() => {
         fetch('/api/features')
