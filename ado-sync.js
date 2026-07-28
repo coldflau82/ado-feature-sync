@@ -68,7 +68,7 @@ app.get('/api/features', async (req, res) => {
     }
 
     // Obtener User Stories y Tasks
-		const storyQuery = 'SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State] FROM workitems WHERE [System.WorkItemType] = "User Story"';
+		const storyQuery = 'SELECT [System.Id], [System.Title], [System.WorkItemType] FROM workitems WHERE [System.Parent] <> ""';
 
 		let allStories = [];
 		let storyError = null;
