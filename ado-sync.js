@@ -28,7 +28,7 @@ app.get('/api/features', async (req, res) => {
 
     const b = await c.post('/wit/workitemsbatch?api-version=7.0', {
       ids: ids,
-      fields: ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing']
+      fields: ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'System.IterationPath', 'Microsoft.VSTS.Common.Priority', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing', 'Microsoft.VSTS.Scheduling.TargetDate', 'Custom.PlannedMonth']
     });
 
     res.json({
@@ -37,6 +37,8 @@ app.get('/api/features', async (req, res) => {
         title: i.fields['System.Title'] || '',
         state: i.fields['System.State'] || '',
         areaPath: i.fields['System.AreaPath'] || '',
+        iterationPath: i.fields['System.IterationPath'] || '',
+        priority: i.fields['Microsoft.VSTS.Common.Priority'] || '',
         estimation: {
           be: i.fields['Custom.BEEstimate'] || '',
           fe: i.fields['Custom.FEEstimates'] || '',
