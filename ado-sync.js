@@ -46,18 +46,22 @@ app.get('/api/features', async (req, res) => {
 
     // Dividir en lotes de 200 para el batch
     const batchSize = 200;
-    let allFeatures = [];
+    let allIds = [];
     const rangeCounts = {};
 
-    for (let i = 0; i < allIds.length; i += batchSize) {
-      const batch = await c.post('/wit/workitemsbatch?api-version=7.0', {
-        ids: allIds.slice(i, i + batchSize),
-        fields: ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'System.IterationPath', 'Microsoft.VSTS.Common.Priority', 'Microsoft.VSTS.Scheduling.TargetDate', 'Custom.PlannedMonth', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing']
-      });
-
-      allFeatures = [...allFeatures, ...batch.data.value];
+    for (const range of dateRanges) {
+      try {
+        const r = await c.post('/wit/wiql?api-version=7.0', {
+          query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${baseFilter}`
+        });
+    
+        const ids = r.data.workItems.map(i => i.id);
+        rangeCounts[`${range.from} to ${range.to}`] = ids.length;
+        allIds = [...allIds, ...ids];
+      } catch (e) {
+        rangeCounts[`${range.from} to ${range.to}`] = 'ERROR: ' + e.message;
+      }
     }
-
     res.json({
       rangeCounts: rangeCounts,
       features: allFeatures.map(i => ({
