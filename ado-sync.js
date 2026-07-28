@@ -102,8 +102,7 @@ app.get('/dashboard', (req, res) => {
         fetch('/api/features')
           .then(r => r.json())
           .then(d => {
-            const filtered = (d.features || []).filter(f => allowedAreas.some(area => f.areaPath && f.areaPath.includes(area.substring(0, 25)))
-              );
+            const filtered = (d.features || []);
             setFeatures(filtered);
             setLoading(false);
           });
