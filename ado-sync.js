@@ -71,11 +71,15 @@ app.get('/api/features', async (req, res) => {
 		const storyQuery = `SELECT [System.Id], [System.Title], [System.WorkItemType], [System.Parent], [Microsoft.VSTS.Scheduling.StoryPoints], [System.State] FROM workitems WHERE ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Task')`;
 
 		let allStories = [];
-				try {
+		let storyError = null;
+		let storyQueryResult = 0;
+
+		try {
   		const storyResponse = await c.post('/wit/wiql?api-version=7.0', {
     		query: storyQuery
   		});
   
+  		storyQueryResult = storyResponse.data.workItems.length;
   		const storyIds = storyResponse.data.workItems.map(i => i.id);
   		console.log('Total stories/tasks found:', storyIds.length);
   
@@ -91,7 +95,8 @@ app.get('/api/features', async (req, res) => {
 		    }
 		  }
 		} catch (e) {
-		  console.log('Error fetching stories:', e.message);
+			storyError = e.message;
+			console.log('Error fetching stories:', e.message);
 		}
 
 		// Agrupar stories por Feature padre
@@ -115,6 +120,7 @@ app.get('/api/features', async (req, res) => {
     res.json({
       rangeCounts: rangeCounts,
       warnings: warnings,
+	  storyDebug: { storyQueryResult, storyError },
       total: allFeatures.length,
       totalStories: allStories.length,
       features: allFeatures.map(i => ({
