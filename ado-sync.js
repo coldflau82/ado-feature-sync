@@ -152,7 +152,7 @@ function Dashboard() {
     );
   };
 
-  const adoLink = (id) => \`https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/\${id}\`;
+  const adoLink = (id) => \'https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/\${id}\';
 
   const formatDate = (date) => {
     if (!date) return '-';
