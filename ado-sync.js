@@ -243,6 +243,27 @@ app.get('/dashboard', (req, res) => {
           return areaOk && iterOk && stateOk && dateOk && searchOk;
         });
 
+        // Ordenar features
+          let sortedFiltered = [...filtered];
+          if (sortColumn) {
+            sortedFiltered.sort((a, b) => {
+              let valA, valB;
+    
+              if (sortColumn === 'id') { valA = a.id; valB = b.id; }
+              else if (sortColumn === 'title') { valA = a.title.toLowerCase(); valB = b.title.toLowerCase(); }
+              else if (sortColumn === 'areaPath') { valA = a.areaPath.toLowerCase(); valB = b.areaPath.toLowerCase(); }
+              else if (sortColumn === 'iteration') { valA = a.iterationPath.toLowerCase(); valB = b.iterationPath.toLowerCase(); }
+              else if (sortColumn === 'priority') { valA = (a.priority || '').toLowerCase(); valB = (b.priority || '').toLowerCase(); }
+              else if (sortColumn === 'state') { valA = a.state.toLowerCase(); valB = b.state.toLowerCase(); }
+    
+              if (sortOrder === 'asc') {
+                return valA < valB ? -1 : valA > valB ? 1 : 0;
+              } else {
+                return valA > valB ? -1 : valA < valB ? 1 : 0;
+              }
+            });
+          }
+
       const adoLink = (id) => \`https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/\${id}\`;
 
       const formatDate = (date) => {
