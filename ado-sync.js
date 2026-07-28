@@ -58,6 +58,7 @@ app.get('/api/features', async (req, res) => {
     }
 
     res.json({
+      rangeCounts: rangeCounts,
       features: allFeatures.map(i => ({
         id: i.id,
         title: i.fields['System.Title'] || '',
