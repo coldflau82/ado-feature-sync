@@ -234,13 +234,14 @@ app.get('/dashboard', (req, res) => {
         const areaOk = filterAreaPath.length === 0 || filterAreaPath.includes(f.areaPath);
         const iterOk = filterIteration.length === 0 || filterIteration.includes(f.iterationPath);
         const stateOk = filterState.length === 0 || filterState.includes(f.state);
-        let dateOk = filterTargetDate.length === 0;
-        if (filterTargetDate.length > 0 && f.targetDate) {
-          const year = new Date(f.targetDate).getFullYear();
-          dateOk = filterTargetDate.includes(String(year));
-        }
-        return areaOk && iterOk && stateOk && dateOk;
-      });
+          let dateOk = filterTargetDate.length === 0;
+          if (filterTargetDate.length > 0 && f.targetDate) {
+            const year = new Date(f.targetDate).getFullYear();
+            dateOk = filterTargetDate.includes(String(year));
+          }        
+          const searchOk = searchTitle === '' || f.title.toLowerCase().includes(searchTitle.toLowerCase());
+          return areaOk && iterOk && stateOk && dateOk && searchOk;
+        });
 
       const adoLink = (id) => \`https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/\${id}\`;
 
