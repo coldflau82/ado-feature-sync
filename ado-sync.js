@@ -39,6 +39,8 @@ app.get('/api/features', async (req, res) => {
         areaPath: i.fields['System.AreaPath'] || '',
         iterationPath: i.fields['System.IterationPath'] || '',
         priority: i.fields['Microsoft.VSTS.Common.Priority'] || '',
+        targetDate: i.fields['Microsoft.VSTS.Scheduling.TargetDate'] || '',
+        plannedMonth: i.fields['Custom.PlannedMonth'] || '',
         estimation: {
           be: i.fields['Custom.BEEstimate'] || '',
           fe: i.fields['Custom.FEEstimates'] || '',
