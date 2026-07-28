@@ -106,6 +106,10 @@ app.get('/dashboard', (req, res) => {
       const getAreaName = (path) => {
         if (!path) return 'N/A';
         const parts = path.split('\\\\\\\\');
+        // Mostrar las últimas 2 partes para diferenciar
+        if (parts.length >= 2) {
+          return (parts[parts.length - 2] + ' - ' + parts[parts.length - 1]).substring(0, 40);
+        }
         return parts[parts.length - 1].substring(0, 30);
       };
 
