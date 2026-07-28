@@ -89,16 +89,7 @@ app.get('/dashboard', (req, res) => {
       const [loading, setLoading] = useState(true);
       const [filterArea, setFilterArea] = useState('all');
 
-      const allowedAreas = [
-        'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online',
-        'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print',
-        'Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout',
-        'Commercial Engineering\\Digital\\Acquisition\\Global Product 1',
-        'Commercial Engineering\\Digital\\Acquisition\\Global Product 2',
-        'Commercial Engineering\\Digital\\Acquisition\\Global Product 3'
-      ];
-
-      useEffect(() => {
+    useEffect(() => {
         fetch('/api/features')
           .then(r => r.json())
           .then(d => {
