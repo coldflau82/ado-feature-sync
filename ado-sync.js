@@ -130,7 +130,7 @@ WHERE
     res.json({
       rangeCounts: rangeCounts,
   	  warnings: warnings,
-      storyInvestigation: storyInvestigation,
+      storyDebug: storyDebug,
       total: allFeatures.length,
       totalStories: totalStoriesFound,
       features: allFeatures.map(i => ({
