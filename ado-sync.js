@@ -352,20 +352,34 @@ app.get('/dashboard', (req, res) => {
                   <table>
                     <thead>
                       <tr>
-                        <th style={{ width: '30px' }}></th>
-                        <th>ID</th>
-                        <th>Feature</th>
-                        <th>Area Path</th>
-                        <th>Iteration</th>
-                        <th>Priority</th>
-                        <th>Target Date</th>
-                        <th>Planned Month</th>
-                        <th>BE</th>
-                        <th>FE</th>
-                        <th>QA</th>
-                        <th>State</th>
-                      </tr>
-                    </thead>
+                          <th style={{ width: '30px' }}></th>
+                          <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('id'); setSortOrder(sortColumn === 'id' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                            ID {sortColumn === 'id' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+                          </th>
+                          <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('title'); setSortOrder(sortColumn === 'title' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                            Feature {sortColumn === 'title' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+                          </th>
+                          <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('areaPath'); setSortOrder(sortColumn === 'areaPath' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                            Area Path {sortColumn === 'areaPath' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+                          </th>
+                          <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('iteration'); setSortOrder(sortColumn === 'iteration' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                            Iteration {sortColumn === 'iteration' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+                          </th>
+                          <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('priority'); setSortOrder(sortColumn === 'priority' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                            Priority {sortColumn === 'priority' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+                          </th>
+                          <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('targetDate'); setSortOrder(sortColumn === 'targetDate' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                            Target Date {sortColumn === 'targetDate' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+                          </th>
+                          <th>Planned Month</th>
+                          <th>BE</th>
+                          <th>FE</th>
+                          <th>QA</th>
+                          <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('state'); setSortOrder(sortColumn === 'state' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                            State {sortColumn === 'state' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+                          </th>
+                        </tr>
+                      </thead>
                     <tbody>
                       {filtered.map(f => (
                           <React.Fragment key={f.id}>
