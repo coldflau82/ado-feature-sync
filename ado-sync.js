@@ -29,21 +29,21 @@ app.get('/api/features', async (req, res) => {
     ];
 
     let allIds = [];
-const rangeCounts = {};
+    const rangeCounts = {};
 
-for (const range of dateRanges) {
-  try {
-    const r = await c.post('/wit/wiql?api-version=7.0', {
-      query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${baseFilter}`
-    });
+    for (const range of dateRanges) {
+      try {
+        const r = await c.post('/wit/wiql?api-version=7.0', {
+          query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${baseFilter}`
+        });
     
-    const ids = r.data.workItems.map(i => i.id);
-    rangeCounts[`${range.from} to ${range.to}`] = ids.length;
-    allIds = [...allIds, ...ids];
-  } catch (e) {
-    rangeCounts[`${range.from} to ${range.to}`] = 'ERROR: ' + e.message;
-  }
-}
+        const ids = r.data.workItems.map(i => i.id);
+        rangeCounts[`${range.from} to ${range.to}`] = ids.length;
+        allIds = [...allIds, ...ids];
+      } catch (e) {
+        rangeCounts[`${range.from} to ${range.to}`] = 'ERROR: ' + e.message;
+      }
+    }
 
     if (!allIds.length) return res.json({ features: [] });
 
