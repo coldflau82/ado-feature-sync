@@ -91,8 +91,12 @@ app.get('/dashboard', (req, res) => {
 function Dashboard() {
   const [features, setFeatures] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterIteration, setFilterIteration] = useState('all');
   const [currentPage, setCurrentPage] = useState('features');
+  
+  const [filterAreaPath, setFilterAreaPath] = useState([]);
+  const [filterIteration, setFilterIteration] = useState([]);
+  const [filterState, setFilterState] = useState([]);
+  const [filterTargetDate, setFilterTargetDate] = useState([]);
 
   useEffect(() => {
     fetch('/api/features')
@@ -103,14 +107,49 @@ function Dashboard() {
       });
   }, []);
 
+  const areaPaths = [...new Set(features.map(f => f.areaPath).filter(a => a))].sort();
   const iterations = [...new Set(features.map(f => f.iterationPath).filter(a => a))].sort();
-  const filtered = filterIteration === 'all' ? features : features.filter(f => f.iterationPath === filterIteration);
-  const counts = { all: features.length, ...Object.fromEntries(iterations.map(a => [a, features.filter(f => f.iterationPath === a).length])) };
+  const states = [...new Set(features.map(f => f.state).filter(a => a))].sort();
+  
+  const targetDates = [...new Set(features
+    .map(f => {
+      if (!f.targetDate) return null;
+      const date = new Date(f.targetDate);
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${month}/${year}`;
+    })
+    .filter(a => a)
+  )].sort();
 
-  const getIterationName = (path) => {
+  const filtered = features.filter(f => {
+    const areaOk = filterAreaPath.length === 0 || filterAreaPath.includes(f.areaPath);
+    const iterOk = filterIteration.length === 0 || filterIteration.includes(f.iterationPath);
+    const stateOk = filterState.length === 0 || filterState.includes(f.state);
+    
+    let dateOk = filterTargetDate.length === 0;
+    if (filterTargetDate.length > 0 && f.targetDate) {
+      const date = new Date(f.targetDate);
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      const dateStr = `${month}/${year}`;
+      dateOk = filterTargetDate.includes(dateStr);
+    }
+    
+    return areaOk && iterOk && stateOk && dateOk;
+  });
+
+  const getLabel = (path) => {
     if (!path) return 'N/A';
     const parts = path.split('\\\\');
-    return parts[parts.length - 1];
+    return parts[parts.length - 1].substring(0, 40);
+  };
+
+  const toggleFilter = (value, filter, setFilter) => {
+    setFilter(filter.includes(value) 
+      ? filter.filter(v => v !== value)
+      : [...filter, value]
+    );
   };
 
   const adoLink = (id) => \`https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/\${id}\`;
@@ -124,7 +163,7 @@ function Dashboard() {
     <div className="container">
       <div className="header">
         <h1>ADO Dashboard</h1>
-        <div className="tabs" style={{ marginTop: '15px', display: 'flex', gap: '10px', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>
+        <div className="tabs" style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
           <button 
             style={{ padding: '8px 16px', background: currentPage === 'features' ? '#007bff' : 'white', color: currentPage === 'features' ? 'white' : 'black', border: 'none', cursor: 'pointer', borderRadius: '4px' }}
             onClick={() => setCurrentPage('features')}
@@ -136,23 +175,47 @@ function Dashboard() {
 
       {currentPage === 'features' && (
         <>
-          <div className="filters">
-            <button
-              className={filterIteration === 'all' ? 'filter-btn active' : 'filter-btn'}
-              onClick={() => setFilterIteration('all')}
-            >
-              Todas ({counts.all})
-            </button>
+          <div className="filters" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
             
-            {iterations.map(iter => (
-              <button
-                key={iter}
-                className={filterIteration === iter ? 'filter-btn active' : 'filter-btn'}
-                onClick={() => setFilterIteration(iter)}
-              >
-                {getIterationName(iter)} ({counts[iter]})
-              </button>
-            ))}
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Area Path</label>
+              <select multiple size={Math.min(5, areaPaths.length)} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} onChange={(e) => setFilterAreaPath([...e.target.selectedOptions].map(o => o.value))}>
+                {areaPaths.map(area => (
+                  <option key={area} value={area}>{getLabel(area)}</option>
+                ))}
+              </select>
+              {filterAreaPath.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterAreaPath.length} seleccionados</p>}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Iteration Path</label>
+              <select multiple size={Math.min(5, iterations.length)} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} onChange={(e) => setFilterIteration([...e.target.selectedOptions].map(o => o.value))}>
+                {iterations.map(iter => (
+                  <option key={iter} value={iter}>{getLabel(iter)}</option>
+                ))}
+              </select>
+              {filterIteration.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterIteration.length} seleccionados</p>}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Estado</label>
+              <select multiple size={Math.min(5, states.length)} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} onChange={(e) => setFilterState([...e.target.selectedOptions].map(o => o.value))}>
+                {states.map(state => (
+                  <option key={state} value={state}>{state}</option>
+                ))}
+              </select>
+              {filterState.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterState.length} seleccionados</p>}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Target Date (mm/yyyy)</label>
+              <select multiple size={Math.min(5, targetDates.length)} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} onChange={(e) => setFilterTargetDate([...e.target.selectedOptions].map(o => o.value))}>
+                {targetDates.map(date => (
+                  <option key={date} value={date}>{date}</option>
+                ))}
+              </select>
+              {filterTargetDate.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterTargetDate.length} seleccionados</p>}
+            </div>
           </div>
 
           {loading ? (
@@ -165,6 +228,7 @@ function Dashboard() {
                   <tr>
                     <th>ID</th>
                     <th>Feature</th>
+                    <th>Area Path</th>
                     <th>Iteración</th>
                     <th>Prioridad</th>
                     <th>Target Date</th>
@@ -184,7 +248,8 @@ function Dashboard() {
                         </a>
                       </td>
                       <td>{f.title.substring(0, 50)}</td>
-                      <td style={{ fontSize: '11px' }}>{getIterationName(f.iterationPath)}</td>
+                      <td style={{ fontSize: '11px' }}>{getLabel(f.areaPath)}</td>
+                      <td style={{ fontSize: '11px' }}>{getLabel(f.iterationPath)}</td>
                       <td>{f.priority || '-'}</td>
                       <td style={{ fontSize: '11px' }}>{formatDate(f.targetDate)}</td>
                       <td>{f.plannedMonth || '-'}</td>
