@@ -67,29 +67,39 @@ app.get('/api/features', async (req, res) => {
       }
     }
 
-    // Obtener User Stories de cada Feature usando Relations
-    const storiesByFeature = {};
-    let totalStoriesFound = 0;
+    // Obtener User Stories cuyo Parent es uno de nuestros Features
+const storiesByFeature = {};
+let totalStoriesFound = 0;
 
-    for (const feature of allFeatures) {
-      try {
-        const relationsResponse = await c.get(`/workitems/${feature.id}/relations`);
+// Tomar los primeros 50 Feature IDs para probar
+const featureIds = allFeatures.slice(0, 50).map(f => f.id);
+
+if (featureIds.length > 0) {
+  try {
+    const parentFilter = featureIds.map(id => `[System.Parent] = ${id}`).join(' OR ');
+    const storyQuery = `SELECT [System.Id], [System.Title], [System.Parent], [Microsoft.VSTS.Scheduling.StoryPoints], [System.State] FROM workitems WHERE (${parentFilter})`;
     
-        const stories = relationsResponse.data.value.filter(rel => 
-          rel.rel === 'System.LinkTypes.Hierarchy-Forward'
-        ).map(rel => ({
-          id: rel.url.split('/').pop(),
-          type: 'Story'
-        }));
+    const storyResponse = await c.post('/wit/wiql?api-version=7.0', {
+      query: storyQuery
+    });
     
-        if (stories.length > 0) {
-          storiesByFeature[feature.id] = stories;
-          totalStoriesFound += stories.length;
-        }
-      } catch (e) {
-        // Silently continue si no hay relaciones
+    storyResponse.data.workItems.forEach(story => {
+      const parentId = story.fields['System.Parent'];
+      if (!storiesByFeature[parentId]) {
+        storiesByFeature[parentId] = [];
       }
-    }
+      storiesByFeature[parentId].push({
+        id: story.id,
+        title: story.fields['System.Title'] || '',
+        storyPoints: story.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
+        state: story.fields['System.State'] || ''
+      });
+      totalStoriesFound++;
+    });
+  } catch (e) {
+    console.log('Error fetching stories:', e.message);
+  }
+}
     
     res.json({
       rangeCounts: rangeCounts,
