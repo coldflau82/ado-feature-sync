@@ -47,6 +47,7 @@ app.get('/api/features', async (req, res) => {
     // Dividir en lotes de 200 para el batch
     const batchSize = 200;
     let allFeatures = [];
+    const rangeCounts = {};
 
     for (let i = 0; i < allIds.length; i += batchSize) {
       const batch = await c.post('/wit/workitemsbatch?api-version=7.0', {
