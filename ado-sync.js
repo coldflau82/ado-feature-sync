@@ -130,15 +130,26 @@ app.get('/dashboard', (req, res) => {
               Todas ({counts.all})
             </button>
             
-            {areas.map(area => (
+            {areas.map(area => {
+               const areaNames = {
+              'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online': 'Service-Online',
+              'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print': 'Service-Print',
+              'Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout': 'Cart and Checkout',
+              'Commercial Engineering\\Digital\\Acquisition\\Global Product 1': 'Global Product 1',
+              'Commercial Engineering\\Digital\\Acquisition\\Global Product 2': 'Global Product 2',
+              'Commercial Engineering\\Digital\\Acquisition\\Global Product 3': 'Global Product 3'
+            };
+            const displayName = areaNames[area] || area;
+            return (
               <button
                 key={area}
-                className={\`filter-btn \${filterArea === area ? 'active' : ''}\`}
-                onClick={() => setFilterArea(area)}
+                className={`filter-btn ${filterArea === area ? 'active' : ''}`}
+              onClick={() => setFilterArea(area)}
               >
-                {getAreaName(area)} ({counts[area]})
-              </button>
-            ))}
+                {displayName} ({counts[area]})
+            </button>
+            );
+          })}
           </div>
 
           {loading ? (
