@@ -327,23 +327,23 @@ app.get('/dashboard', (req, res) => {
                   {filterIteration.length > 0 && <p className="filter-count">{filterIteration.length} selected</p>}
                 </div>
 
-                <div>
+                <div> 
                   <label className="filter-label">State</label>
-                  <select multiple className="filter-select" onChange={(e) => setFilterState([...e.target.selectedOptions].map(o => o.value))}>
-                    {states.map(state => (
-                      <option key={state} value={state}>{state}</option>
-                    ))}
-                  </select>
+                    <select multiple className="filter-select" value={filterState} onChange={(e) => setFilterState([...e.target.selectedOptions].map(o => o.value))}>
+                      {states.map(state => (
+                        <option key={state} value={state}>{state}</option>
+                      ))}
+                    </select>
                   {filterState.length > 0 && <p className="filter-count">{filterState.length} selected</p>}
                 </div>
 
                 <div>
                   <label className="filter-label">Target Date (year)</label>
-                  <select multiple className="filter-select" onChange={(e) => setFilterTargetDate([...e.target.selectedOptions].map(o => o.value))}>
-                    {targetDates.map(year => (
-                      <option key={year} value={year}>{year}</option>
-                    ))}
-                  </select>
+                    <select multiple className="filter-select" value={filterTargetDate} onChange={(e) => setFilterTargetDate([...e.target.selectedOptions].map(o => o.value))}>
+                      {targetDates.map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </select>
                   {filterTargetDate.length > 0 && <p className="filter-count">{filterTargetDate.length} selected</p>}
                 </div>
               </div>
