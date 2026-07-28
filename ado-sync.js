@@ -60,8 +60,17 @@ for (const range of dateRanges) {
       allFeatures = [...allFeatures, ...batch.data.value];
     }
 
+    const warnings = [];
+    for (const [range, count] of Object.entries(rangeCounts)) {
+      if (typeof count === 'number' && count >= 200) {
+        warnings.push(`⚠️ Rango "${range}" tiene ${count} items - DATA MAY BE MISSING`);
+      }
+    }
+
     res.json({
       rangeCounts: rangeCounts,
+      warnings: warnings,
+      total: allFeatures.length,
       features: allFeatures.map(i => ({
         id: i.id,
         title: i.fields['System.Title'] || '',
