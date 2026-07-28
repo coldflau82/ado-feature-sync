@@ -272,8 +272,8 @@ app.get('/dashboard', (req, res) => {
                 valB = (b.iterationPath || '').toLowerCase(); 
               }
               else if (sortColumn === 'priority') { 
-                valA = (a.priority || 'zzz').toLowerCase(); 
-                valB = (b.priority || 'zzz').toLowerCase(); 
+                valA = parseInt(a.priority) || 0; 
+                valB = parseInt(b.priority) || 0; 
               }
               else if (sortColumn === 'state') { 
                 valA = (a.state || '').toLowerCase(); 
@@ -381,8 +381,8 @@ app.get('/dashboard', (req, res) => {
                     <thead>
                       <tr>
                           <th style={{ width: '30px' }}></th>
-                          <th>
-                            Priority
+                          <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('priority'); setSortOrder(sortColumn === 'priority' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                            Priority {sortColumn === 'priority' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
                           </th>
                           <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('title'); setSortOrder(sortColumn === 'title' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
                             Feature {sortColumn === 'title' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
