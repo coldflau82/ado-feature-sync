@@ -219,6 +219,11 @@ app.get('/dashboard', (req, res) => {
             setFeatures(d.features || []);
             setWarnings(d.warnings || []);
             setLoading(false);
+      
+            // Preseleccionar estados (todos menos "Closed")
+            const allStates = [...new Set((d.features || []).map(f => f.state).filter(a => a))].sort();
+            const statesWithoutClosed = allStates.filter(s => s !== 'Closed');
+          setFilterState(statesWithoutClosed);
           });
       }, []);
 
