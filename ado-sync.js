@@ -253,16 +253,37 @@ app.get('/dashboard', (req, res) => {
           let sortedFiltered = [...filtered];
           if (sortColumn) {
             sortedFiltered.sort((a, b) => {
-              let valA, valB;
-    
-              if (sortColumn === 'id') { valA = a.id; valB = b.id; }
-              else if (sortColumn === 'title') { valA = a.title.toLowerCase(); valB = b.title.toLowerCase(); }
-              else if (sortColumn === 'areaPath') { valA = a.areaPath.toLowerCase(); valB = b.areaPath.toLowerCase(); }
-              else if (sortColumn === 'iteration') { valA = a.iterationPath.toLowerCase(); valB = b.iterationPath.toLowerCase(); }
-              else if (sortColumn === 'priority') { valA = (a.priority || '').toLowerCase(); valB = (b.priority || '').toLowerCase(); }
-              else if (sortColumn === 'state') { valA = a.state.toLowerCase(); valB = b.state.toLowerCase(); }
-              else if (sortColumn === 'targetDate') { valA = a.targetDate || ''; valB = b.targetDate || ''; }
-    
+              let valA = '', valB = '';
+              
+              if (sortColumn === 'id') { 
+                valA = a.id; 
+                valB = b.id; 
+              }
+              else if (sortColumn === 'title') { 
+                valA = (a.title || '').toLowerCase(); 
+                valB = (b.title || '').toLowerCase(); 
+              }
+              else if (sortColumn === 'areaPath') { 
+                valA = (a.areaPath || '').toLowerCase(); 
+                valB = (b.areaPath || '').toLowerCase(); 
+              }
+              else if (sortColumn === 'iteration') { 
+                valA = (a.iterationPath || '').toLowerCase(); 
+                valB = (b.iterationPath || '').toLowerCase(); 
+              }
+              else if (sortColumn === 'priority') { 
+                valA = (a.priority || 'zzz').toLowerCase(); 
+                valB = (b.priority || 'zzz').toLowerCase(); 
+              }
+              else if (sortColumn === 'state') { 
+                valA = (a.state || '').toLowerCase(); 
+                valB = (b.state || '').toLowerCase(); 
+              }
+              else if (sortColumn === 'targetDate') { 
+                valA = (a.targetDate || ''); 
+                valB = (b.targetDate || ''); 
+              }
+              
               if (sortOrder === 'asc') {
                 return valA < valB ? -1 : valA > valB ? 1 : 0;
               } else {
