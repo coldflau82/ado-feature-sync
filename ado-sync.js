@@ -67,7 +67,7 @@ app.get('/api/features', async (req, res) => {
       }
     }
 
-   // Obtener User Stories usando el query que funciona
+// Obtener User Stories usando el query que funciona
 const storiesByFeature = {};
 let totalStoriesFound = 0;
 let storyDebug = null;
@@ -103,19 +103,33 @@ WHERE
     query: storyQuery
   });
 
-  // Debug: ver estructura del primer item
-if (storyResponse.data.workItems.length > 0) {
-  const firstItem = storyResponse.data.workItems[0];
-  storyDebug = {
-    firstItemStructure: {
-      keys: Object.keys(firstItem),
-      fieldsKeys: firstItem.fields ? Object.keys(firstItem.fields) : 'NO FIELDS',
-      parentValue: firstItem.fields ? firstItem.fields['System.Parent'] : 'NO FIELDS OBJECT'
-    }
-  };
-}
+  if (storyResponse.data.workItems.length > 0) {
+    const firstItem = storyResponse.data.workItems[0];
+    storyDebug = {
+      totalQueried: storyResponse.data.workItems.length,
+      firstItemKeys: Object.keys(firstItem),
+      firstItemFieldsKeys: firstItem.fields ? Object.keys(firstItem.fields).slice(0, 5) : 'NO FIELDS'
+    };
 
-return    
+    storyResponse.data.workItems.forEach(item => {
+      const parentId = item.fields['System.Parent'];
+      if (parentId) {
+        if (!storiesByFeature[parentId]) {
+          storiesByFeature[parentId] = [];
+        }
+        storiesByFeature[parentId].push({
+          id: item.id,
+          title: item.fields['System.Title'] || '',
+          storyPoints: item.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
+          state: item.fields['System.State'] || ''
+        });
+        totalStoriesFound++;
+      }
+    });
+  }
+} catch (e) {
+  storyDebug = { error: e.message };
+}  
     res.json({
       rangeCounts: rangeCounts,
   	  warnings: warnings,
