@@ -381,8 +381,8 @@ app.get('/dashboard', (req, res) => {
                     <thead>
                       <tr>
                           <th style={{ width: '30px' }}></th>
-                          <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('id'); setSortOrder(sortColumn === 'id' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
-                            ID {sortColumn === 'id' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+                          <th>
+                            Priority
                           </th>
                           <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('title'); setSortOrder(sortColumn === 'title' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
                             Feature {sortColumn === 'title' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
