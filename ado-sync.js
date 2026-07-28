@@ -1,4 +1,92 @@
-const { useState, useEffect } = React;
+require('dotenv').config();
+const express = require('express');
+const axios = require('axios');
+
+const app = express();
+app.use(express.json());
+
+app.get('/api/health', (req, res) => res.json({ ok: 1 }));
+
+app.get('/api/features', async (req, res) => {
+  try {
+    const c = axios.create({
+      baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
+      headers: { 
+        Authorization: `Basic ${Buffer.from(`:${process.env.ADO_PAT}`).toString('base64')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const r = await c.post('/wit/wiql?api-version=7.0', {
+      query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= @today - 180 AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")'
+    });
+
+    console.log('Items found:', r.data.workItems.length);
+    const ids = r.data.workItems.map(i => i.id).slice(0, 200);
+    
+    if (!ids.length) return res.json({ features: [] });
+
+    const b = await c.post('/wit/workitemsbatch?api-version=7.0', {
+      ids: ids,
+      fields: ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'System.IterationPath', 'Microsoft.VSTS.Common.Priority', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing', 'Microsoft.VSTS.Scheduling.TargetDate', 'Custom.PlannedMonth']
+    });
+
+    res.json({
+      features: b.data.value.map(i => ({
+        id: i.id,
+        title: i.fields['System.Title'] || '',
+        state: i.fields['System.State'] || '',
+        areaPath: i.fields['System.AreaPath'] || '',
+        iterationPath: i.fields['System.IterationPath'] || '',
+        priority: i.fields['Microsoft.VSTS.Common.Priority'] || '',
+        targetDate: i.fields['Microsoft.VSTS.Scheduling.TargetDate'] || '',
+        plannedMonth: i.fields['Custom.PlannedMonth'] || '',
+        estimation: {
+          be: i.fields['Custom.BEEstimate'] || '',
+          fe: i.fields['Custom.FEEstimates'] || '',
+          qa: i.fields['Custom.QASizing'] || ''
+        }
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/dashboard', (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ADO Dashboard</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #f5f5f5; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .header { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
+    .header h1 { font-size: 24px; }
+    .filters { background: white; padding: 15px; margin-bottom: 20px; border-radius: 8px; display: flex; gap: 10px; flex-wrap: wrap; }
+    .filter-btn { padding: 8px 16px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 13px; }
+    .filter-btn:hover { border-color: #007bff; }
+    .filter-btn.active { background: #007bff; color: white; }
+    .table-wrapper { background: white; border-radius: 8px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f9f9f9; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #eee; font-size: 13px; }
+    td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+    tr:hover { background: #f5f5f5; }
+    a { color: #007bff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
 
 function Dashboard() {
   const [features, setFeatures] = useState([]);
@@ -117,3 +205,10 @@ function Dashboard() {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<Dashboard />);
+  </script>
+</body>
+</html>
+  `);
+});
+
+app.listen(process.env.PORT || 3000, () => console.log('ok'));
