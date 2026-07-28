@@ -27,6 +27,7 @@ app.get('/api/features', async (req, res) => {
     ];
 
     let allIds = [];
+    const rangeCounts = {};
 
     for (const range of dateRanges) {
       try {
@@ -35,10 +36,10 @@ app.get('/api/features', async (req, res) => {
         });
     
         const ids = r.data.workItems.map(i => i.id);
-        console.log(`Range ${range.from} to ${range.to}: ${ids.length} items`);
+        rangeCounts[`${range.from} to ${range.to}`] = ids.length;
         allIds = [...allIds, ...ids];
       } catch (e) {
-        console.log(`Query range ${range.from} to ${range.to} failed:`, e.message);
+        rangeCounts[`${range.from} to ${range.to}`] = 'ERROR: ' + e.message;
       }
     }
 
