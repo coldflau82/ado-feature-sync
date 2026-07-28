@@ -34,7 +34,7 @@ app.get('/api/features', async (req, res) => {
     for (const range of dateRanges) {
       try {
         const r = await c.post('/wit/wiql?api-version=7.0', {
-          const storyQuery = `SELECT [System.Id], [System.Title], [System.WorkItemType], [System.Parent], [Microsoft.VSTS.Scheduling.StoryPoints], [System.State] FROM workitems WHERE ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Task')`;
+            query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${baseFilter}`
         });
     
         const ids = r.data.workItems.map(i => i.id);
@@ -68,7 +68,7 @@ app.get('/api/features', async (req, res) => {
     }
 
     // Obtener User Stories y Tasks
-		const storyQuery = `SELECT [System.Id], [System.Title], [System.WorkItemType], [System.Parent], [Microsoft.VSTS.Scheduling.StoryPoints], [System.State] FROM workitems WHERE [System.WorkItemType] IN ('User Story', 'Task')`;
+		const storyQuery = `SELECT [System.Id], [System.Title], [System.WorkItemType], [System.Parent], [Microsoft.VSTS.Scheduling.StoryPoints], [System.State] FROM workitems WHERE ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Task')`;
 
 		let allStories = [];
 				try {
