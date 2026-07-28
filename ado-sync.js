@@ -67,38 +67,34 @@ app.get('/api/features', async (req, res) => {
       }
     }
 
-    // Obtener User Stories cuyo Parent es uno de nuestros Features
+   // Investigar estructura de User Stories
 const storiesByFeature = {};
 let totalStoriesFound = 0;
+let storyInvestigation = null;
 
-// Tomar los primeros 50 Feature IDs para probar
-const featureIds = allFeatures.slice(0, 50).map(f => f.id);
-
-if (featureIds.length > 0) {
-  try {
-    const parentFilter = featureIds.map(id => `[System.Parent] = ${id}`).join(' OR ');
-    const storyQuery = `SELECT [System.Id], [System.Title], [System.Parent], [Microsoft.VSTS.Scheduling.StoryPoints], [System.State] FROM workitems WHERE (${parentFilter})`;
+try {
+  // Buscar cualquier User Story sin filtros
+  const anyStoryQuery = 'SELECT [System.Id] FROM workitems WHERE [System.WorkItemType] = "User Story" ORDER BY [System.Id] DESC';
+  
+  const anyStoryResponse = await c.post('/wit/wiql?api-version=7.0', {
+    query: anyStoryQuery
+  });
+  
+  if (anyStoryResponse.data.workItems.length > 0) {
+    const firstStoryId = anyStoryResponse.data.workItems[0].id;
     
-    const storyResponse = await c.post('/wit/wiql?api-version=7.0', {
-      query: storyQuery
-    });
+    // Obtener detalles completos del primer User Story
+    const storyDetail = await c.get(`/workitems/${firstStoryId}`);
     
-    storyResponse.data.workItems.forEach(story => {
-      const parentId = story.fields['System.Parent'];
-      if (!storiesByFeature[parentId]) {
-        storiesByFeature[parentId] = [];
-      }
-      storiesByFeature[parentId].push({
-        id: story.id,
-        title: story.fields['System.Title'] || '',
-        storyPoints: story.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
-        state: story.fields['System.State'] || ''
-      });
-      totalStoriesFound++;
-    });
-  } catch (e) {
-    console.log('Error fetching stories:', e.message);
+    storyInvestigation = {
+      id: firstStoryId,
+      fields: Object.keys(storyDetail.data.fields),
+      parentField: storyDetail.data.fields['System.Parent'] || 'NOT FOUND',
+      relations: storyDetail.data.relations ? storyDetail.data.relations.map(r => r.rel) : 'NO RELATIONS'
+    };
   }
+} catch (e) {
+  storyInvestigation = { error: e.message };
 }
     
     res.json({
