@@ -54,7 +54,7 @@ app.get('/api/features', async (req, res) => {
 });
 
 app.get('/dashboard', (req, res) => {
-  res.send(`
+  res.send('
 <!DOCTYPE html>
 <html>
 <head>
@@ -117,7 +117,7 @@ function Dashboard() {
       const date = new Date(f.targetDate);
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const year = date.getFullYear();
-      return `${month}/${year}`;
+      return '${month}/${year}';
     })
     .filter(a => a)
   )].sort();
@@ -273,7 +273,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<Dashboard />);
   </script>
 </body>
 </html>
-  `);
+  ');
 });
 
 app.listen(process.env.PORT || 3000, () => console.log('ok'));
