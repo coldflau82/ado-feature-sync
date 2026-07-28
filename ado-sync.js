@@ -261,6 +261,7 @@ app.get('/dashboard', (req, res) => {
               else if (sortColumn === 'iteration') { valA = a.iterationPath.toLowerCase(); valB = b.iterationPath.toLowerCase(); }
               else if (sortColumn === 'priority') { valA = (a.priority || '').toLowerCase(); valB = (b.priority || '').toLowerCase(); }
               else if (sortColumn === 'state') { valA = a.state.toLowerCase(); valB = b.state.toLowerCase(); }
+              else if (sortColumn === 'targetDate') { valA = a.targetDate || ''; valB = b.targetDate || ''; }
     
               if (sortOrder === 'asc') {
                 return valA < valB ? -1 : valA > valB ? 1 : 0;
