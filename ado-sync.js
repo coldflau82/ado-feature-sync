@@ -34,9 +34,9 @@ app.get('/api/features', async (req, res) => {
     for (const range of dateRanges) {
       try {
         const r = await c.post('/wit/wiql?api-version=7.0', {
-            query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${baseFilter}`
+          query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${baseFilter}`
         });
-    
+        
         const ids = r.data.workItems.map(i => i.id);
         rangeCounts[`${range.from} to ${range.to}`] = ids.length;
         allIds = [...allIds, ...ids];
@@ -47,7 +47,6 @@ app.get('/api/features', async (req, res) => {
 
     if (!allIds.length) return res.json({ features: [] });
 
-    // Dividir en lotes de 200 para el batch
     const batchSize = 200;
     let allFeatures = [];
 
@@ -60,20 +59,13 @@ app.get('/api/features', async (req, res) => {
       allFeatures = [...allFeatures, ...batch.data.value];
     }
 
-    const warnings = [];
-    for (const [range, count] of Object.entries(rangeCounts)) {
-      if (typeof count === 'number' && count >= 200) {
-        warnings.push(`⚠️ Range "${range}" have ${count} items - DATA MAY BE MISSING`);
-      }
-    }
+    // Obtener User Stories
+    const storiesByFeature = {};
+    let totalStoriesFound = 0;
+    let storyDebug = null;
 
-// Obtener User Stories usando batch
-const storiesByFeature = {};
-let totalStoriesFound = 0;
-let storyDebug = null;
-
-try {
-  const storyQuery = `SELECT [System.Id] FROM workitems
+    try {
+      const storyQuery = `SELECT [System.Id] FROM workitems
 WHERE
     [System.TeamProject] = 'Commercial Engineering'
     AND [System.ChangedDate] > @today - 180
@@ -92,46 +84,52 @@ WHERE
         AND [System.State] <> 'Removed'
     )`;
 
-  const storyResponse = await c.post('/wit/wiql?api-version=7.0', {
-    query: storyQuery
-  });
-
-  const storyIds = storyResponse.data.workItems.map(i => i.id);
-  storyDebug = { queriedStories: storyIds.length };
-
-  if (storyIds.length > 0) {
-    // Batch para obtener detalles de stories
-    const storyBatchSize = 200;
-    for (let i = 0; i < storyIds.length; i += storyBatchSize) {
-      const storyBatch = await c.post('/wit/workitemsbatch?api-version=7.0', {
-        ids: storyIds.slice(i, i + storyBatchSize),
-        fields: ['System.Id', 'System.Title', 'System.Parent', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State']
+      const storyResponse = await c.post('/wit/wiql?api-version=7.0', {
+        query: storyQuery
       });
 
-      storyBatch.data.value.forEach(story => {
-        const parentId = story.fields['System.Parent'];
-        if (parentId) {
-          if (!storiesByFeature[parentId]) {
-            storiesByFeature[parentId] = [];
-          }
-          storiesByFeature[parentId].push({
-            id: story.id,
-            title: story.fields['System.Title'] || '',
-            storyPoints: story.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
-            state: story.fields['System.State'] || ''
+      const storyIds = storyResponse.data.workItems.map(i => i.id);
+      storyDebug = { queriedStories: storyIds.length };
+
+      if (storyIds.length > 0) {
+        const storyBatchSize = 200;
+        for (let i = 0; i < storyIds.length; i += storyBatchSize) {
+          const storyBatch = await c.post('/wit/workitemsbatch?api-version=7.0', {
+            ids: storyIds.slice(i, i + storyBatchSize),
+            fields: ['System.Id', 'System.Title', 'System.Parent', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State']
           });
-          totalStoriesFound++;
+
+          storyBatch.data.value.forEach(story => {
+            const parentId = story.fields['System.Parent'];
+            if (parentId) {
+              if (!storiesByFeature[parentId]) {
+                storiesByFeature[parentId] = [];
+              }
+              storiesByFeature[parentId].push({
+                id: story.id,
+                title: story.fields['System.Title'] || '',
+                storyPoints: story.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
+                state: story.fields['System.State'] || ''
+              });
+              totalStoriesFound++;
+            }
+          });
         }
-      });
+      }
+    } catch (e) {
+      storyDebug = { error: e.message };
     }
-  }
-} catch (e) {
-  storyDebug = { error: e.message };
-}
+
+    const warnings = [];
+    for (const [range, count] of Object.entries(rangeCounts)) {
+      if (typeof count === 'number' && count >= 200) {
+        warnings.push(`WARNING: Range "${range}" has ${count} items - DATA MAY BE MISSING`);
+      }
+    }
 
     res.json({
       rangeCounts: rangeCounts,
-  	  warnings: warnings,
+      warnings: warnings,
       storyDebug: storyDebug,
       total: allFeatures.length,
       totalStories: totalStoriesFound,
@@ -176,10 +174,13 @@ app.get('/dashboard', (req, res) => {
     .tabs { margin-top: 15px; display: flex; gap: 10px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
     .tab-btn { padding: 8px 16px; background: white; color: black; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; }
     .tab-btn.active { background: #007bff; color: white; }
-    .filters { background: white; padding: 15px; margin-bottom: 20px; border-radius: 8px; display: flex; gap: 10px; flex-wrap: wrap; }
-    .filter-btn { padding: 8px 16px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 13px; }
-    .filter-btn:hover { border-color: #007bff; }
-    .filter-btn.active { background: #007bff; color: white; }
+    .warnings { background: #fff3cd; color: '#856404'; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffc107; }
+    .filters { display: grid; gridTemplateColumns: 'repeat(4, 1fr)'; gap: 15px; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; overflow-x: auto; }
+    .filter-div { }
+    .filter-label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 13px; }
+    .filter-select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 120px; }
+    .filter-count { font-size: 11px; color: #666; margin-top: 5px; }
+    .clear-btn { width: 100%; padding: 10px 16px; background: #dc3545; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 13px; margin-bottom: 20px; }
     .table-wrapper { background: white; border-radius: 8px; overflow: hidden; }
     table { width: 100%; border-collapse: collapse; }
     th { background: #f9f9f9; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #eee; font-size: 13px; }
@@ -187,6 +188,7 @@ app.get('/dashboard', (req, res) => {
     tr:hover { background: #f5f5f5; }
     a { color: #007bff; text-decoration: none; }
     a:hover { text-decoration: underline; }
+    .expand-btn { cursor: pointer; user-select: none; text-align: center; width: 30px; }
   </style>
 </head>
 <body>
@@ -198,13 +200,12 @@ app.get('/dashboard', (req, res) => {
     function Dashboard() {
       const [features, setFeatures] = useState([]);
       const [loading, setLoading] = useState(true);
+      const [warnings, setWarnings] = useState([]);
       const [filterAreaPath, setFilterAreaPath] = useState([]);
       const [filterIteration, setFilterIteration] = useState([]);
       const [filterState, setFilterState] = useState([]);
       const [filterTargetDate, setFilterTargetDate] = useState([]);
       const [currentPage, setCurrentPage] = useState('features');
-      const [expandedRows, setExpandedRows] = useState({});
-      const [warnings, setWarnings] = useState([]);
 
       useEffect(() => {
         fetch('/api/features')
@@ -236,12 +237,6 @@ app.get('/dashboard', (req, res) => {
         }
         return areaOk && iterOk && stateOk && dateOk;
       });
-      
-      const getIterationName = (path) => {
-        if (!path) return 'N/A';
-        const parts = path.split('\\\\');
-        return parts[parts.length - 1];
-      };
 
       const adoLink = (id) => \`https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/\${id}\`;
 
@@ -254,94 +249,95 @@ app.get('/dashboard', (req, res) => {
         <div className="container">
           <div className="header">
             <h1>ADO Dashboard</h1>
-            {warnings.length > 0 && (
-              <div style={{ background: '#fff3cd', color: '#856404', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #ffc107' }}>
-                <strong>⚠️ Data Warnings:</strong>
-                {warnings.map((w, i) => <div key={i} style={{ fontSize: '13px', marginTop: '5px' }}>{w}</div>)}
-              </div>
-            )}
             <div className="tabs">
               <button className={'tab-btn' + (currentPage === 'features' ? ' active' : '')} onClick={() => setCurrentPage('features')}>Feature List</button>
             </div>
           </div>
 
-{currentPage === 'features' && (
-  <>
-    <div className="filters" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px', overflowX: 'auto', minHeight: '200px' }}>
-  
-  <div>
-    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Area Path</label>
-    <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '120px' }} onChange={(e) => setFilterAreaPath([...e.target.selectedOptions].map(o => o.value))}>
-      {areaPaths.map(area => (
-        <option key={area} value={area}>{area.split('\\\\').pop()}</option>
-      ))}
-    </select>
-    {filterAreaPath.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterAreaPath.length} seleccionados</p>}
-  </div>
+          {warnings.length > 0 && (
+            <div className="warnings">
+              <strong>⚠️ Data Warnings:</strong>
+              {warnings.map((w, i) => <div key={i} style={{ fontSize: '13px', marginTop: '5px' }}>{w}</div>)}
+            </div>
+          )}
 
-  <div>
-    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Iteration Path</label>
-    <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '120px' }} onChange={(e) => setFilterIteration([...e.target.selectedOptions].map(o => o.value))}>
-      {iterations.map(iter => (
-        <option key={iter} value={iter}>{iter}</option>
-      ))}
-    </select>
-    {filterIteration.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterIteration.length} seleccionados</p>}
-  </div>
+          {currentPage === 'features' && (
+            <>
+              <div className="filters" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+                
+                <div>
+                  <label className="filter-label">Area Path</label>
+                  <select multiple className="filter-select" onChange={(e) => setFilterAreaPath([...e.target.selectedOptions].map(o => o.value))}>
+                    {areaPaths.map(area => (
+                      <option key={area} value={area}>{area.split('\\\\').pop()}</option>
+                    ))}
+                  </select>
+                  {filterAreaPath.length > 0 && <p className="filter-count">{filterAreaPath.length} selected</p>}
+                </div>
 
-  <div>
-    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Estado</label>
-    <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '120px' }} onChange={(e) => setFilterState([...e.target.selectedOptions].map(o => o.value))}>
-      {states.map(state => (
-        <option key={state} value={state}>{state}</option>
-      ))}
-    </select>
-    {filterState.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterState.length} seleccionados</p>}
-  </div>
+                <div>
+                  <label className="filter-label">Iteration Path</label>
+                  <select multiple className="filter-select" onChange={(e) => setFilterIteration([...e.target.selectedOptions].map(o => o.value))}>
+                    {iterations.map(iter => (
+                      <option key={iter} value={iter}>{iter}</option>
+                    ))}
+                  </select>
+                  {filterIteration.length > 0 && <p className="filter-count">{filterIteration.length} selected</p>}
+                </div>
 
-  <div>
-    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Target Date (año)</label>
-    <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '120px' }} onChange={(e) => setFilterTargetDate([...e.target.selectedOptions].map(o => o.value))}>
-      {targetDates.map(year => (
-        <option key={year} value={year}>{year}</option>
-      ))}
-    </select>
-    {filterTargetDate.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterTargetDate.length} seleccionados</p>}
-  </div>
-</div>
+                <div>
+                  <label className="filter-label">State</label>
+                  <select multiple className="filter-select" onChange={(e) => setFilterState([...e.target.selectedOptions].map(o => o.value))}>
+                    {states.map(state => (
+                      <option key={state} value={state}>{state}</option>
+                    ))}
+                  </select>
+                  {filterState.length > 0 && <p className="filter-count">{filterState.length} selected</p>}
+                </div>
 
-<button style={{ width: '100%', padding: '10px 16px', background: '#dc3545', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '13px', marginBottom: '20px' }} onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); }}>
-  Clean Filters
-</button>
+                <div>
+                  <label className="filter-label">Target Date (year)</label>
+                  <select multiple className="filter-select" onChange={(e) => setFilterTargetDate([...e.target.selectedOptions].map(o => o.value))}>
+                    {targetDates.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                  {filterTargetDate.length > 0 && <p className="filter-count">{filterTargetDate.length} selected</p>}
+                </div>
+              </div>
 
-              {loading ? <div>Cargando...</div> : (
+              <button className="clear-btn" onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); }}>
+                Clear filters
+              </button>
+
+              {loading ? <div>Loading...</div> : (
                 <div className="table-wrapper">
-                  <p style={{ padding: '15px', color: '#666', fontSize: '13px' }}>Mostrando {filtered.length} de {features.length}</p>
+                  <p style={{ padding: '15px', color: '#666', fontSize: '13px' }}>Showing {filtered.length} of {features.length}</p>
                   <table>
                     <thead>
                       <tr>
+                        <th style={{ width: '30px' }}></th>
                         <th>ID</th>
                         <th>Feature</th>
                         <th>Area Path</th>
-                        <th>Iteración</th>
-                        <th>Prioridad</th>
+                        <th>Iteration</th>
+                        <th>Priority</th>
                         <th>Target Date</th>
                         <th>Planned Month</th>
                         <th>BE</th>
                         <th>FE</th>
                         <th>QA</th>
-                        <th>Estado</th>
+                        <th>State</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filtered.map(f => (
-                        <React.Fragment key={f.id}>
-                        <tr>
-                          <td style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setExpandedRows({...expandedRows, [f.id]: !expandedRows[f.id]})}>{f.stories && f.stories.length > 0 ? (expandedRows[f.id] ? '▼' : '►') : ''}</td>
+                        <tr key={f.id}>
+                          <td className="expand-btn">{f.stories && f.stories.length > 0 ? '►' : ''}</td>
                           <td><a href={adoLink(f.id)} target="_blank">{f.id}</a></td>
                           <td>{f.title.substring(0, 50)}</td>
                           <td style={{ fontSize: '11px' }}>{f.areaPath.split('\\\\').pop()}</td>
-                          <td style={{ fontSize: '11px' }}>{getIterationName(f.iterationPath)}</td>
+                          <td style={{ fontSize: '11px' }}>{f.iterationPath.split('\\\\').pop()}</td>
                           <td>{f.priority || '-'}</td>
                           <td style={{ fontSize: '11px' }}>{formatDate(f.targetDate)}</td>
                           <td>{f.plannedMonth || '-'}</td>
