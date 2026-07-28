@@ -17,55 +17,20 @@ app.get('/api/features', async (req, res) => {
       }
     });
 
-    const baseFilter = 'AND [System.State] <> "Removed" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")';
+    const r = await c.post('/wit/wiql?api-version=7.0', {
+      query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= @today - 180 AND [System.State] <> "Removed" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")'
+    });
 
-    const dateRanges = [
-      { from: '@today - 30', to: '@today' },
-      { from: '@today - 60', to: '@today - 30' },
-      { from: '@today - 90', to: '@today - 60' },
-      { from: '@today - 180', to: '@today - 90' }
-    ];
+    const ids = r.data.workItems.map(i => i.id).slice(0, 200);
+    if (!ids.length) return res.json({ features: [] });
 
-    let allIds = [];
-    const rangeCounts = {};
+    const b = await c.post('/wit/workitemsbatch?api-version=7.0', {
+      ids: ids,
+      fields: ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'System.IterationPath', 'Microsoft.VSTS.Common.Priority', 'Microsoft.VSTS.Scheduling.TargetDate', 'Custom.PlannedMonth', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing']
+    });
 
-    for (const range of dateRanges) {
-      try {
-        const r = await c.post('/wit/wiql?api-version=7.0', {
-          query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${baseFilter}`
-        });
-    
-        const ids = r.data.workItems.map(i => i.id);
-        rangeCounts[`${range.from} to ${range.to}`] = ids.length;
-        allIds = [...allIds, ...ids];
-      } catch (e) {
-        rangeCounts[`${range.from} to ${range.to}`] = 'ERROR: ' + e.message;
-      }
-    }
-
-    if (!allIds.length) return res.json({ features: [] });
-
-    // Dividir en lotes de 200 para el batch
-    const batchSize = 200;
-    let allIds = [];
-    const rangeCounts = {};
-
-    for (const range of dateRanges) {
-      try {
-        const r = await c.post('/wit/wiql?api-version=7.0', {
-          query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${baseFilter}`
-        });
-    
-        const ids = r.data.workItems.map(i => i.id);
-        rangeCounts[`${range.from} to ${range.to}`] = ids.length;
-        allIds = [...allIds, ...ids];
-      } catch (e) {
-        rangeCounts[`${range.from} to ${range.to}`] = 'ERROR: ' + e.message;
-      }
-    }
     res.json({
-      rangeCounts: rangeCounts,
-      features: allFeatures.map(i => ({
+      features: b.data.value.map(i => ({
         id: i.id,
         title: i.fields['System.Title'] || '',
         state: i.fields['System.State'] || '',
@@ -79,8 +44,7 @@ app.get('/api/features', async (req, res) => {
           fe: i.fields['Custom.FEEstimates'] || '',
           qa: i.fields['Custom.QASizing'] || ''
         }
-      })),
-      total: allFeatures.length
+      }))
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
