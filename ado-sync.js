@@ -68,7 +68,7 @@ app.get('/api/features', async (req, res) => {
     }
 
     // Obtener User Stories y Tasks
-		const storyQuery = `SELECT [System.Id], [System.Title], [System.WorkItemType], [System.Parent], [Microsoft.VSTS.Scheduling.StoryPoints], [System.State] FROM workitems WHERE [System.WorkItemType] = "User Story" AND (${baseFilter})`;
+		const storyQuery = 'SELECT [System.Id], [System.Title], [System.WorkItemType], [System.Parent], [Microsoft.VSTS.Scheduling.StoryPoints], [System.State] FROM workitems WHERE [System.WorkItemType] = "User Story" ORDER BY [System.Id] DESC';
 
 		let allStories = [];
 		let storyError = null;
