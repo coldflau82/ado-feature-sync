@@ -67,28 +67,64 @@ app.get('/api/features', async (req, res) => {
       }
     }
 
-   // Investigar qué tipos de work items existen
+   // Obtener User Stories usando el query que funciona
 const storiesByFeature = {};
 let totalStoriesFound = 0;
-let storyInvestigation = null;
+let storyDebug = null;
 
 try {
-  // Buscar items sin filtrar por tipo
-  const anyItemQuery = 'SELECT [System.Id], [System.WorkItemType] FROM workitems ORDER BY [System.Id] DESC';
-  
-  const anyItemResponse = await c.post('/wit/wiql?api-version=7.0', {
-    query: anyItemQuery
+  const storyQuery = `SELECT
+    [System.Id],
+    [System.WorkItemType],
+    [System.Title],
+    [System.State],
+    [Microsoft.VSTS.Scheduling.StoryPoints],
+    [System.Parent]
+FROM workitems
+WHERE
+    [System.TeamProject] = 'Commercial Engineering'
+    AND [System.ChangedDate] > @today - 180
+    AND [System.WorkItemType] = 'User Story'
+    AND (
+        [System.AreaPath] = 'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online'
+        OR [System.AreaPath] = 'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print'
+        OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout'
+        OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Global Product 1'
+        OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Global Product 2'
+        OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Global Product 3'
+    )
+    AND (
+        [System.State] <> 'Closed'
+        AND [System.State] <> 'Resolved'
+        AND [System.State] <> 'Removed'
+    )`;
+
+  const storyResponse = await c.post('/wit/wiql?api-version=7.0', {
+    query: storyQuery
   });
-  
-  const allTypes = [...new Set(anyItemResponse.data.workItems.map(i => i.fields['System.WorkItemType']))];
-  
-  storyInvestigation = {
-    totalItems: anyItemResponse.data.workItems.length,
-    workItemTypes: allTypes,
-    firstFewIds: anyItemResponse.data.workItems.slice(0, 5).map(i => ({ id: i.id, type: i.fields['System.WorkItemType'] }))
+
+  storyResponse.data.workItems.forEach(item => {
+    const parentId = item.fields['System.Parent'];
+    if (parentId) {
+      if (!storiesByFeature[parentId]) {
+        storiesByFeature[parentId] = [];
+      }
+      storiesByFeature[parentId].push({
+        id: item.id,
+        title: item.fields['System.Title'] || '',
+        storyPoints: item.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
+        state: item.fields['System.State'] || ''
+      });
+      totalStoriesFound++;
+    }
+  });
+
+  storyDebug = {
+    queriedItems: storyResponse.data.workItems.length,
+    storiesFound: totalStoriesFound
   };
 } catch (e) {
-  storyInvestigation = { error: e.message };
+  storyDebug = { error: e.message };
 }
     
     res.json({
