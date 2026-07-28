@@ -207,6 +207,9 @@ app.get('/dashboard', (req, res) => {
       const [filterTargetDate, setFilterTargetDate] = useState([]);
       const [currentPage, setCurrentPage] = useState('features');
       const [expandedRows, setExpandedRows] = useState({});
+      const [searchTitle, setSearchTitle] = useState('');
+      const [sortColumn, setSortColumn] = useState('id');
+      const [sortOrder, setSortOrder] = useState('asc');
 
       useEffect(() => {
         fetch('/api/features')
@@ -262,8 +265,18 @@ app.get('/dashboard', (req, res) => {
             </div>
           )}
 
-          {currentPage === 'features' && (
-            <>
+          {currentPage === 'features' && ( <>
+              <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Search Feature Title</label>
+                <input 
+                  type="text" 
+                  placeholder="Type feature title..." 
+                  value={searchTitle}
+                  onChange={(e) => setSearchTitle(e.target.value)}
+                  style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }}
+                />
+              </div>
+
               <div className="filters" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
                 
                 <div>
