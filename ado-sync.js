@@ -67,10 +67,56 @@ app.get('/api/features', async (req, res) => {
       }
     }
 
+    // Obtener User Stories y Tasks
+		const storyQuery = `SELECT [System.Id], [System.Title], [System.WorkItemType], [System.Parent], [Microsoft.VSTS.Scheduling.StoryPoints], [System.State] FROM workitems WHERE [System.WorkItemType] IN ('User Story', 'Task')`;
+
+		let allStories = [];
+				try {
+  		const storyResponse = await c.post('/wit/wiql?api-version=7.0', {
+    		query: storyQuery
+  		});
+  
+  		const storyIds = storyResponse.data.workItems.map(i => i.id);
+  		console.log('Total stories/tasks found:', storyIds.length);
+  
+  		if (storyIds.length > 0) {
+    		const storyBatchSize = 200;
+    		for (let i = 0; i < storyIds.length; i += storyBatchSize) {
+      		const storyBatch = await c.post('/wit/workitemsbatch?api-version=7.0', {
+        		ids: storyIds.slice(i, i + storyBatchSize),
+		        fields: ['System.Id', 'System.Title', 'System.WorkItemType', 'System.Parent', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State']
+		      });
+      
+ 		     allStories = [...allStories, ...storyBatch.data.value];
+		    }
+		  }
+		} catch (e) {
+		  console.log('Error fetching stories:', e.message);
+		}
+
+		// Agrupar stories por Feature padre
+		const storiesByFeature = {};
+		allStories.forEach(story => {
+  		const parentId = story.fields['System.Parent'];
+  		if (parentId) {
+    		if (!storiesByFeature[parentId]) {
+      		storiesByFeature[parentId] = [];
+    		}
+    		storiesByFeature[parentId].push({
+      		id: story.id,
+      		title: story.fields['System.Title'] || '',
+      		type: story.fields['System.WorkItemType'] || '',
+      		storyPoints: story.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
+      		state: story.fields['System.State'] || ''
+    		});
+  		}
+		});
+    
     res.json({
       rangeCounts: rangeCounts,
       warnings: warnings,
       total: allFeatures.length,
+      totalStories: allStories.length,
       features: allFeatures.map(i => ({
         id: i.id,
         title: i.fields['System.Title'] || '',
@@ -84,9 +130,9 @@ app.get('/api/features', async (req, res) => {
           be: i.fields['Custom.BEEstimate'] || '',
           fe: i.fields['Custom.FEEstimates'] || '',
           qa: i.fields['Custom.QASizing'] || ''
-        }
-      })),
-      total: allFeatures.length
+        },
+        stories: storiesByFeature[i.id] || []
+      }))
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
