@@ -67,62 +67,35 @@ app.get('/api/features', async (req, res) => {
       }
     }
 
-    // Obtener User Stories y Tasks
-		const storyQuery = 'SELECT [System.Id], [System.Title], [System.WorkItemType] FROM workitems WHERE [System.Parent] <> ""';
+    // Obtener User Stories de cada Feature usando Relations
+    const storiesByFeature = {};
+    let totalStoriesFound = 0;
 
-		let allStories = [];
-		let storyError = null;
-		let storyQueryResult = 0;
-
-		try {
-  		const storyResponse = await c.post('/wit/wiql?api-version=7.0', {
-    		query: storyQuery
-  		});
-  
-  		storyQueryResult = storyResponse.data.workItems.length;
-  		const storyIds = storyResponse.data.workItems.map(i => i.id);
-  		console.log('Total stories/tasks found:', storyIds.length);
-  
-  		if (storyIds.length > 0) {
-    		const storyBatchSize = 200;
-    		for (let i = 0; i < storyIds.length; i += storyBatchSize) {
-      		const storyBatch = await c.post('/wit/workitemsbatch?api-version=7.0', {
-        		ids: storyIds.slice(i, i + storyBatchSize),
-		        fields: ['System.Id', 'System.Title', 'System.WorkItemType', 'System.Parent', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State']
-		      });
-      
- 		     allStories = [...allStories, ...storyBatch.data.value];
-		    }
-		  }
-		} catch (e) {
-			storyError = e.message;
-			console.log('Error fetching stories:', e.message);
-		}
-
-		// Agrupar stories por Feature padre
-		const storiesByFeature = {};
-		allStories.forEach(story => {
-  		const parentId = story.fields['System.Parent'];
-  		if (parentId) {
-    		if (!storiesByFeature[parentId]) {
-      		storiesByFeature[parentId] = [];
-    		}
-    		storiesByFeature[parentId].push({
-      		id: story.id,
-      		title: story.fields['System.Title'] || '',
-      		type: story.fields['System.WorkItemType'] || '',
-      		storyPoints: story.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
-      		state: story.fields['System.State'] || ''
-    		});
-  		}
-		});
+    for (const feature of allFeatures) {
+      try {
+        const relationsResponse = await c.get(`/workitems/${feature.id}/relations`);
+    
+        const stories = relationsResponse.data.value.filter(rel => 
+          rel.rel === 'System.LinkTypes.Hierarchy-Forward'
+        ).map(rel => ({
+          id: rel.url.split('/').pop(),
+          type: 'Story'
+        }));
+    
+        if (stories.length > 0) {
+          storiesByFeature[feature.id] = stories;
+          totalStoriesFound += stories.length;
+        }
+      } catch (e) {
+        // Silently continue si no hay relaciones
+      }
+    }
     
     res.json({
       rangeCounts: rangeCounts,
       warnings: warnings,
-	  storyDebug: { storyQueryResult, storyError },
-      total: allFeatures.length,
-      totalStories: allStories.length,
+	  total: allFeatures.length,
+      totalStories: totalStoriesFound,
       features: allFeatures.map(i => ({
         id: i.id,
         title: i.fields['System.Title'] || '',
