@@ -203,6 +203,7 @@ app.get('/dashboard', (req, res) => {
       const [filterState, setFilterState] = useState([]);
       const [filterTargetDate, setFilterTargetDate] = useState([]);
       const [currentPage, setCurrentPage] = useState('features');
+      const [expandedRows, setExpandedRows] = useState({});
       const [warnings, setWarnings] = useState([]);
 
       useEffect(() => {
@@ -334,7 +335,9 @@ app.get('/dashboard', (req, res) => {
                     </thead>
                     <tbody>
                       {filtered.map(f => (
-                        <tr key={f.id}>
+                        <React.Fragment key={f.id}>
+                        <tr>
+                          <td style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setExpandedRows({...expandedRows, [f.id]: !expandedRows[f.id]})}>{f.stories && f.stories.length > 0 ? (expandedRows[f.id] ? '▼' : '►') : ''}</td>
                           <td><a href={adoLink(f.id)} target="_blank">{f.id}</a></td>
                           <td>{f.title.substring(0, 50)}</td>
                           <td style={{ fontSize: '11px' }}>{f.areaPath.split('\\\\').pop()}</td>
