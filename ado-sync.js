@@ -333,8 +333,9 @@ app.get('/dashboard', (req, res) => {
                     </thead>
                     <tbody>
                       {filtered.map(f => (
-                        <tr key={f.id}>
-                          <td className="expand-btn" onClick={() => setExpandedRows({...expandedRows, [f.id]: !expandedRows[f.id]})}>
+                          <React.Fragment key={f.id}>
+                              <tr>
+                                <td className="expand-btn" onClick={() => setExpandedRows({...expandedRows, [f.id]: !expandedRows[f.id]})}>
                             {f.stories && f.stories.length > 0 ? (expandedRows[f.id] ? '▼' : '►') : ''}
                           </td>
                           <td><a href={adoLink(f.id)} target="_blank">{f.id}</a></td>
@@ -349,6 +350,22 @@ app.get('/dashboard', (req, res) => {
                           <td>{f.estimation.qa || '-'}</td>
                           <td>{f.state}</td>
                         </tr>
+                          {expandedRows[f.id] && f.stories && f.stories.length > 0 && (
+                            <tr style={{ background: '#f9f9f9' }}>
+                            <td colSpan="12" style={{ paddingLeft: '60px', paddingTop: '15px', paddingBottom: '15px' }}>
+                              <div>
+                              <strong style={{ marginBottom: '10px', display: 'block' }}>User Stories ({f.stories.length}):</strong>
+                              {f.stories.map(story => (
+                                <div key={story.id} style={{ padding: '8px', marginBottom: '8px', background: 'white', borderLeft: '3px solid #007bff', paddingLeft: '12px', borderRadius: '4px' }}>
+                                  <strong>#{story.id}</strong> - {story.title} <br/>
+                                  <span style={{ fontSize: '11px', color: '#666' }}>Points: {story.storyPoints} | State: {story.state}</span>
+                              </div>
+                              ))}
+                            </div>
+                            </td>
+                          </tr>
+                        )}
+                        </React.Fragment>
                       ))}
                     </tbody>
                   </table>
