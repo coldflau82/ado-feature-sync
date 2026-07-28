@@ -92,7 +92,10 @@ app.get('/dashboard', (req, res) => {
     function Dashboard() {
       const [features, setFeatures] = useState([]);
       const [loading, setLoading] = useState(true);
-      const [filterIteration, setFilterIteration] = useState('all');
+      const [filterAreaPath, setFilterAreaPath] = useState([]);
+      const [filterIteration, setFilterIteration] = useState([]);
+      const [filterState, setFilterState] = useState([]);
+      const [filterTargetDate, setFilterTargetDate] = useState([]);
       const [currentPage, setCurrentPage] = useState('features');
 
       useEffect(() => {
@@ -104,10 +107,27 @@ app.get('/dashboard', (req, res) => {
           });
       }, []);
 
+      const areaPaths = [...new Set(features.map(f => f.areaPath).filter(a => a))].sort();
       const iterations = [...new Set(features.map(f => f.iterationPath).filter(a => a))].sort();
-      const filtered = filterIteration === 'all' ? features : features.filter(f => f.iterationPath === filterIteration);
-      const counts = { all: features.length, ...Object.fromEntries(iterations.map(a => [a, features.filter(f => f.iterationPath === a).length])) };
+      const states = [...new Set(features.map(f => f.state).filter(a => a))].sort();
+      const targetDates = [...new Set(features.map(f => {
+        if (!f.targetDate) return null;
+        const date = new Date(f.targetDate);
+        return String(date.getFullYear());
+      }).filter(a => a))].sort().reverse();
 
+      const filtered = features.filter(f => {
+        const areaOk = filterAreaPath.length === 0 || filterAreaPath.includes(f.areaPath);
+        const iterOk = filterIteration.length === 0 || filterIteration.includes(f.iterationPath);
+        const stateOk = filterState.length === 0 || filterState.includes(f.state);
+        let dateOk = filterTargetDate.length === 0;
+        if (filterTargetDate.length > 0 && f.targetDate) {
+          const year = new Date(f.targetDate).getFullYear();
+          dateOk = filterTargetDate.includes(String(year));
+        }
+        return areaOk && iterOk && stateOk && dateOk;
+      });
+      
       const getIterationName = (path) => {
         if (!path) return 'N/A';
         const parts = path.split('\\\\');
@@ -132,47 +152,52 @@ app.get('/dashboard', (req, res) => {
 
 {currentPage === 'features' && (
   <>
-    <div className="filters" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', background: 'white', padding: '20px', borderRadius: '8px' }}>
-      
+    <div className="filters" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+  
       <div>
         <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Area Path</label>
-        <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '100px' }}>
-          {[...new Set(features.map(f => f.areaPath).filter(a => a))].map(area => (
+        <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '100px' }} onChange={(e) => setFilterAreaPath([...e.target.selectedOptions].map(o => o.value))}>
+          {areaPaths.map(area => (
             <option key={area} value={area}>{area.split('\\\\').pop()}</option>
           ))}
         </select>
+        {filterAreaPath.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterAreaPath.length} seleccionados</p>}
       </div>
 
       <div>
         <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Iteration Path</label>
         <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '100px' }} onChange={(e) => setFilterIteration([...e.target.selectedOptions].map(o => o.value))}>
-          <option value="">-- Selecciona --</option>
           {iterations.map(iter => (
-            <option key={iter} value={iter}>{getIterationName(iter)}</option>
+            <option key={iter} value={iter}>{iter}</option>
           ))}
         </select>
+        {filterIteration.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterIteration.length} seleccionados</p>}
       </div>
-
+    
       <div>
         <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Estado</label>
-        <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '100px' }}>
-          {[...new Set(features.map(f => f.state).filter(a => a))].map(state => (
+        <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '100px' }} onChange={(e) => setFilterState([...e.target.selectedOptions].map(o => o.value))}>
+          {states.map(state => (
             <option key={state} value={state}>{state}</option>
           ))}
         </select>
+        {filterState.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterState.length} seleccionados</p>}
       </div>
-
+    
       <div>
-        <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Target Date (mm/yyyy)</label>
-        <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '100px' }}>
-          {[...new Set(features.map(f => {
-            if (!f.targetDate) return null;
-            const date = new Date(f.targetDate);
-            return String(date.getMonth() + 1).padStart(2, '0') + '/' + date.getFullYear();
-          }).filter(a => a))].sort().map(date => (
-            <option key={date} value={date}>{date}</option>
+        <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Target Date (año)</label>
+        <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '100px' }} onChange={(e) => setFilterTargetDate([...e.target.selectedOptions].map(o => o.value))}>
+          {targetDates.map(year => (
+            <option key={year} value={year}>{year}</option>
           ))}
         </select>
+        {filterTargetDate.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterTargetDate.length} seleccionados</p>}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+        <button style={{ width: '100%', padding: '8px 16px', background: '#dc3545', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold' }} onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); }}>
+          Clean Filters
+        </button>
       </div>
     </div>
 
