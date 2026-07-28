@@ -67,20 +67,13 @@ app.get('/api/features', async (req, res) => {
       }
     }
 
-// Obtener User Stories usando el query que funciona
+// Obtener User Stories usando batch
 const storiesByFeature = {};
 let totalStoriesFound = 0;
 let storyDebug = null;
 
 try {
-  const storyQuery = `SELECT
-    [System.Id],
-    [System.WorkItemType],
-    [System.Title],
-    [System.State],
-    [Microsoft.VSTS.Scheduling.StoryPoints],
-    [System.Parent]
-FROM workitems
+  const storyQuery = `SELECT [System.Id] FROM workitems
 WHERE
     [System.TeamProject] = 'Commercial Engineering'
     AND [System.ChangedDate] > @today - 180
@@ -103,33 +96,39 @@ WHERE
     query: storyQuery
   });
 
-  if (storyResponse.data.workItems.length > 0) {
-    const firstItem = storyResponse.data.workItems[0];
-    storyDebug = {
-      totalQueried: storyResponse.data.workItems.length,
-      firstItemKeys: Object.keys(firstItem),
-      firstItemContent: JSON.stringify(firstItem).substring(0, 500)
-    };
-    
-    storyResponse.data.workItems.forEach(item => {
-      const parentId = item.fields['System.Parent'];
-      if (parentId) {
-        if (!storiesByFeature[parentId]) {
-          storiesByFeature[parentId] = [];
+  const storyIds = storyResponse.data.workItems.map(i => i.id);
+  storyDebug = { queriedStories: storyIds.length };
+
+  if (storyIds.length > 0) {
+    // Batch para obtener detalles de stories
+    const storyBatchSize = 200;
+    for (let i = 0; i < storyIds.length; i += storyBatchSize) {
+      const storyBatch = await c.post('/wit/workitemsbatch?api-version=7.0', {
+        ids: storyIds.slice(i, i + storyBatchSize),
+        fields: ['System.Id', 'System.Title', 'System.Parent', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State']
+      });
+
+      storyBatch.data.value.forEach(story => {
+        const parentId = story.fields['System.Parent'];
+        if (parentId) {
+          if (!storiesByFeature[parentId]) {
+            storiesByFeature[parentId] = [];
+          }
+          storiesByFeature[parentId].push({
+            id: story.id,
+            title: story.fields['System.Title'] || '',
+            storyPoints: story.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
+            state: story.fields['System.State'] || ''
+          });
+          totalStoriesFound++;
         }
-        storiesByFeature[parentId].push({
-          id: item.id,
-          title: item.fields['System.Title'] || '',
-          storyPoints: item.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
-          state: item.fields['System.State'] || ''
-        });
-        totalStoriesFound++;
-      }
-    });
+      });
+    }
   }
 } catch (e) {
   storyDebug = { error: e.message };
-}  
+}
+
     res.json({
       rangeCounts: rangeCounts,
   	  warnings: warnings,
