@@ -103,30 +103,19 @@ WHERE
     query: storyQuery
   });
 
-  storyResponse.data.workItems.forEach(item => {
-    const parentId = item.fields['System.Parent'];
-    if (parentId) {
-      if (!storiesByFeature[parentId]) {
-        storiesByFeature[parentId] = [];
-      }
-      storiesByFeature[parentId].push({
-        id: item.id,
-        title: item.fields['System.Title'] || '',
-        storyPoints: item.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
-        state: item.fields['System.State'] || ''
-      });
-      totalStoriesFound++;
-    }
-  });
-
+  // Debug: ver estructura del primer item
+if (storyResponse.data.workItems.length > 0) {
+  const firstItem = storyResponse.data.workItems[0];
   storyDebug = {
-    queriedItems: storyResponse.data.workItems.length,
-    storiesFound: totalStoriesFound
+    firstItemStructure: {
+      keys: Object.keys(firstItem),
+      fieldsKeys: firstItem.fields ? Object.keys(firstItem.fields) : 'NO FIELDS',
+      parentValue: firstItem.fields ? firstItem.fields['System.Parent'] : 'NO FIELDS OBJECT'
+    }
   };
-} catch (e) {
-  storyDebug = { error: e.message };
 }
-    
+
+return    
     res.json({
       rangeCounts: rangeCounts,
   	  warnings: warnings,
