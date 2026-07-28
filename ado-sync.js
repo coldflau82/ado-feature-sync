@@ -34,7 +34,7 @@ app.get('/api/features', async (req, res) => {
     for (const range of dateRanges) {
       try {
         const r = await c.post('/wit/wiql?api-version=7.0', {
-          query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${baseFilter}`
+          const storyQuery = `SELECT [System.Id], [System.Title], [System.WorkItemType], [System.Parent], [Microsoft.VSTS.Scheduling.StoryPoints], [System.State] FROM workitems WHERE ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Task')`;
         });
     
         const ids = r.data.workItems.map(i => i.id);
