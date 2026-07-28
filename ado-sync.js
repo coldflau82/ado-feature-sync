@@ -33,8 +33,9 @@ app.get('/api/features', async (req, res) => {
         const r = await c.post('/wit/wiql?api-version=7.0', {
           query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${baseFilter}`
         });
-        
+    
         const ids = r.data.workItems.map(i => i.id);
+        console.log(`Range ${range.from} to ${range.to}: ${ids.length} items`);
         allIds = [...allIds, ...ids];
       } catch (e) {
         console.log(`Query range ${range.from} to ${range.to} failed:`, e.message);
