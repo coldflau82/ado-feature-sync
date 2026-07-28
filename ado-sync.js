@@ -348,7 +348,7 @@ app.get('/dashboard', (req, res) => {
 
               {loading ? <div>Loading...</div> : (
                 <div className="table-wrapper">
-                  <p style={{ padding: '15px', color: '#666', fontSize: '13px' }}>Showing {filtered.length} of {features.length}</p>
+                  <p style={{ padding: '15px', color: '#666', fontSize: '13px' }}>Showing {sortedFiltered.length} of {features.length}</p>
                   <table>
                     <thead>
                       <tr>
@@ -381,8 +381,8 @@ app.get('/dashboard', (req, res) => {
                         </tr>
                       </thead>
                     <tbody>
-                      {filtered.map(f => (
-                          <React.Fragment key={f.id}>
+                     {sortedFiltered.map(f => (
+                        <React.Fragment key={f.id}>
                               <tr>
                                 <td className="expand-btn" onClick={() => setExpandedRows({...expandedRows, [f.id]: !expandedRows[f.id]})}>
                             {f.stories && f.stories.length > 0 ? (expandedRows[f.id] ? '▼' : '►') : ''}
