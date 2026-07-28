@@ -154,52 +154,52 @@ app.get('/dashboard', (req, res) => {
   <>
     <div className="filters" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
   
-      <div>
-        <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Area Path</label>
-        <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '100px' }} onChange={(e) => setFilterAreaPath([...e.target.selectedOptions].map(o => o.value))}>
-          {areaPaths.map(area => (
-            <option key={area} value={area}>{area.split('\\\\').pop()}</option>
-          ))}
-        </select>
-        {filterAreaPath.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterAreaPath.length} seleccionados</p>}
-      </div>
+  <div>
+    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Area Path</label>
+    <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '120px' }} onChange={(e) => setFilterAreaPath([...e.target.selectedOptions].map(o => o.value))}>
+      {areaPaths.map(area => (
+        <option key={area} value={area}>{area.split('\\\\').pop()}</option>
+      ))}
+    </select>
+    {filterAreaPath.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterAreaPath.length} seleccionados</p>}
+  </div>
 
-      <div>
-        <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Iteration Path</label>
-        <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '100px' }} onChange={(e) => setFilterIteration([...e.target.selectedOptions].map(o => o.value))}>
-          {iterations.map(iter => (
-            <option key={iter} value={iter}>{iter}</option>
-          ))}
-        </select>
-        {filterIteration.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterIteration.length} seleccionados</p>}
-      </div>
-    
-      <div>
-        <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Estado</label>
-        <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '100px' }} onChange={(e) => setFilterState([...e.target.selectedOptions].map(o => o.value))}>
-          {states.map(state => (
-            <option key={state} value={state}>{state}</option>
-          ))}
-        </select>
-        {filterState.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterState.length} seleccionados</p>}
-      </div>
-    
-      <div>
-        <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Target Date (año)</label>
-        <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '100px' }} onChange={(e) => setFilterTargetDate([...e.target.selectedOptions].map(o => o.value))}>
-          {targetDates.map(year => (
-            <option key={year} value={year}>{year}</option>
-          ))}
-        </select>
-        {filterTargetDate.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterTargetDate.length} seleccionados</p>}
-      </div>
+  <div style={{ gridColumn: '1 / -1' }}>
+    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Iteration Path</label>
+    <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '150px' }} onChange={(e) => setFilterIteration([...e.target.selectedOptions].map(o => o.value))}>
+      {iterations.map(iter => (
+        <option key={iter} value={iter}>{iter}</option>
+      ))}
+    </select>
+    {filterIteration.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterIteration.length} seleccionados</p>}
+  </div>
 
-      <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-        <button style={{ width: '100%', padding: '8px 16px', background: '#dc3545', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold' }} onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); }}>
-          Clean Filters
-        </button>
-      </div>
-    </div>
+  <div>
+    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Estado</label>
+    <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '120px' }} onChange={(e) => setFilterState([...e.target.selectedOptions].map(o => o.value))}>
+      {states.map(state => (
+        <option key={state} value={state}>{state}</option>
+      ))}
+    </select>
+    {filterState.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterState.length} seleccionados</p>}
+  </div>
+
+  <div>
+    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Target Date (año)</label>
+    <select multiple style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '120px' }} onChange={(e) => setFilterTargetDate([...e.target.selectedOptions].map(o => o.value))}>
+      {targetDates.map(year => (
+        <option key={year} value={year}>{year}</option>
+      ))}
+    </select>
+    {filterTargetDate.length > 0 && <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>{filterTargetDate.length} seleccionados</p>}
+  </div>
+
+  <div style={{ gridColumn: '1 / -1' }}>
+    <button style={{ width: '100%', padding: '10px 16px', background: '#dc3545', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '13px' }} onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); }}>
+      Limpiar filtros
+    </button>
+  </div>
+</div>
 
               {loading ? <div>Cargando...</div> : (
                 <div className="table-wrapper">
