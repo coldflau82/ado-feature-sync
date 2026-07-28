@@ -99,8 +99,9 @@ try {
     
     res.json({
       rangeCounts: rangeCounts,
-      warnings: warnings,
-	  total: allFeatures.length,
+  	  warnings: warnings,
+      storyInvestigation: storyInvestigation,
+      total: allFeatures.length,
       totalStories: totalStoriesFound,
       features: allFeatures.map(i => ({
         id: i.id,
