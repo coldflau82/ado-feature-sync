@@ -139,12 +139,14 @@ app.get('/dashboard', (req, res) => {
       const [filterState, setFilterState] = useState([]);
       const [filterTargetDate, setFilterTargetDate] = useState([]);
       const [currentPage, setCurrentPage] = useState('features');
+      const [warnings, setWarnings] = useState([]);
 
       useEffect(() => {
         fetch('/api/features')
           .then(r => r.json())
           .then(d => {
             setFeatures(d.features || []);
+            setWarnings(d.warnings || []);
             setLoading(false);
           });
       }, []);
@@ -187,6 +189,12 @@ app.get('/dashboard', (req, res) => {
         <div className="container">
           <div className="header">
             <h1>ADO Dashboard</h1>
+            {warnings.length > 0 && (
+              <div style={{ background: '#fff3cd', color: '#856404', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #ffc107' }}>
+                <strong>⚠️ Data Warnings:</strong>
+                {warnings.map((w, i) => <div key={i} style={{ fontSize: '13px', marginTop: '5px' }}>{w}</div>)}
+              </div>
+            )}
             <div className="tabs">
               <button className={'tab-btn' + (currentPage === 'features' ? ' active' : '')} onClick={() => setCurrentPage('features')}>Feature List</button>
             </div>
