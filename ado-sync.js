@@ -1,4 +1,4 @@
-require('dotenv').config();
+  require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 
@@ -17,11 +17,13 @@ app.get('/api/features', async (req, res) => {
       }
     });
 
-     const r = await c.post('/wit/wiql?api-version=7.0', {
+    const r = await c.post('/wit/wiql?api-version=7.0', {
       query: 'SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= @today - 180 AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")'
     });
 
-    const ids = r.data.workItems.map(i => i.id).slice(0, 253);
+    console.log('Items found:', r.data.workItems.length);
+    const ids = r.data.workItems.map(i => i.id).slice(0, 200);
+    
     if (!ids.length) return res.json({ features: [] });
 
     const b = await c.post('/wit/workitemsbatch?api-version=7.0', {
@@ -87,11 +89,12 @@ app.get('/dashboard', (req, res) => {
       const [loading, setLoading] = useState(true);
       const [filterArea, setFilterArea] = useState('all');
 
-      useEffect(() => {
+    useEffect(() => {
         fetch('/api/features')
           .then(r => r.json())
           .then(d => {
-            setFeatures(d.features || []);
+            const filtered = (d.features || []);
+            setFeatures(filtered);
             setLoading(false);
           });
       }, []);
@@ -100,16 +103,11 @@ app.get('/dashboard', (req, res) => {
       const filtered = filterArea === 'all' ? features : features.filter(f => f.areaPath === filterArea);
       const counts = { all: features.length, ...Object.fromEntries(areas.map(a => [a, features.filter(f => f.areaPath === a).length])) };
 
-      const areaNames = {
-        'Commercial Engineering\\\\Go To Market\\\\Digital Sales Enablement\\\\Service-Online': 'Service-Online',
-        'Commercial Engineering\\\\Go To Market\\\\Digital Sales Enablement\\\\Service-Print': 'Service-Print',
-        'Commercial Engineering\\\\Digital\\\\Acquisition\\\\Cart and Checkout': 'Cart and Checkout',
-        'Commercial Engineering\\\\Digital\\\\Acquisition\\\\Global Product 1': 'Global Product 1',
-        'Commercial Engineering\\\\Digital\\\\Acquisition\\\\Global Product 2': 'Global Product 2',
-        'Commercial Engineering\\\\Digital\\\\Acquisition\\\\Global Product 3': 'Global Product 3'
+      const getAreaName = (path) => {
+        if (!path) return 'N/A';
+        const parts = path.split('\\\\\\\\');
+        return parts[parts.length - 1].substring(0, 30);
       };
-
-      const getAreaName = (path) => areaNames[path] || path;
 
       const adoLink = (id) => \`https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/\${id}\`;
 
@@ -122,7 +120,7 @@ app.get('/dashboard', (req, res) => {
 
           <div className="filters">
             <button
-              className={filterArea === 'all' ? 'filter-btn active' : 'filter-btn'}
+              className={\`filter-btn \${filterArea === 'all' ? 'active' : ''}\`}
               onClick={() => setFilterArea('all')}
             >
               Todas ({counts.all})
@@ -131,7 +129,7 @@ app.get('/dashboard', (req, res) => {
             {areas.map(area => (
               <button
                 key={area}
-                className={filterArea === area ? 'filter-btn active' : 'filter-btn'}
+                className={\`filter-btn \${filterArea === area ? 'active' : ''}\`}
                 onClick={() => setFilterArea(area)}
               >
                 {getAreaName(area)} ({counts[area]})
