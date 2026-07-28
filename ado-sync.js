@@ -206,6 +206,7 @@ app.get('/dashboard', (req, res) => {
       const [filterState, setFilterState] = useState([]);
       const [filterTargetDate, setFilterTargetDate] = useState([]);
       const [currentPage, setCurrentPage] = useState('features');
+      const [expandedRows, setExpandedRows] = useState({});
 
       useEffect(() => {
         fetch('/api/features')
