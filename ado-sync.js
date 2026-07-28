@@ -108,9 +108,9 @@ WHERE
     storyDebug = {
       totalQueried: storyResponse.data.workItems.length,
       firstItemKeys: Object.keys(firstItem),
-      firstItemFieldsKeys: firstItem.fields ? Object.keys(firstItem.fields).slice(0, 5) : 'NO FIELDS'
+      firstItemContent: JSON.stringify(firstItem).substring(0, 500)
     };
-
+    
     storyResponse.data.workItems.forEach(item => {
       const parentId = item.fields['System.Parent'];
       if (parentId) {
