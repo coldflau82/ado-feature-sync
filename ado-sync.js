@@ -20,7 +20,9 @@ app.get('/api/features', async (req, res) => {
     const baseFilter = 'AND [System.State] <> "Removed" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")';
 
     const dateRanges = [
-      { from: '@today - 30', to: '@today' },
+      { from: '@today - 10', to: '@today' },
+      { from: '@today - 20', to: '@today - 10' },
+      { from: '@today - 30', to: '@today - 20' },
       { from: '@today - 60', to: '@today - 30' },
       { from: '@today - 90', to: '@today - 60' },
       { from: '@today - 180', to: '@today - 90' }
