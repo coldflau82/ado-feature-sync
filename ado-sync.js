@@ -334,7 +334,9 @@ app.get('/dashboard', (req, res) => {
                     <tbody>
                       {filtered.map(f => (
                         <tr key={f.id}>
-                          <td className="expand-btn">{f.stories && f.stories.length > 0 ? '►' : ''}</td>
+                          <td className="expand-btn" onClick={() => setExpandedRows({...expandedRows, [f.id]: !expandedRows[f.id]})}>
+                            {f.stories && f.stories.length > 0 ? (expandedRows[f.id] ? '▼' : '►') : ''}
+                          </td>
                           <td><a href={adoLink(f.id)} target="_blank">{f.id}</a></td>
                           <td>{f.title.substring(0, 50)}</td>
                           <td style={{ fontSize: '11px' }}>{f.areaPath.split('\\\\').pop()}</td>
