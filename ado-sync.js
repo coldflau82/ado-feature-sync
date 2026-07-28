@@ -1,4 +1,4 @@
-  require('dotenv').config();
+require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 
@@ -105,8 +105,12 @@ app.get('/dashboard', (req, res) => {
 
       const getAreaName = (path) => {
         if (!path) return 'N/A';
-        const parts = path.split('\\\\\\\\');
-        return parts[parts.length - 1].substring(0, 30);
+        const parts = path.split('\\\\');
+        // Tomar los últimos 2 segmentos
+        if (parts.length >= 2) {
+        return (parts[parts.length - 2] + ' - ' + parts[parts.length - 1]);
+        }
+        return parts[parts.length - 1];
       };
 
       const adoLink = (id) => \`https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/\${id}\`;
