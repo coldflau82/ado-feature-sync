@@ -248,7 +248,7 @@ app.get('/dashboard', (req, res) => {
       const [loading, setLoading] = useState(true);
 
       useEffect(() => {
-        fetch(`/api/feature-history/${featureId}`)
+        fetch('/api/feature-history/' + featureId)
           .then(res => res.json())
           .then(data => {
             setStates(data.stateChanges || []);
