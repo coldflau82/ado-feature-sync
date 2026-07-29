@@ -316,9 +316,7 @@ app.get('/dashboard', (req, res) => {
             </div>
           )}
 
-          {currentPage === 'features' && (
-            <>
-              <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px', display: 'flex', gap: '15px', alignItems: 'flex-end' }}>
+          <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px', display: 'flex', gap: '15px', alignItems: 'flex-end' }}>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Search Feature Title</label>
                   <input 
@@ -377,6 +375,8 @@ app.get('/dashboard', (req, res) => {
                 </div>
               </div>
 
+          {currentPage === 'features' && (
+            <>
               {loading ? <div>Loading...</div> : (
                 <div className="table-wrapper">
                   <p style={{ padding: '15px', color: '#666', fontSize: '13px' }}>Showing {sortedFiltered.length} of {features.length}</p>
