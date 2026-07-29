@@ -7,6 +7,42 @@ app.use(express.json());
 
 app.get('/api/health', (req, res) => res.json({ ok: 1 }));
 
+app.get('/api/feature-history/:id', async (req, res) => {
+  try {
+    const c = axios.create({
+      baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
+      headers: { 
+        Authorization: `Basic ${Buffer.from(`:${process.env.ADO_PAT}`).toString('base64')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const featureId = req.params.id;
+    const revisionsResponse = await c.get(`/workitems/${featureId}/revisions?api-version=7.0`);
+
+    const stateChanges = [];
+    
+    revisionsResponse.data.value.forEach(revision => {
+      if (revision.fields && revision.fields['System.State']) {
+        stateChanges.push({
+          rev: revision.rev,
+          state: revision.fields['System.State'].newValue || '',
+          changedDate: revision.changedDate,
+          changedBy: revision.changedBy?.displayName || 'System'
+        });
+      }
+    });
+
+    res.json({
+      id: featureId,
+      stateChanges: stateChanges,
+      totalRevisions: revisionsResponse.data.value.length
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/features', async (req, res) => {
   try {
     const c = axios.create({
