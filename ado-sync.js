@@ -498,6 +498,8 @@ app.get('/dashboard', (req, res) => {
                 </div>
               )}
            </>
+          )} 
+          </>
           )}
 
           {currentPage === 'roadmap' && (
@@ -522,7 +524,7 @@ app.get('/dashboard', (req, res) => {
             </>
           )}
         </>
-      )}          
+      )}
       </div>
       );
     }
