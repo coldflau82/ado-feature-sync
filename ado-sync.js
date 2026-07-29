@@ -25,22 +25,25 @@ app.get('/api/feature-history/:id', async (req, res) => {
     const revisionsResponse = await c.get(`/wit/workitems/${featureId}/revisions?api-version=7.0`);
 
     const stateChanges = [];
-    let debugFirstRevision = revisionsResponse.data.value[0];
+    let previousState = null;
 
     revisionsResponse.data.value.forEach(revision => {
-      if (revision.fields && revision.fields['System.State']) {
+      const currentState = revision.fields['System.State'];
+  
+      // Solo agregar si el estado cambió o es la primera revisión
+      if (currentState && currentState !== previousState) {
         stateChanges.push({
           rev: revision.rev,
-          state: revision.fields['System.State'].newValue || '',
+          state: currentState,
           changedDate: revision.changedDate,
           changedBy: revision.changedBy?.displayName || 'System'
         });
+        previousState = currentState;
       }
     });
 
     res.json({
       id: featureId,
-      debugFirstRevision: debugFirstRevision,
       stateChanges: stateChanges,
       totalRevisions: revisionsResponse.data.value.length
     });
