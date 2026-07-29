@@ -9,7 +9,11 @@ app.get('/api/health', (req, res) => res.json({ ok: 1 }));
 
 app.get('/api/feature-history/:id', async (req, res) => {
   try {
+    const featureId = req.params.id;
+    console.log('1. Starting history fetch for ID:', featureId);
+    
     const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
+    console.log('2. Auth header created');
     
     const c = axios.create({
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
@@ -18,19 +22,19 @@ app.get('/api/feature-history/:id', async (req, res) => {
         'Content-Type': 'application/json'
       }
     });
+    console.log('3. Client created');
 
-    const featureId = req.params.id;
-    console.log('Fetching history for feature:', featureId);
+    const url = `/wit/workitems/${featureId}/revisions?api-version=7.0`;
+    console.log('4. Requesting:', url);
     
-    const revisionsResponse = await c.get(`/wit/workitems/${featureId}/revisions?api-version=7.0`);
+    const revisionsResponse = await c.get(url);
+    console.log('5. Got response, revisions count:', revisionsResponse.data.value.length);
 
     const stateChanges = [];
     let previousState = null;
 
     revisionsResponse.data.value.forEach(revision => {
       const currentState = revision.fields['System.State'];
-  
-      // Solo agregar si el estado cambió o es la primera revisión
       if (currentState && currentState !== previousState) {
         stateChanges.push({
           rev: revision.rev,
@@ -42,14 +46,16 @@ app.get('/api/feature-history/:id', async (req, res) => {
       }
     });
 
+    console.log('6. Returning with', stateChanges.length, 'state changes');
     res.json({
       id: featureId,
       stateChanges: stateChanges,
       totalRevisions: revisionsResponse.data.value.length
     });
   } catch (error) {
-    console.error('Error fetching history:', error.message);
-    res.status(500).json({ error: error.message, details: error.response?.data });
+    console.error('ERROR at:', error.message);
+    console.error('Stack:', error.stack);
+    res.status(500).json({ error: error.message });
   }
 });
 
