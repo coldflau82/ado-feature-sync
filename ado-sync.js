@@ -305,6 +305,7 @@ app.get('/dashboard', (req, res) => {
             <h1>ADO Dashboard</h1>
             <div className="tabs">
               <button className={'tab-btn' + (currentPage === 'features' ? ' active' : '')} onClick={() => setCurrentPage('features')}>Feature List</button>
+              <button className={'tab-btn' + (currentPage === 'roadmap' ? ' active' : '')} onClick={() => setCurrentPage('roadmap')}>Roadmap</button>
             </div>
           </div>
 
