@@ -499,9 +499,7 @@ app.get('/dashboard', (req, res) => {
               )}
            </>
           )} 
-          </>
-          )}
-
+          
           {currentPage === 'roadmap' && (
             <>
               <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>Showing {sortedFiltered.length} Features in Roadmap (filtered) - Page 1 of {Math.ceil(sortedFiltered.length / 15)}</p>
@@ -524,6 +522,8 @@ app.get('/dashboard', (req, res) => {
             </>
           )}
         </>
+      )}
+      </>
       )}
       </div>
       );
