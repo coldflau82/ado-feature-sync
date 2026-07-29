@@ -9,15 +9,19 @@ app.get('/api/health', (req, res) => res.json({ ok: 1 }));
 
 app.get('/api/feature-history/:id', async (req, res) => {
   try {
+    const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
+    
     const c = axios.create({
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
       headers: { 
-        Authorization: `Basic ${Buffer.from(`:${process.env.ADO_PAT}`).toString('base64')}`,
+        'Authorization': `Basic ${authHeader}`,
         'Content-Type': 'application/json'
       }
     });
 
     const featureId = req.params.id;
+    console.log('Fetching history for feature:', featureId);
+    
     const revisionsResponse = await c.get(`/workitems/${featureId}/revisions?api-version=7.0`);
 
     const stateChanges = [];
@@ -39,7 +43,8 @@ app.get('/api/feature-history/:id', async (req, res) => {
       totalRevisions: revisionsResponse.data.value.length
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error fetching history:', error.message);
+    res.status(500).json({ error: error.message, details: error.response?.data });
   }
 });
 
