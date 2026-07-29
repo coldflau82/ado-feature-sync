@@ -9,11 +9,7 @@ app.get('/api/health', (req, res) => res.json({ ok: 1 }));
 
 app.get('/api/feature-history/:id', async (req, res) => {
   try {
-    const featureId = req.params.id;
-    console.log('1. Starting history fetch for ID:', featureId);
-    
     const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
-    console.log('2. Auth header created');
     
     const c = axios.create({
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
@@ -22,19 +18,19 @@ app.get('/api/feature-history/:id', async (req, res) => {
         'Content-Type': 'application/json'
       }
     });
-    console.log('3. Client created');
 
-    const url = `/wit/workitems/${featureId}/revisions?api-version=7.0`;
-    console.log('4. Requesting:', url);
+    const featureId = req.params.id;
+    console.log('Fetching history for feature:', featureId);
     
-    const revisionsResponse = await c.get(url);
-    console.log('5. Got response, revisions count:', revisionsResponse.data.value.length);
+    const revisionsResponse = await c.get(`/wit/workitems/${featureId}/revisions?api-version=7.0`);
 
     const stateChanges = [];
     let previousState = null;
 
     revisionsResponse.data.value.forEach(revision => {
       const currentState = revision.fields['System.State'];
+  
+      // Solo agregar si el estado cambió o es la primera revisión
       if (currentState && currentState !== previousState) {
         stateChanges.push({
           rev: revision.rev,
@@ -46,16 +42,14 @@ app.get('/api/feature-history/:id', async (req, res) => {
       }
     });
 
-    console.log('6. Returning with', stateChanges.length, 'state changes');
     res.json({
       id: featureId,
       stateChanges: stateChanges,
       totalRevisions: revisionsResponse.data.value.length
     });
   } catch (error) {
-    console.error('ERROR at:', error.message);
-    console.error('Stack:', error.stack);
-    res.status(500).json({ error: error.message });
+    console.error('Error fetching history:', error.message);
+    res.status(500).json({ error: error.message, details: error.response?.data });
   }
 });
 
@@ -249,35 +243,6 @@ app.get('/dashboard', (req, res) => {
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    function FeatureRow({ featureId, title, targetDate, formatDate }) {
-      const [states, setStates] = useState([]);
-
-      useEffect(() => {
-        console.log('Fetching history for:', featureId);
-        fetch(`/api/feature-history/${featureId}`)
-          .then(r => r.json())
-          .then(d => {
-            console.log('Got history:', d.stateChanges);
-            setStates(d.stateChanges || []);
-          })
-          .catch(e => {
-            console.error('Error:', e);
-            setStates([]);
-          });
-      }, [featureId]);
-
-      return (
-        <div style={{ padding: '15px', marginBottom: '15px', borderBottom: '1px solid #eee' }}>
-          <strong>#{featureId}</strong> - {title.substring(0, 60)}
-          <br/>
-          <span style={{ fontSize: '11px', color: '#666' }}>Target Date: {formatDate(targetDate)}</span>
-          <div style={{ marginTop: '10px', fontSize: '10px', color: '#999' }}>
-            States loaded: {states.length}
-          </div>
-        </div>
-      );
-    }
-  
     function Dashboard() {
       const [features, setFeatures] = useState([]);
       const [loading, setLoading] = useState(true);
@@ -539,11 +504,15 @@ app.get('/dashboard', (req, res) => {
               <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>Showing {sortedFiltered.length} Features in Roadmap (filtered)</p>
               <div style={{ background: 'white', padding: '20px', borderRadius: '8px' }}>
                 {sortedFiltered.slice(0, 15).map(f => (
-                  <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} formatDate={formatDate} />
+                  <div key={f.id} style={{ padding: '15px', marginBottom: '15px', borderBottom: '1px solid #eee' }}>
+                    <strong>#{f.id}</strong> - {f.title.substring(0, 60)}
+                    <br/>
+                    <span style={{ fontSize: '11px', color: '#666' }}>Target Date: {formatDate(f.targetDate)}</span>
+                  </div>
                 ))}
               </div>
             </>
-          )}         
+          )}          
         </div>
       );
     }
