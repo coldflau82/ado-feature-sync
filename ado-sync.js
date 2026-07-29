@@ -244,23 +244,11 @@ app.get('/dashboard', (req, res) => {
     const { useState, useEffect } = React;
 
     function FeatureRow({ featureId, title, targetDate, formatDate }) {
-      const [states, setStates] = useState([]);
-
-      useEffect(() => {
-        fetch(`/api/feature-history/${featureId}`)
-          .then(r => r.json())
-          .then(d => setStates(d.stateChanges || []))
-          .catch(() => setStates([]));
-      }, [featureId]);
-
       return (
         <div style={{ padding: '15px', marginBottom: '15px', borderBottom: '1px solid #eee' }}>
           <strong>#{featureId}</strong> - {title.substring(0, 60)}
           <br/>
           <span style={{ fontSize: '11px', color: '#666' }}>Target Date: {formatDate(targetDate)}</span>
-          <div style={{ marginTop: '10px', fontSize: '10px' }}>
-            {states.map((s, i) => <span key={i} style={{ marginRight: '10px', padding: '4px 8px', background: '#f0f0f0', borderRadius: '3px' }}>{s.state}</span>)}
-          </div>
         </div>
       );
     }
