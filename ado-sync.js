@@ -244,11 +244,16 @@ app.get('/dashboard', (req, res) => {
     const { useState, useEffect } = React;
 
     function FeatureRow({ featureId, title, targetDate, formatDate }) {
+      const [states, setStates] = useState([]);
+
       return (
         <div style={{ padding: '15px', marginBottom: '15px', borderBottom: '1px solid #eee' }}>
           <strong>#{featureId}</strong> - {title.substring(0, 60)}
           <br/>
           <span style={{ fontSize: '11px', color: '#666' }}>Target Date: {formatDate(targetDate)}</span>
+          <div style={{ marginTop: '10px', fontSize: '10px' }}>
+            {states.length > 0 && <span>States: {states.length}</span>}
+          </div>
         </div>
       );
     }
