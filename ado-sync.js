@@ -251,8 +251,8 @@ app.get('/dashboard', (req, res) => {
           <strong>#{featureId}</strong> - {title.substring(0, 60)}
           <br/>
           <span style={{ fontSize: '11px', color: '#666' }}>Target Date: {formatDate(targetDate)}</span>
-          <div style={{ marginTop: '10px', fontSize: '10px' }}>
-            {states.length > 0 && <span>States: {states.length}</span>}
+          <div style={{ marginTop: '10px', fontSize: '10px', color: '#999' }}>
+            States loaded: {states.length}
           </div>
         </div>
       );
