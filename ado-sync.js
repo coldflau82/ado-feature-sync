@@ -22,7 +22,7 @@ app.get('/api/feature-history/:id', async (req, res) => {
     const featureId = req.params.id;
     console.log('Fetching history for feature:', featureId);
     
-    const revisionsResponse = await c.get(`/workitems/${featureId}/revisions?api-version=7.0`);
+    const revisionsResponse = await c.get(`/wit/workitems/${featureId}/revisions?api-version=7.0`);
 
     const stateChanges = [];
     
