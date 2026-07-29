@@ -243,6 +243,43 @@ app.get('/dashboard', (req, res) => {
   <script type="text/babel">
     const { useState, useEffect } = React;
 
+    function FeatureRow({ featureId, title, targetDate, formatDate }) {
+      const [states, setStates] = useState([]);
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        fetch(`/api/feature-history/${featureId}`)
+          .then(res => res.json())
+          .then(data => {
+            setStates(data.stateChanges || []);
+            setLoading(false);
+          })
+          .catch(err => {
+            console.error(err);
+            setLoading(false);
+          });
+      }, [featureId]);
+
+      return (
+        <div style={{ padding: '15px', marginBottom: '15px', borderBottom: '1px solid #eee' }}>
+          <strong>#{featureId}</strong> - {title.substring(0, 60)}
+          <br/>
+          <span style={{ fontSize: '11px', color: '#666' }}>Target Date: {formatDate(targetDate)}</span>
+          <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {loading ? (
+              <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
+            ) : (
+              states.map((s, i) => (
+                <span key={i} style={{ fontSize: '11px', padding: '5px 10px', background: '#e8f4f8', borderRadius: '3px', border: '1px solid #b3e5fc' }}>
+                  {s.state}
+                </span>
+              ))
+            )}
+          </div>
+        </div>
+      );
+    }
+
     function Dashboard() {
       const [features, setFeatures] = useState([]);
       const [loading, setLoading] = useState(true);
@@ -504,11 +541,7 @@ app.get('/dashboard', (req, res) => {
               <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>Showing {sortedFiltered.length} Features in Roadmap (filtered)</p>
               <div style={{ background: 'white', padding: '20px', borderRadius: '8px' }}>
                 {sortedFiltered.slice(0, 15).map(f => (
-                  <div key={f.id} style={{ padding: '15px', marginBottom: '15px', borderBottom: '1px solid #eee' }}>
-                    <strong>#{f.id}</strong> - {f.title.substring(0, 60)}
-                    <br/>
-                    <span style={{ fontSize: '11px', color: '#666' }}>Target Date: {formatDate(f.targetDate)}</span>
-                  </div>
+                  <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} formatDate={formatDate} />
                 ))}
               </div>
             </>
