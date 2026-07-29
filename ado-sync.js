@@ -242,44 +242,7 @@ app.get('/dashboard', (req, res) => {
 
   <script type="text/babel">
     const { useState, useEffect } = React;
-
-    function RoadmapRow({ feature, formatDate }) {
-      const [history, setHistory] = useState(null);
-      const [histLoading, setHistLoading] = useState(true);
-
-      useEffect(() => {
-        fetch(`/api/feature-history/${feature.id}`)
-          .then(r => r.json())
-          .then(d => {
-            setHistory(d.stateChanges || []);
-            setHistLoading(false);
-          })
-          .catch(() => {
-            setHistory([]);
-            setHistLoading(false);
-          });
-      }, [feature.id]);
-
-      return (
-        <div style={{ padding: '15px', marginBottom: '15px', borderBottom: '1px solid #eee' }}>
-          <strong>#{feature.id}</strong> - {feature.title.substring(0, 60)}
-          <br/>
-          <span style={{ fontSize: '11px', color: '#666' }}>Target Date: {formatDate(feature.targetDate)}</span>
-          <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {histLoading ? (
-              <span style={{ fontSize: '11px', color: '#999' }}>Loading timeline...</span>
-            ) : (
-              history.map((change, idx) => (
-                <div key={idx} style={{ fontSize: '10px', padding: '6px 10px', background: '#e8f4f8', borderRadius: '3px', border: '1px solid #b3e5fc' }}>
-                  <strong>{change.state}</strong> - {formatDate(change.changedDate)}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      );
-    }
-    
+  
     function Dashboard() {
       const [features, setFeatures] = useState([]);
       const [loading, setLoading] = useState(true);
@@ -541,7 +504,11 @@ app.get('/dashboard', (req, res) => {
               <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>Showing {sortedFiltered.length} Features in Roadmap (filtered)</p>
               <div style={{ background: 'white', padding: '20px', borderRadius: '8px' }}>
                 {sortedFiltered.slice(0, 15).map(f => (
-                  <RoadmapRow key={f.id} feature={f} formatDate={formatDate} />
+                  <div key={f.id} style={{ padding: '15px', marginBottom: '15px', borderBottom: '1px solid #eee' }}>
+                    <strong>#{f.id}</strong> - {f.title.substring(0, 60)}
+                    <br/>
+                    <span style={{ fontSize: '11px', color: '#666' }}>Target Date: {formatDate(f.targetDate)}</span>
+                  </div>
                 ))}
               </div>
             </>
