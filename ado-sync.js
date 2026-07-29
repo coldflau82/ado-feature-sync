@@ -451,7 +451,8 @@ app.get('/dashboard', (req, res) => {
                   </table>
                 </div>
               )}
-
+            </>
+          
               {currentPage === 'roadmap' && (
                 <>
                 <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>Showing {sortedFiltered.length} Features in Roadmap (filtered)</p>
@@ -467,8 +468,8 @@ app.get('/dashboard', (req, res) => {
                     </div>
                   </div>
                 </>
-              )}
-            </>
+                
+              )}         
           )}
         </div>
       );
