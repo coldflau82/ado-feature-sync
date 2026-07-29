@@ -25,7 +25,8 @@ app.get('/api/feature-history/:id', async (req, res) => {
     const revisionsResponse = await c.get(`/wit/workitems/${featureId}/revisions?api-version=7.0`);
 
     const stateChanges = [];
-    
+    let debugFirstRevision = revisionsResponse.data.value[0];
+
     revisionsResponse.data.value.forEach(revision => {
       if (revision.fields && revision.fields['System.State']) {
         stateChanges.push({
@@ -39,6 +40,7 @@ app.get('/api/feature-history/:id', async (req, res) => {
 
     res.json({
       id: featureId,
+      debugFirstRevision: debugFirstRevision,
       stateChanges: stateChanges,
       totalRevisions: revisionsResponse.data.value.length
     });
