@@ -315,16 +315,22 @@ app.get('/dashboard', (req, res) => {
             </div>
           )}
 
-          {currentPage === 'features' && ( <>
-              <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Search Feature Title</label>
-                <input 
-                  type="text" 
-                  placeholder="Type feature title..." 
-                  value={searchTitle}
-                  onChange={(e) => setSearchTitle(e.target.value)}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }}
-                />
+          {currentPage === 'features' && (
+            <>
+              <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px', display: 'flex', gap: '15px', alignItems: 'flex-end' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Search Feature Title</label>
+                  <input 
+                    type="text" 
+                    placeholder="Type feature title..." 
+                    value={searchTitle}
+                    onChange={(e) => setSearchTitle(e.target.value)}
+                    style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }}
+                  />
+                </div>
+                <button style={{ padding: '10px 20px', background: '#dc3545', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '13px', whiteSpace: 'nowrap' }} onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); }}>
+                  Clear filters
+                </button>
               </div>
 
               <div className="filters" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr', gap: '15px', background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
@@ -369,10 +375,6 @@ app.get('/dashboard', (req, res) => {
                   {filterTargetDate.length > 0 && <p className="filter-count">{filterTargetDate.length} selected</p>}
                 </div>
               </div>
-
-              <button className="clear-btn" onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); }}>
-                Clear filters
-              </button>
 
               {loading ? <div>Loading...</div> : (
                 <div className="table-wrapper">
