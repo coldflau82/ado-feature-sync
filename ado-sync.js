@@ -246,6 +246,20 @@ app.get('/dashboard', (req, res) => {
     function FeatureRow({ featureId, title, targetDate, formatDate }) {
       const [states, setStates] = useState([]);
 
+      useEffect(() => {
+        console.log('Fetching history for:', featureId);
+        fetch(`/api/feature-history/${featureId}`)
+          .then(r => r.json())
+          .then(d => {
+            console.log('Got history:', d.stateChanges);
+            setStates(d.stateChanges || []);
+          })
+          .catch(e => {
+            console.error('Error:', e);
+            setStates([]);
+          });
+      }, [featureId]);
+
       return (
         <div style={{ padding: '15px', marginBottom: '15px', borderBottom: '1px solid #eee' }}>
           <strong>#{featureId}</strong> - {title.substring(0, 60)}
