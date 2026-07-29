@@ -331,7 +331,7 @@ app.get('/dashboard', (req, res) => {
                 
                 <div>
                   <label className="filter-label">Area Path</label>
-                  <select multiple className="filter-select" onChange={(e) => setFilterAreaPath([...e.target.selectedOptions].map(o => o.value))}>
+                  <select multiple className="filter-select" value={filterAreaPath} onChange={(e) => setFilterAreaPath([...e.target.selectedOptions].map(o => o.value))}>
                     {areaPaths.map(area => (
                       <option key={area} value={area}>{area.split('\\\\').pop()}</option>
                     ))}
@@ -341,7 +341,7 @@ app.get('/dashboard', (req, res) => {
 
                 <div>
                   <label className="filter-label">Iteration Path</label>
-                  <select multiple className="filter-select" onChange={(e) => setFilterIteration([...e.target.selectedOptions].map(o => o.value))}>
+                  <select multiple className="filter-select" value={filterIteration} onChange={(e) => setFilterIteration([...e.target.selectedOptions].map(o => o.value))}>
                     {iterations.map(iter => (
                       <option key={iter} value={iter}>{iter}</option>
                     ))}
