@@ -451,6 +451,23 @@ app.get('/dashboard', (req, res) => {
                   </table>
                 </div>
               )}
+
+              {currentPage === 'roadmap' && (
+                <>
+                <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>Showing {sortedFiltered.length} Features in Roadmap (filtered)</p>
+                  <div style={{ background: 'white', padding: '20px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '13px' }}>
+                      {sortedFiltered.slice(0, 15).map(f => (
+                        <div key={f.id} style={{ padding: '15px', borderBottom: '1px solid #eee' }}>
+                          <strong>#{f.id}</strong> - {f.title.substring(0, 60)}
+                          <br/>
+                          <span style={{ fontSize: '11px', color: '#666' }}>Target Date: {formatDate(f.targetDate)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
