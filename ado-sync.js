@@ -243,6 +243,55 @@ app.get('/dashboard', (req, res) => {
   <script type="text/babel">
     const { useState, useEffect } = React;
 
+    function RoadmapTimeline({ features, formatDate }) {
+      const [histories, setHistories] = useState({});
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        const fetchHistories = async () => {
+          const data = {};
+          for (const f of features) {
+            try {
+              const res = await fetch(`/api/feature-history/${f.id}`);
+              const json = await res.json();
+              data[f.id] = json.stateChanges || [];
+            } catch (e) {
+              data[f.id] = [];
+            }
+          }
+          setHistories(data);
+          setLoading(false);
+        };
+        fetchHistories();
+      }, [features]);
+
+      if (loading) return <div style={{ padding: '20px', textAlign: 'center' }}>Loading timelines...</div>;
+
+      return (
+        <div style={{ background: 'white', padding: '20px', borderRadius: '8px' }}>
+          {features.map(f => (
+            <div key={f.id} style={{ padding: '20px', marginBottom: '20px', borderBottom: '1px solid #eee' }}>
+              <div style={{ marginBottom: '10px' }}>
+                <strong>#{f.id}</strong> - {f.title.substring(0, 60)}
+              </div>
+              <div style={{ fontSize: '11px', color: '#666', marginBottom: '15px' }}>
+                Target Date: {formatDate(f.targetDate)}
+              </div>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                {histories[f.id] && histories[f.id].map((change, idx) => (
+                  <div key={idx} style={{ fontSize: '11px', padding: '8px 12px', background: '#e8f4f8', borderRadius: '4px', border: '1px solid #b3e5fc' }}>
+                    <strong>{change.state}</strong>
+                    <br/>
+                    {formatDate(change.changedDate)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    
     function Dashboard() {
       const [features, setFeatures] = useState([]);
       const [loading, setLoading] = useState(true);
@@ -502,15 +551,7 @@ app.get('/dashboard', (req, res) => {
           {currentPage === 'roadmap' && (
             <>
               <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>Showing {sortedFiltered.length} Features in Roadmap (filtered)</p>
-              <div style={{ background: 'white', padding: '20px', borderRadius: '8px' }}>
-                {sortedFiltered.slice(0, 15).map(f => (
-                  <div key={f.id} style={{ padding: '15px', marginBottom: '15px', borderBottom: '1px solid #eee' }}>
-                    <strong>#{f.id}</strong> - {f.title.substring(0, 60)}
-                    <br/>
-                    <span style={{ fontSize: '11px', color: '#666' }}>Target Date: {formatDate(f.targetDate)}</span>
-                  </div>
-                ))}
-              </div>
+              <RoadmapTimeline features={sortedFiltered.slice(0, 15)} formatDate={formatDate} />
             </>
           )}          
         </div>
