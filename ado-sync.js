@@ -497,9 +497,33 @@ app.get('/dashboard', (req, res) => {
                   </table>
                 </div>
               )}
+           </>
+          )}
+
+          {currentPage === 'roadmap' && (
+            <>
+              <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>Showing {sortedFiltered.length} Features in Roadmap (filtered) - Page 1 of {Math.ceil(sortedFiltered.length / 15)}</p>
+              <div style={{ background: 'white', padding: '20px', borderRadius: '8px' }}>
+                {sortedFiltered.slice(0, 15).map(f => (
+                  <div key={f.id} style={{ padding: '15px', marginBottom: '20px', borderBottom: '1px solid #eee' }}>
+                    <div style={{ marginBottom: '10px' }}>
+                      <strong>#{f.id}</strong> - {f.title.substring(0, 60)}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#666', marginBottom: '10px' }}>
+                      Target Date: {formatDate(f.targetDate)}
+                    </div>
+                    <div style={{ padding: '10px', background: '#f9f9f9', borderRadius: '4px' }}>
+                      <p style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '5px' }}>State Timeline:</p>
+                      <p style={{ fontSize: '11px', color: '#666' }}>Loading timeline...</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </>
           )}
-        </div>
+        </>
+      )}          
+      </div>
       );
     }
 
