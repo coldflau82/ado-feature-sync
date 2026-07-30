@@ -243,116 +243,85 @@ app.get('/dashboard', (req, res) => {
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    function FeatureRow({ featureId, title, targetDate, formatDate }) {
-      const [states, setStates] = useState([]);
-      const [loading, setLoading] = useState(true);
-
-      useEffect(() => {
-        fetch('/api/feature-history/' + featureId)
-          .then(res => res.json())
-          .then(data => {
-            setStates(data.stateChanges || []);
-            setLoading(false);
-          })
-          .catch(() => {
-            setStates([]);
-            setLoading(false);
-          });
-      }, [featureId]);
-
-      // Trimestres predefinidos (Q2 2026, Q3 2026, Q4 2026, Q1 2027)
-      const quarters = [
-        { label: 'Q2 2026', start: new Date('2026-04-01'), end: new Date('2026-06-30') },
-        { label: 'Q3 2026', start: new Date('2026-07-01'), end: new Date('2026-09-30') },
-        { label: 'Q4 2026', start: new Date('2026-10-01'), end: new Date('2026-12-31') },
-        { label: 'Q1 2027', start: new Date('2027-01-01'), end: new Date('2027-03-31') }
-      ];
-
-      const getQuarterPosition = (date) => {
-        const d = new Date(date);
-        let totalDays = 0;
-        let daysSoFar = 0;
-
-        quarters.forEach(q => {
-          const qDays = (q.end - q.start) / (1000 * 60 * 60 * 24);
-          totalDays += qDays;
-          if (d >= q.start && d <= q.end) {
-            const daysInQ = (d - q.start) / (1000 * 60 * 60 * 24);
-            daysSoFar += daysInQ;
-          } else if (d > q.end) {
-            daysSoFar += qDays;
-          }
-        });
-
-        return (daysSoFar / totalDays) * 100;
-      };
-
-      return (
-        <div style={{ padding: '15px', marginBottom: '20px', borderBottom: '1px solid #eee' }}>
-          <div style={{ marginBottom: '10px' }}>
-            <strong>#{featureId}</strong> - {title.substring(0, 60)}
-          </div>
-          <div style={{ fontSize: '11px', color: '#666', marginBottom: '15px' }}>
-            Target Date: {formatDate(targetDate)}
-          </div>
-          
-          {loading ? (
-            <div style={{ fontSize: '11px', color: '#999' }}>Loading timeline...</div>
-          ) : (
-            <>
-              {/* Timeline con trimestres */}
-              <div style={{ position: 'relative', height: '80px', background: '#f5f5f5', borderRadius: '4px', padding: '10px', marginBottom: '10px', display: 'flex', alignItems: 'flex-end' }}>
-                {/* Línea base */}
-                <div style={{ position: 'absolute', top: '50%', left: '0', right: '0', height: '2px', background: '#ddd' }}></div>
-                
-                {/* Labels de trimestres */}
-                <div style={{ display: 'flex', width: '100%', position: 'absolute', bottom: '5px', fontSize: '10px', color: '#999' }}>
-                  {quarters.map((q, idx) => (
-                    <div key={idx} style={{ flex: 1, textAlign: 'center' }}>{q.label}</div>
-                  ))}
-                </div>
-
-                {/* Estados como puntos */}
-                {states.map((s, i) => {
-                  const stateColor = s.state === 'New' ? '#cccccc' : s.state === 'In Shaping' ? '#ffeb3b' : s.state === 'In Planning' ? '#ff9800' : s.state === 'Planned' ? '#2196f3' : s.state === 'In Process' ? '#4caf50' : '#9c27b0';
-                  return (
-                    <div 
-                      key={i} 
-                      style={{ 
-                        position: 'absolute', 
-                        left: getQuarterPosition(s.changedDate) + '%', 
-                        top: (15 + (i % 2) * 20) + 'px', 
-                        transform: 'translateX(-50%)',
-                        textAlign: 'center'
-                      }}
-                    >
-                      <div style={{ width: '8px', height: '8px', background: stateColor, borderRadius: '50%', margin: '0 auto', border: '1px solid white' }}></div>
-                      <span style={{ fontSize: '8px', color: '#666', display: 'block', marginTop: '2px' }}>{s.state}</span>
-                    </div>
-                  );
-                })}
-                
-                {/* Target Date */}
-                {targetDate && (
-                  <div 
-                    style={{ 
-                      position: 'absolute', 
-                      left: getQuarterPosition(targetDate) + '%', 
-                      top: '25px', 
-                      transform: 'translateX(-50%)',
-                      textAlign: 'center'
-                    }}
-                  >
-                    <div style={{ width: '10px', height: '10px', background: '#28a745', borderRadius: '50%', margin: '0 auto', border: '2px solid white', boxShadow: '0 0 0 1px #28a745' }}></div>
-                    <span style={{ fontSize: '9px', color: '#28a745', fontWeight: 'bold', display: 'block', marginTop: '2px' }}>Target</span>
-                  </div>
-                )}
+      function FeatureRow({ featureId, title, targetDate, formatDate }) {
+        const [states, setStates] = useState([]);
+        const [loading, setLoading] = useState(true);
+  
+        useEffect(() => {
+          fetch('/api/feature-history/' + featureId)
+            .then(res => res.json())
+            .then(data => {
+              setStates(data.stateChanges || []);
+              setLoading(false);
+            })
+            .catch(() => {
+              setStates([]);
+              setLoading(false);
+            });
+        }, [featureId]);
+  
+        const getMonthLabel = (date) => {
+          const d = new Date(date);
+          return d.toLocaleString('default', { month: 'short', year: '2-digit' });
+        };
+  
+        return (
+          <div style={{ display: 'flex', gap: '20px', padding: '12px', borderBottom: '1px solid #eee', alignItems: 'stretch' }}>
+            {/* Feature Name - Left side */}
+            <div style={{ flex: '0 0 300px', paddingRight: '10px', borderRight: '1px solid #ddd', overflow: 'hidden' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '4px' }}>#{featureId}</div>
+              <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.4' }}>
+                {title.substring(0, 80)}
               </div>
-            </>
-          )}
-        </div>
-      );
-    }
+              <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
+                Target: {formatDate(targetDate)}
+              </div>
+            </div>
+  
+            {/* Timeline - Right side */}
+            <div style={{ flex: 1, minHeight: '70px', position: 'relative', background: '#f9f9f9', borderRadius: '4px', padding: '8px', display: 'flex', alignItems: 'center' }}>
+              {loading ? (
+                <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
+              ) : states.length === 0 ? (
+                <span style={{ fontSize: '11px', color: '#999' }}>No state changes</span>
+              ) : (
+                <div style={{ width: '100%', position: 'relative', height: '100%' }}>
+                  {/* Estado bar */}
+                  {states.length > 0 && (
+                    <div style={{ 
+                      background: 'linear-gradient(90deg, #4caf50 0%, #2196f3 50%, #ff9800 100%)',
+                      height: '24px',
+                      borderRadius: '3px',
+                      marginTop: '10px',
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      paddingLeft: '8px',
+                      fontSize: '10px',
+                      color: 'white',
+                      fontWeight: 'bold'
+                    }}>
+                      {states.length} states
+                    </div>
+                  )}
+                  
+                  {/* Estado labels */}
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '8px', flexWrap: 'wrap' }}>
+                    {states.map((s, i) => {
+                      const stateColor = s.state === 'New' ? '#cccccc' : s.state === 'In Shaping' ? '#ffeb3b' : s.state === 'In Planning' ? '#ff9800' : s.state === 'Planned' ? '#2196f3' : s.state === 'In Process' ? '#4caf50' : '#9c27b0';
+                      return (
+                        <span key={i} style={{ fontSize: '9px', padding: '3px 6px', background: stateColor, color: 'white', borderRadius: '3px' }}>
+                          {s.state}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
 
     function Dashboard() {
       const [features, setFeatures] = useState([]);
