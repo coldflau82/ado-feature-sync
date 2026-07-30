@@ -400,7 +400,7 @@ app.get('/dashboard', (req, res) => {
             </div>
           )}
 
-          <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px', display: 'flex', gap: '15px', alignItems: 'flex-end' }}>
+          <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', position: 'sticky', bottom: '0', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)', zIndex: '100' }}>
             <div style={{ flex: 1 }}>
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Search Feature Title</label>
               <input 
