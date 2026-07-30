@@ -385,11 +385,13 @@ app.get('/dashboard', (req, res) => {
 
         return (
           <div className="container">
-           <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h1 style={{ margin: 0 }}>ADO Dashboard</h1>
-            <div className="tabs" style={{ display: 'flex', gap: '10px', borderBottom: 'none', paddingBottom: '0' }}>
-              <button className={'tab-btn' + (currentPage === 'features' ? ' active' : '')} onClick={() => setCurrentPage('features')}>Feature List</button>
-              <button className={'tab-btn' + (currentPage === 'roadmap' ? ' active' : '')} onClick={() => setCurrentPage('roadmap')}>Roadmap</button>
+           <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <h1 style={{ margin: 0 }}>ADO Dashboard</h1>
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button style={{ padding: '8px 16px', background: currentPage === 'features' ? '#007bff' : 'white', color: currentPage === 'features' ? 'white' : 'black', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '13px' }} onClick={() => setCurrentPage('features')}>Feature List</button>
+              <button style={{ padding: '8px 16px', background: currentPage === 'roadmap' ? '#007bff' : 'white', color: currentPage === 'roadmap' ? 'white' : 'black', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '13px' }} onClick={() => setCurrentPage('roadmap')}>Roadmap</button>
             </div>
           </div>
 
