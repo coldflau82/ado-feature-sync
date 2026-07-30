@@ -243,134 +243,85 @@ app.get('/dashboard', (req, res) => {
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-      function FeatureRow({ featureId, title, targetDate, formatDate, timelineView }) {
-          const [states, setStates] = useState([]);
-          const [loading, setLoading] = useState(true);
-    
-          useEffect(() => {
-            fetch('/api/feature-history/' + featureId)
-              .then(res => res.json())
-              .then(data => {
-                setStates(data.stateChanges || []);
-                setLoading(false);
-              })
-              .catch(() => {
-                setStates([]);
-                setLoading(false);
-              });
-          }, [featureId]);
-    
-          // Definir rango temporal
-          const today = new Date();
-          let startDate, endDate, divisions;
-    
-          if (timelineView === 'month') {
-            startDate = new Date(today.getFullYear(), 0, 1);
-            endDate = new Date(today.getFullYear(), 11, 31);
-            divisions = 12;
-          } else if (timelineView === 'quarter') {
-            startDate = new Date(today.getFullYear(), 0, 1);
-            endDate = new Date(today.getFullYear(), 11, 31);
-            divisions = 4;
-          } else {
-            startDate = new Date(today.getFullYear(), 0, 1);
-            endDate = new Date(today.getFullYear(), 11, 31);
-            divisions = 2;
-          }
-    
-          const totalDays = (endDate - startDate) / (1000 * 60 * 60 * 24);
-    
-          const getPosition = (date) => {
-            const d = new Date(date);
-            if (d < startDate) return 0;
-            if (d > endDate) return 100;
-            const daysFromStart = (d - startDate) / (1000 * 60 * 60 * 24);
-            return (daysFromStart / totalDays) * 100;
-          };
-    
-          const stateColor = {
-            'New': '#cccccc',
-            'In Shaping': '#ffeb3b',
-            'In Planning': '#ff9800',
-            'Planned': '#2196f3',
-            'In Process': '#4caf50',
-            'Closed': '#9c27b0'
-          };
-    
-          // Crear segmentos de la barra
-          const segments = [];
-          if (states.length > 0) {
-            states.forEach((state, idx) => {
-              const currentStart = new Date(state.changedDate);
-              const nextStart = idx < states.length - 1 ? new Date(states[idx + 1].changedDate) : (targetDate ? new Date(targetDate) : endDate);
-              
-              segments.push({
-                color: stateColor[state.state] || '#cccccc',
-                startPercent: getPosition(currentStart),
-                endPercent: getPosition(nextStart),
-                state: state.state,
-                date: formatDate(state.changedDate)
-              });
+      function FeatureRow({ featureId, title, targetDate, formatDate }) {
+        const [states, setStates] = useState([]);
+        const [loading, setLoading] = useState(true);
+  
+        useEffect(() => {
+          fetch('/api/feature-history/' + featureId)
+            .then(res => res.json())
+            .then(data => {
+              setStates(data.stateChanges || []);
+              setLoading(false);
+            })
+            .catch(() => {
+              setStates([]);
+              setLoading(false);
             });
-          }
-    
-          return (
-            <div style={{ display: 'flex', gap: '20px', padding: '12px', borderBottom: '1px solid #eee', alignItems: 'stretch' }}>
-              {/* Feature Name - Left side */}
-              <div style={{ flex: '0 0 300px', paddingRight: '10px', borderRight: '1px solid #ddd', overflow: 'hidden' }}>
-                <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '4px' }}>#{featureId}</div>
-                <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.4' }}>
-                  {title.substring(0, 80)}
-                </div>
-                <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
-                  Target: {formatDate(targetDate)}
-                </div>
+        }, [featureId]);
+  
+        const getMonthLabel = (date) => {
+          const d = new Date(date);
+          return d.toLocaleString('default', { month: 'short', year: '2-digit' });
+        };
+  
+        return (
+          <div style={{ display: 'flex', gap: '20px', padding: '12px', borderBottom: '1px solid #eee', alignItems: 'stretch' }}>
+            {/* Feature Name - Left side */}
+            <div style={{ flex: '0 0 300px', paddingRight: '10px', borderRight: '1px solid #ddd', overflow: 'hidden' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '4px' }}>#{featureId}</div>
+              <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.4' }}>
+                {title.substring(0, 80)}
               </div>
-    
-              {/* Timeline Bar - Right side */}
-              <div style={{ flex: 1, position: 'relative', background: '#f9f9f9', borderRadius: '4px', padding: '12px', minHeight: '50px', display: 'flex', alignItems: 'center' }}>
-                {loading ? (
-                  <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
-                ) : segments.length === 0 ? (
-                  <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
-                ) : (
-                  <div style={{ width: '100%', height: '28px', background: 'white', borderRadius: '4px', overflow: 'hidden', display: 'flex', border: '1px solid #ddd' }}>
-                    {segments.map((seg, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          flex: seg.endPercent - seg.startPercent + '%',
-                          background: seg.color,
-                          minWidth: '2px',
-                          height: '100%',
-                          cursor: 'pointer',
-                          title: `${seg.state} - ${seg.date}`
-                        }}
-                        title={`${seg.state} - ${seg.date}`}
-                      />
-                    ))}
-                    
-                    {/* Target Date marker */}
-                    {targetDate && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          left: getPosition(targetDate) + '%',
-                          top: '-5px',
-                          width: '2px',
-                          height: 'calc(100% + 10px)',
-                          background: '#ff0000',
-                          opacity: 0.7
-                        }}
-                        title={`Target: ${formatDate(targetDate)}`}
-                      />
-                    )}
-                  </div>
-                )}
+              <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
+                Target: {formatDate(targetDate)}
               </div>
             </div>
-          );
-        }
+  
+            {/* Timeline - Right side */}
+            <div style={{ flex: 1, minHeight: '70px', position: 'relative', background: '#f9f9f9', borderRadius: '4px', padding: '8px', display: 'flex', alignItems: 'center' }}>
+              {loading ? (
+                <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
+              ) : states.length === 0 ? (
+                <span style={{ fontSize: '11px', color: '#999' }}>No state changes</span>
+              ) : (
+                <div style={{ width: '100%', position: 'relative', height: '100%' }}>
+                  {/* Estado bar */}
+                  {states.length > 0 && (
+                    <div style={{ 
+                      background: 'linear-gradient(90deg, #4caf50 0%, #2196f3 50%, #ff9800 100%)',
+                      height: '24px',
+                      borderRadius: '3px',
+                      marginTop: '10px',
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      paddingLeft: '8px',
+                      fontSize: '10px',
+                      color: 'white',
+                      fontWeight: 'bold'
+                    }}>
+                      {states.length} states
+                    </div>
+                  )}
+                  
+                  {/* Estado labels */}
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '8px', flexWrap: 'wrap' }}>
+                    {states.map((s, i) => {
+                      const stateColor = s.state === 'New' ? '#cccccc' : s.state === 'In Shaping' ? '#ffeb3b' : s.state === 'In Planning' ? '#ff9800' : s.state === 'Planned' ? '#2196f3' : s.state === 'In Process' ? '#4caf50' : '#9c27b0';
+                      return (
+                        <span key={i} style={{ fontSize: '9px', padding: '3px 6px', background: stateColor, color: 'white', borderRadius: '3px' }}>
+                          {s.state}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
 
     function Dashboard() {
       const [features, setFeatures] = useState([]);
