@@ -308,25 +308,25 @@ app.get('/dashboard', (req, res) => {
               ) : states.length === 0 ? (
                 <span style={{ fontSize: '11px', color: '#999' }}>No state changes</span>
               ) : (
-                <div style={{ width: '100%', position: 'relative', height: '100%' }}>
-                  {/* Estado bar */}
-                  {states.length > 0 && (
-                    <div style={{ 
-                      background: 'linear-gradient(90deg, #4caf50 0%, #2196f3 50%, #ff9800 100%)',
-                      height: '24px',
-                      borderRadius: '3px',
-                      marginTop: '10px',
-                      position: 'relative',
-                      display: 'flex',
-                      alignItems: 'center',
-                      paddingLeft: '8px',
-                      fontSize: '10px',
-                      color: 'white',
-                      fontWeight: 'bold'
-                    }}>
-                      {states.length} states
-                    </div>
-                  )}
+                <div style={{ width: '100%', display: 'flex', gap: '2px', alignItems: 'center' }}>
+                  {segments.map((seg, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        flex: seg.daysSpan,
+                        height: '28px',
+                        background: seg.color,
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                        opacity: 0.85,
+                        border: '1px solid rgba(0,0,0,0.1)',
+                        minWidth: '8px'
+                      }}
+                      title={`${seg.state}: ${seg.daysSpan} days`}
+                    />
+                  ))}
+                </div>
+              )}
                   
                   {/* Estado labels */}
                   <div style={{ display: 'flex', gap: '4px', marginTop: '8px', flexWrap: 'wrap' }}>
