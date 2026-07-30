@@ -275,6 +275,7 @@ app.get('/dashboard', (req, res) => {
                 </span>
               ))
             )}
+            </div>
           </div>
         </div>
       );
@@ -384,9 +385,10 @@ app.get('/dashboard', (req, res) => {
       };
 
       return (
-        <div className="container">
-          <div className="header">
-            <h1>ADO Dashboard</h1>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#f5f5f5' }}>
+          <div className="container" style={{ flexShrink: 0 }}>
+            <div className="header">
+                <h1>ADO Dashboard</h1>
             <div className="tabs">
               <button className={'tab-btn' + (currentPage === 'features' ? ' active' : '')} onClick={() => setCurrentPage('features')}>Feature List</button>
               <button className={'tab-btn' + (currentPage === 'roadmap' ? ' active' : '')} onClick={() => setCurrentPage('roadmap')}>Roadmap</button>
