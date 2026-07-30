@@ -246,7 +246,7 @@ app.get('/dashboard', (req, res) => {
       function FeatureRow({ featureId, title, targetDate, formatDate, timelineView }) {
         const [states, setStates] = useState([]);
         const [loading, setLoading] = useState(true);
-  
+      
         useEffect(() => {
           fetch('/api/feature-history/' + featureId)
             .then(res => res.json())
@@ -259,12 +259,7 @@ app.get('/dashboard', (req, res) => {
               setLoading(false);
             });
         }, [featureId]);
-  
-        const getMonthLabel = (date) => {
-          const d = new Date(date);
-          return d.toLocaleString('default', { month: 'short', year: '2-digit' });
-        };
-
+      
         const stateColors = {
           'New': '#cccccc',
           'In Shaping': '#ffeb3b',
@@ -273,60 +268,37 @@ app.get('/dashboard', (req, res) => {
           'In Process': '#4caf50',
           'Closed': '#9c27b0'
         };
-
+      
         const segments = [];
-          if (states.length > 0) {
-            states.forEach((state, idx) => {
-              const nextState = idx < states.length - 1 ? states[idx + 1] : null;
-              const nextDate = nextState ? new Date(nextState.changedDate) : (targetDate ? new Date(targetDate) : new Date());
-              
-              segments.push({
-                color: stateColors[state.state] || '#cccccc',
-                state: state.state,
-                daysSpan: Math.max(1, Math.floor((nextDate - new Date(state.changedDate)) / (1000 * 60 * 60 * 24)))
-              });
+        if (states.length > 0) {
+          states.forEach((state, idx) => {
+            const nextDate = idx < states.length - 1 ? new Date(states[idx + 1].changedDate) : (targetDate ? new Date(targetDate) : new Date());
+            segments.push({
+              color: stateColors[state.state] || '#cccccc',
+              state: state.state,
+              daysSpan: Math.max(1, Math.floor((nextDate - new Date(state.changedDate)) / (1000 * 60 * 60 * 24)))
             });
-          }
-  
+          });
+        }
+      
         return (
           <div style={{ display: 'flex', gap: '20px', padding: '12px', borderBottom: '1px solid #eee', alignItems: 'stretch' }}>
-            {/* Feature Name - Left side */}
             <div style={{ flex: '0 0 300px', paddingRight: '10px', borderRight: '1px solid #ddd', overflow: 'hidden' }}>
               <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '4px' }}>#{featureId}</div>
-              <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.4' }}>
-                {title.substring(0, 80)}
-              </div>
-              <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
-                Target: {formatDate(targetDate)}
-              </div>
+              <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.4' }}>{title.substring(0, 80)}</div>
+              <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>Target: {formatDate(targetDate)}</div>
             </div>
-  
-            {/* Timeline - Right side */}
-            <div style={{ flex: 1, minHeight: '70px', position: 'relative', background: '#f9f9f9', borderRadius: '4px', padding: '8px', display: 'flex', alignItems: 'center' }}>
+            <div style={{ flex: 1, minHeight: '70px', background: '#f9f9f9', borderRadius: '4px', padding: '8px', display: 'flex', alignItems: 'center' }}>
               {loading ? (
                 <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
-              ) : states.length === 0 ? (
-                <span style={{ fontSize: '11px', color: '#999' }}>No state changes</span>
+              ) : segments.length === 0 ? (
+                <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
               ) : (
-                <div style={{ width: '100%', display: 'flex', gap: '2px', alignItems: 'center' }}>
+                <div style={{ width: '100%', display: 'flex', gap: '2px' }}>
                   {segments.map((seg, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        flex: seg.daysSpan,
-                        height: '28px',
-                        background: seg.color,
-                        borderRadius: '3px',
-                        cursor: 'pointer',
-                        opacity: 0.85,
-                        border: '1px solid rgba(0,0,0,0.1)',
-                        minWidth: '8px'
-                      }}
-                      title={`${seg.state}: ${seg.daysSpan} days`}
-                    />
+                    <div key={idx} style={{ flex: seg.daysSpan, height: '28px', background: seg.color, borderRadius: '3px', opacity: 0.85, minWidth: '8px' }} title={seg.state} />
                   ))}
                 </div>
-             
               )}
             </div>
           </div>
