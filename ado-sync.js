@@ -243,7 +243,7 @@ app.get('/dashboard', (req, res) => {
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-      function FeatureRow({ featureId, title, targetDate, formatDate }) {
+      function FeatureRow({ featureId, title, targetDate, formatDate, timelineView }) {
         const [states, setStates] = useState([]);
         const [loading, setLoading] = useState(true);
   
