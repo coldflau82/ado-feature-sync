@@ -260,20 +260,31 @@ app.get('/dashboard', (req, res) => {
           });
       }, [featureId]);
 
-      // Calcular rango de fechas
-      const allDates = [
-        ...states.map(s => new Date(s.changedDate)),
-        targetDate ? new Date(targetDate) : null
-      ].filter(d => d);
+      // Trimestres predefinidos (Q2 2026, Q3 2026, Q4 2026, Q1 2027)
+      const quarters = [
+        { label: 'Q2 2026', start: new Date('2026-04-01'), end: new Date('2026-06-30') },
+        { label: 'Q3 2026', start: new Date('2026-07-01'), end: new Date('2026-09-30') },
+        { label: 'Q4 2026', start: new Date('2026-10-01'), end: new Date('2026-12-31') },
+        { label: 'Q1 2027', start: new Date('2027-01-01'), end: new Date('2027-03-31') }
+      ];
 
-      const minDate = allDates.length > 0 ? new Date(Math.min(...allDates)) : null;
-      const maxDate = allDates.length > 0 ? new Date(Math.max(...allDates)) : null;
-      const dayRange = maxDate && minDate ? (maxDate - minDate) / (1000 * 60 * 60 * 24) : 1;
+      const getQuarterPosition = (date) => {
+        const d = new Date(date);
+        let totalDays = 0;
+        let daysSoFar = 0;
 
-      const getPosition = (date) => {
-        if (!minDate || dayRange === 0) return 0;
-        const diff = (new Date(date) - minDate) / (1000 * 60 * 60 * 24);
-        return (diff / dayRange) * 100;
+        quarters.forEach(q => {
+          const qDays = (q.end - q.start) / (1000 * 60 * 60 * 24);
+          totalDays += qDays;
+          if (d >= q.start && d <= q.end) {
+            const daysInQ = (d - q.start) / (1000 * 60 * 60 * 24);
+            daysSoFar += daysInQ;
+          } else if (d > q.end) {
+            daysSoFar += qDays;
+          }
+        });
+
+        return (daysSoFar / totalDays) * 100;
       };
 
       return (
@@ -288,44 +299,53 @@ app.get('/dashboard', (req, res) => {
           {loading ? (
             <div style={{ fontSize: '11px', color: '#999' }}>Loading timeline...</div>
           ) : (
-            <div style={{ position: 'relative', height: '60px', background: '#f5f5f5', borderRadius: '4px', padding: '10px', marginBottom: '10px' }}>
-              {/* Timeline */}
-              <div style={{ position: 'absolute', top: '0', left: '0', right: '0', height: '2px', background: '#ddd', top: '28px' }}></div>
-              
-              {/* Estados como puntos en la línea */}
-              {states.map((s, i) => (
-                <div 
-                  key={i} 
-                  style={{ 
-                    position: 'absolute', 
-                    left: getPosition(s.changedDate) + '%', 
-                    top: '15px', 
-                    transform: 'translateX(-50%)',
-                    textAlign: 'center'
-                  }}
-                >
-                  <div style={{ width: '8px', height: '8px', background: '#007bff', borderRadius: '50%', margin: '0 auto' }}></div>
-                  <span style={{ fontSize: '10px', color: '#666', whiteSpace: 'nowrap', marginTop: '5px', display: 'block' }}>{s.state}</span>
-                  <span style={{ fontSize: '9px', color: '#999', display: 'block' }}>{formatDate(s.changedDate)}</span>
+            <>
+              {/* Timeline con trimestres */}
+              <div style={{ position: 'relative', height: '80px', background: '#f5f5f5', borderRadius: '4px', padding: '10px', marginBottom: '10px', display: 'flex', alignItems: 'flex-end' }}>
+                {/* Línea base */}
+                <div style={{ position: 'absolute', top: '50%', left: '0', right: '0', height: '2px', background: '#ddd' }}></div>
+                
+                {/* Labels de trimestres */}
+                <div style={{ display: 'flex', width: '100%', position: 'absolute', bottom: '5px', fontSize: '10px', color: '#999' }}>
+                  {quarters.map((q, idx) => (
+                    <div key={idx} style={{ flex: 1, textAlign: 'center' }}>{q.label}</div>
+                  ))}
                 </div>
-              ))}
-              
-              {/* Target Date como marcador */}
-              {targetDate && (
-                <div 
-                  style={{ 
-                    position: 'absolute', 
-                    left: getPosition(targetDate) + '%', 
-                    top: '15px', 
-                    transform: 'translateX(-50%)',
-                    textAlign: 'center'
-                  }}
-                >
-                  <div style={{ width: '10px', height: '10px', background: '#28a745', borderRadius: '50%', margin: '0 auto', border: '2px solid white', boxShadow: '0 0 0 1px #28a745' }}></div>
-                  <span style={{ fontSize: '10px', color: '#28a745', fontWeight: 'bold', display: 'block', marginTop: '5px' }}>Target</span>
-                </div>
-              )}
-            </div>
+
+                {/* Estados como puntos */}
+                {states.map((s, i) => (
+                  <div 
+                    key={i} 
+                    style={{ 
+                      position: 'absolute', 
+                      left: getQuarterPosition(s.changedDate) + '%', 
+                      top: '25px', 
+                      transform: 'translateX(-50%)',
+                      textAlign: 'center'
+                    }}
+                  >
+                    <div style={{ width: '8px', height: '8px', background: '#007bff', borderRadius: '50%', margin: '0 auto' }}></div>
+                    <span style={{ fontSize: '9px', color: '#666', whiteSpace: 'nowrap', display: 'block', marginTop: '2px' }}>{s.state}</span>
+                  </div>
+                ))}
+                
+                {/* Target Date */}
+                {targetDate && (
+                  <div 
+                    style={{ 
+                      position: 'absolute', 
+                      left: getQuarterPosition(targetDate) + '%', 
+                      top: '25px', 
+                      transform: 'translateX(-50%)',
+                      textAlign: 'center'
+                    }}
+                  >
+                    <div style={{ width: '10px', height: '10px', background: '#28a745', borderRadius: '50%', margin: '0 auto', border: '2px solid white', boxShadow: '0 0 0 1px #28a745' }}></div>
+                    <span style={{ fontSize: '9px', color: '#28a745', fontWeight: 'bold', display: 'block', marginTop: '2px' }}>Target</span>
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       );
