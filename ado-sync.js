@@ -254,28 +254,79 @@ app.get('/dashboard', (req, res) => {
             setStates(data.stateChanges || []);
             setLoading(false);
           })
-          .catch(err => {
-            console.error(err);
+          .catch(() => {
+            setStates([]);
             setLoading(false);
           });
       }, [featureId]);
 
+      // Calcular rango de fechas
+      const allDates = [
+        ...states.map(s => new Date(s.changedDate)),
+        targetDate ? new Date(targetDate) : null
+      ].filter(d => d);
+
+      const minDate = allDates.length > 0 ? new Date(Math.min(...allDates)) : null;
+      const maxDate = allDates.length > 0 ? new Date(Math.max(...allDates)) : null;
+      const dayRange = maxDate && minDate ? (maxDate - minDate) / (1000 * 60 * 60 * 24) : 1;
+
+      const getPosition = (date) => {
+        if (!minDate || dayRange === 0) return 0;
+        const diff = (new Date(date) - minDate) / (1000 * 60 * 60 * 24);
+        return (diff / dayRange) * 100;
+      };
+
       return (
-        <div style={{ padding: '15px', marginBottom: '15px', borderBottom: '1px solid #eee' }}>
-          <strong>#{featureId}</strong> - {title.substring(0, 60)}
-          <br/>
-          <span style={{ fontSize: '11px', color: '#666' }}>Target Date: {formatDate(targetDate)}</span>
-          <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {loading ? (
-              <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
-            ) : (
-              states.map((s, i) => (
-                <span key={i} style={{ fontSize: '11px', padding: '5px 10px', background: '#e8f4f8', borderRadius: '3px', border: '1px solid #b3e5fc' }}>
-                  {s.state}
-                </span>
-              ))
-            )}
+        <div style={{ padding: '15px', marginBottom: '20px', borderBottom: '1px solid #eee' }}>
+          <div style={{ marginBottom: '10px' }}>
+            <strong>#{featureId}</strong> - {title.substring(0, 60)}
           </div>
+          <div style={{ fontSize: '11px', color: '#666', marginBottom: '15px' }}>
+            Target Date: {formatDate(targetDate)}
+          </div>
+          
+          {loading ? (
+            <div style={{ fontSize: '11px', color: '#999' }}>Loading timeline...</div>
+          ) : (
+            <div style={{ position: 'relative', height: '60px', background: '#f5f5f5', borderRadius: '4px', padding: '10px', marginBottom: '10px' }}>
+              {/* Timeline */}
+              <div style={{ position: 'absolute', top: '0', left: '0', right: '0', height: '2px', background: '#ddd', top: '28px' }}></div>
+              
+              {/* Estados como puntos en la línea */}
+              {states.map((s, i) => (
+                <div 
+                  key={i} 
+                  style={{ 
+                    position: 'absolute', 
+                    left: getPosition(s.changedDate) + '%', 
+                    top: '15px', 
+                    transform: 'translateX(-50%)',
+                    textAlign: 'center'
+                  }}
+                >
+                  <div style={{ width: '8px', height: '8px', background: '#007bff', borderRadius: '50%', margin: '0 auto' }}></div>
+                  <span style={{ fontSize: '10px', color: '#666', whiteSpace: 'nowrap', marginTop: '5px', display: 'block' }}>{s.state}</span>
+                  <span style={{ fontSize: '9px', color: '#999', display: 'block' }}>{formatDate(s.changedDate)}</span>
+                </div>
+              ))}
+              
+              {/* Target Date como marcador */}
+              {targetDate && (
+                <div 
+                  style={{ 
+                    position: 'absolute', 
+                    left: getPosition(targetDate) + '%', 
+                    top: '15px', 
+                    transform: 'translateX(-50%)',
+                    textAlign: 'center'
+                  }}
+                >
+                  <div style={{ width: '10px', height: '10px', background: '#28a745', borderRadius: '50%', margin: '0 auto', border: '2px solid white', boxShadow: '0 0 0 1px #28a745' }}></div>
+                  <span style={{ fontSize: '10px', color: '#28a745', fontWeight: 'bold', display: 'block', marginTop: '5px' }}>Target</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       );
     }
