@@ -369,6 +369,7 @@ app.get('/dashboard', (req, res) => {
       const [filterState, setFilterState] = useState([]);
       const [filterTargetDate, setFilterTargetDate] = useState([currentYear]);
       const [roadmapPage, setRoadmapPage] = useState(1);
+      const [timelineView, setTimelineView] = useState('month'); // 'month', 'quarter', 'semester'
 
       useEffect(() => {
         fetch('/api/features')
@@ -614,8 +615,30 @@ app.get('/dashboard', (req, res) => {
               </>
           )}
         {currentPage === 'roadmap' && (
-          <>
-            {(() => {
+            <>
+              <div style={{ background: 'white', padding: '15px', borderRadius: '8px', marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Timeline View:</span>
+                <button 
+                  style={{ padding: '6px 12px', background: timelineView === 'month' ? '#007bff' : '#f0f0f0', color: timelineView === 'month' ? 'white' : 'black', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px' }}
+                  onClick={() => setTimelineView('month')}
+                >
+                  Monthly
+                </button>
+                <button 
+                  style={{ padding: '6px 12px', background: timelineView === 'quarter' ? '#007bff' : '#f0f0f0', color: timelineView === 'quarter' ? 'white' : 'black', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px' }}
+                  onClick={() => setTimelineView('quarter')}
+                >
+                  Quarterly
+                </button>
+                <button 
+                  style={{ padding: '6px 12px', background: timelineView === 'semester' ? '#007bff' : '#f0f0f0', color: timelineView === 'semester' ? 'white' : 'black', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px' }}
+                  onClick={() => setTimelineView('semester')}
+                >
+                  Semester
+                </button>
+              </div>
+          
+              {(() => {
               const itemsPerPage = 15;
               const totalPages = Math.ceil(sortedFiltered.length / itemsPerPage);
               const startIdx = (roadmapPage - 1) * itemsPerPage;
