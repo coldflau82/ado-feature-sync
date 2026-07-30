@@ -328,18 +328,6 @@ app.get('/dashboard', (req, res) => {
                 </div>
               )}
                   
-                  {/* Estado labels */}
-                  <div style={{ display: 'flex', gap: '4px', marginTop: '8px', flexWrap: 'wrap' }}>
-                    {states.map((s, i) => {
-                      const stateColor = s.state === 'New' ? '#cccccc' : s.state === 'In Shaping' ? '#ffeb3b' : s.state === 'In Planning' ? '#ff9800' : s.state === 'Planned' ? '#2196f3' : s.state === 'In Process' ? '#4caf50' : '#9c27b0';
-                      return (
-                        <span key={i} style={{ fontSize: '9px', padding: '3px 6px', background: stateColor, color: 'white', borderRadius: '3px' }}>
-                          {s.state}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
               )}
             </div>
           </div>
