@@ -537,48 +537,47 @@ app.get('/dashboard', (req, res) => {
               )}
               </>
           )}
-{currentPage === 'roadmap' && (
-  <>
-    {(() => {
-      const itemsPerPage = 15;
-      const totalPages = Math.ceil(sortedFiltered.length / itemsPerPage);
-      const startIdx = (roadmapPage - 1) * itemsPerPage;
-      const endIdx = startIdx + itemsPerPage;
-      const pageItems = sortedFiltered.slice(startIdx, endIdx);
-
-      return (
-        <>
-          <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>
-            Showing {pageItems.length} of {sortedFiltered.length} Features - Page {roadmapPage} of {totalPages}
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ background: 'white', padding: '20px', borderRadius: '8px', maxHeight: '60vh', overflowY: 'auto' }}>
-              {pageItems.map(f => (
-                <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} formatDate={formatDate} />
-              ))}
-            </div>
-            <div style={{ background: 'white', padding: '20px', borderRadius: '8px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)' }}>
-            <button 
-              style={{ padding: '8px 16px', background: roadmapPage === 1 ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: roadmapPage === 1 ? 'default' : 'pointer', borderRadius: '4px' }}
-              onClick={() => setRoadmapPage(roadmapPage - 1)}
-              disabled={roadmapPage === 1}
-            >
-              Previous
-            </button>
-            <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Page {roadmapPage} of {totalPages}</span>
-            <button 
-              style={{ padding: '8px 16px', background: roadmapPage === totalPages ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: roadmapPage === totalPages ? 'default' : 'pointer', borderRadius: '4px' }}
-              onClick={() => setRoadmapPage(roadmapPage + 1)}
-              disabled={roadmapPage === totalPages}
-            >
-              Next
-            </button>
-          </div>
-        </>
-      );
-    })()}
-  </>
-)}          
+        {currentPage === 'roadmap' && (
+          <>
+            {(() => {
+              const itemsPerPage = 15;
+              const totalPages = Math.ceil(sortedFiltered.length / itemsPerPage);
+              const startIdx = (roadmapPage - 1) * itemsPerPage;
+              const endIdx = startIdx + itemsPerPage;
+              const pageItems = sortedFiltered.slice(startIdx, endIdx);
+        
+              return (
+                <>
+                  <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>
+                    Showing {pageItems.length} of {sortedFiltered.length} Features - Page {roadmapPage} of {totalPages}
+                  </p>
+                  <div style={{ background: 'white', padding: '20px', borderRadius: '8px', maxHeight: '60vh', overflowY: 'auto' }}>
+                    {pageItems.map(f => (
+                      <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} formatDate={formatDate} />
+                    ))}
+                  </div>
+                  <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center' }}>
+                    <button 
+                      style={{ padding: '8px 16px', background: roadmapPage === 1 ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: roadmapPage === 1 ? 'default' : 'pointer', borderRadius: '4px' }}
+                      onClick={() => setRoadmapPage(roadmapPage - 1)}
+                      disabled={roadmapPage === 1}
+                    >
+                      Previous
+                    </button>
+                    <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Page {roadmapPage} of {totalPages}</span>
+                    <button 
+                      style={{ padding: '8px 16px', background: roadmapPage === totalPages ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: roadmapPage === totalPages ? 'default' : 'pointer', borderRadius: '4px' }}
+                      onClick={() => setRoadmapPage(roadmapPage + 1)}
+                      disabled={roadmapPage === totalPages}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
+          </>
+        )}         
         </div>
       );
     }
