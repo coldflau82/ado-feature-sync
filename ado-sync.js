@@ -400,7 +400,7 @@ app.get('/dashboard', (req, res) => {
             </div>
           )}
 
-          <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', position: 'fixed', bottom: '0', left: '0', right: '0', boxShadow: '0 -2px 10px rgba(0,0,0,0.15)', zIndex: '999' }}>
+          <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', position: 'sticky', bottom: '0', left: '0', right: '0', boxShadow: '0 -2px 10px rgba(0,0,0,0.15)', zIndex: '999' }}>
             <div style={{ flex: 1 }}>
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>Search Feature Title</label>
               <input 
@@ -556,7 +556,7 @@ app.get('/dashboard', (req, res) => {
                       <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} formatDate={formatDate} />
                     ))}
                   </div>
-                  <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center' }}>
+                  <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', position: 'fixed', bottom: '0', boxShadow: '0 -2px 10px rgba(0,0,0,0.15)', zIndex: '999' }}>
                     <button 
                       style={{ padding: '8px 16px', background: roadmapPage === 1 ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: roadmapPage === 1 ? 'default' : 'pointer', borderRadius: '4px' }}
                       onClick={() => setRoadmapPage(roadmapPage - 1)}
