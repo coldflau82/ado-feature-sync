@@ -478,14 +478,14 @@ app.get('/dashboard', (req, res) => {
           )}
 
           <div style={{ background: 'white', padding: '15px', borderRadius: '8px', marginBottom: '20px', display: 'flex', gap: '20px', alignItems: 'center' }}>
-            <div style={{ flex: '0 0 250px' }}>
-              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '6px', fontSize: '12px' }}>Search Feature Title</label>
+            <div style={{ flex: '0 0 auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <label style={{ fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap' }}>Search Feature Title</label>
               <input 
                 type="text" 
                 placeholder="Type feature title..." 
                 value={searchTitle}
                 onChange={(e) => setSearchTitle(e.target.value)}
-                style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' }}
+                style={{ width: '200px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' }}
               />
             </div>
           
