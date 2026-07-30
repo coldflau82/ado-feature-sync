@@ -312,34 +312,22 @@ app.get('/dashboard', (req, res) => {
                   ))}
                 </div>
 
-                {/* Estados como puntos en filas alternadas */}
-                {states.map((s, i) => {
-                  const stateColors = {
-                    'New': '#cccccc',
-                    'In Shaping': '#ffeb3b',
-                    'In Planning': '#ff9800',
-                    'Planned': '#2196f3',
-                    'In Process': '#4caf50',
-                    'Closed': '#9c27b0'
-                  };
-                  const row = i % 2; // Alterna entre dos filas
-                  return (
-                    <div 
-                      key={i} 
-                      style={{ 
-                        position: 'absolute', 
-                        left: getQuarterPosition(s.changedDate) + '%', 
-                        top: (10 + row * 20) + 'px', 
-                        transform: 'translateX(-50%)',
-                        textAlign: 'center'
-                      }}
-                      title={`${s.state} - ${formatDate(s.changedDate)}`}
-                    >
-                      <div style={{ width: '8px', height: '8px', background: stateColors[s.state] || '#007bff', borderRadius: '50%', margin: '0 auto', border: '1px solid white' }}></div>
-                      <span style={{ fontSize: '8px', color: '#666', display: 'block', marginTop: '2px' }}>{s.state}</span>
-                    </div>
-                  );
-                })}
+                {/* Estados como puntos */}
+                {states.map((s, i) => (
+                  <div 
+                    key={i} 
+                    style={{ 
+                      position: 'absolute', 
+                      left: getQuarterPosition(s.changedDate) + '%', 
+                      top: '25px', 
+                      transform: 'translateX(-50%)',
+                      textAlign: 'center'
+                    }}
+                  >
+                    <div style={{ width: '8px', height: '8px', background: '#007bff', borderRadius: '50%', margin: '0 auto' }}></div>
+                    <span style={{ fontSize: '9px', color: '#666', whiteSpace: 'nowrap', display: 'block', marginTop: '2px' }}>{s.state}</span>
+                  </div>
+                ))}
                 
                 {/* Target Date */}
                 {targetDate && (
