@@ -313,21 +313,24 @@ app.get('/dashboard', (req, res) => {
                 </div>
 
                 {/* Estados como puntos */}
-                {states.map((s, i) => (
-                  <div 
-                    key={i} 
-                    style={{ 
-                      position: 'absolute', 
-                      left: getQuarterPosition(s.changedDate) + '%', 
-                      top: '25px', 
-                      transform: 'translateX(-50%)',
-                      textAlign: 'center'
-                    }}
-                  >
-                    <div style={{ width: '8px', height: '8px', background: '#007bff', borderRadius: '50%', margin: '0 auto' }}></div>
-                    <span style={{ fontSize: '9px', color: '#666', whiteSpace: 'nowrap', display: 'block', marginTop: '2px' }}>{s.state}</span>
-                  </div>
-                ))}
+                {states.map((s, i) => {
+                  const stateColor = s.state === 'New' ? '#cccccc' : s.state === 'In Shaping' ? '#ffeb3b' : s.state === 'In Planning' ? '#ff9800' : s.state === 'Planned' ? '#2196f3' : s.state === 'In Process' ? '#4caf50' : '#9c27b0';
+                  return (
+                    <div 
+                      key={i} 
+                      style={{ 
+                        position: 'absolute', 
+                        left: getQuarterPosition(s.changedDate) + '%', 
+                        top: (15 + (i % 2) * 20) + 'px', 
+                        transform: 'translateX(-50%)',
+                        textAlign: 'center'
+                      }}
+                    >
+                      <div style={{ width: '8px', height: '8px', background: stateColor, borderRadius: '50%', margin: '0 auto', border: '1px solid white' }}></div>
+                      <span style={{ fontSize: '8px', color: '#666', display: 'block', marginTop: '2px' }}>{s.state}</span>
+                    </div>
+                  );
+                })}
                 
                 {/* Target Date */}
                 {targetDate && (
