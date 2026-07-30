@@ -273,6 +273,20 @@ app.get('/dashboard', (req, res) => {
           'In Process': '#4caf50',
           'Closed': '#9c27b0'
         };
+
+        const segments = [];
+          if (states.length > 0) {
+            states.forEach((state, idx) => {
+              const nextState = idx < states.length - 1 ? states[idx + 1] : null;
+              const nextDate = nextState ? new Date(nextState.changedDate) : (targetDate ? new Date(targetDate) : new Date());
+              
+              segments.push({
+                color: stateColors[state.state] || '#cccccc',
+                state: state.state,
+                daysSpan: Math.max(1, Math.floor((nextDate - new Date(state.changedDate)) / (1000 * 60 * 60 * 24)))
+              });
+            });
+          }
   
         return (
           <div style={{ display: 'flex', gap: '20px', padding: '12px', borderBottom: '1px solid #eee', alignItems: 'stretch' }}>
