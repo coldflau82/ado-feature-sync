@@ -385,9 +385,9 @@ app.get('/dashboard', (req, res) => {
 
         return (
           <div className="container">
-            <div className="header">
-             <h1>ADO Dashboard</h1>
-            <div className="tabs">
+           <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h1 style={{ margin: 0 }}>ADO Dashboard</h1>
+            <div className="tabs" style={{ display: 'flex', gap: '10px', borderBottom: 'none', paddingBottom: '0' }}>
               <button className={'tab-btn' + (currentPage === 'features' ? ' active' : '')} onClick={() => setCurrentPage('features')}>Feature List</button>
               <button className={'tab-btn' + (currentPage === 'roadmap' ? ' active' : '')} onClick={() => setCurrentPage('roadmap')}>Roadmap</button>
             </div>
@@ -556,7 +556,7 @@ app.get('/dashboard', (req, res) => {
                       <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} formatDate={formatDate} />
                     ))}
                   </div>
-                  <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', position: 'fixed', bottom: '0', boxShadow: '0 -2px 10px rgba(0,0,0,0.15)', zIndex: '999' }}>
+                  <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', position: 'sticky', bottom: '0', boxShadow: '0 -2px 10px rgba(0,0,0,0.15)', zIndex: '999' }}>
                     <button 
                       style={{ padding: '8px 16px', background: roadmapPage === 1 ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: roadmapPage === 1 ? 'default' : 'pointer', borderRadius: '4px' }}
                       onClick={() => setRoadmapPage(roadmapPage - 1)}
