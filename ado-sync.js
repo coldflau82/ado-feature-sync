@@ -275,7 +275,6 @@ app.get('/dashboard', (req, res) => {
                 </span>
               ))
             )}
-            </div>
           </div>
         </div>
       );
@@ -384,11 +383,10 @@ app.get('/dashboard', (req, res) => {
         return new Date(date).toLocaleDateString('es-CO');
       };
 
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#f5f5f5' }}>
-          <div className="container" style={{ flexShrink: 0 }}>
+        return (
+          <div className="container">
             <div className="header">
-                <h1>ADO Dashboard</h1>
+             <h1>ADO Dashboard</h1>
             <div className="tabs">
               <button className={'tab-btn' + (currentPage === 'features' ? ' active' : '')} onClick={() => setCurrentPage('features')}>Feature List</button>
               <button className={'tab-btn' + (currentPage === 'roadmap' ? ' active' : '')} onClick={() => setCurrentPage('roadmap')}>Roadmap</button>
@@ -553,7 +551,7 @@ app.get('/dashboard', (req, res) => {
           <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>
             Showing {pageItems.length} of {sortedFiltered.length} Features - Page {roadmapPage} of {totalPages}
           </p>
-          <div style={{ background: 'white', padding: '20px', borderRadius: '8px', minHeight: '400px' }}>
+          <div style={{ background: 'white', padding: '20px', borderRadius: '8px', maxHeight: '70vh', overflowY: 'auto' }}>
             {pageItems.map(f => (
               <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} formatDate={formatDate} />
             ))}
