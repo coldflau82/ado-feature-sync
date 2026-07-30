@@ -625,6 +625,17 @@ app.get('/dashboard', (req, res) => {
                   <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>
                     Showing {pageItems.length} of {sortedFiltered.length} Features - Page {roadmapPage} of {totalPages}
                   </p>
+
+                  {/* Timeline Headers */}
+                  <div style={{ display: 'flex', gap: '20px', padding: '12px', marginBottom: '10px' }}>
+                    <div style={{ flex: '0 0 300px' }}></div>
+                    <div style={{ flex: 1, background: '#e0e0e0', borderRadius: '4px', padding: '8px', display: 'grid', gridTemplateColumns: timelineView === 'month' ? 'repeat(12, 1fr)' : timelineView === 'quarter' ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)', gap: '2px', fontSize: '10px', fontWeight: 'bold', textAlign: 'center' }}>
+                      {timelineView === 'month' && ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => <div key={i}>{m}</div>)}
+                      {timelineView === 'quarter' && ['Q1', 'Q2', 'Q3', 'Q4'].map((q, i) => <div key={i}>{q}</div>)}
+                      {timelineView === 'semester' && ['H1', 'H2'].map((h, i) => <div key={i}>{h}</div>)}
+                    </div>
+                  </div>
+                  
                   <div style={{ background: 'white', padding: '20px', borderRadius: '8px', maxHeight: '70vh', overflowY: 'auto' }}>
                     {pageItems.map(f => (
                       <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} formatDate={formatDate} />
