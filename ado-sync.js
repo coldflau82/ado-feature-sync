@@ -264,6 +264,15 @@ app.get('/dashboard', (req, res) => {
           const d = new Date(date);
           return d.toLocaleString('default', { month: 'short', year: '2-digit' });
         };
+
+        const stateColors = {
+          'New': '#cccccc',
+          'In Shaping': '#ffeb3b',
+          'In Planning': '#ff9800',
+          'Planned': '#2196f3',
+          'In Process': '#4caf50',
+          'Closed': '#9c27b0'
+        };
   
         return (
           <div style={{ display: 'flex', gap: '20px', padding: '12px', borderBottom: '1px solid #eee', alignItems: 'stretch' }}>
