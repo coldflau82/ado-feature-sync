@@ -304,7 +304,7 @@ app.get('/dashboard', (req, res) => {
               ) : (
                 <div style={{ width: '100%', display: 'flex', gap: '1px', height: '40px' }}>
                   {segments.map((seg, idx) => (
-                    <div key={idx} style={{ flex: 1, background: seg.color, borderRadius: '2px', opacity: 0.85 }} title={seg.state} />
+                    <div key={idx} style={{ width: seg.percentWidth + '%', background: seg.color, borderRadius: '2px', opacity: 0.85 }} title={seg.state} />
                   ))}
                 </div>
               )}
