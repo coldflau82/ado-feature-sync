@@ -271,7 +271,6 @@ app.get('/dashboard', (req, res) => {
       
         const segments = [];
         if (states.length > 0) {
-          // Calcular rango desde primer estado hasta target date o hoy
           const firstDate = new Date(states[0].changedDate);
           const lastDate = targetDate ? new Date(targetDate) : new Date();
           const totalDays = Math.max(1, (lastDate - firstDate) / (1000 * 60 * 60 * 24));
@@ -279,13 +278,13 @@ app.get('/dashboard', (req, res) => {
           states.forEach((state, idx) => {
             const stateStart = new Date(state.changedDate);
             const stateEnd = idx < states.length - 1 ? new Date(states[idx + 1].changedDate) : lastDate;
-            const stateDays = (stateEnd - stateStart) / (1000 * 60 * 60 * 24);
+            const stateDays = Math.max(1, (stateEnd - stateStart) / (1000 * 60 * 60 * 24));
             const percentWidth = (stateDays / totalDays) * 100;
         
             segments.push({
               color: stateColors[state.state] || '#cccccc',
               state: state.state,
-              percentWidth: Math.max(2, percentWidth)
+              percentWidth: percentWidth
             });
           });
         }
