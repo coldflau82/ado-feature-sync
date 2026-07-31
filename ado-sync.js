@@ -296,7 +296,7 @@ app.get('/dashboard', (req, res) => {
               <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.4' }}>{title.substring(0, 80)}</div>
               <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>Target: {formatDate(targetDate)}</div>
             </div>
-            <div style={{ width: '100%', minHeight: '80px', background: '#f9f9f9', borderRadius: '4px', padding: '10px', display: 'flex', alignItems: 'center', overflow: 'hidden', position: 'relative' }}>
+            <div style={{ flex: 1, minHeight: '70px', background: '#f9f9f9', borderRadius: '4px', padding: '8px', display: 'flex', alignItems: 'center' }}>
               {loading ? (
                 <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
               ) : segments.length === 0 ? (
@@ -304,13 +304,15 @@ app.get('/dashboard', (req, res) => {
               ) : (
                 <div style={{ width: '100%', display: 'flex', gap: '2px' }}>
                   {segments.map((seg, idx) => (
-                    <div key={idx} style={{ width: seg.percentWidth + '%', height: '40px', background: seg.color, borderRadius: '2px', opacity: 0.85 }} />
+                    <div key={idx} style={{ flex: seg.daysSpan, height: '28px', background: seg.color, borderRadius: '3px', opacity: 0.85, minWidth: '8px' }} title={seg.state} />
                   ))}
                 </div>
               )}
             </div>
           </div>
         );
+      }
+
 
     function Dashboard() {
       const [features, setFeatures] = useState([]);
