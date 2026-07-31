@@ -271,12 +271,21 @@ app.get('/dashboard', (req, res) => {
       
         const segments = [];
         if (states.length > 0) {
+          // Calcular rango desde primer estado hasta target date o hoy
+          const firstDate = new Date(states[0].changedDate);
+          const lastDate = targetDate ? new Date(targetDate) : new Date();
+          const totalDays = Math.max(1, (lastDate - firstDate) / (1000 * 60 * 60 * 24));
+        
           states.forEach((state, idx) => {
-            const nextDate = idx < states.length - 1 ? new Date(states[idx + 1].changedDate) : (targetDate ? new Date(targetDate) : new Date());
+            const stateStart = new Date(state.changedDate);
+            const stateEnd = idx < states.length - 1 ? new Date(states[idx + 1].changedDate) : lastDate;
+            const stateDays = (stateEnd - stateStart) / (1000 * 60 * 60 * 24);
+            const percentWidth = (stateDays / totalDays) * 100;
+        
             segments.push({
               color: stateColors[state.state] || '#cccccc',
               state: state.state,
-              daysSpan: Math.max(1, Math.floor((nextDate - new Date(state.changedDate)) / (1000 * 60 * 60 * 24)))
+              percentWidth: Math.max(2, percentWidth)
             });
           });
         }
@@ -296,7 +305,7 @@ app.get('/dashboard', (req, res) => {
               ) : (
                 <div style={{ width: '100%', display: 'flex', gap: '2px' }}>
                   {segments.map((seg, idx) => (
-                    <div key={idx} style={{ flex: seg.daysSpan, height: '28px', background: seg.color, borderRadius: '3px', opacity: 0.85, minWidth: '8px' }} title={seg.state} />
+                    <div key={idx} style={{ width: seg.percentWidth + '%', height: '28px', background: seg.color, borderRadius: '3px', opacity: 0.85, minWidth: '4px' }} title={seg.state} />
                   ))}
                 </div>
               )}
