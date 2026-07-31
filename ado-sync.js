@@ -297,7 +297,7 @@ app.get('/dashboard', (req, res) => {
               <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.4' }}>{title.substring(0, 80)}</div>
               <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>Target: {formatDate(targetDate)}</div>
             </div>
-            <div style={{ flex: 1, minHeight: '70px', background: '#f9f9f9', borderRadius: '4px', padding: '8px', display: 'flex', alignItems: 'center' }}>
+            <div style={{ flex: 1, minHeight: '80px', background: '#f9f9f9', borderRadius: '4px', padding: '10px', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
               {loading ? (
                 <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
               ) : segments.length === 0 ? (
@@ -305,7 +305,7 @@ app.get('/dashboard', (req, res) => {
               ) : (
                 <div style={{ width: '100%', display: 'flex', gap: '2px' }}>
                   {segments.map((seg, idx) => (
-                    <div key={idx} style={{ width: seg.percentWidth + '%', height: '28px', background: seg.color, borderRadius: '3px', opacity: 0.85, minWidth: '4px' }} title={seg.state} />
+                    <div key={idx} style={{ width: seg.percentWidth + '%', height: '40px', background: seg.color, borderRadius: '2px', opacity: 0.85, minWidth: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: 'white', fontWeight: 'bold' }} title={`${seg.state}: ${seg.percentWidth.toFixed(1)}%`}>{seg.percentWidth > 8 ? seg.state : ''}</div>
                   ))}
                 </div>
               )}
