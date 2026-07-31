@@ -296,20 +296,25 @@ app.get('/dashboard', (req, res) => {
               <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.4' }}>{title.substring(0, 80)}</div>
               <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>Target: {formatDate(targetDate)}</div>
             </div>
-            <div style={{ flex: 1, minHeight: '80px', background: '#f9f9f9', borderRadius: '4px', padding: '10px', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+            <div style={{ width: '100%', minHeight: '80px', background: '#f9f9f9', borderRadius: '4px', padding: '10px', display: 'flex', alignItems: 'center', overflow: 'hidden', position: 'relative' }}>
               {loading ? (
                 <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
               ) : segments.length === 0 ? (
                 <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
               ) : (
-                <div style={{ width: '100%', display: 'flex', gap: '1px', height: '40px' }}>
-                  {segments.map((seg, idx) => (
-                    <div key={idx} style={{ width: seg.percentWidth + '%', background: seg.color, borderRadius: '2px', opacity: 0.85 }} title={seg.state} />
-                  ))}
-                </div>
+                <>
+                  {/* Línea de "hoy" */}
+                  <div style={{ position: 'absolute', top: '0', bottom: '0', left: '50%', width: '2px', background: 'red', opacity: 0.5, zIndex: 10 }} />
+                  
+                  {/* Barras */}
+                  <div style={{ width: '100%', display: 'flex', gap: '1px', height: '40px' }}>
+                    {segments.map((seg, idx) => (
+                      <div key={idx} style={{ flex: 1, background: seg.color, borderRadius: '2px', opacity: 0.85 }} title={seg.state} />
+                    ))}
+                  </div>
+                </>
               )}
             </div>
-          </div>
         );
       }
 
