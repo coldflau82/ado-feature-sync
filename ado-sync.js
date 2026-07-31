@@ -302,21 +302,15 @@ app.get('/dashboard', (req, res) => {
               ) : segments.length === 0 ? (
                 <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
               ) : (
-                <>
-                  {/* Línea de "hoy" */}
-                  <div style={{ position: 'absolute', top: '0', bottom: '0', left: '50%', width: '2px', background: 'red', opacity: 0.5, zIndex: 10 }} />
-                  
-                  {/* Barras */}
-                  <div style={{ width: '100%', display: 'flex', gap: '1px', height: '40px' }}>
-                    {segments.map((seg, idx) => (
-                      <div key={idx} style={{ flex: 1, background: seg.color, borderRadius: '2px', opacity: 0.85 }} title={seg.state} />
-                    ))}
-                  </div>
-                </>
+                <div style={{ width: '100%', display: 'flex', gap: '2px' }}>
+                  {segments.map((seg, idx) => (
+                    <div key={idx} style={{ width: seg.percentWidth + '%', height: '40px', background: seg.color, borderRadius: '2px', opacity: 0.85 }} />
+                  ))}
+                </div>
               )}
             </div>
+          </div>
         );
-      }
 
     function Dashboard() {
       const [features, setFeatures] = useState([]);
