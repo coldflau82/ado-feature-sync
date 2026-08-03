@@ -303,6 +303,7 @@ app.get('/dashboard', (req, res) => {
               <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '4px' }}>#{featureId}</div>
               <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.4' }}>{title.substring(0, 80)}</div>
               <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>Target: {formatDate(targetDate)}</div>
+              <div style={{ fontSize: '8px', color: '#f00' }}>{JSON.stringify(states)}</div>
             </div>
            <div style={{ flex: 1, minHeight: '80px', background: '#f9f9f9', borderRadius: '4px', padding: '10px', overflow: 'hidden', position: 'relative' }}>
               {/* Línea de "hoy" */}
