@@ -273,17 +273,20 @@ app.get('/dashboard', (req, res) => {
         if (states.length > 0) {
           const firstStateDate = new Date(states[0].changedDate);
           const today = new Date();
-          const totalDays = Math.max(1, (today - firstStateDate) / (1000 * 60 * 60 * 24));
+          const totalDays = Math.max(1, (today.getTime() - firstStateDate.getTime()) / (1000 * 60 * 60 * 24));
         
           states.forEach((state, idx) => {
             const stateStart = new Date(state.changedDate);
             const stateEnd = idx === states.length - 1 ? today : new Date(states[idx + 1].changedDate);
             
-            const daysFromFirstState = Math.max(0, (stateStart - firstStateDate) / (1000 * 60 * 60 * 24));
-            const daysToEnd = Math.max(0, (stateEnd - firstStateDate) / (1000 * 60 * 60 * 24));
+            const daysFromFirstState = Math.max(0, (stateStart.getTime() - firstStateDate.getTime()) / (1000 * 60 * 60 * 24));
+            const daysToEnd = Math.max(0, (stateEnd.getTime() - firstStateDate.getTime()) / (1000 * 60 * 60 * 24));
             
-            const startPercent = (daysFromFirstState / totalDays) * 100;
-            const widthPercent = Math.max(1, ((daysToEnd - daysFromFirstState) / totalDays) * 100);
+            let startPercent = (daysFromFirstState / totalDays) * 100;
+            let widthPercent = ((daysToEnd - daysFromFirstState) / totalDays) * 100;
+        
+            if (isNaN(startPercent)) startPercent = 0;
+            if (isNaN(widthPercent) || widthPercent < 1) widthPercent = 1;
         
             segments.push({
               color: stateColors[state.state] || '#cccccc',
