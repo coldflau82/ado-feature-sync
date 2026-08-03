@@ -397,11 +397,18 @@ app.get('/dashboard', (req, res) => {
       const areaPaths = [...new Set(features.map(f => f.areaPath).filter(a => a))].sort();
       const iterations = [...new Set(features.map(f => f.iterationPath).filter(a => a))].sort();
       const states = [...new Set(features.map(f => f.state).filter(a => a))].sort();
-      const targetDates = [...new Set(features.map(f => {
-        if (!f.targetDate) return null;
-        const date = new Date(f.targetDate);
-        return String(date.getFullYear());
-      }).filter(a => a))].sort().reverse();
+      const targetYears = [...new Set(features.map(f => f.targetDate ? new Date(f.targetDate).getFullYear() : null).filter(y => y))].sort((a, b) => b - a);
+
+      const monthsByYear = {};
+      features.forEach(f => {
+        if (f.targetDate) {
+          const d = new Date(f.targetDate);
+          const y = d.getFullYear();
+          const m = d.getMonth();
+          if (!monthsByYear[y]) monthsByYear[y] = new Set();
+          monthsByYear[y].add(m);
+        }
+      });
 
       const filtered = features.filter(f => {
         const areaOk = filterAreaPath.length === 0 || filterAreaPath.includes(f.areaPath);
