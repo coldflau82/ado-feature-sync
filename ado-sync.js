@@ -244,7 +244,7 @@ app.get('/dashboard', (req, res) => {
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-      function FeatureRow({ featureId, title, targetDate, formatDate, timelineView }) {
+      function FeatureRow({ featureId, title, targetDate, formatDate, timelineView, timelineOffset }) {
         const [states, setStates] = useState([]);
         const [loading, setLoading] = useState(true);
       
@@ -270,31 +270,35 @@ app.get('/dashboard', (req, res) => {
           'Closed': '#9c27b0'
         };
       
+        const today = new Date();
+        const timelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
+        const timelineEnd = new Date(today.getFullYear(), today.getMonth() + timelineOffset + 12, 0);
+        const timelineTotalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
+        
         const segments = [];
         if (states.length > 0) {
-          const firstStateDate = new Date(states[0].changedDate);
-          const today = new Date();
-          const totalDays = Math.max(1, (today.getTime() - firstStateDate.getTime()) / (1000 * 60 * 60 * 24));
-        
           states.forEach((state, idx) => {
             const stateStart = new Date(state.changedDate);
             const stateEnd = idx === states.length - 1 ? today : new Date(states[idx + 1].changedDate);
             
-            const daysFromFirstState = Math.max(0, (stateStart.getTime() - firstStateDate.getTime()) / (1000 * 60 * 60 * 24));
-            const daysToEnd = Math.max(0, (stateEnd.getTime() - firstStateDate.getTime()) / (1000 * 60 * 60 * 24));
+            const daysFromStart = (stateStart - timelineStart) / (1000 * 60 * 60 * 24);
+            const daysToEnd = (stateEnd - timelineStart) / (1000 * 60 * 60 * 24);
             
-            let startPercent = (daysFromFirstState / totalDays) * 100;
-            let widthPercent = ((daysToEnd - daysFromFirstState) / totalDays) * 100;
+            let startPercent = (daysFromStart / timelineTotalDays) * 100;
+            let widthPercent = ((daysToEnd - daysFromStart) / timelineTotalDays) * 100;
         
-            if (isNaN(startPercent)) startPercent = 0;
-            if (isNaN(widthPercent) || widthPercent < 1) widthPercent = 1;
-        
-            segments.push({
-              color: stateColors[state.state] || '#cccccc',
-              state: state.state,
-              startPercent: startPercent,
-              widthPercent: widthPercent
-            });
+            // Solo mostrar si está dentro del rango visible
+            if (startPercent < 100 && (startPercent + widthPercent) > 0) {
+              startPercent = Math.max(0, startPercent);
+              widthPercent = Math.min(100 - startPercent, widthPercent);
+              
+              segments.push({
+                color: stateColors[state.state] || '#cccccc',
+                state: state.state,
+                startPercent: startPercent,
+                widthPercent: Math.max(1, widthPercent)
+              });
+            }
           });
         }
       
