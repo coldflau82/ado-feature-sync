@@ -244,7 +244,7 @@ app.get('/dashboard', (req, res) => {
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-      function FeatureRow({ featureId, title, targetDate, formatDate, timelineView, timelineOffset }) {
+      function FeatureRow({ featureId, title, targetDate, formatDate, timelineOffset, adoLink }) {
         const [states, setStates] = useState([]);
         const [loading, setLoading] = useState(true);
       
@@ -304,53 +304,62 @@ app.get('/dashboard', (req, res) => {
         }
       
         return (
-          <div style={{ display: 'flex', gap: '20px', padding: '12px', borderBottom: '1px solid #eee', alignItems: 'stretch' }}>
-            <div style={{ flex: '0 0 300px', paddingRight: '10px', borderRight: '1px solid #ddd', overflow: 'hidden' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '4px' }}>#{featureId}</div>
-              <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.4' }}>{title.substring(0, 80)}</div>
-              <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>Target: {formatDate(targetDate)}</div>
-            </div>
-           <div style={{ flex: 1, minHeight: '80px', background: '#f9f9f9', borderRadius: '4px', padding: '10px', overflow: 'hidden', position: 'relative' }}>
-              {/* Marcador de Target Date */}
-              {!loading && targetDate && (() => {
-                const target = new Date(targetDate);
-                const targetPercent = ((target - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
-                if (targetPercent < 0 || targetPercent > 100) return null;
-                return (
-                  <div 
-                    style={{ position: 'absolute', top: '-8px', left: targetPercent + '%', transform: 'translateX(-50%)', zIndex: 11 }}
-                    title={'Target: ' + formatDate(targetDate)}
-                  >
-                    <div style={{ width: '0', height: '0', borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: '10px solid #28a745' }} />
-                    <div style={{ width: '2px', height: '96px', background: '#28a745', margin: '0 auto', opacity: 0.6 }} />
-                  </div>
-                );
-              })()}
-              {loading ? (
-                <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
-              ) : segments.length === 0 ? (
-                <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
-              ) : (
-                <div style={{ width: '100%', position: 'relative', height: '28px' }}>
-                  {segments.map((seg, idx) => (
+          <tr style={{ borderBottom: '1px solid #eee' }}>
+            <td><a href={adoLink(featureId)} target="_blank">{featureId}</a></td>
+            <td title={title}>{title.substring(0, 50)}</td>
+            <td style={{ padding: '8px' }}>
+              <div style={{ minHeight: '80px', background: '#f9f9f9', borderRadius: '4px', padding: '10px', overflow: 'hidden', position: 'relative' }}>
+                {/* Línea de "hoy" */}
+                {!loading && (() => {
+                  const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
+                  if (todayPercent < 0 || todayPercent > 100) return null;
+                  return (
+                    <div style={{ position: 'absolute', top: '0', bottom: '0', left: todayPercent + '%', width: '2px', background: '#ff0000', opacity: 0.7, zIndex: 10 }} />
+                  );
+                })()}
+        
+                {/* Marcador de Target Date */}
+                {!loading && targetDate && (() => {
+                  const target = new Date(targetDate);
+                  const targetPercent = ((target - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
+                  if (targetPercent < 0 || targetPercent > 100) return null;
+                  return (
                     <div 
-                      key={idx} 
-                      style={{ 
-                        position: 'absolute',
-                        left: seg.startPercent + '%',
-                        width: seg.widthPercent + '%',
-                        height: '28px',
-                        background: seg.color,
-                        borderRadius: '3px',
-                        opacity: 0.85,
-                        minWidth: '6px'
-                      }} 
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+                      style={{ position: 'absolute', top: '-8px', left: targetPercent + '%', transform: 'translateX(-50%)', zIndex: 11 }}
+                      title={'Target: ' + formatDate(targetDate)}
+                    >
+                      <div style={{ width: '0', height: '0', borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: '10px solid #28a745' }} />
+                      <div style={{ width: '2px', height: '96px', background: '#28a745', margin: '0 auto', opacity: 0.6 }} />
+                    </div>
+                  );
+                })()}
+        
+                {loading ? (
+                  <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
+                ) : segments.length === 0 ? (
+                  <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
+                ) : (
+                  <div style={{ width: '100%', position: 'relative', height: '28px' }}>
+                    {segments.map((seg, idx) => (
+                      <div 
+                        key={idx} 
+                        style={{ 
+                          position: 'absolute',
+                          left: seg.startPercent + '%',
+                          width: seg.widthPercent + '%',
+                          height: '28px',
+                          background: seg.color,
+                          borderRadius: '3px',
+                          opacity: 0.85,
+                          minWidth: '6px'
+                        }} 
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </td>
+          </tr>
         );
       }
 
