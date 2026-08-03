@@ -313,21 +313,19 @@ app.get('/dashboard', (req, res) => {
               ) : segments.length === 0 ? (
                 <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
               ) : (
-                <div style={{ width: '100%', display: 'flex', position: 'relative', height: '28px', alignItems: 'center' }}>
+                <div style={{ width: '100%', display: 'flex', height: '28px', alignItems: 'center', gap: '1px' }}>
                   {segments.map((seg, idx) => (
                     <div 
                       key={idx} 
                       style={{ 
-                        position: 'absolute',
-                        left: seg.startPercent + '%',
-                        width: seg.widthPercent + '%',
+                        flex: seg.widthPercent,
                         height: '28px',
                         background: seg.color,
                         borderRadius: '3px',
                         opacity: 0.85,
-                        minWidth: '20px'
+                        minWidth: '8px'
                       }} 
-                      title={seg.state} 
+                      title={`${seg.state}: ${seg.widthPercent.toFixed(1)}%`}
                     />
                   ))}
                 </div>
