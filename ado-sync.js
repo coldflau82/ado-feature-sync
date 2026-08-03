@@ -284,19 +284,20 @@ app.get('/dashboard', (req, res) => {
             const daysFromStart = (stateStart - timelineStart) / (1000 * 60 * 60 * 24);
             const daysToEnd = (stateEnd - timelineStart) / (1000 * 60 * 60 * 24);
             
-            let startPercent = (daysFromStart / timelineTotalDays) * 100;
-            let widthPercent = ((daysToEnd - daysFromStart) / timelineTotalDays) * 100;
-        
+            const rawStartPercent = (daysFromStart / timelineTotalDays) * 100;
+            const rawEndPercent = (daysToEnd / timelineTotalDays) * 100;
+            
             // Solo mostrar si está dentro del rango visible
-            if (startPercent < 100 && (startPercent + widthPercent) > 0) {
-              startPercent = Math.max(0, startPercent);
-              widthPercent = Math.min(100 - startPercent, widthPercent);
-              
+            if (rawStartPercent < 100 && rawEndPercent > 0) {
+              const clampedStart = Math.max(0, rawStartPercent);
+              const clampedEnd = Math.min(100, rawEndPercent);
+              const widthPercent = Math.max(1, clampedEnd - clampedStart);
+            
               segments.push({
                 color: stateColors[state.state] || '#cccccc',
                 state: state.state,
-                startPercent: startPercent,
-                widthPercent: Math.max(1, widthPercent)
+                startPercent: clampedStart,
+                widthPercent: widthPercent
               });
             }
           });
