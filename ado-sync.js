@@ -641,13 +641,12 @@ app.get('/dashboard', (req, res) => {
         
               return (
                 <>
-                  <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>
-                    Showing {pageItems.length} of {sortedFiltered.length} Features - Page {roadmapPage} of {totalPages}
-                  </p>
-
-                  {/* Leyenda de colores */}
-                  <div style={{ background: 'white', padding: '10px 15px', borderRadius: '8px', marginBottom: '10px', display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Status:</span>
+                  <div style={{ background: 'white', padding: '10px 15px', borderRadius: '8px', marginBottom: '10px', display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#666', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                      Showing {pageItems.length} of {sortedFiltered.length} Features - Page {roadmapPage} of {totalPages}
+                    </span>
+                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Status:</span>
                     {[
                       { label: 'New', color: '#cccccc' },
                       { label: 'In Shaping', color: '#ffeb3b' },
@@ -668,6 +667,7 @@ app.get('/dashboard', (req, res) => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '8px solid #28a745' }}></div>
                       <span style={{ fontSize: '11px' }}>Target Date</span>
+                    </div>
                     </div>
                   </div>
 
