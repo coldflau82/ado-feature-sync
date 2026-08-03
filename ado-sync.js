@@ -306,7 +306,7 @@ app.get('/dashboard', (req, res) => {
         return (
           <tr style={{ borderBottom: '1px solid #eee' }}>
             <td><a href={adoLink(featureId)} target="_blank">{featureId}</a></td>
-            <td title={title}>{title.substring(0, 50)}</td>
+            <td title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{title}</td>
             <td style={{ padding: '8px' }}>
               <div style={{ minHeight: '32px', background: '#f9f9f9', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
                 {/* Línea de "hoy" */}
@@ -595,7 +595,7 @@ app.get('/dashboard', (req, res) => {
                             {f.stories && f.stories.length > 0 ? (expandedRows[f.id] ? '▼' : '►') : ''}
                           </td>
                           <td><a href={adoLink(f.id)} target="_blank">{f.id}</a></td>
-                          <td title={f.title}>{f.title.substring(0, 50)}</td>
+                          <td title={f.title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{f.title}</td>
                           <td style={{ fontSize: '11px' }}>{f.areaPath.split('\\\\').pop()}</td>
                           <td style={{ fontSize: '11px' }}>{f.iterationPath.split('\\\\').pop()}</td>
                           <td>{f.priority || '-'}</td>
