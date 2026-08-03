@@ -327,15 +327,11 @@ app.get('/dashboard', (req, res) => {
                         background: seg.color,
                         borderRadius: '3px',
                         opacity: 0.85,
-                        minWidth: '6px',
-                        fontSize: '8px',
-                        color: 'black',
-                        overflow: 'visible',
-                        whiteSpace: 'nowrap'
+                        minWidth: '6px'
                       }} 
-                    >
-                      {seg.startPercent.toFixed(0)}%-{seg.widthPercent.toFixed(0)}%
-                    </div>
+                    />
+                  ))}
+                </div>
                   ))}
                 </div>
               )}
