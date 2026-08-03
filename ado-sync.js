@@ -311,12 +311,19 @@ app.get('/dashboard', (req, res) => {
               <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>Target: {formatDate(targetDate)}</div>
             </div>
            <div style={{ flex: 1, minHeight: '80px', background: '#f9f9f9', borderRadius: '4px', padding: '10px', overflow: 'hidden', position: 'relative' }}>
-              {/* Línea de "hoy" */}
-              {!loading && (() => {
-                const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
-                if (todayPercent < 0 || todayPercent > 100) return null;
+              {/* Marcador de Target Date */}
+              {!loading && targetDate && (() => {
+                const target = new Date(targetDate);
+                const targetPercent = ((target - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
+                if (targetPercent < 0 || targetPercent > 100) return null;
                 return (
-                  <div style={{ position: 'absolute', top: '0', bottom: '0', left: todayPercent + '%', width: '2px', background: '#ff0000', opacity: 0.7, zIndex: 10 }} />
+                  <div 
+                    style={{ position: 'absolute', top: '-8px', left: targetPercent + '%', transform: 'translateX(-50%)', zIndex: 11 }}
+                    title={'Target: ' + formatDate(targetDate)}
+                  >
+                    <div style={{ width: '0', height: '0', borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: '10px solid #28a745' }} />
+                    <div style={{ width: '2px', height: '96px', background: '#28a745', margin: '0 auto', opacity: 0.6 }} />
+                  </div>
                 );
               })()}
               {loading ? (
