@@ -271,21 +271,19 @@ app.get('/dashboard', (req, res) => {
       
         const segments = [];
         if (states.length > 0) {
-          const yearStart = new Date(2026, 0, 1);
-          const yearEnd = new Date(2026, 11, 31);
-          const yearTotalDays = (yearEnd - yearStart) / (1000 * 60 * 60 * 24);
+          const firstStateDate = new Date(states[0].changedDate);
           const today = new Date();
+          const totalDays = Math.max(1, (today - firstStateDate) / (1000 * 60 * 60 * 24));
         
           states.forEach((state, idx) => {
             const stateStart = new Date(state.changedDate);
-            // Si es el último estado, duración hasta HOY; si no, hasta el próximo estado
             const stateEnd = idx === states.length - 1 ? today : new Date(states[idx + 1].changedDate);
             
-            const daysFromStart = Math.max(0, (stateStart - yearStart) / (1000 * 60 * 60 * 24));
-            const daysFromEnd = Math.min(yearTotalDays, (stateEnd - yearStart) / (1000 * 60 * 60 * 24));
+            const daysFromFirstState = Math.max(0, (stateStart - firstStateDate) / (1000 * 60 * 60 * 24));
+            const daysToEnd = Math.max(0, (stateEnd - firstStateDate) / (1000 * 60 * 60 * 24));
             
-            const startPercent = (daysFromStart / yearTotalDays) * 100;
-            const widthPercent = Math.max(2, ((daysFromEnd - daysFromStart) / yearTotalDays) * 100);
+            const startPercent = (daysFromFirstState / totalDays) * 100;
+            const widthPercent = Math.max(1, ((daysToEnd - daysFromFirstState) / totalDays) * 100);
         
             segments.push({
               color: stateColors[state.state] || '#cccccc',
