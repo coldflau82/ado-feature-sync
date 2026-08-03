@@ -332,8 +332,6 @@ app.get('/dashboard', (req, res) => {
                     />
                   ))}
                 </div>
-                  ))}
-                </div>
               )}
             </div>
           </div>
