@@ -355,6 +355,7 @@ app.get('/dashboard', (req, res) => {
       const [filterTargetDate, setFilterTargetDate] = useState([currentYear]);
       const [roadmapPage, setRoadmapPage] = useState(1);
       const [timelineView, setTimelineView] = useState('month'); // 'month', 'quarter', 'semester'
+      const [timelineOffset, setTimelineOffset] = useState(-12);
 
       useEffect(() => {
         fetch('/api/features')
@@ -643,14 +644,37 @@ app.get('/dashboard', (req, res) => {
                   </p>
 
                   {/* Timeline Headers */}
-                  <div style={{ display: 'flex', gap: '20px', padding: '12px', marginBottom: '10px' }}>
-                    <div style={{ flex: '0 0 300px' }}></div>
-                    <div style={{ flex: 1, background: '#e0e0e0', borderRadius: '4px', padding: '8px', display: 'grid', gridTemplateColumns: timelineView === 'month' ? 'repeat(12, 1fr)' : timelineView === 'quarter' ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)', gap: '2px', fontSize: '10px', fontWeight: 'bold', textAlign: 'center' }}>
-                      {timelineView === 'month' && ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => <div key={i}>{m}</div>)}
-                      {timelineView === 'quarter' && ['Q1', 'Q2', 'Q3', 'Q4'].map((q, i) => <div key={i}>{q}</div>)}
-                      {timelineView === 'semester' && ['H1', 'H2'].map((h, i) => <div key={i}>{h}</div>)}
-                    </div>
-                  </div>
+                  {(() => {
+                    const today = new Date();
+                    const timelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
+                    const monthLabels = [];
+                    for (let i = 0; i < 12; i++) {
+                      const m = new Date(timelineStart.getFullYear(), timelineStart.getMonth() + i, 1);
+                      monthLabels.push(m.toLocaleString('default', { month: 'short', year: '2-digit' }));
+                    }
+                  
+                    return (
+                      <div style={{ display: 'flex', gap: '20px', padding: '12px', marginBottom: '10px', alignItems: 'center' }}>
+                        <div style={{ flex: '0 0 300px', display: 'flex', justifyContent: 'flex-end' }}>
+                          <button 
+                            style={{ padding: '4px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }}
+                            onClick={() => setTimelineOffset(timelineOffset - 1)}
+                          >
+                            ◄
+                          </button>
+                        </div>
+                        <div style={{ flex: 1, background: '#e0e0e0', borderRadius: '4px', padding: '8px', display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', fontSize: '10px', fontWeight: 'bold', textAlign: 'center' }}>
+                          {monthLabels.map((m, i) => <div key={i}>{m}</div>)}
+                        </div>
+                        <button 
+                          style={{ padding: '4px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }}
+                          onClick={() => setTimelineOffset(timelineOffset + 1)}
+                        >
+                          ►
+                        </button>
+                      </div>
+                    );
+                  })()}
                   
                   <div style={{ background: 'white', padding: '20px', borderRadius: '8px', maxHeight: '70vh', overflowY: 'auto' }}>
                     {pageItems.map(f => (
