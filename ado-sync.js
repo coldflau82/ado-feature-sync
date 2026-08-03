@@ -492,29 +492,6 @@ app.get('/dashboard', (req, res) => {
                 />
               </div>
           
-              {currentPage === 'roadmap' && (
-                <div style={{ flex: '0 0 auto', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Timeline View:</span>
-                  <button 
-                    style={{ padding: '6px 12px', background: timelineView === 'month' ? '#007bff' : '#f0f0f0', color: timelineView === 'month' ? 'white' : 'black', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px' }}
-                    onClick={() => setTimelineView('month')}
-                  >
-                    Monthly
-                  </button>
-                  <button 
-                    style={{ padding: '6px 12px', background: timelineView === 'quarter' ? '#007bff' : '#f0f0f0', color: timelineView === 'quarter' ? 'white' : 'black', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px' }}
-                    onClick={() => setTimelineView('quarter')}
-                  >
-                    Quarterly
-                  </button>
-                  <button 
-                    style={{ padding: '6px 12px', background: timelineView === 'semester' ? '#007bff' : '#f0f0f0', color: timelineView === 'semester' ? 'white' : 'black', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px' }}
-                    onClick={() => setTimelineView('semester')}
-                  >
-                    Semester
-                  </button>
-                </div>
-              )}
             </div>
           
             <button style={{ padding: '8px 16px', background: '#dc3545', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); }}>
