@@ -311,9 +311,13 @@ app.get('/dashboard', (req, res) => {
             </div>
            <div style={{ flex: 1, minHeight: '80px', background: '#f9f9f9', borderRadius: '4px', padding: '10px', overflow: 'hidden', position: 'relative' }}>
               {/* Línea de "hoy" */}
-              {!loading && segments.length > 0 && (
-                <div style={{ position: 'absolute', top: '0', bottom: '0', left: '50%', width: '2px', background: '#ff0000', opacity: 0.7, zIndex: 10 }} />
-              )}
+              {!loading && (() => {
+                const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
+                if (todayPercent < 0 || todayPercent > 100) return null;
+                return (
+                  <div style={{ position: 'absolute', top: '0', bottom: '0', left: todayPercent + '%', width: '2px', background: '#ff0000', opacity: 0.7, zIndex: 10 }} />
+                );
+              })()}
               {loading ? (
                 <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
               ) : segments.length === 0 ? (
