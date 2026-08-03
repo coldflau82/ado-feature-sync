@@ -308,7 +308,7 @@ app.get('/dashboard', (req, res) => {
             <td><a href={adoLink(featureId)} target="_blank">{featureId}</a></td>
             <td title={title}>{title.substring(0, 50)}</td>
             <td style={{ padding: '8px' }}>
-              <div style={{ minHeight: '80px', background: '#f9f9f9', borderRadius: '4px', padding: '10px', overflow: 'hidden', position: 'relative' }}>
+              <div style={{ minHeight: '32px', background: '#f9f9f9', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
                 {/* Línea de "hoy" */}
                 {!loading && (() => {
                   const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
@@ -339,7 +339,7 @@ app.get('/dashboard', (req, res) => {
                 ) : segments.length === 0 ? (
                   <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
                 ) : (
-                  <div style={{ width: '100%', position: 'relative', height: '28px' }}>
+                  <div style={{ width: '100%', position: 'relative', height: '20px' }}>
                     {segments.map((seg, idx) => (
                       <div 
                         key={idx} 
