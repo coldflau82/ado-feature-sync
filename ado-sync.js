@@ -325,7 +325,7 @@ app.get('/dashboard', (req, res) => {
                         opacity: 0.85,
                         minWidth: '8px'
                       }} 
-                      title={`${seg.state}: ${seg.widthPercent.toFixed(1)}%`}
+                      // title={`${seg.state}: ${seg.widthPercent.toFixed(1)}%`}
                     />
                   ))}
                 </div>
