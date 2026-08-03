@@ -27,6 +27,7 @@ app.get('/api/feature-history/:id', async (req, res) => {
     const stateChanges = [];
     let previousState = null;
 
+    console.log('First revision keys:', Object.keys(revisionsResponse.data.value[0]));
     revisionsResponse.data.value.forEach(revision => {
       const currentState = revision.fields['System.State'];
   
@@ -44,6 +45,7 @@ app.get('/api/feature-history/:id', async (req, res) => {
 
     res.json({
       id: featureId,
+      debugKeys: Object.keys(revisionsResponse.data.value[0]),
       stateChanges: stateChanges,
       totalRevisions: revisionsResponse.data.value.length
     });
