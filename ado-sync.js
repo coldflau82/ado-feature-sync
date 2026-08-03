@@ -271,20 +271,27 @@ app.get('/dashboard', (req, res) => {
       
         const segments = [];
         if (states.length > 0) {
-          const firstDate = new Date(states[0].changedDate);
-          const lastDate = targetDate ? new Date(targetDate) : new Date();
-          const totalDays = Math.max(1, (lastDate - firstDate) / (1000 * 60 * 60 * 24));
+          // Rango: 1 enero 2026 - 31 diciembre 2026
+          const yearStart = new Date(2026, 0, 1);
+          const yearEnd = new Date(2026, 11, 31);
+          const yearTotalDays = (yearEnd - yearStart) / (1000 * 60 * 60 * 24);
         
           states.forEach((state, idx) => {
             const stateStart = new Date(state.changedDate);
-            const stateEnd = idx < states.length - 1 ? new Date(states[idx + 1].changedDate) : lastDate;
-            const stateDays = Math.max(1, (stateEnd - stateStart) / (1000 * 60 * 60 * 24));
-            const percentWidth = (stateDays / totalDays) * 100;
+            const stateEnd = idx < states.length - 1 ? new Date(states[idx + 1].changedDate) : (targetDate ? new Date(targetDate) : new Date());
+            
+            const daysFromYearStart = (stateStart - yearStart) / (1000 * 60 * 60 * 24);
+            const daysFromYearEnd = (stateEnd - yearStart) / (1000 * 60 * 60 * 24);
+            
+            const startPercent = (daysFromYearStart / yearTotalDays) * 100;
+            const endPercent = (daysFromYearEnd / yearTotalDays) * 100;
+            const widthPercent = Math.max(1, endPercent - startPercent);
         
             segments.push({
               color: stateColors[state.state] || '#cccccc',
               state: state.state,
-              percentWidth: percentWidth
+              startPercent: Math.max(0, startPercent),
+              widthPercent: widthPercent
             });
           });
         }
@@ -306,9 +313,22 @@ app.get('/dashboard', (req, res) => {
               ) : segments.length === 0 ? (
                 <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
               ) : (
-                <div style={{ width: '100%', display: 'flex', gap: '2px' }}>
+                <div style={{ width: '100%', display: 'flex', position: 'relative', height: '28px', alignItems: 'center' }}>
                   {segments.map((seg, idx) => (
-                    <div key={idx} style={{ flex: seg.daysSpan, height: '28px', background: seg.color, borderRadius: '3px', opacity: 0.85, minWidth: '8px' }} title={seg.state} />
+                    <div 
+                      key={idx} 
+                      style={{ 
+                        position: 'absolute',
+                        left: seg.startPercent + '%',
+                        width: seg.widthPercent + '%',
+                        height: '28px',
+                        background: seg.color,
+                        borderRadius: '3px',
+                        opacity: 0.85,
+                        minWidth: '2px'
+                      }} 
+                      title={seg.state} 
+                    />
                   ))}
                 </div>
               )}
