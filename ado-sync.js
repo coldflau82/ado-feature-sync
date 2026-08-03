@@ -609,7 +609,7 @@ app.get('/dashboard', (req, res) => {
                             {f.stories && f.stories.length > 0 ? (expandedRows[f.id] ? '▼' : '►') : ''}
                           </td>
                           <td><a href={adoLink(f.id)} target="_blank">{f.id}</a></td>
-                          <td>{f.title.substring(0, 50)}</td>
+                          <td title={f.title}>{f.title.substring(0, 50)}</td>
                           <td style={{ fontSize: '11px' }}>{f.areaPath.split('\\\\').pop()}</td>
                           <td style={{ fontSize: '11px' }}>{f.iterationPath.split('\\\\').pop()}</td>
                           <td>{f.priority || '-'}</td>
