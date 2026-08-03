@@ -314,7 +314,7 @@ app.get('/dashboard', (req, res) => {
                   const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
                   if (todayPercent < 0 || todayPercent > 100) return null;
                   return (
-                    <div style={{ position: 'absolute', top: '0', bottom: '0', left: todayPercent + '%', width: '2px', background: '#333333', opacity: 0.7, zIndex: 10 }} />
+                    <div style={{ position: 'absolute', top: '0', bottom: '0', left: todayPercent + '%', width: '1px', background: '#333333', opacity: 0.7, zIndex: 10 }} />
                   );
                 })()}
         
