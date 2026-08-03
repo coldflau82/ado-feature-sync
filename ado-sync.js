@@ -645,6 +645,32 @@ app.get('/dashboard', (req, res) => {
                     Showing {pageItems.length} of {sortedFiltered.length} Features - Page {roadmapPage} of {totalPages}
                   </p>
 
+                  {/* Leyenda de colores */}
+                  <div style={{ background: 'white', padding: '10px 15px', borderRadius: '8px', marginBottom: '10px', display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Status:</span>
+                    {[
+                      { label: 'New', color: '#cccccc' },
+                      { label: 'In Shaping', color: '#ffeb3b' },
+                      { label: 'In Planning', color: '#ff9800' },
+                      { label: 'Planned', color: '#2196f3' },
+                      { label: 'In Process', color: '#4caf50' },
+                      { label: 'Closed', color: '#9c27b0' }
+                    ].map((item, idx) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <div style={{ width: '12px', height: '12px', background: item.color, borderRadius: '2px' }}></div>
+                        <span style={{ fontSize: '11px' }}>{item.label}</span>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '10px' }}>
+                      <div style={{ width: '2px', height: '12px', background: '#ff0000' }}></div>
+                      <span style={{ fontSize: '11px' }}>Today</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '8px solid #28a745' }}></div>
+                      <span style={{ fontSize: '11px' }}>Target Date</span>
+                    </div>
+                  </div>
+
                   {/* Timeline Headers */}
                   {(() => {
                     const today = new Date();
