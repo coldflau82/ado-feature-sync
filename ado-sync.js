@@ -271,26 +271,26 @@ app.get('/dashboard', (req, res) => {
       
         const segments = [];
         if (states.length > 0) {
-          // Rango: 1 enero 2026 - 31 diciembre 2026
           const yearStart = new Date(2026, 0, 1);
           const yearEnd = new Date(2026, 11, 31);
           const yearTotalDays = (yearEnd - yearStart) / (1000 * 60 * 60 * 24);
+          const today = new Date();
         
           states.forEach((state, idx) => {
             const stateStart = new Date(state.changedDate);
-            const stateEnd = idx < states.length - 1 ? new Date(states[idx + 1].changedDate) : (targetDate ? new Date(targetDate) : new Date());
+            // Si es el último estado, duración hasta HOY; si no, hasta el próximo estado
+            const stateEnd = idx === states.length - 1 ? today : new Date(states[idx + 1].changedDate);
             
-            const daysFromYearStart = (stateStart - yearStart) / (1000 * 60 * 60 * 24);
-            const daysFromYearEnd = (stateEnd - yearStart) / (1000 * 60 * 60 * 24);
+            const daysFromStart = Math.max(0, (stateStart - yearStart) / (1000 * 60 * 60 * 24));
+            const daysFromEnd = Math.min(yearTotalDays, (stateEnd - yearStart) / (1000 * 60 * 60 * 24));
             
-            const startPercent = (daysFromYearStart / yearTotalDays) * 100;
-            const endPercent = (daysFromYearEnd / yearTotalDays) * 100;
-            const widthPercent = Math.max(1, endPercent - startPercent);
+            const startPercent = (daysFromStart / yearTotalDays) * 100;
+            const widthPercent = Math.max(2, ((daysFromEnd - daysFromStart) / yearTotalDays) * 100);
         
             segments.push({
               color: stateColors[state.state] || '#cccccc',
               state: state.state,
-              startPercent: Math.max(0, startPercent),
+              startPercent: startPercent,
               widthPercent: widthPercent
             });
           });
@@ -325,7 +325,7 @@ app.get('/dashboard', (req, res) => {
                         background: seg.color,
                         borderRadius: '3px',
                         opacity: 0.85,
-                        minWidth: '2px'
+                        minWidth: '20px'
                       }} 
                       title={seg.state} 
                     />
