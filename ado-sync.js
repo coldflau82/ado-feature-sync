@@ -27,7 +27,7 @@ app.get('/api/feature-history/:id', async (req, res) => {
     const stateChanges = [];
     let previousState = null;
 
-    console.log('First revision keys:', Object.keys(revisionsResponse.data.value[0]));
+    
     revisionsResponse.data.value.forEach(revision => {
       const currentState = revision.fields['System.State'];
   
@@ -36,7 +36,7 @@ app.get('/api/feature-history/:id', async (req, res) => {
         stateChanges.push({
           rev: revision.rev,
           state: currentState,
-          changedDate: revision.changedDate,
+          changedDate: revision.fields['System.ChangedDate'],
           changedBy: revision.changedBy?.displayName || 'System'
         });
         previousState = currentState;
@@ -45,7 +45,6 @@ app.get('/api/feature-history/:id', async (req, res) => {
 
     res.json({
       id: featureId,
-      debugKeys: Object.keys(revisionsResponse.data.value[0]),
       stateChanges: stateChanges,
       totalRevisions: revisionsResponse.data.value.length
     });
