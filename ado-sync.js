@@ -416,8 +416,10 @@ app.get('/dashboard', (req, res) => {
         const stateOk = filterState.length === 0 || filterState.includes(f.state);
           let dateOk = filterTargetDate.length === 0;
           if (filterTargetDate.length > 0 && f.targetDate) {
-            const year = new Date(f.targetDate).getFullYear();
-            dateOk = filterTargetDate.includes(String(year));
+            const d = new Date(f.targetDate);
+            const yearMonthKey = d.getFullYear() + '-' + d.getMonth();
+            const yearKey = String(d.getFullYear());
+            dateOk = filterTargetDate.includes(yearMonthKey) || filterTargetDate.includes(yearKey);
           }        
           const searchOk = searchTitle === '' || f.title.toLowerCase().includes(searchTitle.toLowerCase());
           return areaOk && iterOk && stateOk && dateOk && searchOk;
@@ -545,14 +547,21 @@ app.get('/dashboard', (req, res) => {
                 </div>
 
                 <div>
-                  <label className="filter-label">Target Date (year)</label>
-                    <select multiple className="filter-select" value={filterTargetDate} onChange={(e) => setFilterTargetDate([...e.target.selectedOptions].map(o => o.value))}>
-                      {targetDates.map(year => (
-                        <option key={year} value={year}>{year}</option>
-                      ))}
-                    </select>
-                  {filterTargetDate.length > 0 && <p className="filter-count">{filterTargetDate.length} selected</p>}
-                </div>
+                <label className="filter-label">Target Date (year/month)</label>
+                  <select multiple className="filter-select" value={filterTargetDate} onChange={(e) => setFilterTargetDate([...e.target.selectedOptions].map(o => o.value))}>
+                    {targetYears.map(year => (
+                      <React.Fragment key={year}>
+                        <option value={String(year)} style={{ fontWeight: 'bold' }}>{year}</option>
+                        {[...(monthsByYear[year] || [])].sort((a, b) => a - b).map(month => (
+                          <option key={year + '-' + month} value={year + '-' + month} style={{ paddingLeft: '15px' }}>
+                            &nbsp;&nbsp;{new Date(2000, month, 1).toLocaleString('default', { month: 'long' })}
+                          </option>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                  </select>
+                {filterTargetDate.length > 0 && <p className="filter-count">{filterTargetDate.length} selected</p>}
+              </div>
               </div>
 
           {currentPage === 'features' && (
