@@ -314,7 +314,7 @@ app.get('/dashboard', (req, res) => {
                   const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
                   if (todayPercent < 0 || todayPercent > 100) return null;
                   return (
-                    <div style={{ position: 'absolute', top: '0', bottom: '0', left: todayPercent + '%', width: '2px', background: '#ff0000', opacity: 0.7, zIndex: 10 }} />
+                    <div style={{ position: 'absolute', top: '0', bottom: '0', left: todayPercent + '%', width: '2px', background: '#333333', opacity: 0.7, zIndex: 10 }} />
                   );
                 })()}
         
@@ -658,7 +658,7 @@ app.get('/dashboard', (req, res) => {
                       </div>
                     ))}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '10px' }}>
-                      <div style={{ width: '2px', height: '12px', background: '#ff0000' }}></div>
+                      <div style={{ width: '2px', height: '12px', background: '#333333' }}></div>
                       <span style={{ fontSize: '11px' }}>Today</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
