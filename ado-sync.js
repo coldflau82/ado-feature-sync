@@ -311,7 +311,7 @@ app.get('/dashboard', (req, res) => {
               ) : segments.length === 0 ? (
                 <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
               ) : (
-                <div style={{ width: '100%', position: 'relative', height: '28px', alignItems: 'center' }}>
+                <div style={{ width: '100%', position: 'relative', height: '28px' }}>
                   {segments.map((seg, idx) => (
                     <div 
                       key={idx} 
@@ -323,9 +323,15 @@ app.get('/dashboard', (req, res) => {
                         background: seg.color,
                         borderRadius: '3px',
                         opacity: 0.85,
-                        minWidth: '6px'
+                        minWidth: '6px',
+                        fontSize: '8px',
+                        color: 'black',
+                        overflow: 'visible',
+                        whiteSpace: 'nowrap'
                       }} 
-                    />
+                    >
+                      {seg.startPercent.toFixed(0)}%-{seg.widthPercent.toFixed(0)}%
+                    </div>
                   ))}
                 </div>
               )}
