@@ -403,10 +403,35 @@ app.get('/dashboard', (req, res) => {
               state: state.state,
               startPercent: clampedStart,
               widthPercent: widthPercent
-            });
+            });         
           }
         });
       }
+
+      // Parsear Sprint del Iteration Path: ...\2026_S16_Jul29-Aug11
+      let sprintStart = null;
+      let sprintEnd = null;
+      const sprintMatch = iterationPath && iterationPath.match(/(\d{4})_S\d+_([A-Za-z]+)(\d+)-([A-Za-z]+)(\d+)/);
+      if (sprintMatch) {
+        const year = parseInt(sprintMatch[1]);
+        const startMonth = sprintMatch[2];
+        const startDay = parseInt(sprintMatch[3]);
+        const endMonth = sprintMatch[4];
+        const endDay = parseInt(sprintMatch[5]);
+      
+        const monthMap = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+        sprintStart = new Date(year, monthMap[startMonth], startDay);
+        sprintEnd = new Date(year, monthMap[endMonth], endDay);
+        // Si el sprint cruza fin de año (ej: Dec-Jan), el año del final es el siguiente
+        if (monthMap[endMonth] < monthMap[startMonth]) {
+          sprintEnd = new Date(year + 1, monthMap[endMonth], endDay);
+        }
+      }
+      
+      const getSprintPercent = (date) => {
+        const days = (date - timelineStart) / (1000 * 60 * 60 * 24);
+        return (days / timelineTotalDays) * 100;
+      };      
 
       return (
         <tr style={{ borderBottom: '1px solid #eee' }}>
@@ -428,7 +453,21 @@ app.get('/dashboard', (req, res) => {
                 const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
                 if (todayPercent < 0 || todayPercent > 100) return null;
                 return (
-                  <div style={{ position: 'absolute', top: '0', bottom: '0', left: todayPercent + '%', width: '2px', background: '#333333', opacity: 0.7, zIndex: 10 }} />
+                  <div style={{ position: 'absolute', top: '0', bottom: '0', left: todayPercent + '%', width: '1px', background: '#333333', opacity: 0.7, zIndex: 10 }} />
+                );
+              })()}
+              {!loading && sprintStart && sprintEnd && (() => {
+                const startPercent = getSprintPercent(sprintStart);
+                const endPercent = getSprintPercent(sprintEnd);
+                return (
+                  <>
+                    {startPercent >= 0 && startPercent <= 100 && (
+                      <div style={{ position: 'absolute', top: '0', bottom: '0', left: startPercent + '%', width: '1px', borderLeft: '1px dashed #999', zIndex: 5 }} />
+                    )}
+                    {endPercent >= 0 && endPercent <= 100 && (
+                      <div style={{ position: 'absolute', top: '0', bottom: '0', left: endPercent + '%', width: '1px', borderLeft: '1px dashed #999', zIndex: 5 }} />
+                    )}
+                  </>
                 );
               })()}
               {loading ? (
