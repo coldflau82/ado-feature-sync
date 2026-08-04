@@ -408,7 +408,7 @@ app.get('/dashboard', (req, res) => {
         });
       }
 
-      // Parsear Sprint del Iteration Path: ...\2026_S16_Jul29-Aug11
+      // Parsear Sprint del Iteration Path: ...2026_S16_Jul29-Aug11
       let sprintStart = null;
       let sprintEnd = null;
       const sprintMatch = iterationPath && iterationPath.match(/(\d{4})_S\d+_([A-Za-z]+)(\d+)-([A-Za-z]+)(\d+)/);
