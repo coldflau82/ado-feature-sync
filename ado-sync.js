@@ -377,7 +377,7 @@ app.get('/dashboard', (req, res) => {
       const [filterTargetDate, setFilterTargetDate] = useState([currentYear]);
       const [roadmapPage, setRoadmapPage] = useState(1);
       const [timelineView, setTimelineView] = useState('month'); // 'month', 'quarter', 'semester'
-      const [timelineOffset, setTimelineOffset] = useState(-12);
+      const [timelineOffset, setTimelineOffset] = useState(-8);
 
       useEffect(() => {
         fetch('/api/features')
