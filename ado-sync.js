@@ -354,7 +354,7 @@ app.get('/dashboard', (req, res) => {
       'Closed': '#a78bfa'
     };
 
-    function StoryRow({ storyId, title, storyPoints, formatDate, timelineOffset, adoLink }) {
+    function StoryRow({ storyId, title, storyPoints, state, formatDate, timelineOffset, adoLink }) {
       const [states, setStates] = useState([]);
       const [loading, setLoading] = useState(true);
 
@@ -406,7 +406,17 @@ app.get('/dashboard', (req, res) => {
       return (
         <tr style={{ borderBottom: '1px solid #eee' }}>
           <td><a href={adoLink(storyId)} target="_blank">{storyId}</a></td>
-          <td title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{title} <span style={{ color: '#999' }}>({storyPoints} pts)</span></td>
+          <td style={{ maxWidth: '300px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '0 1 auto', minWidth: '0' }}>{title}</span>
+              <span style={{ color: '#999', flexShrink: 0, fontSize: '11px' }}>({storyPoints} pts)</span>
+              {state && (
+                <span style={{ flexShrink: 0, fontSize: '10px', padding: '2px 6px', borderRadius: '3px', background: storyStateColors[state] || '#cccccc', color: 'white', whiteSpace: 'nowrap' }}>
+                  {state}
+                </span>
+              )}
+            </div>
+          </td>
           <td style={{ padding: '8px' }}>
             <div style={{ minHeight: '32px', background: '#f9f9f9', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
               {!loading && (() => {
