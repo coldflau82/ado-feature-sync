@@ -420,6 +420,7 @@ app.get('/dashboard', (req, res) => {
       const [roadmapPage, setRoadmapPage] = useState(1);
       const [timelineView, setTimelineView] = useState('month'); // 'month', 'quarter', 'semester'
       const [timelineOffset, setTimelineOffset] = useState(-8);
+      const [selectedFeature, setSelectedFeature] = useState(null);
 
       useEffect(() => {
         fetch('/api/features')
@@ -770,7 +771,7 @@ app.get('/dashboard', (req, res) => {
                       </thead>
                       <tbody>
                         {pageItems.map(f => (
-                          <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} />
+                          <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} stories={f.stories} onSelectFeature={() => setSelectedFeature(f)} />
                         ))}
                       </tbody>
                     </table>
