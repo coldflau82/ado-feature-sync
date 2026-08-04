@@ -355,7 +355,7 @@ app.get('/dashboard', (req, res) => {
       'Closed': '#a78bfa'
     };
 
-    function StoryRow({ storyId, title, storyPoints, state, formatDate, weekOffset, adoLink }) {
+    function StoryRow({ storyId, title, storyPoints, state, iterationPath, formatDate, weekOffset, adoLink }) {
       const [states, setStates] = useState([]);
       const [loading, setLoading] = useState(true);
 
@@ -1026,7 +1026,7 @@ app.get('/dashboard', (req, res) => {
                             <tr><td colSpan="3" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td></tr>
                           ) : (
                             pageItems.map(s => (
-                              <StoryRow key={s.id} storyId={s.id} title={s.title} storyPoints={s.storyPoints} state={s.state} formatDate={formatDate} weekOffset={weekOffset} adoLink={adoLink} />
+                              <StoryRow key={s.id} storyId={s.id} title={s.title} storyPoints={s.storyPoints} state={s.state} iterationPath={s.iterationPath} formatDate={formatDate} weekOffset={weekOffset} adoLink={adoLink} />
                             ))
                           )}
                         </tbody>
