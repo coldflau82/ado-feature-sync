@@ -961,7 +961,7 @@ app.get('/dashboard', (req, res) => {
                         >
                           ← Back to Features
                         </button>
-                        <span style={{ fontSize: '14px', color: '#000', textDecoration: 'underline' }}>Feature stories detail ID: {selectedFeature.id} - {selectedFeature.title}</strong>
+                        <span style={{ fontSize: '14px', color: '#000', textDecoration: 'underline' }}>Feature stories detail ID: {selectedFeature.id} - {selectedFeature.title}</span>
                       </div>
                       <table>
                         <thead>
