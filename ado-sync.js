@@ -439,7 +439,6 @@ app.get('/dashboard', (req, res) => {
           <td style={{ maxWidth: '300px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '0 1 auto', minWidth: '0' }}>{title}</span>
-              <span style={{ fontSize: '9px', color: 'red' }}>[{iterationPath} | match:{sprintMatch ? 'yes' : 'no'}]</span>
               <span style={{ color: '#999', flexShrink: 0, fontSize: '11px' }}>({storyPoints} pts)</span>
               {state && (
                 <span style={{ flexShrink: 0, fontSize: '10px', padding: '2px 6px', borderRadius: '3px', background: storyStateColors[state] || '#cccccc', color: 'white', whiteSpace: 'nowrap' }}>
