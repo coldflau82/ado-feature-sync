@@ -129,7 +129,7 @@ app.get('/api/feature-stories/:id', async (req, res) => {
 
     const batch = await c.post('/wit/workitemsbatch?api-version=7.0', {
       ids: storyIds,
-      fields: ['System.Id', 'System.Title', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State', 'System.WorkItemType']
+      fields: ['System.Id', 'System.Title', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State', 'System.WorkItemType', 'System.IterationPath']
     });
 
     const stories = batch.data.value
@@ -139,7 +139,8 @@ app.get('/api/feature-stories/:id', async (req, res) => {
         title: s.fields['System.Title'] || '',
         storyPoints: s.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
         state: s.fields['System.State'] || '',
-        workItemType: s.fields['System.WorkItemType'] || ''
+        workItemType: s.fields['System.WorkItemType'] || '',
+        iterationPath: s.fields['System.IterationPath'] || ''
       }));
 
     res.json({ stories: stories });
