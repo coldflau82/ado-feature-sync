@@ -54,6 +54,47 @@ app.get('/api/feature-history/:id', async (req, res) => {
   }
 });
 
+app.get('/api/story-history/:id', async (req, res) => {
+  try {
+    const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
+    
+    const c = axios.create({
+      baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
+      headers: { 
+        'Authorization': `Basic ${authHeader}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const storyId = req.params.id;
+    const revisionsResponse = await c.get(`/wit/workitems/${storyId}/revisions?api-version=7.0`);
+
+    const stateChanges = [];
+    let previousState = null;
+
+    revisionsResponse.data.value.forEach(revision => {
+      const currentState = revision.fields['System.State'];
+      if (currentState && currentState !== previousState) {
+        stateChanges.push({
+          rev: revision.rev,
+          state: currentState,
+          changedDate: revision.fields['System.ChangedDate'],
+          changedBy: revision.fields['System.ChangedBy']?.displayName || 'System'
+        });
+        previousState = currentState;
+      }
+    });
+
+    res.json({
+      id: storyId,
+      stateChanges: stateChanges,
+      totalRevisions: revisionsResponse.data.value.length
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/features', async (req, res) => {
   try {
     const c = axios.create({
