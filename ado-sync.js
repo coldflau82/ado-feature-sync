@@ -286,7 +286,7 @@ app.get('/dashboard', (req, res) => {
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-      function FeatureRow({ featureId, title, targetDate, formatDate, timelineOffset, adoLink }) {
+      function FeatureRow({ featureId, title, targetDate, formatDate, timelineOffset, adoLink, stories, onSelectFeature }) {
         const [states, setStates] = useState([]);
         const [loading, setLoading] = useState(true);
       
@@ -348,7 +348,7 @@ app.get('/dashboard', (req, res) => {
         return (
           <tr style={{ borderBottom: '1px solid #eee' }}>
             <td><a href={adoLink(featureId)} target="_blank">{featureId}</a></td>
-            <td title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{title}</td>
+            <td title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px', cursor: 'pointer', color: '#007bff' }} onClick={onSelectFeature}>{title}</td>
             <td style={{ padding: '8px' }}>
               <div style={{ minHeight: '32px', background: '#f9f9f9', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
                 {/* Línea de "hoy" */}
