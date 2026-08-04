@@ -411,13 +411,15 @@ app.get('/dashboard', (req, res) => {
       // Parsear Sprint del Iteration Path: ...2026_S16_Jul29-Aug11
       let sprintStart = null;
       let sprintEnd = null;
-      const sprintMatch = iterationPath && iterationPath.match(/(\\d{4})_S\\d+_([A-Za-z]+)(\\d+)-([A-Za-z]+)(\\d+)/);
+      const sprintMatch = iterationPath && iterationPath.match(/(\\d{4})_(S\\d+)_([A-Za-z]+)(\\d+)-([A-Za-z]+)(\\d+)/);
+      let sprintLabel = '';
       if (sprintMatch) {
         const year = parseInt(sprintMatch[1]);
-        const startMonth = sprintMatch[2];
-        const startDay = parseInt(sprintMatch[3]);
-        const endMonth = sprintMatch[4];
-        const endDay = parseInt(sprintMatch[5]);
+        sprintLabel = sprintMatch[2];
+        const startMonth = sprintMatch[3];
+        const startDay = parseInt(sprintMatch[4]);
+        const endMonth = sprintMatch[5];
+        const endDay = parseInt(sprintMatch[6]);
       
         const monthMap = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
         sprintStart = new Date(year, monthMap[startMonth], startDay);
@@ -459,6 +461,7 @@ app.get('/dashboard', (req, res) => {
               {!loading && sprintStart && sprintEnd && (() => {
                 const startPercent = getSprintPercent(sprintStart);
                 const endPercent = getSprintPercent(sprintEnd);
+                const midPercent = (startPercent + endPercent) / 2;
                 return (
                   <>
                     {startPercent >= 0 && startPercent <= 100 && (
@@ -466,6 +469,11 @@ app.get('/dashboard', (req, res) => {
                     )}
                     {endPercent >= 0 && endPercent <= 100 && (
                       <div style={{ position: 'absolute', top: '0', bottom: '0', left: endPercent + '%', width: '1px', borderLeft: '1px dashed #999', zIndex: 5 }} />
+                    )}
+                    {midPercent >= 0 && midPercent <= 100 && (
+                      <div style={{ position: 'absolute', top: '-14px', left: midPercent + '%', transform: 'translateX(-50%)', fontSize: '9px', color: 'white', background: '#999', padding: '1px 4px', borderRadius: '2px', whiteSpace: 'nowrap', zIndex: 6 }}>
+                        {sprintLabel}
+                      </div>
                     )}
                   </>
                 );
