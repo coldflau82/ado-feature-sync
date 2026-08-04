@@ -867,22 +867,50 @@ app.get('/dashboard', (req, res) => {
                     );
                   })()}
                   
-                  <div className="table-wrapper" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                    <table>
-                      <thead>
-                        <tr>
-                          <th style={{ width: '80px' }}>ID</th>
-                          <th style={{ width: '300px' }}>Feature</th>
-                          <th>Timeline</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pageItems.map(f => (
-                          <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} stories={f.stories} onSelectFeature={() => setSelectedFeature(f)} />
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  {selectedFeature ? (
+                    <div className="table-wrapper" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                      <div style={{ padding: '15px', background: '#f0f0f0', display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '2px solid #ddd' }}>
+                        <button
+                          style={{ padding: '6px 12px', background: '#6c757d', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px' }}
+                          onClick={() => setSelectedFeature(null)}
+                        >
+                          ← Back to Features
+                        </button>
+                        <strong style={{ fontSize: '13px' }}>#{selectedFeature.id} - {selectedFeature.title}</strong>
+                      </div>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th style={{ width: '80px' }}>ID</th>
+                            <th style={{ width: '300px' }}>Story</th>
+                            <th>Timeline</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(selectedFeature.stories || []).map(s => (
+                            <StoryRow key={s.id} storyId={s.id} title={s.title} storyPoints={s.storyPoints} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="table-wrapper" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th style={{ width: '80px' }}>ID</th>
+                            <th style={{ width: '300px' }}>Feature</th>
+                            <th>Timeline</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pageItems.map(f => (
+                            <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} stories={f.stories} onSelectFeature={() => setSelectedFeature(f)} />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                   
                   <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', position: 'sticky', bottom: '0', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)', zIndex: '100' }}>
                     <button 
