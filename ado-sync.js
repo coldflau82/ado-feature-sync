@@ -581,6 +581,24 @@ app.get('/dashboard', (req, res) => {
       const [timelineView, setTimelineView] = useState('month'); // 'month', 'quarter', 'semester'
       const [timelineOffset, setTimelineOffset] = useState(-8);
       const [selectedFeature, setSelectedFeature] = useState(null);
+      const [fullStories, setFullStories] = useState([]);
+      const [loadingStories, setLoadingStories] = useState(false);
+      
+      useEffect(() => {
+        if (selectedFeature) {
+          setLoadingStories(true);
+          fetch('/api/feature-stories/' + selectedFeature.id)
+            .then(r => r.json())
+            .then(d => {
+              setFullStories(d.stories || []);
+              setLoadingStories(false);
+            })
+            .catch(() => {
+              setFullStories([]);
+              setLoadingStories(false);
+            });
+        }
+      }, [selectedFeature]);
 
       useEffect(() => {
         fetch('/api/features')
@@ -932,7 +950,7 @@ app.get('/dashboard', (req, res) => {
                       </div>
                     );
                   })()}
-                  
+
                   {selectedFeature ? (
                     <div className="table-wrapper" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
                       <div style={{ padding: '15px', background: '#f0f0f0', display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '2px solid #ddd' }}>
@@ -953,9 +971,13 @@ app.get('/dashboard', (req, res) => {
                           </tr>
                         </thead>
                         <tbody>
-                          {(selectedFeature.stories || []).map(s => (
-                            <StoryRow key={s.id} storyId={s.id} title={s.title} storyPoints={s.storyPoints} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} />
-                          ))}
+                          {loadingStories ? (
+                            <tr><td colSpan="3" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td></tr>
+                          ) : (
+                            fullStories.map(s => (
+                              <StoryRow key={s.id} storyId={s.id} title={s.title} storyPoints={s.storyPoints} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} />
+                            ))
+                          )}
                         </tbody>
                       </table>
                     </div>
