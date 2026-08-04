@@ -354,7 +354,7 @@ app.get('/dashboard', (req, res) => {
       'Closed': '#a78bfa'
     };
 
-    function StoryRow({ storyId, title, storyPoints, state, formatDate, timelineOffset, adoLink }) {
+    function StoryRow({ storyId, title, storyPoints, state, formatDate, weekOffset, adoLink }) {
       const [states, setStates] = useState([]);
       const [loading, setLoading] = useState(true);
 
@@ -372,10 +372,14 @@ app.get('/dashboard', (req, res) => {
       }, [storyId]);
 
       const today = new Date();
-      const timelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
-      const timelineEnd = new Date(today.getFullYear(), today.getMonth() + timelineOffset + 12, 0);
+      const dayOfWeek = today.getDay();
+      const thisMonday = new Date(today);
+      thisMonday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+      const timelineStart = new Date(thisMonday);
+      timelineStart.setDate(thisMonday.getDate() + weekOffset * 7);
+      const timelineEnd = new Date(timelineStart);
+      timelineEnd.setDate(timelineStart.getDate() + 12 * 7);
       const timelineTotalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
-
       const segments = [];
       if (states.length > 0) {
         states.forEach((state, idx) => {
@@ -1021,7 +1025,7 @@ app.get('/dashboard', (req, res) => {
                             <tr><td colSpan="3" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td></tr>
                           ) : (
                             pageItems.map(s => (
-                              <StoryRow key={s.id} storyId={s.id} title={s.title} storyPoints={s.storyPoints} state={s.state} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} />
+                              <StoryRow key={s.id} storyId={s.id} title={s.title} storyPoints={s.storyPoints} state={s.state} formatDate={formatDate} weekOffset={weekOffset} adoLink={adoLink} />
                             ))
                           )}
                         </tbody>
