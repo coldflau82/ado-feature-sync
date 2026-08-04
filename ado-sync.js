@@ -471,7 +471,7 @@ app.get('/dashboard', (req, res) => {
                       <div style={{ position: 'absolute', top: '0', bottom: '0', left: endPercent + '%', width: '1px', borderLeft: '1px dashed #999', zIndex: 5 }} />
                     )}
                     {midPercent >= 0 && midPercent <= 100 && (
-                      <div style={{ position: 'absolute', top: '-14px', left: midPercent + '%', transform: 'translateX(-50%)', fontSize: '9px', color: 'white', background: '#999', padding: '1px 4px', borderRadius: '2px', whiteSpace: 'nowrap', zIndex: 6 }}>
+                      <div style={{ position: 'absolute', top: '1px', left: midPercent + '%', transform: 'translateX(-50%)', fontSize: '9px', color: 'white', background: '#999', padding: '1px 4px', borderRadius: '2px', whiteSpace: 'nowrap', zIndex: 6 }}>
                         {sprintLabel}
                       </div>
                     )}
