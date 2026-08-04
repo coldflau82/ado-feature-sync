@@ -262,14 +262,14 @@ app.get('/dashboard', (req, res) => {
         }, [featureId]);
       
         const stateColors = {
-          'New': '#cccccc',
-          'In Shaping': '#ffeb3b',
-          'In Planning': '#ff9800',
-          'Planned': '#2196f3',
-          'In Process': '#4caf50',
-          'Closed': '#9c27b0'
+          'New': '#94a3b8',
+          'In Shaping': '#fbbf24',
+          'In Planning': '#fb923c',
+          'Planned': '#60a5fa',
+          'In Process': '#34d399',
+          'Closed': '#a78bfa'
         };
-      
+
         const today = new Date();
         const timelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
         const timelineEnd = new Date(today.getFullYear(), today.getMonth() + timelineOffset + 12, 0);
@@ -325,7 +325,7 @@ app.get('/dashboard', (req, res) => {
                   if (targetPercent < 0 || targetPercent > 100) return null;
                   return (
                     <div 
-                      style={{ position: 'absolute', top: '-4px', left: targetPercent + '%', transform: 'translateX(-50%)', zIndex: 11, width: '0', height: '0', borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '12px solid #28a745' }}
+                      style={{ position: 'absolute', top: '-4px', left: targetPercent + '%', transform: 'translateX(-50%)', zIndex: 11, width: '0', height: '0', borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '12px solid #f43f5e' }}
                       title={'Target: ' + formatDate(targetDate)}
                     />
                   );
@@ -661,12 +661,12 @@ app.get('/dashboard', (req, res) => {
                     <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Status:</span>
                     {[
-                      { label: 'New', color: '#cccccc' },
-                      { label: 'In Shaping', color: '#ffeb3b' },
-                      { label: 'In Planning', color: '#ff9800' },
-                      { label: 'Planned', color: '#2196f3' },
-                      { label: 'In Process', color: '#4caf50' },
-                      { label: 'Closed', color: '#9c27b0' }
+                      { label: 'New', color: '#94a3b8' },
+                      { label: 'In Shaping', color: '#fbbf24' },
+                      { label: 'In Planning', color: '#fb923c' },
+                      { label: 'Planned', color: '#60a5fa' },
+                      { label: 'In Process', color: '#34d399' },
+                      { label: 'Closed', color: '#a78bfa' }
                     ].map((item, idx) => (
                       <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                         <div style={{ width: '12px', height: '12px', background: item.color, borderRadius: '2px' }}></div>
@@ -678,7 +678,7 @@ app.get('/dashboard', (req, res) => {
                       <span style={{ fontSize: '11px' }}>Today</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '8px solid #28a745' }}></div>
+                      <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '8px solid #f43f5e' }}></div>
                       <span style={{ fontSize: '11px' }}>Target Date</span>
                     </div>
                     </div>
