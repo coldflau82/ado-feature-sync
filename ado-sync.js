@@ -868,16 +868,17 @@ app.get('/dashboard', (req, res) => {
                       
               {(() => {
               const itemsPerPage = 15;
-              const totalPages = Math.ceil(sortedFiltered.length / itemsPerPage);
+              const activeList = selectedFeature ? fullStories : sortedFiltered;
+              const totalPages = Math.ceil(activeList.length / itemsPerPage);
               const startIdx = (roadmapPage - 1) * itemsPerPage;
               const endIdx = startIdx + itemsPerPage;
-              const pageItems = sortedFiltered.slice(startIdx, endIdx);
+              const pageItems = activeList.slice(startIdx, endIdx);
         
               return (
                 <>
                   <div style={{ background: 'white', padding: '10px 15px', borderRadius: '8px', marginBottom: '10px', display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                     <span style={{ color: '#666', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                      Showing {pageItems.length} of {sortedFiltered.length} Features - Page {roadmapPage} of {totalPages}
+                      Showing {pageItems.length} of {activeList.length} {selectedFeature ? 'Stories' : 'Features'} - Page {roadmapPage} of {totalPages}
                     </span>
                     <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Status:</span>
@@ -956,11 +957,11 @@ app.get('/dashboard', (req, res) => {
                       <div style={{ padding: '15px', background: '#f0f0f0', display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '2px solid #ddd' }}>
                         <button
                           style={{ padding: '6px 12px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px' }}
-                          onClick={() => setSelectedFeature(null)}
+                          onClick={() => { setSelectedFeature(null); setRoadmapPage(1); }}
                         >
                           ← Back to Features
                         </button>
-                        <strong style={{ fontSize: '14px', color: '#007bff' }}>Feature stories detail: #{selectedFeature.id} - {selectedFeature.title}</strong>
+                        <strong style={{ fontSize: '14px', color: '#60a5fa' }}>Feature stories detail: #{selectedFeature.id} - {selectedFeature.title}</strong>
                       </div>
                       <table>
                         <thead>
@@ -974,8 +975,8 @@ app.get('/dashboard', (req, res) => {
                           {loadingStories ? (
                             <tr><td colSpan="3" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td></tr>
                           ) : (
-                            fullStories.map(s => (
-                              <StoryRow key={s.id} storyId={s.id} title={s.title} storyPoints={s.storyPoints} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} />
+                            pageItems.map(s => (
+                              <StoryRow key={s.id} storyId={s.id} title={s.title} storyPoints={s.storyPoints} state={s.state} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} />
                             ))
                           )}
                         </tbody>
@@ -993,7 +994,7 @@ app.get('/dashboard', (req, res) => {
                         </thead>
                         <tbody>
                           {pageItems.map(f => (
-                            <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} stories={f.stories} onSelectFeature={() => setSelectedFeature(f)} />
+                            <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} stories={f.stories} onSelectFeature={() => { setSelectedFeature(f); setRoadmapPage(1); }} />
                           ))}
                         </tbody>
                       </table>
