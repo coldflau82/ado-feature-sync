@@ -154,10 +154,10 @@ app.get('/api/features', async (req, res) => {
 
     try {
       const storyQuery = `SELECT [System.Id] FROM workitems
-WHERE
+    WHERE
     [System.TeamProject] = 'Commercial Engineering'
     AND [System.ChangedDate] > @today - 180
-    AND [System.WorkItemType] = 'User Story'
+    AND ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Bug')
     AND (
         [System.AreaPath] = 'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online'
         OR [System.AreaPath] = 'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print'
@@ -184,7 +184,7 @@ WHERE
         for (let i = 0; i < storyIds.length; i += storyBatchSize) {
           const storyBatch = await c.post('/wit/workitemsbatch?api-version=7.0', {
             ids: storyIds.slice(i, i + storyBatchSize),
-            fields: ['System.Id', 'System.Title', 'System.Parent', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State']
+            fields: ['System.Id', 'System.Title', 'System.Parent', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State', 'System.WorkItemType']
           });
 
           storyBatch.data.value.forEach(story => {
@@ -197,7 +197,8 @@ WHERE
                 id: story.id,
                 title: story.fields['System.Title'] || '',
                 storyPoints: story.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
-                state: story.fields['System.State'] || ''
+                state: story.fields['System.State'] || '',
+                workItemType: story.fields['System.WorkItemType'] || ''
               });
               totalStoriesFound++;
             }
