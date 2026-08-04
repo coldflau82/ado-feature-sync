@@ -810,19 +810,32 @@ app.get('/dashboard', (req, res) => {
                     </span>
                     <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Status:</span>
-                    {[
-                      { label: 'New', color: '#94a3b8' },
-                      { label: 'In Shaping', color: '#fbbf24' },
-                      { label: 'In Planning', color: '#fb923c' },
-                      { label: 'Planned', color: '#60a5fa' },
-                      { label: 'In Process', color: '#34d399' },
-                      { label: 'Closed', color: '#a78bfa' }
-                    ].map((item, idx) => (
-                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <div style={{ width: '12px', height: '12px', background: item.color, borderRadius: '2px' }}></div>
-                        <span style={{ fontSize: '11px' }}>{item.label}</span>
-                      </div>
-                    ))}
+                      {(selectedFeature ? [
+                        { label: 'New', color: '#94a3b8' },
+                        { label: 'Business Refinement', color: '#facc15' },
+                        { label: 'Technical Refinement', color: '#fb923c' },
+                        { label: 'Ready for Development', color: '#f97316' },
+                        { label: 'In Process', color: '#60a5fa' },
+                        { label: 'QA Testing', color: '#38bdf8' },
+                        { label: 'Business Sprint Testing', color: '#22d3ee' },
+                        { label: 'Sprint Complete', color: '#2dd4bf' },
+                        { label: 'User Acceptance Testing', color: '#34d399' },
+                        { label: 'Approved for Release', color: '#4ade80' },
+                        { label: 'Ready for Deployment', color: '#84cc16' },
+                        { label: 'Closed', color: '#a78bfa' }
+                      ] : [
+                        { label: 'New', color: '#94a3b8' },
+                        { label: 'In Shaping', color: '#fbbf24' },
+                        { label: 'In Planning', color: '#fb923c' },
+                        { label: 'Planned', color: '#60a5fa' },
+                        { label: 'In Process', color: '#34d399' },
+                        { label: 'Closed', color: '#a78bfa' }
+                      ]).map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <div style={{ width: '12px', height: '12px', background: item.color, borderRadius: '2px' }}></div>
+                          <span style={{ fontSize: '11px' }}>{item.label}</span>
+                        </div>
+                      ))}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '10px' }}>
                       <div style={{ width: '2px', height: '12px', background: '#333333' }}></div>
                       <span style={{ fontSize: '11px' }}>Today</span>
