@@ -285,7 +285,114 @@ app.get('/dashboard', (req, res) => {
 
   <script type="text/babel">
     const { useState, useEffect } = React;
+  
+      const storyStateColors = {
+      'New': '#94a3b8',
+      'Business Refinement': '#facc15',
+      'Technical Refinement': '#fb923c',
+      'Ready for Development': '#f97316',
+      'In Process': '#60a5fa',
+      'QA Testing': '#38bdf8',
+      'Business Sprint Testing': '#22d3ee',
+      'Sprint Complete': '#2dd4bf',
+      'User Acceptance Testing': '#34d399',
+      'Approved for Release': '#4ade80',
+      'Ready for Deployment': '#84cc16',
+      'Closed': '#a78bfa'
+    };
 
+    function StoryRow({ storyId, title, storyPoints, formatDate, timelineOffset, adoLink }) {
+      const [states, setStates] = useState([]);
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        fetch('/api/story-history/' + storyId)
+          .then(res => res.json())
+          .then(data => {
+            setStates(data.stateChanges || []);
+            setLoading(false);
+          })
+          .catch(() => {
+            setStates([]);
+            setLoading(false);
+          });
+      }, [storyId]);
+
+      const today = new Date();
+      const timelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
+      const timelineEnd = new Date(today.getFullYear(), today.getMonth() + timelineOffset + 12, 0);
+      const timelineTotalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
+
+      const segments = [];
+      if (states.length > 0) {
+        states.forEach((state, idx) => {
+          const stateStart = new Date(state.changedDate);
+          const stateEnd = idx === states.length - 1 ? today : new Date(states[idx + 1].changedDate);
+
+          const daysFromStart = (stateStart - timelineStart) / (1000 * 60 * 60 * 24);
+          const daysToEnd = (stateEnd - timelineStart) / (1000 * 60 * 60 * 24);
+
+          const rawStartPercent = (daysFromStart / timelineTotalDays) * 100;
+          const rawEndPercent = (daysToEnd / timelineTotalDays) * 100;
+
+          if (rawStartPercent < 100 && rawEndPercent > 0) {
+            const clampedStart = Math.max(0, rawStartPercent);
+            const clampedEnd = Math.min(100, rawEndPercent);
+            const widthPercent = Math.max(1, clampedEnd - clampedStart);
+
+            segments.push({
+              color: storyStateColors[state.state] || '#cccccc',
+              state: state.state,
+              startPercent: clampedStart,
+              widthPercent: widthPercent
+            });
+          }
+        });
+      }
+
+      return (
+        <tr style={{ borderBottom: '1px solid #eee' }}>
+          <td><a href={adoLink(storyId)} target="_blank">{storyId}</a></td>
+          <td title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{title} <span style={{ color: '#999' }}>({storyPoints} pts)</span></td>
+          <td style={{ padding: '8px' }}>
+            <div style={{ minHeight: '32px', background: '#f9f9f9', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
+              {!loading && (() => {
+                const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
+                if (todayPercent < 0 || todayPercent > 100) return null;
+                return (
+                  <div style={{ position: 'absolute', top: '0', bottom: '0', left: todayPercent + '%', width: '2px', background: '#333333', opacity: 0.7, zIndex: 10 }} />
+                );
+              })()}
+              {loading ? (
+                <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
+              ) : segments.length === 0 ? (
+                <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
+              ) : (
+                <div style={{ width: '100%', position: 'relative', height: '20px' }}>
+                  {segments.map((seg, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        position: 'absolute',
+                        left: seg.startPercent + '%',
+                        width: seg.widthPercent + '%',
+                        height: '20px',
+                        background: seg.color,
+                        borderRadius: '3px',
+                        opacity: 0.85,
+                        minWidth: '6px'
+                      }}
+                      title={seg.state}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      );
+    }
+      
       function FeatureRow({ featureId, title, targetDate, formatDate, timelineOffset, adoLink, stories, onSelectFeature }) {
         const [states, setStates] = useState([]);
         const [loading, setLoading] = useState(true);
