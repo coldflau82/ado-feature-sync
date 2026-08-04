@@ -325,7 +325,7 @@ app.get('/dashboard', (req, res) => {
                   if (targetPercent < 0 || targetPercent > 100) return null;
                   return (
                     <div 
-                      style={{ position: 'absolute', top: '-2px', left: targetPercent + '%', transform: 'translateX(-50%)', zIndex: 11, width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '8px solid #28a745' }}
+                      style={{ position: 'absolute', top: '-4px', left: targetPercent + '%', transform: 'translateX(-50%)', zIndex: 11, width: '0', height: '0', borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '12px solid #28a745' }}
                       title={'Target: ' + formatDate(targetDate)}
                     />
                   );
