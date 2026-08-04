@@ -95,6 +95,59 @@ app.get('/api/story-history/:id', async (req, res) => {
   }
 });
 
+app.get('/api/feature-stories/:id', async (req, res) => {
+  try {
+    const c = axios.create({
+      baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
+      headers: { 
+        Authorization: `Basic ${Buffer.from(`:${process.env.ADO_PAT}`).toString('base64')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const featureId = req.params.id;
+
+    const query = `SELECT [System.Id] FROM workitems
+      WHERE [System.TeamProject] = 'Commercial Engineering'
+      AND ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Bug')
+      AND [System.Parent] = ${featureId}`;
+
+    // WIQL no soporta System.Parent en WHERE, usamos WorkItemLinks
+    const linksQuery = `SELECT [System.Id] FROM WorkItemLinks
+      WHERE [Source].[System.Id] = ${featureId}
+      AND [System.Links.LinkType] = 'System.LinkTypes.Hierarchy-Forward'
+      MODE (Recursive)`;
+
+    const linksResponse = await c.post('/wit/wiql?api-version=7.0', { query: linksQuery });
+    const storyIds = linksResponse.data.workItemRelations
+      .filter(r => r.target && r.target.id !== parseInt(featureId))
+      .map(r => r.target.id);
+
+    if (storyIds.length === 0) {
+      return res.json({ stories: [] });
+    }
+
+    const batch = await c.post('/wit/workitemsbatch?api-version=7.0', {
+      ids: storyIds,
+      fields: ['System.Id', 'System.Title', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State', 'System.WorkItemType']
+    });
+
+    const stories = batch.data.value
+      .filter(s => s.fields['System.WorkItemType'] === 'User Story' || s.fields['System.WorkItemType'] === 'Bug')
+      .map(s => ({
+        id: s.id,
+        title: s.fields['System.Title'] || '',
+        storyPoints: s.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
+        state: s.fields['System.State'] || '',
+        workItemType: s.fields['System.WorkItemType'] || ''
+      }));
+
+    res.json({ stories: stories });
+  } catch (error) {
+    res.status(500).json({ error: error.message, details: error.response?.data });
+  }
+});
+
 app.get('/api/features', async (req, res) => {
   try {
     const c = axios.create({
