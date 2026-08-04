@@ -884,12 +884,12 @@ app.get('/dashboard', (req, res) => {
                     <div className="table-wrapper" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
                       <div style={{ padding: '15px', background: '#f0f0f0', display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '2px solid #ddd' }}>
                         <button
-                          style={{ padding: '6px 12px', background: '#6c757d', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px' }}
+                          style={{ padding: '6px 12px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px' }}
                           onClick={() => setSelectedFeature(null)}
                         >
                           ← Back to Features
                         </button>
-                        <strong style={{ fontSize: '13px' }}>#{selectedFeature.id} - {selectedFeature.title}</strong>
+                        <strong style={{ fontSize: '14px', color: '#007bff' }}>Feature stories detail: #{selectedFeature.id} - {selectedFeature.title}</strong>
                       </div>
                       <table>
                         <thead>
