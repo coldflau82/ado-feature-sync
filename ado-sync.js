@@ -195,7 +195,7 @@ app.get('/api/features', async (req, res) => {
     for (let i = 0; i < allIds.length; i += batchSize) {
       const batch = await c.post('/wit/workitemsbatch?api-version=7.0', {
         ids: allIds.slice(i, i + batchSize),
-        fields: ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'System.IterationPath', 'Microsoft.VSTS.Common.Priority', 'Microsoft.VSTS.Scheduling.TargetDate', 'Custom.PlannedMonth', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing']
+        fields: ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'System.IterationPath', 'Microsoft.VSTS.Common.Priority', 'Microsoft.VSTS.Scheduling.TargetDate', 'Custom.PlannedMonth', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing', 'Custom.ReleaseFixVersion']
       });
 
       allFeatures = [...allFeatures, ...batch.data.value];
@@ -285,6 +285,7 @@ app.get('/api/features', async (req, res) => {
         priority: i.fields['Microsoft.VSTS.Common.Priority'] || '',
         targetDate: i.fields['Microsoft.VSTS.Scheduling.TargetDate'] || '',
         plannedMonth: i.fields['Custom.PlannedMonth'] || '',
+        releaseFixVersion: i.fields['Custom.ReleaseFixVersion'] || '',
         estimation: {
           be: i.fields['Custom.BEEstimate'] || '',
           fe: i.fields['Custom.FEEstimates'] || '',
