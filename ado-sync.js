@@ -979,7 +979,7 @@ app.get('/dashboard', (req, res) => {
                 {filterTargetDate.length > 0 && <p className="filter-count">{filterTargetDate.length} selected</p>}
               </div>
               <div>
-                <label className="filter-label">Release Version</label>
+                <label className="filter-label">Release Fix Version</label>
                 <select multiple className="filter-select" value={filterReleaseVersion} onChange={(e) => setFilterReleaseVersion([...e.target.selectedOptions].map(o => o.value))}>
                   {releaseVersions.map(rv => (
                     <option key={rv} value={rv}>{rv}</option>
