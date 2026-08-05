@@ -620,22 +620,7 @@ app.get('/dashboard', (req, res) => {
     }
       
       function FeatureRow({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineOffset, adoLink, stories, onSelectFeature, states, loading }) {
-        const [states, setStates] = useState([]);
-        const [loading, setLoading] = useState(true);
-      
-        useEffect(() => {
-          fetch('/api/feature-history/' + featureId)
-            .then(res => res.json())
-            .then(data => {
-              setStates(data.stateChanges || []);
-              setLoading(false);
-            })
-            .catch(() => {
-              setStates([]);
-              setLoading(false);
-            });
-        }, [featureId]);
-      
+              
         const stateColors = {
           'New': '#94a3b8',
           'In Shaping': '#fbbf24',
