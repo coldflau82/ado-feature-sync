@@ -533,7 +533,7 @@ app.get('/dashboard', (req, res) => {
       );
     }
       
-      function FeatureRow({ featureId, title, targetDate, formatDate, timelineOffset, adoLink, stories, onSelectFeature }) {
+      function FeatureRow({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineOffset, adoLink, stories, onSelectFeature }) {
         const [states, setStates] = useState([]);
         const [loading, setLoading] = useState(true);
       
@@ -616,6 +616,19 @@ app.get('/dashboard', (req, res) => {
                     <div 
                       style={{ position: 'absolute', top: '-4px', left: targetPercent + '%', transform: 'translateX(-50%)', zIndex: 11, width: '0', height: '0', borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '12px solid #f43f5e' }}
                       title={'Target: ' + formatDate(targetDate)}
+                    />
+                  );
+                })()}
+
+                {/* Marcador de Release Fix Version (rombo) */}
+                {!loading && releaseFixVersion && releaseDates[releaseFixVersion] && (() => {
+                  const releaseDate = new Date(releaseDates[releaseFixVersion]);
+                  const releasePercent = ((releaseDate - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
+                  if (releasePercent < 0 || releasePercent > 100) return null;
+                  return (
+                    <div 
+                      style={{ position: 'absolute', top: '50%', left: releasePercent + '%', transform: 'translate(-50%, -50%) rotate(45deg)', zIndex: 12, width: '10px', height: '10px', background: '#1e3a8a' }}
+                      title={releaseFixVersion + ': ' + formatDate(releaseDates[releaseFixVersion])}
                     />
                   );
                 })()}
@@ -987,8 +1000,8 @@ app.get('/dashboard', (req, res) => {
                         { label: 'New', color: '#94a3b8' },
                         { label: 'In Shaping', color: '#fbbf24' },
                         { label: 'In Planning', color: '#fb923c' },
-                        { label: 'Planned', color: '#60a5fa' },
-                        { label: 'In Process', color: '#34d399' },
+                        { label: 'Planned', color: '#34d399' },
+                        { label: 'In Process', color: '#60a5fa' },
                         { label: 'Closed', color: '#a78bfa' }
                       ]).map((item, idx) => (
                         <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -1116,7 +1129,7 @@ app.get('/dashboard', (req, res) => {
                         </thead>
                         <tbody>
                           {pageItems.map(f => (
-                            <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} stories={f.stories} onSelectFeature={() => { setSelectedFeature(f); setRoadmapPage(1); }} />
+                            <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} releaseFixVersion={f.releaseFixVersion} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} stories={f.stories} onSelectFeature={() => { setSelectedFeature(f); setRoadmapPage(1); }} />
                           ))}
                         </tbody>
                       </table>
