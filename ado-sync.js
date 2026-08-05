@@ -281,7 +281,7 @@ app.get('/api/features', async (req, res) => {
     for (let i = 0; i < allIds.length; i += batchSize) {
       const batch = await c.post('/wit/workitemsbatch?api-version=7.0', {
         ids: allIds.slice(i, i + batchSize),
-        fields: ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'System.IterationPath', 'Microsoft.VSTS.Common.Priority', 'Microsoft.VSTS.Scheduling.TargetDate', 'Custom.PlannedMonth', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing', 'Custom.ReleaseFixVersion']
+        fields: ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'System.IterationPath', 'Microsoft.VSTS.Common.Priority', 'Microsoft.VSTS.Scheduling.TargetDate', 'Custom.PlannedMonth', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing', 'Custom.ReleaseFixVersion', 'System.Tags']
       });
 
       allFeatures = [...allFeatures, ...batch.data.value];
@@ -372,6 +372,7 @@ app.get('/api/features', async (req, res) => {
         targetDate: i.fields['Microsoft.VSTS.Scheduling.TargetDate'] || '',
         plannedMonth: i.fields['Custom.PlannedMonth'] || '',
         releaseFixVersion: i.fields['Custom.ReleaseFixVersion'] || '',
+        tags: i.fields['System.Tags'] || '',
         estimation: {
           be: i.fields['Custom.BEEstimate'] || '',
           fe: i.fields['Custom.FEEstimates'] || '',
@@ -807,7 +808,7 @@ app.get('/dashboard', (req, res) => {
             const yearKey = String(d.getFullYear());
             dateOk = filterTargetDate.includes(yearMonthKey) || filterTargetDate.includes(yearKey);
           }        
-          const searchOk = searchTitle === '' || f.title.toLowerCase().includes(searchTitle.toLowerCase());
+          const searchOk = searchTitle === '' || f.title.toLowerCase().includes(searchTitle.toLowerCase()) || f.tags.toLowerCase().includes(searchTitle.toLowerCase());
           const releaseOk = filterReleaseVersion.length === 0 || filterReleaseVersion.includes(f.releaseFixVersion);
           return areaOk && iterOk && stateOk && dateOk && searchOk && releaseOk;
         });
