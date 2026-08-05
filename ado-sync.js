@@ -771,6 +771,8 @@ app.get('/dashboard', (req, res) => {
       const [selectedFeature, setSelectedFeature] = useState(null);
       const [fullStories, setFullStories] = useState([]);
       const [loadingStories, setLoadingStories] = useState(false);
+      const [historyCache, setHistoryCache] = useState({});
+      const [loadingHistory, setLoadingHistory] = useState(false);
       
       useEffect(() => {
         if (selectedFeature) {
@@ -885,6 +887,34 @@ app.get('/dashboard', (req, res) => {
         if (!date) return '-';
         return new Date(date).toLocaleDateString('es-CO');
       };
+      
+      const itemsPerPage = 15;
+      const activeList = selectedFeature ? fullStories : sortedFiltered;
+      const totalPages = Math.ceil(activeList.length / itemsPerPage);
+      const startIdx = (roadmapPage - 1) * itemsPerPage;
+      const endIdx = startIdx + itemsPerPage;
+      const pageItems = activeList.slice(startIdx, endIdx);
+      
+      useEffect(() => {
+        if (currentPage !== 'roadmap' || pageItems.length === 0) return;
+        const ids = pageItems.map(item => item.id);
+        const endpoint = selectedFeature ? '/api/stories-history-batch' : '/api/features-history-batch';
+        setLoadingHistory(true);
+        fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: ids })
+        })
+          .then(r => r.json())
+          .then(d => {
+            setHistoryCache(d.results || {});
+            setLoadingHistory(false);
+          })
+          .catch(() => {
+            setHistoryCache({});
+            setLoadingHistory(false);
+          });
+      }, [roadmapPage, selectedFeature, currentPage, features.length, fullStories.length]);
 
         return (
           <div className="container">
