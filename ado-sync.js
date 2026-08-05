@@ -743,6 +743,10 @@ app.get('/dashboard', (req, res) => {
       const [loadingStories, setLoadingStories] = useState(false);
       const [historyCache, setHistoryCache] = useState({});
       const [loadingHistory, setLoadingHistory] = useState(false);
+
+      useEffect(() => {
+        setRoadmapPage(1);
+      }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, searchTitle]);
       
       useEffect(() => {
         if (selectedFeature) {
