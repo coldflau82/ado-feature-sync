@@ -677,6 +677,7 @@ app.get('/dashboard', (req, res) => {
       const currentYear = String(new Date().getFullYear());
       const [filterState, setFilterState] = useState([]);
       const [filterTargetDate, setFilterTargetDate] = useState([currentYear]);
+      const [filterReleaseVersion, setFilterReleaseVersion] = useState([]);
       const [roadmapPage, setRoadmapPage] = useState(1);
       const [timelineView, setTimelineView] = useState('month'); // 'month', 'quarter', 'semester'
       const [timelineOffset, setTimelineOffset] = useState(-8);
@@ -720,6 +721,7 @@ app.get('/dashboard', (req, res) => {
       const iterations = [...new Set(features.map(f => f.iterationPath).filter(a => a))].sort();
       const states = [...new Set(features.map(f => f.state).filter(a => a))].sort();
       const targetYears = [...new Set(features.map(f => f.targetDate ? new Date(f.targetDate).getFullYear() : null).filter(y => y))].sort((a, b) => b - a);
+      const releaseVersions = [...new Set(features.map(f => f.releaseFixVersion).filter(v => v))].sort();
 
       const monthsByYear = {};
       features.forEach(f => {
@@ -744,7 +746,8 @@ app.get('/dashboard', (req, res) => {
             dateOk = filterTargetDate.includes(yearMonthKey) || filterTargetDate.includes(yearKey);
           }        
           const searchOk = searchTitle === '' || f.title.toLowerCase().includes(searchTitle.toLowerCase());
-          return areaOk && iterOk && stateOk && dateOk && searchOk;
+          const releaseOk = filterReleaseVersion.length === 0 || filterReleaseVersion.includes(f.releaseFixVersion);
+          return areaOk && iterOk && stateOk && dateOk && searchOk && releaseOk;
         });
 
         // Ordenar features
