@@ -832,8 +832,15 @@ app.get('/dashboard', (req, res) => {
                 valB = (b.areaPath || '').toLowerCase(); 
               }
               else if (sortColumn === 'iteration') { 
-                valA = (a.iterationPath || '').toLowerCase(); 
-                valB = (b.iterationPath || '').toLowerCase(); 
+                const extractYearQuarter = (path) => {
+                  const yearMatch = (path || '').match(/(\\d{4})/);
+                  const quarterMatch = (path || '').match(/Q(\\d)/);
+                  const year = yearMatch ? parseInt(yearMatch[1]) : 9999;
+                  const quarter = quarterMatch ? parseInt(quarterMatch[1]) : 9;
+                  return year * 10 + quarter;
+                };
+                valA = extractYearQuarter(a.iterationPath); 
+                valB = extractYearQuarter(b.iterationPath); 
               }
               else if (sortColumn === 'priority') { 
                 valA = parseInt(a.priority) || 0; 
