@@ -466,22 +466,7 @@ app.get('/dashboard', (req, res) => {
       'Closed': '#a78bfa'
     };
 
-    function StoryRow({ storyId, title, storyPoints, state, iterationPath, formatDate, weekOffset, adoLink }) {
-      const [states, setStates] = useState([]);
-      const [loading, setLoading] = useState(true);
-
-      useEffect(() => {
-        fetch('/api/story-history/' + storyId)
-          .then(res => res.json())
-          .then(data => {
-            setStates(data.stateChanges || []);
-            setLoading(false);
-          })
-          .catch(() => {
-            setStates([]);
-            setLoading(false);
-          });
-      }, [storyId]);
+    function StoryRow({ storyId, title, storyPoints, state, iterationPath, formatDate, weekOffset, adoLink, states, loading }) {
 
       const today = new Date();
       const dayOfWeek = today.getDay();
