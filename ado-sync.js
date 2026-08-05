@@ -1208,7 +1208,7 @@ app.get('/dashboard', (req, res) => {
                             <tr><td colSpan="3" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td></tr>
                           ) : (
                             pageItems.map(s => (
-                              <StoryRow key={s.id} storyId={s.id} title={s.title} storyPoints={s.storyPoints} state={s.state} iterationPath={s.iterationPath} formatDate={formatDate} weekOffset={weekOffset} adoLink={adoLink} />
+                              <StoryRow key={s.id} storyId={s.id} title={s.title} storyPoints={s.storyPoints} state={s.state} iterationPath={s.iterationPath} formatDate={formatDate} weekOffset={weekOffset} adoLink={adoLink} states={historyCache[s.id] || []} loading={loadingHistory} />
                             ))
                           )}
                         </tbody>
