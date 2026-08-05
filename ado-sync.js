@@ -834,12 +834,12 @@ app.get('/dashboard', (req, res) => {
           
             </div>
           
-            <button style={{ padding: '8px 16px', background: '#dc3545', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); }}>
+            <button style={{ padding: '8px 16px', background: '#dc3545', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); setFilterReleaseVersion([]); }}>
               Clear filters
             </button>
           </div>
 
-              <div className="filters" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr', gap: '15px', background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+              <div className="filters" style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.6fr 0.8fr 0.8fr 0.8fr', gap: '15px', background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
                 
                 <div>
                   <label className="filter-label">Area Path</label>
@@ -886,6 +886,15 @@ app.get('/dashboard', (req, res) => {
                     ))}
                   </select>
                 {filterTargetDate.length > 0 && <p className="filter-count">{filterTargetDate.length} selected</p>}
+              </div>
+              <div>
+                <label className="filter-label">Release Version</label>
+                <select multiple className="filter-select" value={filterReleaseVersion} onChange={(e) => setFilterReleaseVersion([...e.target.selectedOptions].map(o => o.value))}>
+                  {releaseVersions.map(rv => (
+                    <option key={rv} value={rv}>{rv}</option>
+                  ))}
+                </select>
+                {filterReleaseVersion.length > 0 && <p className="filter-count">{filterReleaseVersion.length} selected</p>}
               </div>
               </div>
 
