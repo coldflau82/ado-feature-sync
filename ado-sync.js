@@ -340,7 +340,31 @@ app.get('/dashboard', (req, res) => {
 
   <script type="text/babel">
     const { useState, useEffect } = React;
-  
+
+      const releaseDates = {
+      'CE-2026-FEB': '2026-02-09',
+      'CE-2026-FEB-SEMIMONTHLY': '2026-02-23',
+      'CE-2026-MAR': '2026-03-09',
+      'CE-2026-MAR-SEMIMONTHLY': '2026-03-23',
+      'CE-2026-APR': '2026-04-12',
+      'CE-2026-APR-SEMIMONTHLY': '2026-04-27',
+      'CE-2026-MAY': '2026-05-11',
+      'CE-2026-MAY-SEMIMONTHLY': '2026-05-25',
+      'CE-2026-JUN': '2026-06-08',
+      'CE-2026-JUN-SEMIMONTHLY': '2026-06-22',
+      'CE-2026-JUL': '2026-07-13',
+      'CE-2026-JUL-SEMIMONTHLY': '2026-07-27',
+      'CE-2026-AUG': '2026-08-10',
+      'CE-2026-AUG-SEMIMONTHLY': '2026-08-24',
+      'CE-2026-SEP': '2026-09-14',
+      'CE-2026-SEP-SEMIMONTHLY': '2026-09-28',
+      'CE-2026-OCT': '2026-10-12',
+      'CE-2026-OCT-SEMIMONTHLY': '2026-10-26',
+      'CE-2026-NOV': '2026-11-09',
+      'CE-2026-NOV-SEMIMONTHLY': '2026-11-23',
+      'CE-2026-DEC': '2026-12-14'
+    };
+      
       const storyStateColors = {
       'New': '#94a3b8',
       'Business Refinement': '#facc15',
@@ -530,8 +554,8 @@ app.get('/dashboard', (req, res) => {
           'New': '#94a3b8',
           'In Shaping': '#fbbf24',
           'In Planning': '#fb923c',
-          'Planned': '#60a5fa',
-          'In Process': '#34d399',
+          'Planned': '#34d399',
+          'In Process': '#60a5fa',
           'Closed': '#a78bfa'
         };
 
