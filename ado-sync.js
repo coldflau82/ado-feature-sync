@@ -619,7 +619,7 @@ app.get('/dashboard', (req, res) => {
       );
     }
       
-      function FeatureRow({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineOffset, adoLink, stories, onSelectFeature }) {
+      function FeatureRow({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineOffset, adoLink, stories, onSelectFeature, states, loading }) {
         const [states, setStates] = useState([]);
         const [loading, setLoading] = useState(true);
       
@@ -1256,7 +1256,7 @@ app.get('/dashboard', (req, res) => {
                         </thead>
                         <tbody>
                           {pageItems.map(f => (
-                            <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} releaseFixVersion={f.releaseFixVersion} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} stories={f.stories} onSelectFeature={() => { setSelectedFeature(f); setRoadmapPage(1); }} />
+                            <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} releaseFixVersion={f.releaseFixVersion} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} stories={f.stories} onSelectFeature={() => { setSelectedFeature(f); setRoadmapPage(1); }} states={historyCache[f.id] || []} loading={loadingHistory} />
                           ))}
                         </tbody>
                       </table>
