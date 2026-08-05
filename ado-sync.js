@@ -1096,14 +1096,7 @@ app.get('/dashboard', (req, res) => {
             <>
                       
               {(() => {
-              const itemsPerPage = 15;
-              const activeList = selectedFeature ? fullStories : sortedFiltered;
-              const totalPages = Math.ceil(activeList.length / itemsPerPage);
-              const startIdx = (roadmapPage - 1) * itemsPerPage;
-              const endIdx = startIdx + itemsPerPage;
-              const pageItems = activeList.slice(startIdx, endIdx);
-        
-              return (
+            return (
                 <>
                   <div style={{ background: 'white', padding: '10px 15px', borderRadius: '8px', marginBottom: '10px', display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                     <span style={{ color: '#666', fontSize: '12px', whiteSpace: 'nowrap' }}>
