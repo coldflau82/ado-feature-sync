@@ -1017,6 +1017,12 @@ app.get('/dashboard', (req, res) => {
                       <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '8px solid #f43f5e' }}></div>
                       <span style={{ fontSize: '11px' }}>Target Date</span>
                     </div>
+                    {!selectedFeature && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <div style={{ width: '8px', height: '8px', background: '#1e3a8a', transform: 'rotate(45deg)' }}></div>
+                        <span style={{ fontSize: '11px' }}>Release Date</span>
+                      </div>
+                    )}                              
                     </div>
                   </div>
 
