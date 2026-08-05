@@ -864,7 +864,8 @@ app.get('/dashboard', (req, res) => {
       const startIdx = (roadmapPage - 1) * itemsPerPage;
       const endIdx = startIdx + itemsPerPage;
       const pageItems = activeList.slice(startIdx, endIdx);
-      
+      const pageItemIds = pageItems.map(item => item.id).join(',');
+
       useEffect(() => {
         if (currentPage !== 'roadmap' || pageItems.length === 0) return;
         const ids = pageItems.map(item => item.id);
@@ -884,7 +885,7 @@ app.get('/dashboard', (req, res) => {
             setHistoryCache({});
             setLoadingHistory(false);
           });
-      }, [roadmapPage, selectedFeature, currentPage, features.length, fullStories.length]);
+      }, [pageItemIds, currentPage]);
 
         return (
           <div className="container">
