@@ -340,118 +340,81 @@ app.get('/api/features', async (req, res) => {
         storyDebug = { error: e.message };
       }
       
-      const storyResponse = await c.post('/wit/wiql?api-version=7.0', {
-        query: storyQuery
-      });
-
-      const storyIds = storyResponse.data.workItems.map(i => i.id);
-      storyDebug = { queriedStories: storyIds.length };
-
-      if (storyIds.length > 0) {
-        const storyBatchSize = 200;
-        for (let i = 0; i < storyIds.length; i += storyBatchSize) {
-          const storyBatch = await c.post('/wit/workitemsbatch?api-version=7.0', {
-            ids: storyIds.slice(i, i + storyBatchSize),
-            fields: ['System.Id', 'System.Title', 'System.Parent', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State', 'System.WorkItemType']
-          });
-
-          storyBatch.data.value.forEach(story => {
-            const parentId = story.fields['System.Parent'];
-            if (parentId) {
-              if (!storiesByFeature[parentId]) {
-                storiesByFeature[parentId] = [];
-              }
-              storiesByFeature[parentId].push({
-                id: story.id,
-                title: story.fields['System.Title'] || '',
-                storyPoints: story.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
-                state: story.fields['System.State'] || '',
-                workItemType: story.fields['System.WorkItemType'] || ''
-              });
-              totalStoriesFound++;
-            }
-          });
+      const warnings = [];
+        for (const [range, count] of Object.entries(rangeCounts)) {
+          if (typeof count === 'number' && count >= 200) {
+            warnings.push(`WARNING: Range "${range}" has ${count} items - DATA MAY BE MISSING`);
+          }
         }
+    
+        res.json({
+          rangeCounts: rangeCounts,
+          warnings: warnings,
+          storyDebug: storyDebug,
+          total: allFeatures.length,
+          totalStories: totalStoriesFound,
+          features: allFeatures.map(i => ({
+            id: i.id,
+            title: i.fields['System.Title'] || '',
+            state: i.fields['System.State'] || '',
+            areaPath: i.fields['System.AreaPath'] || '',
+            iterationPath: i.fields['System.IterationPath'] || '',
+            priority: i.fields['Microsoft.VSTS.Common.Priority'] || '',
+            targetDate: i.fields['Microsoft.VSTS.Scheduling.TargetDate'] || '',
+            plannedMonth: i.fields['Custom.PlannedMonth'] || '',
+            releaseFixVersion: i.fields['Custom.ReleaseFixVersion'] || '',
+            tags: i.fields['System.Tags'] || '',
+            estimation: {
+              be: i.fields['Custom.BEEstimate'] || '',
+              fe: i.fields['Custom.FEEstimates'] || '',
+              qa: i.fields['Custom.QASizing'] || ''
+            },
+            stories: storiesByFeature[i.id] || []
+          }))
+        });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
       }
-    } catch (e) {
-      storyDebug = { error: e.message };
-    }
-
-    const warnings = [];
-    for (const [range, count] of Object.entries(rangeCounts)) {
-      if (typeof count === 'number' && count >= 200) {
-        warnings.push(`WARNING: Range "${range}" has ${count} items - DATA MAY BE MISSING`);
-      }
-    }
-
-    res.json({
-      rangeCounts: rangeCounts,
-      warnings: warnings,
-      storyDebug: storyDebug,
-      total: allFeatures.length,
-      totalStories: totalStoriesFound,
-      features: allFeatures.map(i => ({
-        id: i.id,
-        title: i.fields['System.Title'] || '',
-        state: i.fields['System.State'] || '',
-        areaPath: i.fields['System.AreaPath'] || '',
-        iterationPath: i.fields['System.IterationPath'] || '',
-        priority: i.fields['Microsoft.VSTS.Common.Priority'] || '',
-        targetDate: i.fields['Microsoft.VSTS.Scheduling.TargetDate'] || '',
-        plannedMonth: i.fields['Custom.PlannedMonth'] || '',
-        releaseFixVersion: i.fields['Custom.ReleaseFixVersion'] || '',
-        tags: i.fields['System.Tags'] || '',
-        estimation: {
-          be: i.fields['Custom.BEEstimate'] || '',
-          fe: i.fields['Custom.FEEstimates'] || '',
-          qa: i.fields['Custom.QASizing'] || ''
-        },
-        stories: storiesByFeature[i.id] || []
-      }))
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/dashboard', (req, res) => {
-  res.send(`
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>ADO Dashboard</title>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, sans-serif; background: #f5f5f5; }
-    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-    .header { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
-    .header h1 { font-size: 24px; }
-    .tabs { margin-top: 15px; display: flex; gap: 10px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-    .tab-btn { padding: 8px 16px; background: white; color: black; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; }
-    .tab-btn.active { background: #007bff; color: white; }
-    .warnings { background: #fff3cd; color: '#856404'; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffc107; }
-    .filters { display: grid; gridTemplateColumns: 'repeat(4, 1fr)'; gap: 15px; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; overflow-x: auto; }
-    .filter-div { }
-    .filter-label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 13px; }
-    .filter-select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px; }
-    .filter-count { font-size: 11px; color: #666; margin-top: 5px; }
-    .clear-btn { width: 100%; padding: 10px 16px; background: #dc3545; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 13px; margin-bottom: 20px; }
-    .table-wrapper { background: white; border-radius: 8px; overflow: hidden; }
-    table { width: 100%; border-collapse: collapse; }
-    th { background: #f9f9f9; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #eee; font-size: 13px; }
-    td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
-    tr:hover { background: #f5f5f5; }
-    a { color: #007bff; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .expand-btn { cursor: pointer; user-select: none; text-align: center; width: 30px; }
-  </style>
-</head>
-<body>
-  <div id="root"></div>
+    
+    app.get('/dashboard', (req, res) => {
+      res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>ADO Dashboard</title>
+      <script src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>
+      <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
+      <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .header { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
+        .header h1 { font-size: 24px; }
+        .tabs { margin-top: 15px; display: flex; gap: 10px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .tab-btn { padding: 8px 16px; background: white; color: black; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; }
+        .tab-btn.active { background: #007bff; color: white; }
+        .warnings { background: #fff3cd; color: '#856404'; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffc107; }
+        .filters { display: grid; gridTemplateColumns: 'repeat(4, 1fr)'; gap: 15px; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; overflow-x: auto; }
+        .filter-div { }
+        .filter-label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 13px; }
+        .filter-select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px; }
+        .filter-count { font-size: 11px; color: #666; margin-top: 5px; }
+        .clear-btn { width: 100%; padding: 10px 16px; background: #dc3545; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 13px; margin-bottom: 20px; }
+        .table-wrapper { background: white; border-radius: 8px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f9f9f9; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #eee; font-size: 13px; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+        tr:hover { background: #f5f5f5; }
+        a { color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .expand-btn { cursor: pointer; user-select: none; text-align: center; width: 30px; }
+      </style>
+    </head>
+    <body>
+      <div id="root"></div>
 
   <script type="text/babel">
     const { useState, useEffect } = React;
