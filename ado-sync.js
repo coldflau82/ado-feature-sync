@@ -1047,21 +1047,85 @@ app.get('/dashboard', (req, res) => {
                           <td>{f.estimation.qa || '-'}</td>
                           <td>{f.state}</td>
                         </tr>
-                          {expandedRows[f.id] && f.stories && f.stories.length > 0 && (
+                        {expandedRows[f.id] && f.stories && f.stories.length > 0 && (() => {
+                          const completionStates = ['Sprint Complete', 'User Acceptance Testing', 'Approved for Release', 'Ready for Deployment', 'Closed'];
+                          const totalStories = f.stories.length;
+                          const totalStoryPoints = f.stories.reduce((sum, s) => sum + (Number(s.storyPoints) || 0), 0);
+                          const completedCount = f.stories.filter(s => completionStates.includes(s.state)).length;
+                          const completionPercent = totalStories > 0 ? ((completedCount / totalStories) * 100).toFixed(1) : '0.0';
+                        
+                          const stateCounts = {};
+                          f.stories.forEach(s => {
+                            const st = s.state || 'Unknown';
+                            stateCounts[st] = (stateCounts[st] || 0) + 1;
+                          });
+                        
+                          return (
                             <tr style={{ background: '#f9f9f9' }}>
-                            <td colSpan="12" style={{ paddingLeft: '60px', paddingTop: '15px', paddingBottom: '15px' }}>
-                              <div>
-                              <strong style={{ marginBottom: '10px', display: 'block' }}>User Stories ({f.stories.length}):</strong>
-                              {f.stories.map(story => (
-                                <div key={story.id} style={{ padding: '8px', marginBottom: '8px', background: 'white', borderLeft: '3px solid #007bff', paddingLeft: '12px', borderRadius: '4px' }}>
-                                  <strong>#{story.id}</strong> - {story.title} <br/>
-                                  <span style={{ fontSize: '11px', color: '#666' }}>Points: {story.storyPoints} | State: {story.state}</span>
-                              </div>
-                              ))}
-                            </div>
-                            </td>
-                          </tr>
-                        )}
+                              <td colSpan="12" style={{ paddingLeft: '60px', paddingTop: '15px', paddingBottom: '15px' }}>
+                                <div>
+                                  {/* --- Panel resumen --- */}
+                                  <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap', marginBottom: '15px', padding: '15px', background: 'white', borderRadius: '6px', border: '1px solid #eee' }}>
+                                    <div>
+                                      <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>RELEASE FIX VERSION</div>
+                                      <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
+                                        {f.releaseFixVersion || '-'}
+                                        {f.releaseFixVersion && releaseDates[f.releaseFixVersion] && (
+                                          <span style={{ fontSize: '11px', color: '#666', fontWeight: 'normal', marginLeft: '6px' }}>
+                                            ({formatDate(releaseDates[f.releaseFixVersion])})
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                        
+                                    <div>
+                                      <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>TARGET DATE</div>
+                                      <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{formatDate(f.targetDate)}</div>
+                                    </div>
+                        
+                                    <div>
+                                      <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>USER STORIES</div>
+                                      <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{totalStories}</div>
+                                    </div>
+                        
+                                    <div>
+                                      <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>STORY POINTS</div>
+                                      <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{totalStoryPoints}</div>
+                                    </div>
+                        
+                                    <div>
+                                      <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>COMPLETION</div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ width: '120px', height: '8px', background: '#e0e0e0', borderRadius: '4px', overflow: 'hidden' }}>
+                                          <div style={{ width: completionPercent + '%', height: '100%', background: '#f97316' }} />
+                                        </div>
+                                        <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#f97316' }}>{completionPercent}%</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                        
+                                  {/* --- Badges de estado --- */}
+                                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '15px' }}>
+                                    {Object.entries(stateCounts).map(([state, count]) => (
+                                      <span key={state} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '4px', background: storyStateColors[state] || '#6b7280', color: 'white' }}>
+                                        {state}: {count}
+                                      </span>
+                                    ))}
+                                  </div>
+                        
+                                  {/* --- Lista de historias (igual que antes) --- */}
+                                  <strong style={{ marginBottom: '10px', display: 'block' }}>User Stories ({f.stories.length}):</strong>
+                                  {f.stories.map(story => (
+                                    <div key={story.id} style={{ padding: '8px', marginBottom: '8px', background: 'white', borderLeft: '3px solid #007bff', paddingLeft: '12px', borderRadius: '4px' }}>
+                                      <strong>#{story.id}</strong> - {story.title} <br/>
+                                      <span style={{ fontSize: '11px', color: '#666' }}>Points: {story.storyPoints} | State: {story.state}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })()}
                         </React.Fragment>
                       ))}
                     </tbody>
