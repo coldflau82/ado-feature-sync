@@ -594,7 +594,7 @@ app.get('/dashboard', (req, res) => {
       );
     }
       
-      function FeatureRow({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineOffset, adoLink, stories, onSelectFeature, states, loading }) {
+      function FeatureRowCells({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineOffset, adoLink, stories, onSelectFeature, states, loading }) {
               
         const stateColors = {
           'New': '#94a3b8',
@@ -639,7 +639,7 @@ app.get('/dashboard', (req, res) => {
         }
       
         return (
-          <tr style={{ borderBottom: '1px solid #eee' }}>
+          <>
             <td><a href={adoLink(featureId)} target="_blank">{featureId}</a></td>
             <td title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px', cursor: 'pointer', color: '#007bff' }} onClick={onSelectFeature}>{title}</td>
             <td style={{ padding: '8px' }}>
@@ -707,7 +707,78 @@ app.get('/dashboard', (req, res) => {
           </tr>
         );
       }
-
+    
+      function FeatureStoriesDetail({ f, formatDate, colSpan }) {
+        const completionStates = ['Sprint Complete', 'User Acceptance Testing', 'Approved for Release', 'Ready for Deployment', 'Closed'];
+        const totalStories = f.stories.length;
+        const totalStoryPoints = f.stories.reduce((sum, s) => sum + (Number(s.storyPoints) || 0), 0);
+        const completedCount = f.stories.filter(s => completionStates.includes(s.state)).length;
+        const completionPercent = totalStories > 0 ? ((completedCount / totalStories) * 100).toFixed(1) : '0.0';
+      
+        const stateCounts = {};
+        f.stories.forEach(s => {
+          const st = s.state || 'Unknown';
+          stateCounts[st] = (stateCounts[st] || 0) + 1;
+        });
+      
+        return (
+          <tr style={{ background: '#f9f9f9' }}>
+            <td colSpan={colSpan} style={{ paddingLeft: '60px', paddingTop: '15px', paddingBottom: '15px' }}>
+              <div>
+                <div style={{ background: 'white', borderRadius: '6px', border: '1px solid #eee', marginBottom: '15px' }}>
+                  <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap', padding: '15px' }}>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>RELEASE FIX VERSION</div>
+                      <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
+                        {f.releaseFixVersion || '-'}
+                        {f.releaseFixVersion && releaseDates[f.releaseFixVersion] && (
+                          <span style={{ fontSize: '11px', color: '#666', fontWeight: 'normal', marginLeft: '6px' }}>
+                            ({formatDate(releaseDates[f.releaseFixVersion])})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>TARGET DATE</div>
+                      <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{formatDate(f.targetDate)}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>USER STORIES</div>
+                      <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{totalStories}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>STORY POINTS</div>
+                      <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{totalStoryPoints}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>COMPLETION</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '120px', height: '8px', background: '#e0e0e0', borderRadius: '4px', overflow: 'hidden' }}>
+                          <div style={{ width: completionPercent + '%', height: '100%', background: '#f97316' }} />
+                        </div>
+                        <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#f97316' }}>{completionPercent}%</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', padding: '0 15px 15px 15px', borderTop: '1px solid #f0f0f0', paddingTop: '12px' }}>
+                    {Object.entries(stateCounts).map(([state, count]) => (
+                      <span key={state} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '4px', background: storyStateColors[state] || '#6b7280', color: 'white' }}>
+                        {state}: {count}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                {f.stories.map(story => (
+                  <div key={story.id} style={{ padding: '8px', marginBottom: '8px', background: 'white', borderLeft: '3px solid #007bff', paddingLeft: '12px', borderRadius: '4px' }}>
+                    <strong>#{story.id}</strong> - {story.title} <br/>
+                    <span style={{ fontSize: '11px', color: '#666' }}>Points: {story.storyPoints} | State: {story.state}</span>
+                  </div>
+                ))}
+              </div>
+            </td>
+          </tr>
+        );
+      }
 
     function Dashboard() {
       const [features, setFeatures] = useState([]);
@@ -1041,86 +1112,11 @@ app.get('/dashboard', (req, res) => {
                           <td>{f.estimation.qa || '-'}</td>
                           <td>{f.state}</td>
                         </tr>
-                        {expandedRows[f.id] && f.stories && f.stories.length > 0 && (() => {
-                          const completionStates = ['Sprint Complete', 'User Acceptance Testing', 'Approved for Release', 'Ready for Deployment', 'Closed'];
-                          const totalStories = f.stories.length;
-                          const totalStoryPoints = f.stories.reduce((sum, s) => sum + (Number(s.storyPoints) || 0), 0);
-                          const completedCount = f.stories.filter(s => completionStates.includes(s.state)).length;
-                          const completionPercent = totalStories > 0 ? ((completedCount / totalStories) * 100).toFixed(1) : '0.0';
+
+                        {expandedRows[f.id] && f.stories && f.stories.length > 0 && (
+                          <FeatureStoriesDetail f={f} formatDate={formatDate} colSpan={12} />
+                        )}
                         
-                          const stateCounts = {};
-                          f.stories.forEach(s => {
-                            const st = s.state || 'Unknown';
-                            stateCounts[st] = (stateCounts[st] || 0) + 1;
-                          });
-                        
-                          return (
-                            <tr style={{ background: '#f9f9f9' }}>
-                              <td colSpan="12" style={{ paddingLeft: '60px', paddingTop: '15px', paddingBottom: '15px' }}>
-                                <div>
-                                  {/* --- Board compacto: métricas + badges en una sola caja --- */}
-                                  <div style={{ background: 'white', borderRadius: '6px', border: '1px solid #eee', marginBottom: '15px' }}>
-                                    <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap', padding: '15px' }}>
-                                      <div>
-                                        <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>RELEASE FIX VERSION</div>
-                                        <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                                          {f.releaseFixVersion || '-'}
-                                          {f.releaseFixVersion && releaseDates[f.releaseFixVersion] && (
-                                            <span style={{ fontSize: '11px', color: '#666', fontWeight: 'normal', marginLeft: '6px' }}>
-                                              ({formatDate(releaseDates[f.releaseFixVersion])})
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                        
-                                      <div>
-                                        <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>TARGET DATE</div>
-                                        <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{formatDate(f.targetDate)}</div>
-                                      </div>
-                        
-                                      <div>
-                                        <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>USER STORIES</div>
-                                        <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{totalStories}</div>
-                                      </div>
-                        
-                                      <div>
-                                        <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>STORY POINTS</div>
-                                        <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{totalStoryPoints}</div>
-                                      </div>
-                        
-                                      <div>
-                                        <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>COMPLETION</div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                          <div style={{ width: '120px', height: '8px', background: '#e0e0e0', borderRadius: '4px', overflow: 'hidden' }}>
-                                            <div style={{ width: completionPercent + '%', height: '100%', background: '#f97316' }} />
-                                          </div>
-                                          <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#f97316' }}>{completionPercent}%</span>
-                                        </div>
-                                      </div>
-                                    </div>
-                        
-                                    {/* Separador + badges dentro de la misma caja */}
-                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', padding: '0 15px 15px 15px', borderTop: '1px solid #f0f0f0', paddingTop: '12px' }}>
-                                      {Object.entries(stateCounts).map(([state, count]) => (
-                                        <span key={state} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '4px', background: storyStateColors[state] || '#6b7280', color: 'white' }}>
-                                          {state}: {count}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-                        
-                                  {/* --- Lista de historias (sin el título redundante) --- */}
-                                  {f.stories.map(story => (
-                                    <div key={story.id} style={{ padding: '8px', marginBottom: '8px', background: 'white', borderLeft: '3px solid #007bff', paddingLeft: '12px', borderRadius: '4px' }}>
-                                      <strong>#{story.id}</strong> - {story.title} <br/>
-                                      <span style={{ fontSize: '11px', color: '#666' }}>Points: {story.storyPoints} | State: {story.state}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })()}
                         </React.Fragment>
                       ))}
                     </tbody>
@@ -1265,19 +1261,40 @@ app.get('/dashboard', (req, res) => {
                       <table>
                         <thead>
                           <tr>
+                            th style={{ width: '30px' }}></th>
                             <th style={{ width: '80px' }}>ID</th>
                             <th style={{ width: '300px' }}>Story</th>
                             <th>Timeline</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {loadingStories ? (
-                            <tr><td colSpan="3" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td></tr>
-                          ) : (
-                            pageItems.map(s => (
-                              <StoryRow key={s.id} storyId={s.id} title={s.title} storyPoints={s.storyPoints} state={s.state} iterationPath={s.iterationPath} formatDate={formatDate} weekOffset={weekOffset} adoLink={adoLink} states={historyCache[s.id] || []} loading={loadingHistory} />
-                            ))
-                          )}
+                          {pageItems.map(f => (
+                            <React.Fragment key={f.id}>
+                              <tr style={{ borderBottom: expandedRows[f.id] ? 'none' : '1px solid #eee' }}>
+                                <td
+                                  className="expand-btn"
+                                  onClick={() => setExpandedRows({ ...expandedRows, [f.id]: !expandedRows[f.id] })}
+                                >
+                                  {f.stories && f.stories.length > 0 ? (expandedRows[f.id] ? '▼' : '►') : ''}
+                                </td>
+                                <FeatureRowCells
+                                  featureId={f.id}
+                                  title={f.title}
+                                  targetDate={f.targetDate}
+                                  releaseFixVersion={f.releaseFixVersion}
+                                  formatDate={formatDate}
+                                  timelineOffset={timelineOffset}
+                                  adoLink={adoLink}
+                                  onSelectFeature={() => { setSelectedFeature(f); setRoadmapPage(1); }}
+                                  states={historyCache[f.id] || []}
+                                  loading={loadingHistory}
+                                />
+                              </tr>
+                              {expandedRows[f.id] && f.stories && f.stories.length > 0 && (
+                                <FeatureStoriesDetail f={f} formatDate={formatDate} colSpan={4} />
+                              )}
+                            </React.Fragment>
+                          ))}
                         </tbody>
                       </table>
                     </div>
