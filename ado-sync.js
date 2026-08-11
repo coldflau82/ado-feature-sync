@@ -293,13 +293,59 @@ app.get('/api/features', async (req, res) => {
     let storyDebug = null;
 
     try {
-      const storyQuery = `SELECT [System.Id] FROM workitems
-        WHERE
-        [System.TeamProject] = 'Commercial Engineering'
-        AND [System.ChangedDate] > @today - 180
-        AND [System.State] <> 'Removed'
-        AND ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Bug')`;
-        // Se quita temporalmente el bloque de Area Path fijo (pendiente reemplazar con lógica de Dashboard)
+
+          // Obtener User Stories por relación de padre (System.Parent IN allIds)
+      const storiesByFeature = {};
+      let totalStoriesFound = 0;
+      let storyDebug = null;
+  
+      try {
+        const parentBatchSize = 100; // WIQL tiene límite de longitud de query
+        let allStoryIds = [];
+  
+        for (let i = 0; i < allIds.length; i += parentBatchSize) {
+          const idsChunk = allIds.slice(i, i + parentBatchSize);
+          const storyQuery = `SELECT [System.Id] FROM workitems
+            WHERE [System.TeamProject] = 'Commercial Engineering'
+            AND ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Bug')
+            AND [System.Parent] IN (${idsChunk.join(',')})`;
+  
+          const storyResponse = await c.post('/wit/wiql?api-version=7.0', { query: storyQuery });
+          const chunkIds = storyResponse.data.workItems.map(i => i.id);
+          allStoryIds = [...allStoryIds, ...chunkIds];
+        }
+  
+        storyDebug = { queriedStories: allStoryIds.length };
+  
+        if (allStoryIds.length > 0) {
+          const storyBatchSize = 200;
+          for (let i = 0; i < allStoryIds.length; i += storyBatchSize) {
+            const storyBatch = await c.post('/wit/workitemsbatch?api-version=7.0', {
+              ids: allStoryIds.slice(i, i + storyBatchSize),
+              fields: ['System.Id', 'System.Title', 'System.Parent', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State', 'System.WorkItemType']
+            });
+  
+            storyBatch.data.value.forEach(story => {
+              const parentId = story.fields['System.Parent'];
+              if (parentId) {
+                if (!storiesByFeature[parentId]) {
+                  storiesByFeature[parentId] = [];
+                }
+                storiesByFeature[parentId].push({
+                  id: story.id,
+                  title: story.fields['System.Title'] || '',
+                  storyPoints: story.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
+                  state: story.fields['System.State'] || '',
+                  workItemType: story.fields['System.WorkItemType'] || ''
+                });
+                totalStoriesFound++;
+              }
+            });
+          }
+        }
+      } catch (e) {
+        storyDebug = { error: e.message };
+      }
       
       const storyResponse = await c.post('/wit/wiql?api-version=7.0', {
         query: storyQuery
