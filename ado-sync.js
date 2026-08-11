@@ -704,7 +704,7 @@ app.get('/dashboard', (req, res) => {
                 )}
               </div>
             </td>
-          </tr>
+          </>
         );
       }
     
@@ -1261,7 +1261,7 @@ app.get('/dashboard', (req, res) => {
                       <table>
                         <thead>
                           <tr>
-                            th style={{ width: '30px' }}></th>
+                            <th style={{ width: '30px' }}></th>
                             <th style={{ width: '80px' }}>ID</th>
                             <th style={{ width: '300px' }}>Story</th>
                             <th>Timeline</th>
@@ -1303,6 +1303,7 @@ app.get('/dashboard', (req, res) => {
                       <table>
                         <thead>
                           <tr>
+                            <th style={{ width: '30px' }}></th>
                             <th style={{ width: '80px' }}>ID</th>
                             <th style={{ width: '300px' }}>Feature</th>
                             <th>Timeline</th>
@@ -1310,7 +1311,31 @@ app.get('/dashboard', (req, res) => {
                         </thead>
                         <tbody>
                           {pageItems.map(f => (
-                            <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} releaseFixVersion={f.releaseFixVersion} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} stories={f.stories} onSelectFeature={() => { setSelectedFeature(f); setRoadmapPage(1); }} states={historyCache[f.id] || []} loading={loadingHistory} />
+                            <React.Fragment key={f.id}>
+                              <tr style={{ borderBottom: expandedRows[f.id] ? 'none' : '1px solid #eee' }}>
+                                <td
+                                  className="expand-btn"
+                                  onClick={() => setExpandedRows({ ...expandedRows, [f.id]: !expandedRows[f.id] })}
+                                >
+                                  {f.stories && f.stories.length > 0 ? (expandedRows[f.id] ? '▼' : '►') : ''}
+                                </td>
+                                <FeatureRowCells
+                                  featureId={f.id}
+                                  title={f.title}
+                                  targetDate={f.targetDate}
+                                  releaseFixVersion={f.releaseFixVersion}
+                                  formatDate={formatDate}
+                                  timelineOffset={timelineOffset}
+                                  adoLink={adoLink}
+                                  onSelectFeature={() => { setSelectedFeature(f); setRoadmapPage(1); }}
+                                  states={historyCache[f.id] || []}
+                                  loading={loadingHistory}
+                                />
+                              </tr>
+                              {expandedRows[f.id] && f.stories && f.stories.length > 0 && (
+                                <FeatureStoriesDetail f={f} formatDate={formatDate} colSpan={4} />
+                              )}
+                            </React.Fragment>
                           ))}
                         </tbody>
                       </table>
