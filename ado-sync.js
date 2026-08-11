@@ -294,19 +294,13 @@ app.get('/api/features', async (req, res) => {
 
     try {
       const storyQuery = `SELECT [System.Id] FROM workitems
-    WHERE
-    [System.TeamProject] = 'Commercial Engineering'
-    AND [System.ChangedDate] > @today - 180
-    AND ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Bug')
-    AND (
-        [System.AreaPath] = 'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online'
-        OR [System.AreaPath] = 'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print'
-        OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout'
-        OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Global Product 1'
-        OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Global Product 2'
-        OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Global Product 3'
-    )`;
-
+        WHERE
+        [System.TeamProject] = 'Commercial Engineering'
+        AND [System.ChangedDate] > @today - 180
+        AND [System.State] <> 'Removed'
+        AND ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Bug')`;
+        // Se quita temporalmente el bloque de Area Path fijo (pendiente reemplazar con lógica de Dashboard)
+      
       const storyResponse = await c.post('/wit/wiql?api-version=7.0', {
         query: storyQuery
       });
