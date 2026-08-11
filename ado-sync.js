@@ -305,11 +305,6 @@ app.get('/api/features', async (req, res) => {
         OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Global Product 1'
         OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Global Product 2'
         OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Global Product 3'
-    )
-    AND (
-        [System.State] <> 'Closed'
-        AND [System.State] <> 'Resolved'
-        AND [System.State] <> 'Removed'
     )`;
 
       const storyResponse = await c.post('/wit/wiql?api-version=7.0', {
