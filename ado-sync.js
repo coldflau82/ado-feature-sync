@@ -287,20 +287,13 @@ app.get('/api/features', async (req, res) => {
       allFeatures = [...allFeatures, ...batch.data.value];
     }
 
-    // Obtener User Stories
-    const storiesByFeature = {};
-    let totalStoriesFound = 0;
-    let storyDebug = null;
-
-    try {
-
-          // Obtener User Stories por relación de padre (System.Parent IN allIds)
+        // Obtener User Stories por relación de padre (System.Parent IN allIds)
       const storiesByFeature = {};
       let totalStoriesFound = 0;
       let storyDebug = null;
   
       try {
-        const parentBatchSize = 100; // WIQL tiene límite de longitud de query
+        const parentBatchSize = 100; // límite de longitud del WIQL
         let allStoryIds = [];
   
         for (let i = 0; i < allIds.length; i += parentBatchSize) {
