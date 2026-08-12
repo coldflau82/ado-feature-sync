@@ -10,46 +10,32 @@ app.get('/api/health', (req, res) => res.json({ ok: 1 }));
 app.get('/api/feature-history/:id', async (req, res) => {
   try {
     const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
-    
     const c = axios.create({
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 
-        'Authorization': `Basic ${authHeader}`,
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Authorization': `Basic ${authHeader}`, 'Content-Type': 'application/json' }
     });
 
     const featureId = req.params.id;
-    console.log('Fetching history for feature:', featureId);
-    
     const revisionsResponse = await c.get(`/wit/workitems/${featureId}/revisions?api-version=7.0`);
 
     const stateChanges = [];
     let previousState = null;
 
-    
     revisionsResponse.data.value.forEach(revision => {
       const currentState = revision.fields['System.State'];
-  
-      // Solo agregar si el estado cambió o es la primera revisión
       if (currentState && currentState !== previousState) {
         stateChanges.push({
           rev: revision.rev,
           state: currentState,
           changedDate: revision.fields['System.ChangedDate'],
-          changedBy: revision.changedBy?.displayName || 'System'
+          changedBy: revision.fields['System.ChangedBy']?.displayName || 'System'
         });
         previousState = currentState;
       }
     });
 
-    res.json({
-      id: featureId,
-      stateChanges: stateChanges,
-      totalRevisions: revisionsResponse.data.value.length
-    });
+    res.json({ id: featureId, stateChanges: stateChanges, totalRevisions: revisionsResponse.data.value.length });
   } catch (error) {
-    console.error('Error fetching history:', error.message);
     res.status(500).json({ error: error.message, details: error.response?.data });
   }
 });
@@ -60,10 +46,7 @@ app.post('/api/features-history-batch', async (req, res) => {
     const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
     const c = axios.create({
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 
-        'Authorization': `Basic ${authHeader}`,
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Authorization': `Basic ${authHeader}`, 'Content-Type': 'application/json' }
     });
 
     const results = {};
@@ -100,13 +83,9 @@ app.post('/api/features-history-batch', async (req, res) => {
 app.get('/api/story-history/:id', async (req, res) => {
   try {
     const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
-    
     const c = axios.create({
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 
-        'Authorization': `Basic ${authHeader}`,
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Authorization': `Basic ${authHeader}`, 'Content-Type': 'application/json' }
     });
 
     const storyId = req.params.id;
@@ -128,11 +107,7 @@ app.get('/api/story-history/:id', async (req, res) => {
       }
     });
 
-    res.json({
-      id: storyId,
-      stateChanges: stateChanges,
-      totalRevisions: revisionsResponse.data.value.length
-    });
+    res.json({ id: storyId, stateChanges: stateChanges, totalRevisions: revisionsResponse.data.value.length });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -144,10 +119,7 @@ app.post('/api/stories-history-batch', async (req, res) => {
     const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
     const c = axios.create({
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 
-        'Authorization': `Basic ${authHeader}`,
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Authorization': `Basic ${authHeader}`, 'Content-Type': 'application/json' }
     });
 
     const results = {};
@@ -185,7 +157,7 @@ app.get('/api/feature-stories/:id', async (req, res) => {
   try {
     const c = axios.create({
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 
+      headers: {
         Authorization: `Basic ${Buffer.from(`:${process.env.ADO_PAT}`).toString('base64')}`,
         'Content-Type': 'application/json'
       }
@@ -193,12 +165,6 @@ app.get('/api/feature-stories/:id', async (req, res) => {
 
     const featureId = req.params.id;
 
-    const query = `SELECT [System.Id] FROM workitems
-      WHERE [System.TeamProject] = 'Commercial Engineering'
-      AND ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Bug')
-      AND [System.Parent] = ${featureId}`;
-
-    // WIQL no soporta System.Parent en WHERE, usamos WorkItemLinks
     const linksQuery = `SELECT [System.Id] FROM WorkItemLinks
       WHERE [Source].[System.Id] = ${featureId}
       AND [System.Links.LinkType] = 'System.LinkTypes.Hierarchy-Forward'
@@ -239,7 +205,7 @@ app.get('/api/features', async (req, res) => {
   try {
     const c = axios.create({
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 
+      headers: {
         Authorization: `Basic ${Buffer.from(`:${process.env.ADO_PAT}`).toString('base64')}`,
         'Content-Type': 'application/json'
       }
@@ -264,7 +230,7 @@ app.get('/api/features', async (req, res) => {
         const r = await c.post('/wit/wiql?api-version=7.0', {
           query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${baseFilter}`
         });
-        
+
         const ids = r.data.workItems.map(i => i.id);
         rangeCounts[`${range.from} to ${range.to}`] = ids.length;
         allIds = [...allIds, ...ids];
@@ -287,134 +253,134 @@ app.get('/api/features', async (req, res) => {
       allFeatures = [...allFeatures, ...batch.data.value];
     }
 
-        // Obtener User Stories por relación de padre (System.Parent IN allIds)
-      const storiesByFeature = {};
-      let totalStoriesFound = 0;
-      let storyDebug = null;
-  
-      try {
-        const parentBatchSize = 100; // límite de longitud del WIQL
-        let allStoryIds = [];
-  
-        for (let i = 0; i < allIds.length; i += parentBatchSize) {
-          const idsChunk = allIds.slice(i, i + parentBatchSize);
-          const storyQuery = `SELECT [System.Id] FROM workitems
-            WHERE [System.TeamProject] = 'Commercial Engineering'
-            AND ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Bug')
-            AND [System.Parent] IN (${idsChunk.join(',')})`;
-  
-          const storyResponse = await c.post('/wit/wiql?api-version=7.0', { query: storyQuery });
-          const chunkIds = storyResponse.data.workItems.map(i => i.id);
-          allStoryIds = [...allStoryIds, ...chunkIds];
-        }
-  
-        storyDebug = { queriedStories: allStoryIds.length };
-  
-        if (allStoryIds.length > 0) {
-          const storyBatchSize = 200;
-          for (let i = 0; i < allStoryIds.length; i += storyBatchSize) {
-            const storyBatch = await c.post('/wit/workitemsbatch?api-version=7.0', {
-              ids: allStoryIds.slice(i, i + storyBatchSize),
-              fields: ['System.Id', 'System.Title', 'System.Parent', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State', 'System.WorkItemType']
-            });
-  
-            storyBatch.data.value.forEach(story => {
-              const parentId = story.fields['System.Parent'];
-              if (parentId) {
-                if (!storiesByFeature[parentId]) {
-                  storiesByFeature[parentId] = [];
-                }
-                storiesByFeature[parentId].push({
-                  id: story.id,
-                  title: story.fields['System.Title'] || '',
-                  storyPoints: story.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
-                  state: story.fields['System.State'] || '',
-                  workItemType: story.fields['System.WorkItemType'] || ''
-                });
-                totalStoriesFound++;
+    // Obtener User Stories por relación de padre (System.Parent IN allIds) - SIN DUPLICADOS
+    const storiesByFeature = {};
+    let totalStoriesFound = 0;
+    let storyDebug = null;
+
+    try {
+      const parentBatchSize = 100;
+      let allStoryIds = [];
+
+      for (let i = 0; i < allIds.length; i += parentBatchSize) {
+        const idsChunk = allIds.slice(i, i + parentBatchSize);
+        const storyQuery = `SELECT [System.Id] FROM workitems
+          WHERE [System.TeamProject] = 'Commercial Engineering'
+          AND ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Bug')
+          AND [System.Parent] IN (${idsChunk.join(',')})`;
+
+        const storyResponse = await c.post('/wit/wiql?api-version=7.0', { query: storyQuery });
+        const chunkIds = storyResponse.data.workItems.map(i => i.id);
+        allStoryIds = [...allStoryIds, ...chunkIds];
+      }
+
+      storyDebug = { queriedStories: allStoryIds.length };
+
+      if (allStoryIds.length > 0) {
+        const storyBatchSize = 200;
+        for (let i = 0; i < allStoryIds.length; i += storyBatchSize) {
+          const storyBatch = await c.post('/wit/workitemsbatch?api-version=7.0', {
+            ids: allStoryIds.slice(i, i + storyBatchSize),
+            fields: ['System.Id', 'System.Title', 'System.Parent', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State', 'System.WorkItemType']
+          });
+
+          storyBatch.data.value.forEach(story => {
+            const parentId = story.fields['System.Parent'];
+            if (parentId) {
+              if (!storiesByFeature[parentId]) {
+                storiesByFeature[parentId] = [];
               }
-            });
-          }
+              storiesByFeature[parentId].push({
+                id: story.id,
+                title: story.fields['System.Title'] || '',
+                storyPoints: story.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
+                state: story.fields['System.State'] || '',
+                workItemType: story.fields['System.WorkItemType'] || ''
+              });
+              totalStoriesFound++;
+            }
+          });
         }
-      } catch (e) {
-        storyDebug = { error: e.message };
       }
-      
-      const warnings = [];
-        for (const [range, count] of Object.entries(rangeCounts)) {
-          if (typeof count === 'number' && count >= 200) {
-            warnings.push(`WARNING: Range "${range}" has ${count} items - DATA MAY BE MISSING`);
-          }
-        }
-    
-        res.json({
-          rangeCounts: rangeCounts,
-          warnings: warnings,
-          storyDebug: storyDebug,
-          total: allFeatures.length,
-          totalStories: totalStoriesFound,
-          features: allFeatures.map(i => ({
-            id: i.id,
-            title: i.fields['System.Title'] || '',
-            state: i.fields['System.State'] || '',
-            areaPath: i.fields['System.AreaPath'] || '',
-            iterationPath: i.fields['System.IterationPath'] || '',
-            priority: i.fields['Microsoft.VSTS.Common.Priority'] || '',
-            targetDate: i.fields['Microsoft.VSTS.Scheduling.TargetDate'] || '',
-            plannedMonth: i.fields['Custom.PlannedMonth'] || '',
-            releaseFixVersion: i.fields['Custom.ReleaseFixVersion'] || '',
-            tags: i.fields['System.Tags'] || '',
-            estimation: {
-              be: i.fields['Custom.BEEstimate'] || '',
-              fe: i.fields['Custom.FEEstimates'] || '',
-              qa: i.fields['Custom.QASizing'] || ''
-            },
-            stories: storiesByFeature[i.id] || []
-          }))
-        });
-      } catch (error) {
-        res.status(500).json({ error: error.message });
+    } catch (e) {
+      storyDebug = { error: e.message };
+    }
+
+    const warnings = [];
+    for (const [range, count] of Object.entries(rangeCounts)) {
+      if (typeof count === 'number' && count >= 200) {
+        warnings.push(`WARNING: Range "${range}" has ${count} items - DATA MAY BE MISSING`);
       }
+    }
+
+    res.json({
+      rangeCounts: rangeCounts,
+      warnings: warnings,
+      storyDebug: storyDebug,
+      total: allFeatures.length,
+      totalStories: totalStoriesFound,
+      features: allFeatures.map(i => ({
+        id: i.id,
+        title: i.fields['System.Title'] || '',
+        state: i.fields['System.State'] || '',
+        areaPath: i.fields['System.AreaPath'] || '',
+        iterationPath: i.fields['System.IterationPath'] || '',
+        priority: i.fields['Microsoft.VSTS.Common.Priority'] || '',
+        targetDate: i.fields['Microsoft.VSTS.Scheduling.TargetDate'] || '',
+        plannedMonth: i.fields['Custom.PlannedMonth'] || '',
+        releaseFixVersion: i.fields['Custom.ReleaseFixVersion'] || '',
+        tags: i.fields['System.Tags'] || '',
+        estimation: {
+          be: i.fields['Custom.BEEstimate'] || '',
+          fe: i.fields['Custom.FEEstimates'] || '',
+          qa: i.fields['Custom.QASizing'] || ''
+        },
+        stories: storiesByFeature[i.id] || []
+      }))
     });
-    
-    app.get('/dashboard', (req, res) => {
-      res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>ADO Dashboard</title>
-      <script src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>
-      <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
-      <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #f5f5f5; }
-        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-        .header { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
-        .header h1 { font-size: 24px; }
-        .tabs { margin-top: 15px; display: flex; gap: 10px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        .tab-btn { padding: 8px 16px; background: white; color: black; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; }
-        .tab-btn.active { background: #007bff; color: white; }
-        .warnings { background: #fff3cd; color: '#856404'; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffc107; }
-        .filters { display: grid; gridTemplateColumns: 'repeat(4, 1fr)'; gap: 15px; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; overflow-x: auto; }
-        .filter-div { }
-        .filter-label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 13px; }
-        .filter-select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px; }
-        .filter-count { font-size: 11px; color: #666; margin-top: 5px; }
-        .clear-btn { width: 100%; padding: 10px 16px; background: #dc3545; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 13px; margin-bottom: 20px; }
-        .table-wrapper { background: white; border-radius: 8px; overflow: hidden; }
-        table { width: 100%; border-collapse: collapse; }
-        th { background: #f9f9f9; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #eee; font-size: 13px; }
-        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
-        tr:hover { background: #f5f5f5; }
-        a { color: #007bff; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        .expand-btn { cursor: pointer; user-select: none; text-align: center; width: 30px; }
-      </style>
-    </head>
-    <body>
-      <div id="root"></div>
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/dashboard', (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ADO Dashboard</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #f5f5f5; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .header { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
+    .header h1 { font-size: 24px; }
+    .tabs { margin-top: 15px; display: flex; gap: 10px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+    .tab-btn { padding: 8px 16px; background: white; color: black; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; }
+    .tab-btn.active { background: #007bff; color: white; }
+    .warnings { background: #fff3cd; color: '#856404'; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffc107; }
+    .filters { display: grid; gridTemplateColumns: 'repeat(4, 1fr)'; gap: 15px; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; overflow-x: auto; }
+    .filter-div { }
+    .filter-label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 13px; }
+    .filter-select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px; }
+    .filter-count { font-size: 11px; color: #666; margin-top: 5px; }
+    .clear-btn { width: 100%; padding: 10px 16px; background: #dc3545; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 13px; margin-bottom: 20px; }
+    .table-wrapper { background: white; border-radius: 8px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f9f9f9; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #eee; font-size: 13px; }
+    td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+    tr:hover { background: #f5f5f5; }
+    a { color: #007bff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .expand-btn { cursor: pointer; user-select: none; text-align: center; width: 30px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
 
   <script type="text/babel">
     const { useState, useEffect } = React;
@@ -499,7 +465,7 @@ app.get('/api/features', async (req, res) => {
       // Parsear Sprint del Iteration Path: ...2026_S16_Jul29-Aug11
       let sprintStart = null;
       let sprintEnd = null;
-      const sprintMatch = iterationPath && iterationPath.match(/(\\d{4})_(S\\d+)_([A-Za-z]+)(\\d+)-([A-Za-z]+)(\\d+)/);
+      const sprintMatch = iterationPath && iterationPath.match(/(\d{4})_(S\d+)_([A-Za-z]+)(\d+)-([A-Za-z]+)(\d+)/);
       let sprintLabel = '';
       if (sprintMatch) {
         const year = parseInt(sprintMatch[1]);
@@ -895,8 +861,8 @@ app.get('/api/features', async (req, res) => {
               }
               else if (sortColumn === 'iteration') { 
                 const extractYearQuarter = (path) => {
-                  const yearMatch = (path || '').match(/(\\d{4})/);
-                  const quarterMatch = (path || '').match(/Q(\\d)/);
+                  const yearMatch = (path || '').match(/(\d{4})/);
+                  const quarterMatch = (path || '').match(/Q(\d)/);
                   const year = yearMatch ? parseInt(yearMatch[1]) : 9999;
                   const quarter = quarterMatch ? parseInt(quarterMatch[1]) : 9;
                   return year * 10 + quarter;
@@ -925,7 +891,7 @@ app.get('/api/features', async (req, res) => {
             });
           }
 
-      const adoLink = (id) => \`https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/\${id}\`;
+      const adoLink = (id) => `https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/${id}`;
 
       const formatDate = (date) => {
         if (!date) return '-';
@@ -1006,7 +972,7 @@ app.get('/api/features', async (req, res) => {
                   <label className="filter-label">Area Path</label>
                   <select multiple className="filter-select" value={filterAreaPath} onChange={(e) => setFilterAreaPath([...e.target.selectedOptions].map(o => o.value))}>
                     {areaPaths.map(area => (
-                      <option key={area} value={area}>{area.split('\\\\').pop()}</option>
+                      <option key={area} value={area}>{area.split('\\').pop()}</option>
                     ))}
                   </select>
                   {filterAreaPath.length > 0 && <p className="filter-count">{filterAreaPath.length} selected</p>}
@@ -1104,8 +1070,8 @@ app.get('/api/features', async (req, res) => {
                           </td>
                           <td><a href={adoLink(f.id)} target="_blank">{f.id}</a></td>
                           <td title={f.title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{f.title}</td>
-                          <td style={{ fontSize: '11px' }}>{f.areaPath.split('\\\\').pop()}</td>
-                          <td style={{ fontSize: '11px' }}>{f.iterationPath.split('\\\\').pop()}</td>
+                          <td style={{ fontSize: '11px' }}>{f.areaPath.split('\\').pop()}</td>
+                          <td style={{ fontSize: '11px' }}>{f.iterationPath.split('\\').pop()}</td>
                           <td>{f.priority || '-'}</td>
                           <td style={{ fontSize: '11px' }}>{formatDate(f.targetDate)}</td>
                           <td>{f.plannedMonth || '-'}</td>
