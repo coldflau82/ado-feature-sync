@@ -847,30 +847,6 @@ app.get('/dashboard', (req, res) => {
       };
 
       const areaPaths = [...new Set(features.map(f => f.areaPath).filter(a => a))].sort();
-      
-      const runSearch = () => {
-        setLoading(true);
-        setHasSearched(true);
-        fetch('/api/features', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ areaPaths: pendingAreaPath })
-        })
-          .then(r => r.json())
-          .then(d => {
-            setFeatures(d.features || []);
-            setWarnings(d.warnings || []);
-            setLoading(false);
-            const allStates = [...new Set((d.features || []).map(f => f.state).filter(a => a))].sort();
-            setFilterState(allStates.filter(s => s !== 'Closed'));
-          })
-          .catch(err => {
-            setLoading(false);
-            setWarnings(['Error: ' + err.message]);
-          });
-      };
-
-      const areaPaths = [...new Set(features.map(f => f.areaPath).filter(a => a))].sort();
       const iterations = [...new Set(features.map(f => f.iterationPath).filter(a => a))].sort();
       const states = [...new Set(features.map(f => f.state).filter(a => a))].sort();
       const targetYears = [...new Set(features.map(f => f.targetDate ? new Date(f.targetDate).getFullYear() : null).filter(y => y))].sort((a, b) => b - a);
