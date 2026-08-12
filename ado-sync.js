@@ -10,32 +10,46 @@ app.get('/api/health', (req, res) => res.json({ ok: 1 }));
 app.get('/api/feature-history/:id', async (req, res) => {
   try {
     const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
+    
     const c = axios.create({
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 'Authorization': `Basic ${authHeader}`, 'Content-Type': 'application/json' }
+      headers: { 
+        'Authorization': `Basic ${authHeader}`,
+        'Content-Type': 'application/json'
+      }
     });
 
     const featureId = req.params.id;
+    console.log('Fetching history for feature:', featureId);
+    
     const revisionsResponse = await c.get(`/wit/workitems/${featureId}/revisions?api-version=7.0`);
 
     const stateChanges = [];
     let previousState = null;
 
+    
     revisionsResponse.data.value.forEach(revision => {
       const currentState = revision.fields['System.State'];
+  
+      // Solo agregar si el estado cambió o es la primera revisión
       if (currentState && currentState !== previousState) {
         stateChanges.push({
           rev: revision.rev,
           state: currentState,
           changedDate: revision.fields['System.ChangedDate'],
-          changedBy: revision.fields['System.ChangedBy']?.displayName || 'System'
+          changedBy: revision.changedBy?.displayName || 'System'
         });
         previousState = currentState;
       }
     });
 
-    res.json({ id: featureId, stateChanges: stateChanges, totalRevisions: revisionsResponse.data.value.length });
+    res.json({
+      id: featureId,
+      stateChanges: stateChanges,
+      totalRevisions: revisionsResponse.data.value.length
+    });
   } catch (error) {
+    console.error('Error fetching history:', error.message);
     res.status(500).json({ error: error.message, details: error.response?.data });
   }
 });
@@ -46,7 +60,10 @@ app.post('/api/features-history-batch', async (req, res) => {
     const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
     const c = axios.create({
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 'Authorization': `Basic ${authHeader}`, 'Content-Type': 'application/json' }
+      headers: { 
+        'Authorization': `Basic ${authHeader}`,
+        'Content-Type': 'application/json'
+      }
     });
 
     const results = {};
@@ -83,9 +100,13 @@ app.post('/api/features-history-batch', async (req, res) => {
 app.get('/api/story-history/:id', async (req, res) => {
   try {
     const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
+    
     const c = axios.create({
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 'Authorization': `Basic ${authHeader}`, 'Content-Type': 'application/json' }
+      headers: { 
+        'Authorization': `Basic ${authHeader}`,
+        'Content-Type': 'application/json'
+      }
     });
 
     const storyId = req.params.id;
@@ -107,7 +128,11 @@ app.get('/api/story-history/:id', async (req, res) => {
       }
     });
 
-    res.json({ id: storyId, stateChanges: stateChanges, totalRevisions: revisionsResponse.data.value.length });
+    res.json({
+      id: storyId,
+      stateChanges: stateChanges,
+      totalRevisions: revisionsResponse.data.value.length
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -119,7 +144,10 @@ app.post('/api/stories-history-batch', async (req, res) => {
     const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
     const c = axios.create({
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 'Authorization': `Basic ${authHeader}`, 'Content-Type': 'application/json' }
+      headers: { 
+        'Authorization': `Basic ${authHeader}`,
+        'Content-Type': 'application/json'
+      }
     });
 
     const results = {};
@@ -157,7 +185,7 @@ app.get('/api/feature-stories/:id', async (req, res) => {
   try {
     const c = axios.create({
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: {
+      headers: { 
         Authorization: `Basic ${Buffer.from(`:${process.env.ADO_PAT}`).toString('base64')}`,
         'Content-Type': 'application/json'
       }
@@ -165,6 +193,12 @@ app.get('/api/feature-stories/:id', async (req, res) => {
 
     const featureId = req.params.id;
 
+    const query = `SELECT [System.Id] FROM workitems
+      WHERE [System.TeamProject] = 'Commercial Engineering'
+      AND ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Bug')
+      AND [System.Parent] = ${featureId}`;
+
+    // WIQL no soporta System.Parent en WHERE, usamos WorkItemLinks
     const linksQuery = `SELECT [System.Id] FROM WorkItemLinks
       WHERE [Source].[System.Id] = ${featureId}
       AND [System.Links.LinkType] = 'System.LinkTypes.Hierarchy-Forward'
@@ -201,34 +235,17 @@ app.get('/api/feature-stories/:id', async (req, res) => {
   }
 });
 
-app.post('/api/features', async (req, res) => {
+app.get('/api/features', async (req, res) => {
   try {
     const c = axios.create({
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: {
+      headers: { 
         Authorization: `Basic ${Buffer.from(`:${process.env.ADO_PAT}`).toString('base64')}`,
         'Content-Type': 'application/json'
       }
     });
 
-    const defaultAreaPaths = [
-      'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online',
-      'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print',
-      'Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout',
-      'Commercial Engineering\\Digital\\Acquisition\\Global Product 1',
-      'Commercial Engineering\\Digital\\Acquisition\\Global Product 2',
-      'Commercial Engineering\\Digital\\Acquisition\\Global Product 3'
-    ];
-
-    const selectedAreaPaths = (req.body.areaPaths && req.body.areaPaths.length > 0)
-      ? req.body.areaPaths
-      : defaultAreaPaths;
-
-    const areaPathConditions = selectedAreaPaths
-      .map(ap => `[System.AreaPath] UNDER "${ap}"`)
-      .join(' OR ');
-
-    const baseFilter = `AND [System.State] <> "Removed" AND (${areaPathConditions})`;
+    const baseFilter = 'AND [System.State] <> "Removed" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")';
 
     const dateRanges = [
       { from: '@today - 10', to: '@today' },
@@ -247,7 +264,7 @@ app.post('/api/features', async (req, res) => {
         const r = await c.post('/wit/wiql?api-version=7.0', {
           query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${baseFilter}`
         });
-
+        
         const ids = r.data.workItems.map(i => i.id);
         rangeCounts[`${range.from} to ${range.to}`] = ids.length;
         allIds = [...allIds, ...ids];
@@ -270,34 +287,43 @@ app.post('/api/features', async (req, res) => {
       allFeatures = [...allFeatures, ...batch.data.value];
     }
 
-    // Obtener User Stories por relación de padre (System.Parent IN allIds) - SIN DUPLICADOS
+    // Obtener User Stories
     const storiesByFeature = {};
     let totalStoriesFound = 0;
     let storyDebug = null;
 
     try {
-      const parentBatchSize = 100;
-      let allStoryIds = [];
+      const storyQuery = `SELECT [System.Id] FROM workitems
+    WHERE
+    [System.TeamProject] = 'Commercial Engineering'
+    AND [System.ChangedDate] > @today - 180
+    AND ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Bug')
+    AND (
+        [System.AreaPath] = 'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online'
+        OR [System.AreaPath] = 'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print'
+        OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout'
+        OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Global Product 1'
+        OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Global Product 2'
+        OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Global Product 3'
+    )
+    AND (
+        [System.State] <> 'Closed'
+        AND [System.State] <> 'Resolved'
+        AND [System.State] <> 'Removed'
+    )`;
 
-      for (let i = 0; i < allIds.length; i += parentBatchSize) {
-        const idsChunk = allIds.slice(i, i + parentBatchSize);
-        const storyQuery = `SELECT [System.Id] FROM workitems
-          WHERE [System.TeamProject] = 'Commercial Engineering'
-          AND ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Bug')
-          AND [System.Parent] IN (${idsChunk.join(',')})`;
+      const storyResponse = await c.post('/wit/wiql?api-version=7.0', {
+        query: storyQuery
+      });
 
-        const storyResponse = await c.post('/wit/wiql?api-version=7.0', { query: storyQuery });
-        const chunkIds = storyResponse.data.workItems.map(i => i.id);
-        allStoryIds = [...allStoryIds, ...chunkIds];
-      }
+      const storyIds = storyResponse.data.workItems.map(i => i.id);
+      storyDebug = { queriedStories: storyIds.length };
 
-      storyDebug = { queriedStories: allStoryIds.length };
-
-      if (allStoryIds.length > 0) {
+      if (storyIds.length > 0) {
         const storyBatchSize = 200;
-        for (let i = 0; i < allStoryIds.length; i += storyBatchSize) {
+        for (let i = 0; i < storyIds.length; i += storyBatchSize) {
           const storyBatch = await c.post('/wit/workitemsbatch?api-version=7.0', {
-            ids: allStoryIds.slice(i, i + storyBatchSize),
+            ids: storyIds.slice(i, i + storyBatchSize),
             fields: ['System.Id', 'System.Title', 'System.Parent', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State', 'System.WorkItemType']
           });
 
@@ -579,7 +605,7 @@ app.get('/dashboard', (req, res) => {
       );
     }
       
-      function FeatureRowCells({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineOffset, adoLink, stories, onSelectFeature, states, loading }) {
+      function FeatureRow({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineOffset, adoLink, stories, onSelectFeature, states, loading }) {
               
         const stateColors = {
           'New': '#94a3b8',
@@ -624,7 +650,7 @@ app.get('/dashboard', (req, res) => {
         }
       
         return (
-          <>
+          <tr style={{ borderBottom: '1px solid #eee' }}>
             <td><a href={adoLink(featureId)} target="_blank">{featureId}</a></td>
             <td title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px', cursor: 'pointer', color: '#007bff' }} onClick={onSelectFeature}>{title}</td>
             <td style={{ padding: '8px' }}>
@@ -689,95 +715,13 @@ app.get('/dashboard', (req, res) => {
                 )}
               </div>
             </td>
-          </>
-        );
-      }
-    
-      function FeatureStoriesDetail({ f, formatDate, colSpan }) {
-        const completionStates = ['Sprint Complete', 'User Acceptance Testing', 'Approved for Release', 'Ready for Deployment', 'Closed'];
-        const totalStories = f.stories.length;
-        const totalStoryPoints = f.stories.reduce((sum, s) => sum + (Number(s.storyPoints) || 0), 0);
-        const completedCount = f.stories.filter(s => completionStates.includes(s.state)).length;
-        const completionPercent = totalStories > 0 ? ((completedCount / totalStories) * 100).toFixed(1) : '0.0';
-      
-        const stateCounts = {};
-        f.stories.forEach(s => {
-          const st = s.state || 'Unknown';
-          stateCounts[st] = (stateCounts[st] || 0) + 1;
-        });
-      
-        return (
-          <tr style={{ background: '#f9f9f9' }}>
-            <td colSpan={colSpan} style={{ paddingLeft: '60px', paddingTop: '15px', paddingBottom: '15px' }}>
-              <div>
-                <div style={{ background: 'white', borderRadius: '6px', border: '1px solid #eee', marginBottom: '15px' }}>
-                  <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap', padding: '15px' }}>
-                    <div>
-                      <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>RELEASE FIX VERSION</div>
-                      <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                        {f.releaseFixVersion || '-'}
-                        {f.releaseFixVersion && releaseDates[f.releaseFixVersion] && (
-                          <span style={{ fontSize: '11px', color: '#666', fontWeight: 'normal', marginLeft: '6px' }}>
-                            ({formatDate(releaseDates[f.releaseFixVersion])})
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>TARGET DATE</div>
-                      <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{formatDate(f.targetDate)}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>USER STORIES</div>
-                      <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{totalStories}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>STORY POINTS</div>
-                      <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{totalStoryPoints}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '10px', color: '#999', letterSpacing: '0.5px' }}>COMPLETION</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '120px', height: '8px', background: '#e0e0e0', borderRadius: '4px', overflow: 'hidden' }}>
-                          <div style={{ width: completionPercent + '%', height: '100%', background: '#f97316' }} />
-                        </div>
-                        <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#f97316' }}>{completionPercent}%</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', padding: '0 15px 15px 15px', borderTop: '1px solid #f0f0f0', paddingTop: '12px' }}>
-                    {Object.entries(stateCounts).map(([state, count]) => (
-                      <span key={state} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '4px', background: storyStateColors[state] || '#6b7280', color: 'white' }}>
-                        {state}: {count}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                {f.stories.map(story => (
-                  <div key={story.id} style={{ padding: '8px', marginBottom: '8px', background: 'white', borderLeft: '3px solid #007bff', paddingLeft: '12px', borderRadius: '4px' }}>
-                    <strong>#{story.id}</strong> - {story.title} <br/>
-                    <span style={{ fontSize: '11px', color: '#666' }}>Points: {story.storyPoints} | State: {story.state}</span>
-                  </div>
-                ))}
-              </div>
-            </td>
           </tr>
         );
       }
 
-      const DEFAULT_AREA_PATHS = [
-        'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online',
-        'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print',
-        'Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout',
-        'Commercial Engineering\\Digital\\Acquisition\\Global Product 1',
-        'Commercial Engineering\\Digital\\Acquisition\\Global Product 2',
-        'Commercial Engineering\\Digital\\Acquisition\\Global Product 3'
-      ];
 
-       function Dashboard() {
+    function Dashboard() {
       const [features, setFeatures] = useState([]);
-      const [hasSearched, setHasSearched] = useState(false);
-      const [pendingAreaPath, setPendingAreaPath] = useState([]);
       const [loading, setLoading] = useState(true);
       const [warnings, setWarnings] = useState([]);
       const [filterAreaPath, setFilterAreaPath] = useState([]);
@@ -805,7 +749,7 @@ app.get('/dashboard', (req, res) => {
         setRoadmapPage(1);
       }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, searchTitle]);
       
-            useEffect(() => {
+      useEffect(() => {
         if (selectedFeature) {
           setLoadingStories(true);
           fetch('/api/feature-stories/' + selectedFeature.id)
@@ -821,30 +765,20 @@ app.get('/dashboard', (req, res) => {
         }
       }, [selectedFeature]);
 
-      const runSearch = () => {
-        setLoading(true);
-        setHasSearched(true);
-        fetch('/api/features', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ areaPaths: pendingAreaPath })
-        })
+      useEffect(() => {
+        fetch('/api/features')
           .then(r => r.json())
           .then(d => {
             setFeatures(d.features || []);
             setWarnings(d.warnings || []);
             setLoading(false);
-
+      
             // Preseleccionar estados (todos menos "Closed")
             const allStates = [...new Set((d.features || []).map(f => f.state).filter(a => a))].sort();
             const statesWithoutClosed = allStates.filter(s => s !== 'Closed');
-            setFilterState(statesWithoutClosed);
-          })
-          .catch(err => {
-            setLoading(false);
-            setWarnings(['Error al consultar ADO: ' + err.message]);
+          setFilterState(statesWithoutClosed);
           });
-      };
+      }, []);
 
       const areaPaths = [...new Set(features.map(f => f.areaPath).filter(a => a))].sort();
       const iterations = [...new Set(features.map(f => f.iterationPath).filter(a => a))].sort();
@@ -899,8 +833,8 @@ app.get('/dashboard', (req, res) => {
               }
               else if (sortColumn === 'iteration') { 
                 const extractYearQuarter = (path) => {
-                  const yearMatch = (path || '').match(/(\d{4})/);
-                  const quarterMatch = (path || '').match(/Q(\d)/);
+                  const yearMatch = (path || '').match(/(\\d{4})/);
+                  const quarterMatch = (path || '').match(/Q(\\d)/);
                   const year = yearMatch ? parseInt(yearMatch[1]) : 9999;
                   const quarter = quarterMatch ? parseInt(quarterMatch[1]) : 9;
                   return year * 10 + quarter;
@@ -929,7 +863,7 @@ app.get('/dashboard', (req, res) => {
             });
           }
 
-      const adoLink = (id) => 'https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/' + id;
+      const adoLink = (id) => \`https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/\${id}\`;
 
       const formatDate = (date) => {
         if (!date) return '-';
@@ -977,32 +911,6 @@ app.get('/dashboard', (req, res) => {
             </div>
           </div>
 
-          {!hasSearched ? (
-            <div style={{ background: 'white', padding: '30px', borderRadius: '8px', textAlign: 'center' }}>
-              <p style={{ marginBottom: '15px', color: '#666', fontSize: '14px' }}>
-                Selecciona los Area Path que deseas consultar y presiona Buscar
-              </p>
-              <select
-                multiple
-                value={pendingAreaPath}
-                onChange={(e) => setPendingAreaPath([...e.target.selectedOptions].map(o => o.value))}
-                style={{ width: '400px', minHeight: '150px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', marginBottom: '20px' }}
-              >
-                {DEFAULT_AREA_PATHS.map(area => (
-                  <option key={area} value={area}>{area.split('\\\\').pop()}</option>
-                ))}
-              </select>
-              <br />
-              <button
-                style={{ padding: '10px 30px', background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}
-                onClick={runSearch}
-              >
-                🔍 Buscar
-              </button>
-            </div>
-          ) : (
-            <>
-
           {warnings.length > 0 && (
             <div className="warnings">
               <strong>⚠️ Data Warnings:</strong>
@@ -1013,10 +921,10 @@ app.get('/dashboard', (req, res) => {
           <div style={{ background: 'white', padding: '15px', borderRadius: '8px', marginBottom: '20px', display: 'flex', gap: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flex: 1 }}>
               <div style={{ flex: '0 0 auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <label style={{ fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap' }}>Search Feature Title / Tags</label>
+                <label style={{ fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap' }}>Search Feature Title</label>
                 <input 
                   type="text" 
-                  placeholder="Type feature title or Tag..." 
+                  placeholder="Type feature title..." 
                   value={searchTitle}
                   onChange={(e) => setSearchTitle(e.target.value)}
                   style={{ width: '300px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' }}
@@ -1144,11 +1052,21 @@ app.get('/dashboard', (req, res) => {
                           <td>{f.estimation.qa || '-'}</td>
                           <td>{f.state}</td>
                         </tr>
-
-                        {expandedRows[f.id] && f.stories && f.stories.length > 0 && (
-                          <FeatureStoriesDetail f={f} formatDate={formatDate} colSpan={12} />
+                          {expandedRows[f.id] && f.stories && f.stories.length > 0 && (
+                            <tr style={{ background: '#f9f9f9' }}>
+                            <td colSpan="12" style={{ paddingLeft: '60px', paddingTop: '15px', paddingBottom: '15px' }}>
+                              <div>
+                              <strong style={{ marginBottom: '10px', display: 'block' }}>User Stories ({f.stories.length}):</strong>
+                              {f.stories.map(story => (
+                                <div key={story.id} style={{ padding: '8px', marginBottom: '8px', background: 'white', borderLeft: '3px solid #007bff', paddingLeft: '12px', borderRadius: '4px' }}>
+                                  <strong>#{story.id}</strong> - {story.title} <br/>
+                                  <span style={{ fontSize: '11px', color: '#666' }}>Points: {story.storyPoints} | State: {story.state}</span>
+                              </div>
+                              ))}
+                            </div>
+                            </td>
+                          </tr>
                         )}
-                        
                         </React.Fragment>
                       ))}
                     </tbody>
@@ -1293,28 +1211,19 @@ app.get('/dashboard', (req, res) => {
                       <table>
                         <thead>
                           <tr>
-                            <th style={{ width: '30px' }}></th>
                             <th style={{ width: '80px' }}>ID</th>
                             <th style={{ width: '300px' }}>Story</th>
                             <th>Timeline</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {pageItems.map(story => (
-                            <StoryRow
-                              key={story.id}
-                              storyId={story.id}
-                              title={story.title}
-                              storyPoints={story.storyPoints}
-                              state={story.state}
-                              iterationPath={story.iterationPath}
-                              formatDate={formatDate}
-                              weekOffset={weekOffset}
-                              adoLink={adoLink}
-                              states={historyCache[story.id] || []}
-                              loading={loadingHistory}
-                            />
-                          ))}
+                          {loadingStories ? (
+                            <tr><td colSpan="3" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td></tr>
+                          ) : (
+                            pageItems.map(s => (
+                              <StoryRow key={s.id} storyId={s.id} title={s.title} storyPoints={s.storyPoints} state={s.state} iterationPath={s.iterationPath} formatDate={formatDate} weekOffset={weekOffset} adoLink={adoLink} states={historyCache[s.id] || []} loading={loadingHistory} />
+                            ))
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -1323,7 +1232,6 @@ app.get('/dashboard', (req, res) => {
                       <table>
                         <thead>
                           <tr>
-                            <th style={{ width: '30px' }}></th>
                             <th style={{ width: '80px' }}>ID</th>
                             <th style={{ width: '300px' }}>Feature</th>
                             <th>Timeline</th>
@@ -1331,31 +1239,7 @@ app.get('/dashboard', (req, res) => {
                         </thead>
                         <tbody>
                           {pageItems.map(f => (
-                            <React.Fragment key={f.id}>
-                              <tr style={{ borderBottom: expandedRows[f.id] ? 'none' : '1px solid #eee' }}>
-                                <td
-                                  className="expand-btn"
-                                  onClick={() => setExpandedRows({ ...expandedRows, [f.id]: !expandedRows[f.id] })}
-                                >
-                                  {f.stories && f.stories.length > 0 ? (expandedRows[f.id] ? '▼' : '►') : ''}
-                                </td>
-                                <FeatureRowCells
-                                  featureId={f.id}
-                                  title={f.title}
-                                  targetDate={f.targetDate}
-                                  releaseFixVersion={f.releaseFixVersion}
-                                  formatDate={formatDate}
-                                  timelineOffset={timelineOffset}
-                                  adoLink={adoLink}
-                                  onSelectFeature={() => { setSelectedFeature(f); setRoadmapPage(1); }}
-                                  states={historyCache[f.id] || []}
-                                  loading={loadingHistory}
-                                />
-                              </tr>
-                              {expandedRows[f.id] && f.stories && f.stories.length > 0 && (
-                                <FeatureStoriesDetail f={f} formatDate={formatDate} colSpan={4} />
-                              )}
-                            </React.Fragment>
+                            <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} releaseFixVersion={f.releaseFixVersion} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} stories={f.stories} onSelectFeature={() => { setSelectedFeature(f); setRoadmapPage(1); }} states={historyCache[f.id] || []} loading={loadingHistory} />
                           ))}
                         </tbody>
                       </table>
@@ -1383,9 +1267,7 @@ app.get('/dashboard', (req, res) => {
               );
             })()}
           </>
-        )}
-            </>
-          )}
+        )}         
         </div>
       );
     }
