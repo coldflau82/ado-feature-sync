@@ -201,7 +201,7 @@ app.get('/api/feature-stories/:id', async (req, res) => {
   }
 });
 
-app.get('/api/features', async (req, res) => {
+app.post('/api/features', async (req, res) => {
   try {
     const c = axios.create({
       baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
@@ -211,7 +211,24 @@ app.get('/api/features', async (req, res) => {
       }
     });
 
-    const baseFilter = 'AND [System.State] <> "Removed" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")';
+    const defaultAreaPaths = [
+      'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online',
+      'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print',
+      'Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout',
+      'Commercial Engineering\\Digital\\Acquisition\\Global Product 1',
+      'Commercial Engineering\\Digital\\Acquisition\\Global Product 2',
+      'Commercial Engineering\\Digital\\Acquisition\\Global Product 3'
+    ];
+
+    const selectedAreaPaths = (req.body.areaPaths && req.body.areaPaths.length > 0)
+      ? req.body.areaPaths
+      : defaultAreaPaths;
+
+    const areaPathConditions = selectedAreaPaths
+      .map(ap => `[System.AreaPath] UNDER "${ap}"`)
+      .join(' OR ');
+
+    const baseFilter = `AND [System.State] <> "Removed" AND (${areaPathConditions})`;
 
     const dateRanges = [
       { from: '@today - 10', to: '@today' },
@@ -748,8 +765,19 @@ app.get('/dashboard', (req, res) => {
         );
       }
 
-    function Dashboard() {
+      const DEFAULT_AREA_PATHS = [
+        'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online',
+        'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print',
+        'Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout',
+        'Commercial Engineering\\Digital\\Acquisition\\Global Product 1',
+        'Commercial Engineering\\Digital\\Acquisition\\Global Product 2',
+        'Commercial Engineering\\Digital\\Acquisition\\Global Product 3'
+      ];
+
+       function Dashboard() {
       const [features, setFeatures] = useState([]);
+      const [hasSearched, setHasSearched] = useState(false);
+      const [pendingAreaPath, setPendingAreaPath] = useState([]);
       const [loading, setLoading] = useState(true);
       const [warnings, setWarnings] = useState([]);
       const [filterAreaPath, setFilterAreaPath] = useState([]);
@@ -777,7 +805,7 @@ app.get('/dashboard', (req, res) => {
         setRoadmapPage(1);
       }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, searchTitle]);
       
-      useEffect(() => {
+            useEffect(() => {
         if (selectedFeature) {
           setLoadingStories(true);
           fetch('/api/feature-stories/' + selectedFeature.id)
@@ -793,20 +821,54 @@ app.get('/dashboard', (req, res) => {
         }
       }, [selectedFeature]);
 
-      useEffect(() => {
-        fetch('/api/features')
+      const runSearch = () => {
+        setLoading(true);
+        setHasSearched(true);
+        fetch('/api/features', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ areaPaths: pendingAreaPath })
+        })
           .then(r => r.json())
           .then(d => {
             setFeatures(d.features || []);
             setWarnings(d.warnings || []);
             setLoading(false);
-      
+
             // Preseleccionar estados (todos menos "Closed")
             const allStates = [...new Set((d.features || []).map(f => f.state).filter(a => a))].sort();
             const statesWithoutClosed = allStates.filter(s => s !== 'Closed');
-          setFilterState(statesWithoutClosed);
+            setFilterState(statesWithoutClosed);
+          })
+          .catch(err => {
+            setLoading(false);
+            setWarnings(['Error al consultar ADO: ' + err.message]);
           });
-      }, []);
+      };
+
+      const areaPaths = [...new Set(features.map(f => f.areaPath).filter(a => a))].sort();
+      
+      const runSearch = () => {
+        setLoading(true);
+        setHasSearched(true);
+        fetch('/api/features', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ areaPaths: pendingAreaPath })
+        })
+          .then(r => r.json())
+          .then(d => {
+            setFeatures(d.features || []);
+            setWarnings(d.warnings || []);
+            setLoading(false);
+            const allStates = [...new Set((d.features || []).map(f => f.state).filter(a => a))].sort();
+            setFilterState(allStates.filter(s => s !== 'Closed'));
+          })
+          .catch(err => {
+            setLoading(false);
+            setWarnings(['Error: ' + err.message]);
+          });
+      };
 
       const areaPaths = [...new Set(features.map(f => f.areaPath).filter(a => a))].sort();
       const iterations = [...new Set(features.map(f => f.iterationPath).filter(a => a))].sort();
@@ -927,7 +989,7 @@ app.get('/dashboard', (req, res) => {
           });
       }, [pageItemIds, currentPage]);
 
-        return (
+                return (
           <div className="container">
            <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div>
@@ -939,6 +1001,31 @@ app.get('/dashboard', (req, res) => {
             </div>
           </div>
 
+          {!hasSearched ? (
+            <div style={{ background: 'white', padding: '30px', borderRadius: '8px', textAlign: 'center' }}>
+              <p style={{ marginBottom: '15px', color: '#666', fontSize: '14px' }}>
+                Selecciona los Area Path que deseas consultar y presiona Buscar
+              </p>
+              <select
+                multiple
+                value={pendingAreaPath}
+                onChange={(e) => setPendingAreaPath([...e.target.selectedOptions].map(o => o.value))}
+                style={{ width: '400px', minHeight: '150px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', marginBottom: '20px' }}
+              >
+                {DEFAULT_AREA_PATHS.map(area => (
+                  <option key={area} value={area}>{area.split('\\').pop()}</option>
+                ))}
+              </select>
+              <br />
+              <button
+                style={{ padding: '10px 30px', background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}
+                onClick={runSearch}
+              >
+                🔍 Buscar
+              </button>
+            </div>
+          ) : (
+            <>
           {warnings.length > 0 && (
             <div className="warnings">
               <strong>⚠️ Data Warnings:</strong>
