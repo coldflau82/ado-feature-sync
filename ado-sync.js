@@ -989,7 +989,7 @@ app.get('/dashboard', (req, res) => {
                 style={{ width: '400px', minHeight: '150px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', marginBottom: '20px' }}
               >
                 {DEFAULT_AREA_PATHS.map(area => (
-                  <option key={area} value={area}>{area.split('\\').pop()}</option>
+                  <option key={area} value={area}>{area.split('\\\\').pop()}</option>
                 ))}
               </select>
               <br />
