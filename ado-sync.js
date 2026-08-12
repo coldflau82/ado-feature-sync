@@ -287,68 +287,6 @@ app.get('/api/features', async (req, res) => {
       allFeatures = [...allFeatures, ...batch.data.value];
     }
 
-    // Obtener User Stories
-    const storiesByFeature = {};
-    let totalStoriesFound = 0;
-    let storyDebug = null;
-
-    try {
-      const storyQuery = `SELECT [System.Id] FROM workitems
-    WHERE
-    [System.TeamProject] = 'Commercial Engineering'
-    AND [System.ChangedDate] > @today - 180
-    AND ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Bug')
-    AND (
-        [System.AreaPath] = 'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online'
-        OR [System.AreaPath] = 'Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print'
-        OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout'
-        OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Global Product 1'
-        OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Global Product 2'
-        OR [System.AreaPath] = 'Commercial Engineering\\Digital\\Acquisition\\Global Product 3'
-    )
-    AND (
-        [System.State] <> 'Closed'
-        AND [System.State] <> 'Resolved'
-        AND [System.State] <> 'Removed'
-    )`;
-
-      const storyResponse = await c.post('/wit/wiql?api-version=7.0', {
-        query: storyQuery
-      });
-
-      const storyIds = storyResponse.data.workItems.map(i => i.id);
-      storyDebug = { queriedStories: storyIds.length };
-
-      if (storyIds.length > 0) {
-        const storyBatchSize = 200;
-        for (let i = 0; i < storyIds.length; i += storyBatchSize) {
-          const storyBatch = await c.post('/wit/workitemsbatch?api-version=7.0', {
-            ids: storyIds.slice(i, i + storyBatchSize),
-            fields: ['System.Id', 'System.Title', 'System.Parent', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State', 'System.WorkItemType']
-          });
-
-          storyBatch.data.value.forEach(story => {
-            const parentId = story.fields['System.Parent'];
-            if (parentId) {
-              if (!storiesByFeature[parentId]) {
-                storiesByFeature[parentId] = [];
-              }
-              storiesByFeature[parentId].push({
-                id: story.id,
-                title: story.fields['System.Title'] || '',
-                storyPoints: story.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
-                state: story.fields['System.State'] || '',
-                workItemType: story.fields['System.WorkItemType'] || ''
-              });
-              totalStoriesFound++;
-            }
-          });
-        }
-      }
-    } catch (e) {
-      storyDebug = { error: e.message };
-    }
-
     const warnings = [];
     for (const [range, count] of Object.entries(rangeCounts)) {
       if (typeof count === 'number' && count >= 200) {
