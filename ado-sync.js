@@ -891,7 +891,7 @@ app.get('/dashboard', (req, res) => {
             });
           }
 
-      const adoLink = (id) => `https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/${id}`;
+      const adoLink = (id) => 'https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/' + id;
 
       const formatDate = (date) => {
         if (!date) return '-';
@@ -1229,6 +1229,7 @@ app.get('/dashboard', (req, res) => {
                       <table>
                         <thead>
                           <tr>
+                            <th style={{ width: '30px' }}></th>
                             <th style={{ width: '80px' }}>ID</th>
                             <th style={{ width: '300px' }}>Story</th>
                             <th>Timeline</th>
