@@ -965,7 +965,7 @@ app.get('/dashboard', (req, res) => {
           });
       }, [pageItemIds, currentPage]);
 
-                return (
+        return (
           <div className="container">
            <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div>
@@ -1002,6 +1002,7 @@ app.get('/dashboard', (req, res) => {
             </div>
           ) : (
             <>
+
           {warnings.length > 0 && (
             <div className="warnings">
               <strong>⚠️ Data Warnings:</strong>
