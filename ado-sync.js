@@ -297,9 +297,7 @@ app.get('/api/features', async (req, res) => {
     res.json({
       rangeCounts: rangeCounts,
       warnings: warnings,
-      storyDebug: storyDebug,
       total: allFeatures.length,
-      totalStories: totalStoriesFound,
       features: allFeatures.map(i => ({
         id: i.id,
         title: i.fields['System.Title'] || '',
@@ -315,8 +313,7 @@ app.get('/api/features', async (req, res) => {
           be: i.fields['Custom.BEEstimate'] || '',
           fe: i.fields['Custom.FEEstimates'] || '',
           qa: i.fields['Custom.QASizing'] || ''
-        },
-        stories: storiesByFeature[i.id] || []
+        }
       }))
     });
   } catch (error) {
@@ -664,7 +661,7 @@ app.get('/dashboard', (req, res) => {
       const [warnings, setWarnings] = useState([]);
       const [filterAreaPath, setFilterAreaPath] = useState([]);
       const [filterIteration, setFilterIteration] = useState([]);
-      const [currentPage, setCurrentPage] = useState('features');
+      const [currentPage, setCurrentPage] = useState('roadmap');
       const [expandedRows, setExpandedRows] = useState({});
       const [searchTitle, setSearchTitle] = useState('');
       const [sortColumn, setSortColumn] = useState('id');
@@ -682,9 +679,13 @@ app.get('/dashboard', (req, res) => {
       const [loadingStories, setLoadingStories] = useState(false);
       const [historyCache, setHistoryCache] = useState({});
       const [loadingHistory, setLoadingHistory] = useState(false);
+      const [storiesCache, setStoriesCache] = useState({});
+      const [loadingStoriesIds, setLoadingStoriesIds] = useState({});
+      const [featuresPage, setFeaturesPage] = useState(1);
 
       useEffect(() => {
         setRoadmapPage(1);
+        setFeaturesPage(1);
       }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, searchTitle]);
       
       useEffect(() => {
@@ -801,6 +802,30 @@ app.get('/dashboard', (req, res) => {
             });
           }
 
+      const toggleFeatureExpand = (featureId) => {
+        const isExpanding = !expandedRows[featureId];
+        setExpandedRows({ ...expandedRows, [featureId]: isExpanding });
+        if (isExpanding && !storiesCache[featureId]) {
+          setLoadingStoriesIds(prev => ({ ...prev, [featureId]: true }));
+          fetch('/api/feature-stories/' + featureId)
+            .then(r => r.json())
+            .then(d => {
+              setStoriesCache(prev => ({ ...prev, [featureId]: d.stories || [] }));
+              setLoadingStoriesIds(prev => ({ ...prev, [featureId]: false }));
+            })
+            .catch(() => {
+              setStoriesCache(prev => ({ ...prev, [featureId]: [] }));
+              setLoadingStoriesIds(prev => ({ ...prev, [featureId]: false }));
+            });
+        }
+      };
+
+      const featuresItemsPerPage = 15;
+      const featuresTotalPages = Math.ceil(sortedFiltered.length / featuresItemsPerPage);
+      const featuresStartIdx = (featuresPage - 1) * featuresItemsPerPage;
+      const featuresPageItems = sortedFiltered.slice(featuresStartIdx, featuresStartIdx + featuresItemsPerPage);
+
+      
       const adoLink = (id) => \`https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/\${id}\`;
 
       const formatDate = (date) => {
@@ -939,7 +964,7 @@ app.get('/dashboard', (req, res) => {
             <>
               {loading ? <div>Loading...</div> : (
                 <div className="table-wrapper">
-                  <p style={{ padding: '15px', color: '#666', fontSize: '13px' }}>Showing {sortedFiltered.length} of {features.length}</p>
+                  <p style={{ padding: '15px', color: '#666', fontSize: '13px' }}>Showing {featuresPageItems.length} of {sortedFiltered.length} (Page {featuresPage} of {featuresTotalPages})</p>
                   <table>
                     <thead>
                       <tr>
@@ -972,7 +997,7 @@ app.get('/dashboard', (req, res) => {
                         </tr>
                       </thead>
                     <tbody>
-                     {sortedFiltered.map(f => (
+                     {featuresPageItems.map(f => (
                         <React.Fragment key={f.id}>
                               <tr>
                                 <td className="expand-btn" onClick={() => setExpandedRows({...expandedRows, [f.id]: !expandedRows[f.id]})}>
