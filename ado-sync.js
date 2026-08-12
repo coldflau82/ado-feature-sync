@@ -465,7 +465,7 @@ app.get('/dashboard', (req, res) => {
       // Parsear Sprint del Iteration Path: ...2026_S16_Jul29-Aug11
       let sprintStart = null;
       let sprintEnd = null;
-      const sprintMatch = iterationPath && iterationPath.match(/(\d{4})_(S\d+)_([A-Za-z]+)(\d+)-([A-Za-z]+)(\d+)/);
+      const sprintMatch = iterationPath && iterationPath.match(/(\\d{4})_(S\\d+)_([A-Za-z]+)(\\d+)-([A-Za-z]+)(\\d+)/);
       let sprintLabel = '';
       if (sprintMatch) {
         const year = parseInt(sprintMatch[1]);
@@ -972,7 +972,7 @@ app.get('/dashboard', (req, res) => {
                   <label className="filter-label">Area Path</label>
                   <select multiple className="filter-select" value={filterAreaPath} onChange={(e) => setFilterAreaPath([...e.target.selectedOptions].map(o => o.value))}>
                     {areaPaths.map(area => (
-                      <option key={area} value={area}>{area.split('\\').pop()}</option>
+                      <option key={area} value={area}>{area.split('\\\\').pop()}</option>
                     ))}
                   </select>
                   {filterAreaPath.length > 0 && <p className="filter-count">{filterAreaPath.length} selected</p>}
@@ -1070,8 +1070,8 @@ app.get('/dashboard', (req, res) => {
                           </td>
                           <td><a href={adoLink(f.id)} target="_blank">{f.id}</a></td>
                           <td title={f.title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{f.title}</td>
-                          <td style={{ fontSize: '11px' }}>{f.areaPath.split('\\').pop()}</td>
-                          <td style={{ fontSize: '11px' }}>{f.iterationPath.split('\\').pop()}</td>
+                          <td style={{ fontSize: '11px' }}>{f.areaPath.split('\\\\').pop()}</td>
+                          <td style={{ fontSize: '11px' }}>{f.iterationPath.split('\\\\').pop()}</td>
                           <td>{f.priority || '-'}</td>
                           <td style={{ fontSize: '11px' }}>{formatDate(f.targetDate)}</td>
                           <td>{f.plannedMonth || '-'}</td>
