@@ -540,7 +540,7 @@ app.get('/dashboard', (req, res) => {
       );
     }
       
-      function FeatureRow({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineOffset, adoLink, stories, onSelectFeature, states, loading }) {
+      function FeatureRow({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineOffset, adoLink, onSelectFeature, states, loading }) {
               
         const stateColors = {
           'New': '#94a3b8',
@@ -675,8 +675,6 @@ app.get('/dashboard', (req, res) => {
       const [timelineOffset, setTimelineOffset] = useState(-8);
       const [weekOffset, setWeekOffset] = useState(-8);
       const [selectedFeature, setSelectedFeature] = useState(null);
-      const [fullStories, setFullStories] = useState([]);
-      const [loadingStories, setLoadingStories] = useState(false);
       const [historyCache, setHistoryCache] = useState({});
       const [loadingHistory, setLoadingHistory] = useState(false);
       const [storiesCache, setStoriesCache] = useState({});
@@ -689,17 +687,17 @@ app.get('/dashboard', (req, res) => {
       }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, searchTitle]);
       
       useEffect(() => {
-        if (selectedFeature) {
-          setLoadingStories(true);
+        if (selectedFeature && !storiesCache[selectedFeature.id]) {
+          setLoadingStoriesIds(prev => ({ ...prev, [selectedFeature.id]: true }));
           fetch('/api/feature-stories/' + selectedFeature.id)
             .then(r => r.json())
             .then(d => {
-              setFullStories(d.stories || []);
-              setLoadingStories(false);
+              setStoriesCache(prev => ({ ...prev, [selectedFeature.id]: d.stories || [] }));
+              setLoadingStoriesIds(prev => ({ ...prev, [selectedFeature.id]: false }));
             })
             .catch(() => {
-              setFullStories([]);
-              setLoadingStories(false);
+              setStoriesCache(prev => ({ ...prev, [selectedFeature.id]: [] }));
+              setLoadingStoriesIds(prev => ({ ...prev, [selectedFeature.id]: false }));
             });
         }
       }, [selectedFeature]);
@@ -834,7 +832,7 @@ app.get('/dashboard', (req, res) => {
       };
       
       const itemsPerPage = 15;
-      const activeList = selectedFeature ? fullStories : sortedFiltered;
+      const activeList = selectedFeature ? (storiesCache[selectedFeature.id] || []) : sortedFiltered;
       const totalPages = Math.ceil(activeList.length / itemsPerPage);
       const startIdx = (roadmapPage - 1) * itemsPerPage;
       const endIdx = startIdx + itemsPerPage;
@@ -999,9 +997,9 @@ app.get('/dashboard', (req, res) => {
                     <tbody>
                      {featuresPageItems.map(f => (
                         <React.Fragment key={f.id}>
-                              <tr>
-                                <td className="expand-btn" onClick={() => setExpandedRows({...expandedRows, [f.id]: !expandedRows[f.id]})}>
-                            {f.stories && f.stories.length > 0 ? (expandedRows[f.id] ? '▼' : '►') : ''}
+                        <tr>
+                          <td className="expand-btn" onClick={() => toggleFeatureExpand(f.id)}>
+                            {expandedRows[f.id] ? '▼' : '►'}
                           </td>
                           <td><a href={adoLink(f.id)} target="_blank">{f.id}</a></td>
                           <td title={f.title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{f.title}</td>
@@ -1220,7 +1218,7 @@ app.get('/dashboard', (req, res) => {
                           </tr>
                         </thead>
                         <tbody>
-                          {loadingStories ? (
+                          {loadingStoriesIds[selectedFeature.id] ? (
                             <tr><td colSpan="3" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td></tr>
                           ) : (
                             pageItems.map(s => (
@@ -1242,7 +1240,19 @@ app.get('/dashboard', (req, res) => {
                         </thead>
                         <tbody>
                           {pageItems.map(f => (
-                            <FeatureRow key={f.id} featureId={f.id} title={f.title} targetDate={f.targetDate} releaseFixVersion={f.releaseFixVersion} formatDate={formatDate} timelineOffset={timelineOffset} adoLink={adoLink} stories={f.stories} onSelectFeature={() => { setSelectedFeature(f); setRoadmapPage(1); }} states={historyCache[f.id] || []} loading={loadingHistory} />
+                            <FeatureRow 
+                              key={f.id} 
+                              featureId={f.id} 
+                              title={f.title} 
+                              targetDate={f.targetDate} 
+                              releaseFixVersion={f.releaseFixVersion} 
+                              formatDate={formatDate} 
+                              timelineOffset={timelineOffset} 
+                              adoLink={adoLink} 
+                              onSelectFeature={() => { setSelectedFeature(f); setRoadmapPage(1); }} 
+                              states={historyCache[f.id] || []} 
+                              loading={loadingHistory} 
+                            />
                           ))}
                         </tbody>
                       </table>
