@@ -446,7 +446,7 @@ app.get('/dashboard', (req, res) => {
       // Sprint parsing (sin cambios)
       let sprintStart = null;
       let sprintEnd = null;
-      const sprintMatch = iterationPath && iterationPath.match(/(\d{4})_(S\d+)_([A-Za-z]+)(\d+)-([A-Za-z]+)(\d+)/);
+      const sprintMatch = iterationPath && iterationPath.match(/(\\d{4})_(S\\d+)_([A-Za-z]+)(\\d+)-([A-Za-z]+)(\\d+)/);
       let sprintLabel = '';
       if (sprintMatch) {
         const year = parseInt(sprintMatch[1]);
