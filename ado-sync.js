@@ -795,24 +795,29 @@ app.get('/dashboard', (req, res) => {
       const [refreshing, setRefreshing] = useState(false);
       const [cacheInfo, setCacheInfo] = useState(null);
       
-      async function cargarFeatures(forceRefresh = false) {
-        setRefreshing(forceRefresh);
+      async function loadFeatures(forceRefresh = false) {
+        if (forceRefresh) {
+          setRefreshing(true);
+        } else {
+          setLoading(true);
+        }
         try {
           const url = forceRefresh ? '/api/features?refresh=1' : '/api/features';
           const res = await fetch(url);
           const json = await res.json();
           setFeatures(json.features);
           setCacheInfo(json.cacheInfo);
-          // Si ya manejas rangeCounts/warnings en el estado, agrégalos igual aquí
+          setWarnings(json.warnings || []);
         } catch (err) {
-          console.error('Error cargando features:', err);
+          console.error('Error loading features:', err);
         } finally {
+          setLoading(false);
           setRefreshing(false);
         }
       }
       
       useEffect(() => {
-        cargarFeatures(false);
+        loadFeatures(false);
       }, []);
 
       useEffect(() => {
@@ -1044,7 +1049,7 @@ app.get('/dashboard', (req, res) => {
               </div>
           
             </div>
-            <button style={{ padding: '8px 16px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => cargarFeatures(true)} disabled={refreshing}>
+            <button style={{ padding: '8px 16px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => loadFeatures(true)} disabled={refreshing}>
               {refreshing ? 'Refreshing...' : 'Refresh results'}
             </button>
             {cacheInfo && (
