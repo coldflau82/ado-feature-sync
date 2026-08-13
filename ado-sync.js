@@ -1166,7 +1166,7 @@ app.get('/dashboard', (req, res) => {
                           <span style={{ fontSize: '10px' }}>{item.label}</span>
                         </div>
                       ))}
-                      <div style={{ display: 'flex', alignItems: 'left, gap: '5px', marginLeft: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'left', gap: '5px', marginLeft: '10px' }}>
                         <div style={{ width: '2px', height: '12px', background: '#333333' }}></div>
                         <span style={{ fontSize: '10px' }}>Today</span>
                       </div>
