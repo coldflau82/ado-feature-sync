@@ -468,8 +468,7 @@ app.get('/dashboard', (req, res) => {
         return (days / timelineTotalDays) * 100;
       };
 
-      console.log('CHAR CODES:', iterationPath.split('').map(c => `${c}:${c.codePointAt(0)}`).join(' | '));
-    
+  
       return (
         <tr style={{ borderBottom: '1px solid #eee' }}>
           <td></td> {/* ← celda vacía para alinear con la columna del expand-btn de FeatureRow */}
