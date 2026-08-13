@@ -1147,12 +1147,12 @@ app.get('/dashboard', (req, res) => {
               {(() => {
             return (
                 <>
-                  <div style={{ background: 'white', padding: '10px 15px', borderRadius: '8px', marginBottom: '10px', display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                  <div style={{ background: 'white', padding: '10px 15px', borderRadius: '8px', marginBottom: '10px', display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between', flexDirection: 'column' }}>
                     <span style={{ color: '#666', fontSize: '12px', whiteSpace: 'nowrap' }}>
                       Showing {pageItems.length} of {activeList.length} Features - Page {roadmapPage} of {totalPages}
                     </span>
                     <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Status:</span>
+                      <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Feature Status:</span>
                       {[
                         { label: 'New', color: '#94a3b8' },
                         { label: 'In Shaping', color: '#fbbf24' },
