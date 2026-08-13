@@ -1044,7 +1044,7 @@ app.get('/dashboard', (req, res) => {
               </div>
           
             </div>
-            <button onClick={() => cargarFeatures(true)} disabled={refreshing}>
+            <button style={{ padding: '8px 16px', background: '#22d3ee', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => cargarFeatures(true)} disabled={refreshing}>
               {refreshing ? '⏳ Actualizando...' : '🔄 Actualizar resultados'}
             </button>
             {cacheInfo && (
