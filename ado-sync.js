@@ -342,7 +342,7 @@ app.get('/dashboard', (req, res) => {
     .tab-btn { padding: 8px 16px; background: white; color: black; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; }
     .tab-btn.active { background: #007bff; color: white; }
     .warnings { background: #fff3cd; color: '#856404'; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffc107; }
-    .filters { display: grid; gridTemplateColumns: 'repeat(4, 1fr)'; gap: 15px; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; overflow-x: auto; }
+    .filters { display: grid; gap: 15px; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; overflow-x: auto; }
     .filter-div { }
     .filter-label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 13px; }
     .filter-select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px; }
