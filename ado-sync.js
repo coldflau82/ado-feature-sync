@@ -1268,7 +1268,17 @@ app.get('/dashboard', (req, res) => {
                           </tr>
                         </thead>
                         <tbody>
-                          {pageItems.map(f => (
+                          {(() => {
+                          const today = new Date();
+                          const dayOfWeek = today.getDay();
+                          const thisMonday = new Date(today);
+                          thisMonday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+                          const timelineStart = new Date(thisMonday);
+                          timelineStart.setDate(thisMonday.getDate() + weekOffset * 7);
+                          const timelineEnd = new Date(timelineStart);
+                          timelineEnd.setDate(timelineStart.getDate() + 12 * 7);
+                        
+                          return pageItems.map(f => (
                             <React.Fragment key={f.id}>
                               <FeatureRow 
                                 featureId={f.id} 
