@@ -1200,7 +1200,8 @@ app.get('/dashboard', (req, res) => {
                   <input type="checkbox" checked={saveAsDefault} onChange={handleSaveAsDefaultChange} style={{ width: '12px', height: '12px', margin: 0 }} />
                   Save as default filter
                 </label>
-            </div>
+              </div>
+          </div>
               
           {currentPage === 'features' && (
             <>
