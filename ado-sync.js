@@ -685,7 +685,6 @@ app.get('/dashboard', (req, res) => {
       const [filterTargetDate, setFilterTargetDate] = useState([currentYear]);
       const [filterReleaseVersion, setFilterReleaseVersion] = useState([]);
       const [roadmapPage, setRoadmapPage] = useState(1);
-      const [timelineView, setTimelineView] = useState('month'); // 'month', 'quarter', 'semester'
       const [timelineOffset, setTimelineOffset] = useState(-8);
       const [weekOffset, setWeekOffset] = useState(-8);
       const [expandedRoadmapFeatureId, setExpandedRoadmapFeatureId] = useState(null);
@@ -891,28 +890,6 @@ app.get('/dashboard', (req, res) => {
             setLoadingHistory(false);
           });
       }, [pageItemIds, currentPage]);
-
-      useEffect(() => {
-        if (!expandedRoadmapFeatureId) return;
-        const stories = storiesCache[expandedRoadmapFeatureId] || [];
-        if (stories.length === 0) return;
-        const ids = stories.map(s => s.id);
-        setLoadingStoryHistory(true);
-        fetch('/api/stories-history-batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids: ids })
-        })
-          .then(r => r.json())
-          .then(d => {
-            setStoryHistoryCache(d.results || {});
-            setLoadingStoryHistory(false);
-          })
-          .catch(() => {
-            setStoryHistoryCache({});
-            setLoadingStoryHistory(false);
-          });
-      }, [expandedRoadmapFeatureId, storiesCache[expandedRoadmapFeatureId]]);
 
       useEffect(() => {
         if (!expandedRoadmapFeatureId || expandedRoadmapStories.length === 0) {
@@ -1201,6 +1178,16 @@ app.get('/dashboard', (req, res) => {
                         <div style={{ width: '8px', height: '8px', background: '#1e3a8a', transform: 'rotate(45deg)' }}></div>
                         <span style={{ fontSize: '11px' }}>Release Fix Version</span>
                       </div>
+                    </div>
+                   {/* Stories Status Legend */}
+                    <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center', fontSize: '12px', marginTop: '8px', marginBottom: '10px' }}>
+                      <span style={{ fontWeight: 'bold' }}>Stories Status:</span>
+                      {Object.entries(storyStateColors).map(([state, color]) => (
+                        <div key={state} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <div style={{ width: '12px', height: '12px', background: color, borderRadius: '2px' }}></div>
+                          <span>{state}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
