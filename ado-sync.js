@@ -675,7 +675,9 @@ app.get('/dashboard', (req, res) => {
       const [timelineView, setTimelineView] = useState('month'); // 'month', 'quarter', 'semester'
       const [timelineOffset, setTimelineOffset] = useState(-8);
       const [weekOffset, setWeekOffset] = useState(-8);
-      const [selectedFeature, setSelectedFeature] = useState(null);
+      const [expandedRoadmapFeatureId, setExpandedRoadmapFeatureId] = useState(null);
+      const [storyHistoryCache, setStoryHistoryCache] = useState({});
+      const [loadingStoryHistory, setLoadingStoryHistory] = useState(false);
       const [historyCache, setHistoryCache] = useState({});
       const [loadingHistory, setLoadingHistory] = useState(false);
       const [storiesCache, setStoriesCache] = useState({});
@@ -686,23 +688,8 @@ app.get('/dashboard', (req, res) => {
       useEffect(() => {
         setRoadmapPage(1);
         setFeaturesPage(1);
+        setExpandedRoadmapFeatureId(null);
       }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle]);
-      
-      useEffect(() => {
-        if (selectedFeature && !storiesCache[selectedFeature.id]) {
-          setLoadingStoriesIds(prev => ({ ...prev, [selectedFeature.id]: true }));
-          fetch('/api/feature-stories/' + selectedFeature.id)
-            .then(r => r.json())
-            .then(d => {
-              setStoriesCache(prev => ({ ...prev, [selectedFeature.id]: d.stories || [] }));
-              setLoadingStoriesIds(prev => ({ ...prev, [selectedFeature.id]: false }));
-            })
-            .catch(() => {
-              setStoriesCache(prev => ({ ...prev, [selectedFeature.id]: [] }));
-              setLoadingStoriesIds(prev => ({ ...prev, [selectedFeature.id]: false }));
-            });
-        }
-      }, [selectedFeature]);
 
       useEffect(() => {
         fetch('/api/features')
@@ -718,6 +705,10 @@ app.get('/dashboard', (req, res) => {
           setFilterState(statesWithoutClosed);
           });
       }, []);
+
+      useEffect(() => {
+        setExpandedRoadmapFeatureId(null);
+      }, [roadmapPage]);
 
       const areaPaths = [...new Set(features.map(f => f.areaPath).filter(a => a))].sort();
       const iterations = [...new Set(features.map(f => f.iterationPath).filter(a => a))].sort();
@@ -822,6 +813,27 @@ app.get('/dashboard', (req, res) => {
         }
       };
 
+      const toggleRoadmapFeature = (featureId) => {
+        if (expandedRoadmapFeatureId === featureId) {
+          setExpandedRoadmapFeatureId(null);
+          return;
+        }
+        setExpandedRoadmapFeatureId(featureId);
+        if (!storiesCache[featureId]) {
+          setLoadingStoriesIds(prev => ({ ...prev, [featureId]: true }));
+          fetch('/api/feature-stories/' + featureId)
+            .then(r => r.json())
+            .then(d => {
+              setStoriesCache(prev => ({ ...prev, [featureId]: d.stories || [] }));
+              setLoadingStoriesIds(prev => ({ ...prev, [featureId]: false }));
+            })
+            .catch(() => {
+              setStoriesCache(prev => ({ ...prev, [featureId]: [] }));
+              setLoadingStoriesIds(prev => ({ ...prev, [featureId]: false }));
+            });
+        }
+      };
+      
       const featuresItemsPerPage = 15;
       const featuresTotalPages = Math.ceil(sortedFiltered.length / featuresItemsPerPage);
       const featuresStartIdx = (featuresPage - 1) * featuresItemsPerPage;
@@ -836,19 +848,22 @@ app.get('/dashboard', (req, res) => {
       };
       
       const itemsPerPage = 15;
-      const activeList = selectedFeature ? (storiesCache[selectedFeature.id] || []) : sortedFiltered;
+      const activeList = sortedFiltered; // Roadmap solo pagina Features, las historias nunca se paginan
       const totalPages = Math.ceil(activeList.length / itemsPerPage);
       const startIdx = (roadmapPage - 1) * itemsPerPage;
       const endIdx = startIdx + itemsPerPage;
       const pageItems = activeList.slice(startIdx, endIdx);
       const pageItemIds = pageItems.map(item => item.id).join(',');
+      
+      // Historias completas (sin paginar) del feature expandido en Roadmap
+      const expandedRoadmapStories = expandedRoadmapFeatureId ? (storiesCache[expandedRoadmapFeatureId] || []) : [];
+      const expandedStoryIds = expandedRoadmapStories.map(s => s.id).join(',');
 
       useEffect(() => {
         if (currentPage !== 'roadmap' || pageItems.length === 0) return;
         const ids = pageItems.map(item => item.id);
-        const endpoint = selectedFeature ? '/api/stories-history-batch' : '/api/features-history-batch';
         setLoadingHistory(true);
-        fetch(endpoint, {
+        fetch('/api/features-history-batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ids: ids })
@@ -863,6 +878,29 @@ app.get('/dashboard', (req, res) => {
             setLoadingHistory(false);
           });
       }, [pageItemIds, currentPage]);
+
+      useEffect(() => {
+        if (!expandedRoadmapFeatureId || expandedRoadmapStories.length === 0) {
+          setStoryHistoryCache({});
+          return;
+        }
+        const ids = expandedRoadmapStories.map(s => s.id);
+        setLoadingStoryHistory(true);
+        fetch('/api/stories-history-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: ids })
+        })
+          .then(r => r.json())
+          .then(d => {
+            setStoryHistoryCache(d.results || {});
+            setLoadingStoryHistory(false);
+          })
+          .catch(() => {
+            setStoryHistoryCache({});
+            setLoadingStoryHistory(false);
+          });
+      }, [expandedRoadmapFeatureId, expandedStoryIds]);
 
         return (
           <div className="container">
