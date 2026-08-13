@@ -1163,6 +1163,7 @@ app.get('/dashboard', (req, res) => {
               )}
               </>
           )}
+          
         {currentPage === 'roadmap' && (
             <>
                       
@@ -1325,8 +1326,7 @@ app.get('/dashboard', (req, res) => {
                         </tbody>
                       </table>
                     </div>
-                  )}
-
+                
                    {!loading && (
                 <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center' }}>
                   <button 
