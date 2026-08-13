@@ -364,7 +364,7 @@ app.get('/api/features', async (req, res) => {
     const cacheExpired = !oldFeaturesCache.data || (now - oldFeaturesCache.timestamp) > OLD_FEATURES_CACHE_TTL;
 
     if (cacheExpired || forceRefresh) {
-      console.log(forceRefresh ? 'Refrescando caché por solicitud manual...' : 'Caché expirado, refrescando...');
+      console.log(forceRefresh ? 'Refreshing cache by manual request...' : 'Cache expired, refreshing...');
       const oldResult = await fetchOldFeatures(c);
       oldFeaturesCache = {
         data: oldResult.features,
@@ -1044,8 +1044,8 @@ app.get('/dashboard', (req, res) => {
               </div>
           
             </div>
-            <button style={{ padding: '8px 16px', background: '#80c5e8', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => cargarFeatures(true)} disabled={refreshing}>
-              {refreshing ? 'Updating...' : 'Update Cache'}
+            <button style={{ padding: '8px 16px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => cargarFeatures(true)} disabled={refreshing}>
+              {refreshing ? 'Refreshing...' : 'Refresh results'}
             </button>
             {cacheInfo && (
               <span style={{ fontSize: '11px', color: '#888', marginLeft: '8px' }}>
