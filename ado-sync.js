@@ -1271,7 +1271,6 @@ app.get('/dashboard', (req, res) => {
                     );
                   })()}
 
-                  {selectedFeature ? (
                     <div className="table-wrapper" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
                       <table>
                         <thead>
