@@ -1204,72 +1204,72 @@ app.get('/dashboard', (req, res) => {
                     </div>
                   </div>
 
-                  {/* Timeline Headers */}
-                  {selectedFeature ? (() => {
-                    const today = new Date();
-                    const dayOfWeek = today.getDay();
-                    const thisMonday = new Date(today);
-                    thisMonday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+                    {/* Timeline Headers */}
+                    {expandedRoadmapFeatureId ? (() => {
+                      const today = new Date();
+                      const dayOfWeek = today.getDay();
+                      const thisMonday = new Date(today);
+                      thisMonday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+                      
+                      const weekLabels = [];
+                      for (let i = 0; i < 12; i++) {
+                        const weekStart = new Date(thisMonday);
+                        weekStart.setDate(thisMonday.getDate() + (weekOffset + i) * 7);
+                        weekLabels.push(weekStart.toLocaleString('default', { month: 'short', day: 'numeric' }));
+                      }
                     
-                    const weekLabels = [];
-                    for (let i = 0; i < 12; i++) {
-                      const weekStart = new Date(thisMonday);
-                      weekStart.setDate(thisMonday.getDate() + (weekOffset + i) * 7);
-                      weekLabels.push(weekStart.toLocaleString('default', { month: 'short', day: 'numeric' }));
-                    }
-                  
-                    return (
-                      <div style={{ display: 'flex', gap: '20px', padding: '12px', marginBottom: '10px', alignItems: 'center' }}>
-                        <div style={{ flex: '0 0 300px', display: 'flex', justifyContent: 'flex-end' }}>
+                      return (
+                        <div style={{ display: 'flex', gap: '20px', padding: '12px', marginBottom: '10px', alignItems: 'center' }}>
+                          <div style={{ flex: '0 0 300px', display: 'flex', justifyContent: 'flex-end' }}>
+                            <button 
+                              style={{ padding: '4px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }}
+                              onClick={() => setWeekOffset(weekOffset - 1)}
+                            >
+                              ◄
+                            </button>
+                          </div>
+                          <div style={{ flex: 1, background: '#e0e0e0', borderRadius: '4px', padding: '8px', display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', fontSize: '9px', fontWeight: 'bold', textAlign: 'center' }}>
+                            {weekLabels.map((w, i) => <div key={i}>{w}</div>)}
+                          </div>
                           <button 
                             style={{ padding: '4px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }}
-                            onClick={() => setWeekOffset(weekOffset - 1)}
+                            onClick={() => setWeekOffset(weekOffset + 1)}
                           >
-                            ◄
+                            ►
                           </button>
                         </div>
-                        <div style={{ flex: 1, background: '#e0e0e0', borderRadius: '4px', padding: '8px', display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', fontSize: '9px', fontWeight: 'bold', textAlign: 'center' }}>
-                          {weekLabels.map((w, i) => <div key={i}>{w}</div>)}
-                        </div>
-                        <button 
-                          style={{ padding: '4px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }}
-                          onClick={() => setWeekOffset(weekOffset + 1)}
-                        >
-                          ►
-                        </button>
-                      </div>
-                    );
-                  })() : (() => {
-                    const today = new Date();
-                    const timelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
-                    const monthLabels = [];
-                    for (let i = 0; i < 12; i++) {
-                      const m = new Date(timelineStart.getFullYear(), timelineStart.getMonth() + i, 1);
-                      monthLabels.push(m.toLocaleString('default', { month: 'short', year: '2-digit' }));
-                    }
-                  
-                    return (
-                      <div style={{ display: 'flex', gap: '20px', padding: '12px', marginBottom: '10px', alignItems: 'center' }}>
-                        <div style={{ flex: '0 0 300px', display: 'flex', justifyContent: 'flex-end' }}>
+                      );
+                    })() : (() => {
+                      const today = new Date();
+                      const timelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
+                      const monthLabels = [];
+                      for (let i = 0; i < 12; i++) {
+                        const m = new Date(timelineStart.getFullYear(), timelineStart.getMonth() + i, 1);
+                        monthLabels.push(m.toLocaleString('default', { month: 'short', year: '2-digit' }));
+                      }
+                    
+                      return (
+                        <div style={{ display: 'flex', gap: '20px', padding: '12px', marginBottom: '10px', alignItems: 'center' }}>
+                          <div style={{ flex: '0 0 300px', display: 'flex', justifyContent: 'flex-end' }}>
+                            <button 
+                              style={{ padding: '4px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }}
+                              onClick={() => setTimelineOffset(timelineOffset - 1)}
+                            >
+                              ◄
+                            </button>
+                          </div>
+                          <div style={{ flex: 1, background: '#e0e0e0', borderRadius: '4px', padding: '8px', display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', fontSize: '10px', fontWeight: 'bold', textAlign: 'center' }}>
+                            {monthLabels.map((m, i) => <div key={i}>{m}</div>)}
+                          </div>
                           <button 
                             style={{ padding: '4px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }}
-                            onClick={() => setTimelineOffset(timelineOffset - 1)}
+                            onClick={() => setTimelineOffset(timelineOffset + 1)}
                           >
-                            ◄
+                            ►
                           </button>
                         </div>
-                        <div style={{ flex: 1, background: '#e0e0e0', borderRadius: '4px', padding: '8px', display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', fontSize: '10px', fontWeight: 'bold', textAlign: 'center' }}>
-                          {monthLabels.map((m, i) => <div key={i}>{m}</div>)}
-                        </div>
-                        <button 
-                          style={{ padding: '4px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }}
-                          onClick={() => setTimelineOffset(timelineOffset + 1)}
-                        >
-                          ►
-                        </button>
-                      </div>
-                    );
-                  })()}
+                      );
+                    })()}
 
                     <div className="table-wrapper" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
                       <table>
