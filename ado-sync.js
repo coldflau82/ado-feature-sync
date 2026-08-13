@@ -1190,6 +1190,7 @@ app.get('/dashboard', (req, res) => {
                 </select>
                 {filterReleaseVersion.length > 0 && <p className="filter-count">{filterReleaseVersion.length} selected</p>}
               </div>
+              <p style={{ padding: '15px', color: '#666', fontSize: '13px' }}>Showing {featuresPageItems.length} of {sortedFiltered.length} (Page {featuresPage} of {featuresTotalPages})</p>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', cursor: 'pointer', alignSelf: 'end', paddingBottom: '8px' }}>
                 <input type="checkbox" checked={saveAsDefault} onChange={handleSaveAsDefaultChange} />
                 Save as default filter
@@ -1200,7 +1201,6 @@ app.get('/dashboard', (req, res) => {
             <>
               {loading ? <div>Loading...</div> : (
                 <div className="table-wrapper">
-                  <p style={{ padding: '15px', color: '#666', fontSize: '13px' }}>Showing {featuresPageItems.length} of {sortedFiltered.length} (Page {featuresPage} of {featuresTotalPages})</p>
                   <table>
                     <thead>
                       <tr>
