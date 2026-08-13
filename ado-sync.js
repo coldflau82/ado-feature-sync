@@ -875,12 +875,25 @@ app.get('/dashboard', (req, res) => {
             setFilterTargetDate(parsed.filterTargetDate || []);
             setFilterReleaseVersion(parsed.filterReleaseVersion || []);
             setFilterAssignedTo(parsed.filterAssignedTo || []);
-            setStateFilterInitialized(true); // evita que el default de "sin Closed" lo sobreescriba
+            setSaveAsDefault(true);
           } catch (e) {
             console.error('Error loading saved filters:', e);
           }
         }
       }, []);
+      
+      useEffect(() => {
+        if (!saveAsDefault) return;
+        const filtersToSave = {
+          filterAreaPath,
+          filterIteration,
+          filterState,
+          filterTargetDate,
+          filterReleaseVersion,
+          filterAssignedTo
+        };
+        localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filtersToSave));
+      }, [saveAsDefault, filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo]);
       
       const filtered = features.filter(f => {
         const areaOk = filterAreaPath.length === 0 || filterAreaPath.includes(f.areaPath);
@@ -948,6 +961,14 @@ app.get('/dashboard', (req, res) => {
               }
             });
           }
+
+      const handleSaveAsDefaultChange = (e) => {
+        const checked = e.target.checked;
+        setSaveAsDefault(checked);
+        if (!checked) {
+          localStorage.removeItem(FILTER_STORAGE_KEY);
+        }
+      };
 
       const toggleFeatureExpand = (featureId) => {
         const isExpanding = !expandedRows[featureId];
@@ -1169,18 +1190,10 @@ app.get('/dashboard', (req, res) => {
                 </select>
                 {filterReleaseVersion.length > 0 && <p className="filter-count">{filterReleaseVersion.length} selected</p>}
               </div>
-              <button
-                style={{ padding: '6px 12px', background: '#4a9d5f', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '11px' }}
-                onClick={saveDefaultFilters}
-              >
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', cursor: 'pointer', alignSelf: 'end', paddingBottom: '8px' }}>
+                <input type="checkbox" checked={saveAsDefault} onChange={handleSaveAsDefaultChange} />
                 Save as default filter
-              </button>
-              <button
-                style={{ padding: '6px 12px', background: '#888', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '11px' }}
-                onClick={clearDefaultFilters}
-              >
-                Remove default filter
-              </button>
+              </label>
               </div>
 
           {currentPage === 'features' && (
