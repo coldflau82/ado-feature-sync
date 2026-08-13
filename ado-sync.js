@@ -903,7 +903,7 @@ app.get('/dashboard', (req, res) => {
             </button>
           </div>
 
-              <div className="filters" style={{ display: 'grid', gridTemplateColumns: '0.7fr 1.8fr 1tr 0.7fr 0.7fr 1fr', gap: '15px', background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+              <div className="filters" style={{ display: 'grid', gridTemplateColumns: '0.6fr 1.7fr 0.8tr 0.6fr 0.6fr 0.8fr', gap: '15px', background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
                 
                 <div>
                   <label className="filter-label">Area Path</label>
