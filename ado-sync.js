@@ -1317,7 +1317,8 @@ app.get('/dashboard', (req, res) => {
                                 )
                               )}
                             </React.Fragment>
-                          ))}
+                          ));
+                          })()}
                         </tbody>
                       </table>
                     </div>
