@@ -468,17 +468,7 @@ app.get('/dashboard', (req, res) => {
         return (days / timelineTotalDays) * 100;
       };
 
-      console.log('DEBUG SPRINT', {
-        storyId,
-        iterationPath,
-        sprintMatch,  
-        sprintStart,
-        sprintEnd,
-        timelineStart,
-        timelineEnd,
-        startPercent: sprintStart ? getSprintPercent(sprintStart) : null,
-        endPercent: sprintEnd ? getSprintPercent(sprintEnd) : null
-      });
+      console.log('CHAR CODES:', iterationPath.split('').map(c => `${c}:${c.codePointAt(0)}`).join(' | '));
     
       return (
         <tr style={{ borderBottom: '1px solid #eee' }}>
