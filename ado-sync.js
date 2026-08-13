@@ -1180,8 +1180,8 @@ app.get('/dashboard', (req, res) => {
                       </div>
                     </div>
                    {/* Stories Status Legend */}
-                    <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center', fontSize: '11px', marginTop: '8px', marginBottom: '10px' }}>
-                      <span style={{ fontWeight: 'bold' }}>Stories Status:</span>
+                    <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center', fontSize: '10px', marginTop: '8px', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold' }}>Stories Status:</span>
                       {Object.entries(storyStateColors).map(([state, color]) => (
                         <div key={state} style={{ display: 'flex', alignItems: 'left', gap: '5px' }}>
                           <div style={{ width: '12px', height: '12px', background: color, borderRadius: '2px' }}></div>
