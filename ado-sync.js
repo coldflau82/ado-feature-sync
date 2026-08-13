@@ -510,20 +510,22 @@ app.get('/dashboard', (req, res) => {
               {!loading && sprintStart && sprintEnd && (() => {
                 const startPercent = getSprintPercent(sprintStart);
                 const endPercent = getSprintPercent(sprintEnd);
-                const midPercent = (startPercent + endPercent) / 2;
+              
+                // Si el sprint está COMPLETAMENTE fuera del rango visible, no mostramos nada
+                if (endPercent < 0 || startPercent > 100) return null;
+              
+                // Si hay overlap parcial, "clampeamos" para que se pinte en el borde visible
+                const clampedStart = Math.max(0, startPercent);
+                const clampedEnd = Math.min(100, endPercent);
+                const midPercent = (clampedStart + clampedEnd) / 2;
+              
                 return (
                   <>
-                    {startPercent >= 0 && startPercent <= 100 && (
-                      <div style={{ position: 'absolute', top: '0', bottom: '0', left: startPercent + '%', width: '1px', borderLeft: '1px dashed #999', zIndex: 5 }} />
-                    )}
-                    {endPercent >= 0 && endPercent <= 100 && (
-                      <div style={{ position: 'absolute', top: '0', bottom: '0', left: endPercent + '%', width: '1px', borderLeft: '1px dashed #999', zIndex: 5 }} />
-                    )}
-                    {midPercent >= 0 && midPercent <= 100 && (
-                      <div style={{ position: 'absolute', top: '1px', left: midPercent + '%', transform: 'translateX(-50%)', fontSize: '9px', color: 'white', background: '#999', padding: '1px 4px', borderRadius: '2px', whiteSpace: 'nowrap', zIndex: 6 }}>
-                        {sprintLabel}
-                      </div>
-                    )}
+                    <div style={{ position: 'absolute', top: '0', bottom: '0', left: clampedStart + '%', width: '1px', borderLeft: '1px dashed #999', zIndex: 5 }} />
+                    <div style={{ position: 'absolute', top: '0', bottom: '0', left: clampedEnd + '%', width: '1px', borderLeft: '1px dashed #999', zIndex: 5 }} />
+                    <div style={{ position: 'absolute', top: '1px', left: midPercent + '%', transform: 'translateX(-50%)', fontSize: '9px', color: 'white', background: '#999', padding: '1px 4px', borderRadius: '2px', whiteSpace: 'nowrap', zIndex: 6 }}>
+                      {sprintLabel}
+                    </div>
                   </>
                 );
               })()}
