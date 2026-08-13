@@ -1044,12 +1044,12 @@ app.get('/dashboard', (req, res) => {
               </div>
           
             </div>
-            <button style={{ padding: '8px 16px', background: '#22d3ee', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => cargarFeatures(true)} disabled={refreshing}>
-              {refreshing ? '⏳ Actualizando...' : '🔄 Actualizar resultados'}
+            <button style={{ padding: '8px 16px', background: '#80c5e8', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => cargarFeatures(true)} disabled={refreshing}>
+              {refreshing ? 'Updating...' : 'Update Cache'}
             </button>
             {cacheInfo && (
               <span style={{ fontSize: '11px', color: '#888', marginLeft: '8px' }}>
-                Caché actualizado hace {cacheInfo.ageMinutes} min
+                Cache updated  {cacheInfo.ageMinutes} min ago
               </span>
             )}
             <button style={{ padding: '8px 16px', background: '#dc3545', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); setFilterReleaseVersion([]); setFilterAssignedTo([]); }}>
