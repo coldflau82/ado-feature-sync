@@ -403,48 +403,44 @@ app.get('/dashboard', (req, res) => {
       'Closed': '#a78bfa'
     };
 
-    function StoryRow({ storyId, title, storyPoints, state, iterationPath, formatDate, weekOffset, adoLink, states, loading }) {
-
+    function StoryRow({ storyId, title, storyPoints, state, iterationPath, formatDate, timelineStart, timelineEnd, adoLink, states, loading }) {
+    
       const today = new Date();
-      const dayOfWeek = today.getDay();
-      const thisMonday = new Date(today);
-      thisMonday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-      const timelineStart = new Date(thisMonday);
-      timelineStart.setDate(thisMonday.getDate() + weekOffset * 7);
-      const timelineEnd = new Date(timelineStart);
-      timelineEnd.setDate(timelineStart.getDate() + 12 * 7);
       const timelineTotalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
+      const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
+      const clampedTodayPercent = Math.max(0, Math.min(100, todayPercent));
+    
       const segments = [];
       if (states.length > 0) {
         states.forEach((state, idx) => {
           const stateStart = new Date(state.changedDate);
           const stateEnd = idx === states.length - 1 ? today : new Date(states[idx + 1].changedDate);
-
+    
           const daysFromStart = (stateStart - timelineStart) / (1000 * 60 * 60 * 24);
           const daysToEnd = (stateEnd - timelineStart) / (1000 * 60 * 60 * 24);
-
+    
           const rawStartPercent = (daysFromStart / timelineTotalDays) * 100;
           const rawEndPercent = (daysToEnd / timelineTotalDays) * 100;
-
+    
           if (rawStartPercent < 100 && rawEndPercent > 0) {
             const clampedStart = Math.max(0, rawStartPercent);
             const clampedEnd = Math.min(100, rawEndPercent);
             const widthPercent = Math.max(1, clampedEnd - clampedStart);
-
+    
             segments.push({
               color: storyStateColors[state.state] || '#cccccc',
               state: state.state,
               startPercent: clampedStart,
               widthPercent: widthPercent
-            });         
+            });
           }
         });
       }
-
-      // Parsear Sprint del Iteration Path: ...2026_S16_Jul29-Aug11
+    
+      // Sprint parsing (sin cambios)
       let sprintStart = null;
       let sprintEnd = null;
-      const sprintMatch = iterationPath && iterationPath.match(/(\\d{4})_(S\\d+)_([A-Za-z]+)(\\d+)-([A-Za-z]+)(\\d+)/);
+      const sprintMatch = iterationPath && iterationPath.match(/(\d{4})_(S\d+)_([A-Za-z]+)(\d+)-([A-Za-z]+)(\d+)/);
       let sprintLabel = '';
       if (sprintMatch) {
         const year = parseInt(sprintMatch[1]);
@@ -453,21 +449,19 @@ app.get('/dashboard', (req, res) => {
         const startDay = parseInt(sprintMatch[4]);
         const endMonth = sprintMatch[5];
         const endDay = parseInt(sprintMatch[6]);
-      
         const monthMap = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
         sprintStart = new Date(year, monthMap[startMonth], startDay);
         sprintEnd = new Date(year, monthMap[endMonth], endDay);
-        // Si el sprint cruza fin de año (ej: Dec-Jan), el año del final es el siguiente
         if (monthMap[endMonth] < monthMap[startMonth]) {
           sprintEnd = new Date(year + 1, monthMap[endMonth], endDay);
         }
       }
-      
+    
       const getSprintPercent = (date) => {
         const days = (date - timelineStart) / (1000 * 60 * 60 * 24);
         return (days / timelineTotalDays) * 100;
-      };      
-
+      };
+    
       return (
         <tr style={{ borderBottom: '1px solid #eee' }}>
           <td><a href={adoLink(storyId)} target="_blank">{storyId}</a></td>
@@ -479,15 +473,19 @@ app.get('/dashboard', (req, res) => {
           </td>
           <td style={{ padding: '8px' }}>
             <div style={{ minHeight: '32px', background: '#f9f9f9', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
-            {!loading && state && (() => {
-              const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
-              const clampedTodayPercent = Math.max(0, Math.min(100, todayPercent));
-              return (
-                <div style={{ 
-                    position: 'absolute', 
-                    top: '50%', 
-                    left: clampedTodayPercent + '%', 
-                    transform: 'translateY(-50%)', 
+    
+              {/* Línea de "hoy" — MISMO estilo que FeatureRow */}
+              {!loading && (
+                <div style={{ position: 'absolute', top: '0', bottom: '0', left: clampedTodayPercent + '%', width: '1px', background: '#1e3a8a', opacity: 0.9, zIndex: 10 }} />
+              )}
+    
+              {/* Badge de estado, anclado justo después de la línea de "hoy" */}
+              {!loading && state && (
+                <div style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: clampedTodayPercent + '%',
+                    transform: 'translateY(-50%)',
                     zIndex: 15,
                     paddingLeft: '6px',
                     display: 'flex',
@@ -499,8 +497,8 @@ app.get('/dashboard', (req, res) => {
                     {state}
                   </span>
                 </div>
-              );
-            })()}
+              )}
+    
               {!loading && sprintStart && sprintEnd && (() => {
                 const startPercent = getSprintPercent(sprintStart);
                 const endPercent = getSprintPercent(sprintEnd);
@@ -521,6 +519,7 @@ app.get('/dashboard', (req, res) => {
                   </>
                 );
               })()}
+    
               {loading ? (
                 <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
               ) : segments.length === 0 ? (
@@ -549,125 +548,125 @@ app.get('/dashboard', (req, res) => {
           </td>
         </tr>
       );
-    }
-      
-      function FeatureRow({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineOffset, adoLink, isExpanded, onToggleExpand, states, loading }) {
-              
-        const stateColors = {
-          'New': '#94a3b8',
-          'In Shaping': '#fbbf24',
-          'In Planning': '#fb923c',
-          'Planned': '#34d399',
-          'In Process': '#60a5fa',
-          'Closed': '#a78bfa'
-        };
+    } 
 
-        const today = new Date();
-        const timelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
-        const timelineEnd = new Date(today.getFullYear(), today.getMonth() + timelineOffset + 12, 0);
-        const timelineTotalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
-        
-        const segments = [];
-        if (states.length > 0) {
-          states.forEach((state, idx) => {
-            const stateStart = new Date(state.changedDate);
-            const stateEnd = idx === states.length - 1 ? today : new Date(states[idx + 1].changedDate);
-            
-            const daysFromStart = (stateStart - timelineStart) / (1000 * 60 * 60 * 24);
-            const daysToEnd = (stateEnd - timelineStart) / (1000 * 60 * 60 * 24);
-            
-            const rawStartPercent = (daysFromStart / timelineTotalDays) * 100;
-            const rawEndPercent = (daysToEnd / timelineTotalDays) * 100;
-            
-            // Solo mostrar si está dentro del rango visible
-            if (rawStartPercent < 100 && rawEndPercent > 0) {
-              const clampedStart = Math.max(0, rawStartPercent);
-              const clampedEnd = Math.min(100, rawEndPercent);
-              const widthPercent = Math.max(1, clampedEnd - clampedStart);
-            
-              segments.push({
-                color: stateColors[state.state] || '#cccccc',
-                state: state.state,
-                startPercent: clampedStart,
-                widthPercent: widthPercent
-              });
-            }
-          });
-        }
-      
-        return (
-          <tr style={{ borderBottom: '1px solid #eee' }}>
-            <td className="expand-btn" onClick={onToggleExpand}>
-              {isExpanded ? '▼' : '►'}
-            </td>
-            <td><a href={adoLink(featureId)} target="_blank">{featureId}</a></td>
-            <td title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{title}</td>
-            <td style={{ padding: '8px' }}>
-              <div style={{ minHeight: '32px', background: '#f9f9f9', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
-                {/* Línea de "hoy" */}
-                {!loading && (() => {
-                  const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
-                  if (todayPercent < 0 || todayPercent > 100) return null;
-                  return (
-                    <div style={{ position: 'absolute', top: '0', bottom: '0', left: todayPercent + '%', width: '1px', background: '#333333', opacity: 0.7, zIndex: 10 }} />
-                  );
-                })()}
-        
-                {/* Marcador de Target Date */}
-                {!loading && targetDate && (() => {
-                  const target = new Date(targetDate);
-                  const targetPercent = ((target - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
-                  if (targetPercent < 0 || targetPercent > 100) return null;
-                  return (
-                    <div 
-                      style={{ position: 'absolute', top: '-4px', left: targetPercent + '%', transform: 'translateX(-50%)', zIndex: 11, width: '0', height: '0', borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '12px solid #f43f5e' }}
-                      title={'Target: ' + formatDate(targetDate)}
-                    />
-                  );
-                })()}
-
-                {/* Marcador de Release Fix Version (rombo) */}
-                {!loading && releaseFixVersion && releaseDates[releaseFixVersion] && (() => {
-                  const releaseDate = new Date(releaseDates[releaseFixVersion]);
-                  const releasePercent = ((releaseDate - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
-                  if (releasePercent < 0 || releasePercent > 100) return null;
-                  return (
-                    <div 
-                      style={{ position: 'absolute', top: '50%', left: releasePercent + '%', transform: 'translate(-50%, -50%) rotate(45deg)', zIndex: 12, width: '10px', height: '10px', background: '#1e3a8a' }}
-                      title={releaseFixVersion + ': ' + formatDate(releaseDates[releaseFixVersion])}
-                    />
-                  );
-                })()}
-        
-                {loading ? (
-                  <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
-                ) : segments.length === 0 ? (
-                  <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
-                ) : (
-                  <div style={{ width: '100%', position: 'relative', height: '20px' }}>
-                    {segments.map((seg, idx) => (
-                      <div 
-                        key={idx} 
-                        style={{ 
-                          position: 'absolute',
-                          left: seg.startPercent + '%',
-                          width: seg.widthPercent + '%',
-                          height: '28px',
-                          background: seg.color,
-                          borderRadius: '3px',
-                          opacity: 0.85,
-                          minWidth: '6px'
-                        }} 
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </td>
-          </tr>
-        );
+ 
+    function FeatureRow({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineStart, timelineEnd, adoLink, isExpanded, onToggleExpand, states, loading }) {
+    
+      const stateColors = {
+        'New': '#94a3b8',
+        'In Shaping': '#fbbf24',
+        'In Planning': '#fb923c',
+        'Planned': '#34d399',
+        'In Process': '#60a5fa',
+        'Closed': '#a78bfa'
+      };
+    
+      const today = new Date();
+      const timelineTotalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
+    
+      const segments = [];
+      if (states.length > 0) {
+        states.forEach((state, idx) => {
+          const stateStart = new Date(state.changedDate);
+          const stateEnd = idx === states.length - 1 ? today : new Date(states[idx + 1].changedDate);
+    
+          const daysFromStart = (stateStart - timelineStart) / (1000 * 60 * 60 * 24);
+          const daysToEnd = (stateEnd - timelineStart) / (1000 * 60 * 60 * 24);
+    
+          const rawStartPercent = (daysFromStart / timelineTotalDays) * 100;
+          const rawEndPercent = (daysToEnd / timelineTotalDays) * 100;
+    
+          // Solo mostrar si está dentro del rango visible
+          if (rawStartPercent < 100 && rawEndPercent > 0) {
+            const clampedStart = Math.max(0, rawStartPercent);
+            const clampedEnd = Math.min(100, rawEndPercent);
+            const widthPercent = Math.max(1, clampedEnd - clampedStart);
+    
+            segments.push({
+              color: stateColors[state.state] || '#cccccc',
+              state: state.state,
+              startPercent: clampedStart,
+              widthPercent: widthPercent
+            });
+          }
+        });
       }
-
+    
+      return (
+        <tr style={{ borderBottom: '1px solid #eee' }}>
+          <td className="expand-btn" onClick={onToggleExpand}>
+            {isExpanded ? '▼' : '►'}
+          </td>
+          <td><a href={adoLink(featureId)} target="_blank">{featureId}</a></td>
+          <td title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{title}</td>
+          <td style={{ padding: '8px' }}>
+            <div style={{ minHeight: '32px', background: '#f9f9f9', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
+    
+              {/* Línea de "hoy" */}
+              {!loading && (() => {
+                const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
+                if (todayPercent < 0 || todayPercent > 100) return null;
+                return (
+                  <div style={{ position: 'absolute', top: '0', bottom: '0', left: todayPercent + '%', width: '1px', background: '#1e3a8a', opacity: 0.9, zIndex: 10 }} />
+                );
+              })()}
+    
+              {/* Marcador de Target Date */}
+              {!loading && targetDate && (() => {
+                const target = new Date(targetDate);
+                const targetPercent = ((target - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
+                if (targetPercent < 0 || targetPercent > 100) return null;
+                return (
+                  <div
+                    style={{ position: 'absolute', top: '-4px', left: targetPercent + '%', transform: 'translateX(-50%)', zIndex: 11, width: '0', height: '0', borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '12px solid #f43f5e' }}
+                    title={'Target: ' + formatDate(targetDate)}
+                  />
+                );
+              })()}
+    
+              {/* Marcador de Release Fix Version (rombo) */}
+              {!loading && releaseFixVersion && releaseDates[releaseFixVersion] && (() => {
+                const releaseDate = new Date(releaseDates[releaseFixVersion]);
+                const releasePercent = ((releaseDate - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
+                if (releasePercent < 0 || releasePercent > 100) return null;
+                return (
+                  <div
+                    style={{ position: 'absolute', top: '50%', left: releasePercent + '%', transform: 'translate(-50%, -50%) rotate(45deg)', zIndex: 12, width: '10px', height: '10px', background: '#1e3a8a' }}
+                    title={releaseFixVersion + ': ' + formatDate(releaseDates[releaseFixVersion])}
+                  />
+                );
+              })()}
+    
+              {loading ? (
+                <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
+              ) : segments.length === 0 ? (
+                <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
+              ) : (
+                <div style={{ width: '100%', position: 'relative', height: '20px' }}>
+                  {segments.map((seg, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        position: 'absolute',
+                        left: seg.startPercent + '%',
+                        width: seg.widthPercent + '%',
+                        height: '28px',
+                        background: seg.color,
+                        borderRadius: '3px',
+                        opacity: 0.85,
+                        minWidth: '6px'
+                      }}
+                      title={seg.state}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      );
+    }
 
     function Dashboard() {
       const [features, setFeatures] = useState([]);
