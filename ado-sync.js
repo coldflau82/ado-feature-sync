@@ -1015,12 +1015,32 @@ app.get('/dashboard', (req, res) => {
                           <td>{f.estimation.qa || '-'}</td>
                           <td>{f.state}</td>
                         </tr>
-                          {expandedRows[f.id] && f.stories && f.stories.length > 0 && (
+                        {expandedRows[f.id] && (() => {
+                          if (loadingStoriesIds[f.id]) {
+                            return (
+                              <tr style={{ background: '#f9f9f9' }}>
+                                <td colSpan="12" style={{ paddingLeft: '60px', paddingTop: '15px', paddingBottom: '15px' }}>
+                                  Loading stories...
+                                </td>
+                              </tr>
+                            );
+                          }
+                          const fStories = storiesCache[f.id] || [];
+                          if (fStories.length === 0) {
+                            return (
+                              <tr style={{ background: '#f9f9f9' }}>
+                                <td colSpan="12" style={{ paddingLeft: '60px', paddingTop: '15px', paddingBottom: '15px' }}>
+                                  No stories found for this feature.
+                                </td>
+                              </tr>
+                            );
+                          }
+                          return (
                             <tr style={{ background: '#f9f9f9' }}>
                             <td colSpan="12" style={{ paddingLeft: '60px', paddingTop: '15px', paddingBottom: '15px' }}>
                               <div>
-                              <strong style={{ marginBottom: '10px', display: 'block' }}>User Stories ({f.stories.length}):</strong>
-                              {f.stories.map(story => (
+                              <strong style={{ marginBottom: '10px', display: 'block' }}>User Stories ({fStories.length}):</strong>
+                              {fStories.map(story => (
                                 <div key={story.id} style={{ padding: '8px', marginBottom: '8px', background: 'white', borderLeft: '3px solid #007bff', paddingLeft: '12px', borderRadius: '4px' }}>
                                   <strong>#{story.id}</strong> - {story.title} <br/>
                                   <span style={{ fontSize: '11px', color: '#666' }}>Points: {story.storyPoints} | State: {story.state}</span>
@@ -1029,11 +1049,31 @@ app.get('/dashboard', (req, res) => {
                             </div>
                             </td>
                           </tr>
-                        )}
+                          );
+                        })()}
                         </React.Fragment>
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+              {!loading && (
+                <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center' }}>
+                  <button
+                    style={{ padding: '8px 16px', background: featuresPage === 1 ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: featuresPage === 1 ? 'default' : 'pointer', borderRadius: '4px' }}
+                    onClick={() => setFeaturesPage(featuresPage - 1)}
+                    disabled={featuresPage === 1}
+                  >
+                    Previous
+                  </button>
+                  <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Page {featuresPage} of {featuresTotalPages}</span>
+                  <button
+                    style={{ padding: '8px 16px', background: featuresPage === featuresTotalPages ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: featuresPage === featuresTotalPages ? 'default' : 'pointer', borderRadius: '4px' }}
+                    onClick={() => setFeaturesPage(featuresPage + 1)}
+                    disabled={featuresPage === featuresTotalPages}
+                  >
+                    Next
+                  </button>
                 </div>
               )}
               </>
