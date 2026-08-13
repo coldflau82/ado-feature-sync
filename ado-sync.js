@@ -1270,57 +1270,70 @@ app.get('/dashboard', (req, res) => {
                         </thead>
                         <tbody>
                           {(() => {
-                          const today = new Date();
-                          const dayOfWeek = today.getDay();
-                          const thisMonday = new Date(today);
-                          thisMonday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-                          const timelineStart = new Date(thisMonday);
-                          timelineStart.setDate(thisMonday.getDate() + weekOffset * 7);
-                          const timelineEnd = new Date(timelineStart);
-                          timelineEnd.setDate(timelineStart.getDate() + 12 * 7);
-                        
-                          return pageItems.map(f => (
-                            <React.Fragment key={f.id}>
-                              <FeatureRow 
-                                featureId={f.id} 
-                                title={f.title} 
-                                targetDate={f.targetDate} 
-                                releaseFixVersion={f.releaseFixVersion} 
-                                formatDate={formatDate} 
-                                timelineStart={timelineStart}
-                                timelineEnd={timelineEnd}
-                                adoLink={adoLink} 
-                                isExpanded={expandedRoadmapFeatureId === f.id}
-                                onToggleExpand={() => toggleRoadmapFeature(f.id)}
-                                states={historyCache[f.id] || []} 
-                                loading={loadingHistory} 
-                              />
-                              {expandedRoadmapFeatureId === f.id && (
-                                loadingStoriesIds[f.id] ? (
-                                  <tr>
-                                    <td colSpan="4" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td>
-                                  </tr>
-                                ) : (
-                                  (storiesCache[f.id] || []).map(s => (
-                                    <StoryRow 
-                                      key={s.id} 
-                                      storyId={s.id} 
-                                      title={s.title} 
-                                      storyPoints={s.storyPoints} 
-                                      state={s.state} 
-                                      iterationPath={s.iterationPath} 
-                                      formatDate={formatDate} 
-                                      timelineStart={timelineStart}
-                                      timelineEnd={timelineEnd}
-                                      adoLink={adoLink} 
-                                      states={storyHistoryCache[s.id] || []} 
-                                      loading={loadingStoryHistory} 
-                                    />
-                                  ))
-                                )
-                              )}
-                            </React.Fragment>
-                          ));
+                            const today = new Date();
+                          
+                            // Rango en MESES — para features colapsadas (vista general)
+                            const monthTimelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
+                            const monthTimelineEnd = new Date(today.getFullYear(), today.getMonth() + timelineOffset + 12, 0);
+                          
+                            // Rango en SEMANAS — para la feature expandida y sus stories
+                            const dayOfWeek = today.getDay();
+                            const thisMonday = new Date(today);
+                            thisMonday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+                            const weekTimelineStart = new Date(thisMonday);
+                            weekTimelineStart.setDate(thisMonday.getDate() + weekOffset * 7);
+                            const weekTimelineEnd = new Date(weekTimelineStart);
+                            weekTimelineEnd.setDate(weekTimelineStart.getDate() + 12 * 7);
+                          
+                            return pageItems.map(f => {
+                              const isExpanded = expandedRoadmapFeatureId === f.id;
+                              // La feature expandida usa escala de semanas; el resto, escala de meses
+                              const featureTimelineStart = isExpanded ? weekTimelineStart : monthTimelineStart;
+                              const featureTimelineEnd = isExpanded ? weekTimelineEnd : monthTimelineEnd;
+                          
+                              return (
+                                <React.Fragment key={f.id}>
+                                  <FeatureRow 
+                                    featureId={f.id} 
+                                    title={f.title} 
+                                    targetDate={f.targetDate} 
+                                    releaseFixVersion={f.releaseFixVersion} 
+                                    formatDate={formatDate} 
+                                    timelineStart={featureTimelineStart}
+                                    timelineEnd={featureTimelineEnd}
+                                    adoLink={adoLink} 
+                                    isExpanded={isExpanded}
+                                    onToggleExpand={() => toggleRoadmapFeature(f.id)}
+                                    states={historyCache[f.id] || []} 
+                                    loading={loadingHistory} 
+                                  />
+                                  {isExpanded && (
+                                    loadingStoriesIds[f.id] ? (
+                                      <tr>
+                                        <td colSpan="4" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td>
+                                      </tr>
+                                    ) : (
+                                      (storiesCache[f.id] || []).map(s => (
+                                        <StoryRow 
+                                          key={s.id} 
+                                          storyId={s.id} 
+                                          title={s.title} 
+                                          storyPoints={s.storyPoints} 
+                                          state={s.state} 
+                                          iterationPath={s.iterationPath} 
+                                          formatDate={formatDate} 
+                                          timelineStart={weekTimelineStart}
+                                          timelineEnd={weekTimelineEnd}
+                                          adoLink={adoLink} 
+                                          states={storyHistoryCache[s.id] || []} 
+                                          loading={loadingStoryHistory} 
+                                        />
+                                      ))
+                                    )
+                                  )}
+                                </React.Fragment>
+                              );
+                            });
                           })()}
                         </tbody>
                       </table>
