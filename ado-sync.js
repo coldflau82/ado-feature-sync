@@ -115,6 +115,26 @@ async function fetchOldFeatures(c) {
   return { features: raw.map(mapFeature), rangeCounts };
 }
 
+const FILTER_STORAGE_KEY = 'featureTracker_defaultFilters';
+
+function saveDefaultFilters() {
+  const filtersToSave = {
+    filterAreaPath,
+    filterIteration,
+    filterState,
+    filterTargetDate,
+    filterReleaseVersion,
+    filterAssignedTo
+  };
+  localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filtersToSave));
+  alert('Default filter saved. It will load automatically next time you open this page.');
+}
+
+function clearDefaultFilters() {
+  localStorage.removeItem(FILTER_STORAGE_KEY);
+  alert('Default filter removed.');
+}
+
 const app = express();
 app.use(express.json());
 
@@ -824,6 +844,24 @@ app.get('/dashboard', (req, res) => {
         setExpandedRoadmapFeatureId(null);
       }, [roadmapPage]);
 
+      useEffect(() => {
+        const saved = localStorage.getItem(FILTER_STORAGE_KEY);
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            setFilterAreaPath(parsed.filterAreaPath || []);
+            setFilterIteration(parsed.filterIteration || []);
+            setFilterState(parsed.filterState || []);
+            setFilterTargetDate(parsed.filterTargetDate || []);
+            setFilterReleaseVersion(parsed.filterReleaseVersion || []);
+            setFilterAssignedTo(parsed.filterAssignedTo || []);
+            setStateFilterInitialized(true); // evita que el default de "sin Closed" lo sobreescriba
+          } catch (e) {
+            console.error('Error loading saved filters:', e);
+          }
+        }
+      }, []);
+
       const areaPaths = [...new Set(features.map(f => f.areaPath).filter(a => a))].sort();
       const iterations = [...new Set(features.map(f => f.iterationPath).filter(a => a))].sort();
       const states = [...new Set(features.map(f => f.state).filter(a => a))].sort();
@@ -1129,6 +1167,18 @@ app.get('/dashboard', (req, res) => {
                 </select>
                 {filterReleaseVersion.length > 0 && <p className="filter-count">{filterReleaseVersion.length} selected</p>}
               </div>
+              <button
+                style={{ padding: '6px 12px', background: '#4a9d5f', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '11px' }}
+                onClick={saveDefaultFilters}
+              >
+                Save as default filter
+              </button>
+              <button
+                style={{ padding: '6px 12px', background: '#888', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '11px' }}
+                onClick={clearDefaultFilters}
+              >
+                Remove default filter
+              </button>
               </div>
 
           {currentPage === 'features' && (
