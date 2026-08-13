@@ -1188,16 +1188,16 @@ app.get('/dashboard', (req, res) => {
                     <option key={rv} value={rv}>{rv}</option>
                   ))}
                 </select>
-                {filterReleaseVersion.length > 0 && <p className="filter-count">{filterReleaseVersion.length} selected</p>}
+            {filterReleaseVersion.length > 0 && <p className="filter-count">{filterReleaseVersion.length} selected</p>}
               </div>
-              <span style={{ padding: '20px', color: '#666', fontSize: '10px', whiteSpace: 'nowrap'  }}>
+              <span style={{ padding: '20px', color: '#666', fontSize: '11px', whiteSpace: 'nowrap'  }}>
                 Showing {featuresPageItems.length} of {sortedFiltered.length} (Page {featuresPage} of {featuresTotalPages})
               </span>
-              <label style={{ display: 'flex', alignItems: 'right', gap: '6px', fontSize: '10px', cursor: 'pointer', alignSelf: 'end', paddingBottom: '8px' }}>
+              <label style={{ display: 'flex', alignItems: 'right', gap: '6px', fontSize: '11px', cursor: 'pointer', alignSelf: 'end', paddingBottom: '8px' }}>
                 <input type="checkbox" checked={saveAsDefault} onChange={handleSaveAsDefaultChange} />
                 Save as default filter
               </label>
-              </div>
+            </div>                    
 
           {currentPage === 'features' && (
             <>
