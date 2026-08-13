@@ -464,6 +464,7 @@ app.get('/dashboard', (req, res) => {
     
       return (
         <tr style={{ borderBottom: '1px solid #eee' }}>
+          <td></td> {/* ← celda vacía para alinear con la columna del expand-btn de FeatureRow */}
           <td><a href={adoLink(storyId)} target="_blank">{storyId}</a></td>
           <td style={{ maxWidth: '300px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -471,7 +472,7 @@ app.get('/dashboard', (req, res) => {
               <span style={{ color: '#999', flexShrink: 0, fontSize: '11px' }}>({storyPoints} pts)</span>
             </div>
           </td>
-          <td style={{ padding: '8px' }}>
+          <td style={{ padding: '8px' }}>  
             <div style={{ minHeight: '32px', background: '#f9f9f9', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
     
               {/* Línea de "hoy" — MISMO estilo que FeatureRow */}
@@ -1286,7 +1287,8 @@ app.get('/dashboard', (req, res) => {
                                 targetDate={f.targetDate} 
                                 releaseFixVersion={f.releaseFixVersion} 
                                 formatDate={formatDate} 
-                                timelineOffset={timelineOffset} 
+                                timelineStart={timelineStart}
+                                timelineEnd={timelineEnd}
                                 adoLink={adoLink} 
                                 isExpanded={expandedRoadmapFeatureId === f.id}
                                 onToggleExpand={() => toggleRoadmapFeature(f.id)}
@@ -1308,7 +1310,8 @@ app.get('/dashboard', (req, res) => {
                                       state={s.state} 
                                       iterationPath={s.iterationPath} 
                                       formatDate={formatDate} 
-                                      weekOffset={weekOffset} 
+                                      timelineStart={timelineStart}
+                                      timelineEnd={timelineEnd}
                                       adoLink={adoLink} 
                                       states={storyHistoryCache[s.id] || []} 
                                       loading={loadingStoryHistory} 
