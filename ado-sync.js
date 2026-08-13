@@ -2,6 +2,119 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 
+// ===== CACHÉ PARA FEATURES "ANTIGUAS" (10-180 días) =====
+let oldFeaturesCache = {
+  data: null,
+  rangeCounts: null,
+  timestamp: 0
+};
+const OLD_FEATURES_CACHE_TTL = 12 * 60 * 60 * 1000; // 12 horas en milisegundos
+const RECENT_DAYS_THRESHOLD = 10; // Punto de corte entre "reciente" y "antiguo"
+
+// ===== Cliente ADO reutilizable (antes lo creabas dentro del endpoint) =====
+function getAdoClient() {
+  return axios.create({
+    baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
+    headers: {
+      Authorization: `Basic ${Buffer.from(`:${process.env.ADO_PAT}`).toString('base64')}`,
+      'Content-Type': 'application/json'
+    }
+  });
+}
+
+
+// ===== Filtro base de Area Path (idéntico al que ya tenías) =====
+const BASE_FILTER = 'AND [System.State] <> "Removed" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")';
+
+// ===== Campos que se traen en el batch (idénticos a los que ya tenías) =====
+const FEATURE_FIELDS = ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'System.IterationPath', 'Microsoft.VSTS.Common.Priority', 'Microsoft.VSTS.Scheduling.TargetDate', 'Custom.PlannedMonth', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing', 'Custom.ReleaseFixVersion', 'System.Tags', 'System.AssignedTo'];
+
+// ===== Mapeo de un work item crudo -> objeto de salida (idéntico a tu .map actual) =====
+function mapFeature(i) {
+  return {
+    id: i.id,
+    title: i.fields['System.Title'] || '',
+    state: i.fields['System.State'] || '',
+    areaPath: i.fields['System.AreaPath'] || '',
+    iterationPath: i.fields['System.IterationPath'] || '',
+    priority: i.fields['Microsoft.VSTS.Common.Priority'] || '',
+    targetDate: i.fields['Microsoft.VSTS.Scheduling.TargetDate'] || '',
+    plannedMonth: i.fields['Custom.PlannedMonth'] || '',
+    releaseFixVersion: i.fields['Custom.ReleaseFixVersion'] || '',
+    tags: i.fields['System.Tags'] || '',
+    assignedTo: i.fields['System.AssignedTo']?.displayName || '',
+    estimation: {
+      be: i.fields['Custom.BEEstimate'] || '',
+      fe: i.fields['Custom.FEEstimates'] || '',
+      qa: i.fields['Custom.QASizing'] || ''
+    }
+  };
+}
+
+// ===== Trae IDs para un rango de fechas específico =====
+async function fetchIdsForRange(c, range) {
+  const r = await c.post('/wit/wiql?api-version=7.0', {
+    query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${BASE_FILTER}`
+  });
+  return r.data.workItems.map(i => i.id);
+}
+
+// ===== Trae los campos completos en lotes de 200 (idéntico a tu lógica actual de batch) =====
+async function fetchFeatureDetailsBatch(c, ids) {
+  const batchSize = 200;
+  let allFeatures = [];
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const batch = await c.post('/wit/workitemsbatch?api-version=7.0', {
+      ids: ids.slice(i, i + batchSize),
+      fields: FEATURE_FIELDS
+    });
+    allFeatures = [...allFeatures, ...batch.data.value];
+  }
+  return allFeatures;
+}
+
+// ===== Features editadas en los ÚLTIMOS 10 días (SIEMPRE en vivo) =====
+async function fetchRecentFeatures(c) {
+  const range = { from: `@today - ${RECENT_DAYS_THRESHOLD}`, to: '@today' };
+  const rangeCounts = {};
+  let ids = [];
+  try {
+    ids = await fetchIdsForRange(c, range);
+    rangeCounts[`${range.from} to ${range.to}`] = ids.length;
+  } catch (e) {
+    rangeCounts[`${range.from} to ${range.to}`] = 'ERROR: ' + e.message;
+  }
+  const raw = ids.length ? await fetchFeatureDetailsBatch(c, ids) : [];
+  return { features: raw.map(mapFeature), rangeCounts };
+}
+
+// ===== Features editadas entre 10 y 180 días (se cachea 12h en el servidor) =====
+async function fetchOldFeatures(c) {
+  const dateRanges = [
+    { from: `@today - 20`, to: `@today - ${RECENT_DAYS_THRESHOLD}` },
+    { from: '@today - 30', to: '@today - 20' },
+    { from: '@today - 60', to: '@today - 30' },
+    { from: '@today - 90', to: '@today - 60' },
+    { from: '@today - 180', to: '@today - 90' }
+  ];
+
+  let allIds = [];
+  const rangeCounts = {};
+
+  for (const range of dateRanges) {
+    try {
+      const ids = await fetchIdsForRange(c, range);
+      rangeCounts[`${range.from} to ${range.to}`] = ids.length;
+      allIds = [...allIds, ...ids];
+    } catch (e) {
+      rangeCounts[`${range.from} to ${range.to}`] = 'ERROR: ' + e.message;
+    }
+  }
+
+  const raw = allIds.length ? await fetchFeatureDetailsBatch(c, allIds) : [];
+  return { features: raw.map(mapFeature), rangeCounts };
+}
+
 const app = express();
 app.use(express.json());
 
@@ -243,56 +356,35 @@ app.get('/api/feature-stories/:id', async (req, res) => {
 
 app.get('/api/features', async (req, res) => {
   try {
-    const c = axios.create({
-      baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 
-        Authorization: `Basic ${Buffer.from(`:${process.env.ADO_PAT}`).toString('base64')}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    const c = getAdoClient();
+    const forceRefresh = req.query.refresh === '1';
+    const now = Date.now();
 
-    const baseFilter = 'AND [System.State] <> "Removed" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")';
+    // 1. Refrescar caché "antiguo" solo si expiró (12h) o si el usuario forzó refresh
+    const cacheExpired = !oldFeaturesCache.data || (now - oldFeaturesCache.timestamp) > OLD_FEATURES_CACHE_TTL;
 
-    const dateRanges = [
-      { from: '@today - 10', to: '@today' },
-      { from: '@today - 20', to: '@today - 10' },
-      { from: '@today - 30', to: '@today - 20' },
-      { from: '@today - 60', to: '@today - 30' },
-      { from: '@today - 90', to: '@today - 60' },
-      { from: '@today - 180', to: '@today - 90' }
-    ];
-
-    let allIds = [];
-    const rangeCounts = {};
-
-    for (const range of dateRanges) {
-      try {
-        const r = await c.post('/wit/wiql?api-version=7.0', {
-          query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${baseFilter}`
-        });
-        
-        const ids = r.data.workItems.map(i => i.id);
-        rangeCounts[`${range.from} to ${range.to}`] = ids.length;
-        allIds = [...allIds, ...ids];
-      } catch (e) {
-        rangeCounts[`${range.from} to ${range.to}`] = 'ERROR: ' + e.message;
-      }
+    if (cacheExpired || forceRefresh) {
+      console.log(forceRefresh ? 'Refrescando caché por solicitud manual...' : 'Caché expirado, refrescando...');
+      const oldResult = await fetchOldFeatures(c);
+      oldFeaturesCache = {
+        data: oldResult.features,
+        rangeCounts: oldResult.rangeCounts,
+        timestamp: now
+      };
     }
 
-    if (!allIds.length) return res.json({ features: [] });
+    // 2. La consulta "reciente" SIEMPRE es en vivo (nunca se cachea)
+    const recentResult = await fetchRecentFeatures(c);
 
-    const batchSize = 200;
-    let allFeatures = [];
+    // 3. Deduplicación: si un ID aparece en ambos lados, gana la versión reciente (fresca)
+    const recentIds = new Set(recentResult.features.map(f => f.id));
+    const cleanOldFeatures = oldFeaturesCache.data.filter(f => !recentIds.has(f.id));
+    oldFeaturesCache.data = cleanOldFeatures; // limpieza persistente en memoria
 
-    for (let i = 0; i < allIds.length; i += batchSize) {
-      const batch = await c.post('/wit/workitemsbatch?api-version=7.0', {
-        ids: allIds.slice(i, i + batchSize),
-        fields: ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'System.IterationPath', 'Microsoft.VSTS.Common.Priority', 'Microsoft.VSTS.Scheduling.TargetDate', 'Custom.PlannedMonth', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing', 'Custom.ReleaseFixVersion', 'System.Tags', 'System.AssignedTo']
-      });
+    const allFeatures = [...recentResult.features, ...cleanOldFeatures];
 
-      allFeatures = [...allFeatures, ...batch.data.value];
-    }
-
+    // 4. rangeCounts y warnings combinados (igual que tu lógica original)
+    const rangeCounts = { ...oldFeaturesCache.rangeCounts, ...recentResult.rangeCounts };
     const warnings = [];
     for (const [range, count] of Object.entries(rangeCounts)) {
       if (typeof count === 'number' && count >= 200) {
@@ -301,28 +393,16 @@ app.get('/api/features', async (req, res) => {
     }
 
     res.json({
-      rangeCounts: rangeCounts,
-      warnings: warnings,
+      rangeCounts,
+      warnings,
       total: allFeatures.length,
-      features: allFeatures.map(i => ({
-        id: i.id,
-        title: i.fields['System.Title'] || '',
-        state: i.fields['System.State'] || '',
-        areaPath: i.fields['System.AreaPath'] || '',
-        iterationPath: i.fields['System.IterationPath'] || '',
-        priority: i.fields['Microsoft.VSTS.Common.Priority'] || '',
-        targetDate: i.fields['Microsoft.VSTS.Scheduling.TargetDate'] || '',
-        plannedMonth: i.fields['Custom.PlannedMonth'] || '',
-        releaseFixVersion: i.fields['Custom.ReleaseFixVersion'] || '',
-        tags: i.fields['System.Tags'] || '',
-        assignedTo: i.fields['System.AssignedTo']?.displayName || '',
-        estimation: {
-          be: i.fields['Custom.BEEstimate'] || '',
-          fe: i.fields['Custom.FEEstimates'] || '',
-          qa: i.fields['Custom.QASizing'] || ''
-        }
-      }))
+      cacheInfo: {
+        lastRefresh: new Date(oldFeaturesCache.timestamp).toISOString(),
+        ageMinutes: Math.round((now - oldFeaturesCache.timestamp) / 60000)
+      },
+      features: allFeatures
     });
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -712,19 +792,27 @@ app.get('/dashboard', (req, res) => {
         setExpandedRoadmapFeatureId(null);
       }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle]);
 
-      useEffect(() => {
-        fetch('/api/features')
-          .then(r => r.json())
-          .then(d => {
-            setFeatures(d.features || []);
-            setWarnings(d.warnings || []);
-            setLoading(false);
+      const [refreshing, setRefreshing] = useState(false);
+      const [cacheInfo, setCacheInfo] = useState(null);
       
-            // Preseleccionar estados (todos menos "Closed")
-            const allStates = [...new Set((d.features || []).map(f => f.state).filter(a => a))].sort();
-            const statesWithoutClosed = allStates.filter(s => s !== 'Closed');
-          setFilterState(statesWithoutClosed);
-          });
+      async function cargarFeatures(forceRefresh = false) {
+        setRefreshing(forceRefresh);
+        try {
+          const url = forceRefresh ? '/api/features?refresh=1' : '/api/features';
+          const res = await fetch(url);
+          const json = await res.json();
+          setFeatures(json.features);
+          setCacheInfo(json.cacheInfo);
+          // Si ya manejas rangeCounts/warnings en el estado, agrégalos igual aquí
+        } catch (err) {
+          console.error('Error cargando features:', err);
+        } finally {
+          setRefreshing(false);
+        }
+      }
+      
+      useEffect(() => {
+        cargarFeatures(false);
       }, []);
 
       useEffect(() => {
@@ -956,7 +1044,14 @@ app.get('/dashboard', (req, res) => {
               </div>
           
             </div>
-          
+            <button onClick={() => cargarFeatures(true)} disabled={refreshing}>
+              {refreshing ? '⏳ Actualizando...' : '🔄 Actualizar resultados'}
+            </button>
+            {cacheInfo && (
+              <span style={{ fontSize: '11px', color: '#888', marginLeft: '8px' }}>
+                Caché actualizado hace {cacheInfo.ageMinutes} min
+              </span>
+            )}
             <button style={{ padding: '8px 16px', background: '#dc3545', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); setFilterReleaseVersion([]); setFilterAssignedTo([]); }}>
               Clear filters
             </button>
