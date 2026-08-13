@@ -489,26 +489,6 @@ app.get('/dashboard', (req, res) => {
       'Closed': '#a78bfa'
     };
 
-    const FILTER_STORAGE_KEY = 'featureTracker_defaultFilters';
-
-    function saveDefaultFilters() {
-      const filtersToSave = {
-        filterAreaPath,
-        filterIteration,
-        filterState,
-        filterTargetDate,
-        filterReleaseVersion,
-        filterAssignedTo
-      };
-      localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filtersToSave));
-      alert('Default filter saved. It will load automatically next time you open this page.');
-    }
-    
-    function clearDefaultFilters() {
-      localStorage.removeItem(FILTER_STORAGE_KEY);
-      alert('Default filter removed.');
-    }
-
     function StoryRow({ storyId, title, storyPoints, state, iterationPath, formatDate, timelineStart, timelineEnd, adoLink, states, loading }) {
     
       const today = new Date();
@@ -805,6 +785,8 @@ app.get('/dashboard', (req, res) => {
       const [loadingStoryHistory, setLoadingStoryHistory] = useState(false);
       const [featuresPage, setFeaturesPage] = useState(1);
       const [filterAssignedTo, setFilterAssignedTo] = useState([]);
+      const [saveAsDefault, setSaveAsDefault] = useState(false);
+      const [filtersLoaded, setFiltersLoaded] = useState(false);
 
       useEffect(() => {
         setRoadmapPage(1);
@@ -844,24 +826,6 @@ app.get('/dashboard', (req, res) => {
         setExpandedRoadmapFeatureId(null);
       }, [roadmapPage]);
 
-      useEffect(() => {
-        const saved = localStorage.getItem(FILTER_STORAGE_KEY);
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            setFilterAreaPath(parsed.filterAreaPath || []);
-            setFilterIteration(parsed.filterIteration || []);
-            setFilterState(parsed.filterState || []);
-            setFilterTargetDate(parsed.filterTargetDate || []);
-            setFilterReleaseVersion(parsed.filterReleaseVersion || []);
-            setFilterAssignedTo(parsed.filterAssignedTo || []);
-            setStateFilterInitialized(true); // evita que el default de "sin Closed" lo sobreescriba
-          } catch (e) {
-            console.error('Error loading saved filters:', e);
-          }
-        }
-      }, []);
-
       const areaPaths = [...new Set(features.map(f => f.areaPath).filter(a => a))].sort();
       const iterations = [...new Set(features.map(f => f.iterationPath).filter(a => a))].sort();
       const states = [...new Set(features.map(f => f.state).filter(a => a))].sort();
@@ -880,6 +844,44 @@ app.get('/dashboard', (req, res) => {
         }
       });
 
+      const FILTER_STORAGE_KEY = 'featureTracker_defaultFilters';
+      
+        function saveDefaultFilters() {
+          const filtersToSave = {
+            filterAreaPath,
+            filterIteration,
+            filterState,
+            filterTargetDate,
+            filterReleaseVersion,
+            filterAssignedTo
+          };
+          localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filtersToSave));
+          alert('Default filter saved. It will load automatically next time you open this page.');
+        }
+        
+        function clearDefaultFilters() {
+          localStorage.removeItem(FILTER_STORAGE_KEY);
+          alert('Default filter removed.');
+        }
+
+      useEffect(() => {
+        const saved = localStorage.getItem(FILTER_STORAGE_KEY);
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            setFilterAreaPath(parsed.filterAreaPath || []);
+            setFilterIteration(parsed.filterIteration || []);
+            setFilterState(parsed.filterState || []);
+            setFilterTargetDate(parsed.filterTargetDate || []);
+            setFilterReleaseVersion(parsed.filterReleaseVersion || []);
+            setFilterAssignedTo(parsed.filterAssignedTo || []);
+            setStateFilterInitialized(true); // evita que el default de "sin Closed" lo sobreescriba
+          } catch (e) {
+            console.error('Error loading saved filters:', e);
+          }
+        }
+      }, []);
+      
       const filtered = features.filter(f => {
         const areaOk = filterAreaPath.length === 0 || filterAreaPath.includes(f.areaPath);
         const iterOk = filterIteration.length === 0 || filterIteration.includes(f.iterationPath);
