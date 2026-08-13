@@ -467,6 +467,16 @@ app.get('/dashboard', (req, res) => {
         const days = (date - timelineStart) / (1000 * 60 * 60 * 24);
         return (days / timelineTotalDays) * 100;
       };
+
+      console.log('DEBUG SPRINT', {
+        storyId,
+        sprintStart,
+        sprintEnd,
+        timelineStart,
+        timelineEnd,
+        startPercent: sprintStart ? getSprintPercent(sprintStart) : null,
+        endPercent: sprintEnd ? getSprintPercent(sprintEnd) : null
+      });
     
       return (
         <tr style={{ borderBottom: '1px solid #eee' }}>
