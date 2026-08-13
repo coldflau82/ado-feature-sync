@@ -115,26 +115,6 @@ async function fetchOldFeatures(c) {
   return { features: raw.map(mapFeature), rangeCounts };
 }
 
-const FILTER_STORAGE_KEY = 'featureTracker_defaultFilters';
-
-function saveDefaultFilters() {
-  const filtersToSave = {
-    filterAreaPath,
-    filterIteration,
-    filterState,
-    filterTargetDate,
-    filterReleaseVersion,
-    filterAssignedTo
-  };
-  localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filtersToSave));
-  alert('Default filter saved. It will load automatically next time you open this page.');
-}
-
-function clearDefaultFilters() {
-  localStorage.removeItem(FILTER_STORAGE_KEY);
-  alert('Default filter removed.');
-}
-
 const app = express();
 app.use(express.json());
 
@@ -493,7 +473,7 @@ app.get('/dashboard', (req, res) => {
       'CE-2026-NOV-SEMIMONTHLY': '2026-11-23',
       'CE-2026-DEC': '2026-12-14'
     };
-      
+   
       const storyStateColors = {
       'New': '#94a3b8',
       'Business Refinement': '#facc15',
@@ -508,6 +488,26 @@ app.get('/dashboard', (req, res) => {
       'Ready for Deployment': '#84cc16',
       'Closed': '#a78bfa'
     };
+
+    const FILTER_STORAGE_KEY = 'featureTracker_defaultFilters';
+
+    function saveDefaultFilters() {
+      const filtersToSave = {
+        filterAreaPath,
+        filterIteration,
+        filterState,
+        filterTargetDate,
+        filterReleaseVersion,
+        filterAssignedTo
+      };
+      localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filtersToSave));
+      alert('Default filter saved. It will load automatically next time you open this page.');
+    }
+    
+    function clearDefaultFilters() {
+      localStorage.removeItem(FILTER_STORAGE_KEY);
+      alert('Default filter removed.');
+    }
 
     function StoryRow({ storyId, title, storyPoints, state, iterationPath, formatDate, timelineStart, timelineEnd, adoLink, states, loading }) {
     
