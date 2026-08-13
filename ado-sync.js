@@ -475,22 +475,32 @@ app.get('/dashboard', (req, res) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '0 1 auto', minWidth: '0' }}>{title}</span>
               <span style={{ color: '#999', flexShrink: 0, fontSize: '11px' }}>({storyPoints} pts)</span>
-              {state && (
-                <span style={{ flexShrink: 0, fontSize: '10px', padding: '2px 6px', borderRadius: '3px', background: storyStateColors[state] || '#cccccc', color: 'white', whiteSpace: 'nowrap' }}>
-                  {state}
-                </span>
-              )}
             </div>
           </td>
           <td style={{ padding: '8px' }}>
             <div style={{ minHeight: '32px', background: '#f9f9f9', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
-              {!loading && (() => {
-                const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
-                if (todayPercent < 0 || todayPercent > 100) return null;
-                return (
-                  <div style={{ position: 'absolute', top: '0', bottom: '0', left: todayPercent + '%', width: '1px', background: '#333333', opacity: 0.7, zIndex: 10 }} />
-                );
-              })()}
+            {!loading && state && (() => {
+              const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
+              const clampedTodayPercent = Math.max(0, Math.min(100, todayPercent));
+              return (
+                <div style={{ 
+                    position: 'absolute', 
+                    top: '50%', 
+                    left: clampedTodayPercent + '%', 
+                    transform: 'translateY(-50%)', 
+                    zIndex: 15,
+                    paddingLeft: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    pointerEvents: 'none'
+                  }}
+                >
+                  <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '3px', background: storyStateColors[state] || '#cccccc', color: 'white', whiteSpace: 'nowrap' }}>
+                    {state}
+                  </span>
+                </div>
+              );
+            })()}
               {!loading && sprintStart && sprintEnd && (() => {
                 const startPercent = getSprintPercent(sprintStart);
                 const endPercent = getSprintPercent(sprintEnd);
@@ -541,7 +551,7 @@ app.get('/dashboard', (req, res) => {
       );
     }
       
-      function FeatureRow({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineOffset, adoLink, onSelectFeature, states, loading }) {
+      function FeatureRow({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineOffset, adoLink, isExpanded, onToggleExpand, states, loading }) {
               
         const stateColors = {
           'New': '#94a3b8',
@@ -587,8 +597,11 @@ app.get('/dashboard', (req, res) => {
       
         return (
           <tr style={{ borderBottom: '1px solid #eee' }}>
+            <td className="expand-btn" onClick={onToggleExpand}>
+              {isExpanded ? '▼' : '►'}
+            </td>
             <td><a href={adoLink(featureId)} target="_blank">{featureId}</a></td>
-            <td title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px', cursor: 'pointer', color: '#007bff' }} onClick={onSelectFeature}>{title}</td>
+            <td title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{title}</td>
             <td style={{ padding: '8px' }}>
               <div style={{ minHeight: '32px', background: '#f9f9f9', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
                 {/* Línea de "hoy" */}
@@ -676,12 +689,12 @@ app.get('/dashboard', (req, res) => {
       const [timelineOffset, setTimelineOffset] = useState(-8);
       const [weekOffset, setWeekOffset] = useState(-8);
       const [expandedRoadmapFeatureId, setExpandedRoadmapFeatureId] = useState(null);
-      const [storyHistoryCache, setStoryHistoryCache] = useState({});
-      const [loadingStoryHistory, setLoadingStoryHistory] = useState(false);
       const [historyCache, setHistoryCache] = useState({});
       const [loadingHistory, setLoadingHistory] = useState(false);
       const [storiesCache, setStoriesCache] = useState({});
       const [loadingStoriesIds, setLoadingStoriesIds] = useState({});
+      const [storyHistoryCache, setStoryHistoryCache] = useState({});
+      const [loadingStoryHistory, setLoadingStoryHistory] = useState(false);
       const [featuresPage, setFeaturesPage] = useState(1);
       const [filterAssignedTo, setFilterAssignedTo] = useState([]);
 
@@ -812,7 +825,7 @@ app.get('/dashboard', (req, res) => {
             });
         }
       };
-
+      
       const toggleRoadmapFeature = (featureId) => {
         if (expandedRoadmapFeatureId === featureId) {
           setExpandedRoadmapFeatureId(null);
@@ -878,6 +891,28 @@ app.get('/dashboard', (req, res) => {
             setLoadingHistory(false);
           });
       }, [pageItemIds, currentPage]);
+
+      useEffect(() => {
+        if (!expandedRoadmapFeatureId) return;
+        const stories = storiesCache[expandedRoadmapFeatureId] || [];
+        if (stories.length === 0) return;
+        const ids = stories.map(s => s.id);
+        setLoadingStoryHistory(true);
+        fetch('/api/stories-history-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: ids })
+        })
+          .then(r => r.json())
+          .then(d => {
+            setStoryHistoryCache(d.results || {});
+            setLoadingStoryHistory(false);
+          })
+          .catch(() => {
+            setStoryHistoryCache({});
+            setLoadingStoryHistory(false);
+          });
+      }, [expandedRoadmapFeatureId, storiesCache[expandedRoadmapFeatureId]]);
 
       useEffect(() => {
         if (!expandedRoadmapFeatureId || expandedRoadmapStories.length === 0) {
@@ -1136,50 +1171,35 @@ app.get('/dashboard', (req, res) => {
                 <>
                   <div style={{ background: 'white', padding: '10px 15px', borderRadius: '8px', marginBottom: '10px', display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                     <span style={{ color: '#666', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                      Showing {pageItems.length} of {activeList.length} {selectedFeature ? 'Stories' : 'Features'} - Page {roadmapPage} of {totalPages}
+                      Showing {pageItems.length} of {activeList.length} Features - Page {roadmapPage} of {totalPages}
                     </span>
                     <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Status:</span>
-                      {(selectedFeature ? [
-                        { label: 'New', color: '#94a3b8' },
-                        { label: 'Business Refinement', color: '#facc15' },
-                        { label: 'Technical Refinement', color: '#fb923c' },
-                        { label: 'Ready for Development', color: '#f97316' },
-                        { label: 'In Process', color: '#60a5fa' },
-                        { label: 'QA Testing', color: '#38bdf8' },
-                        { label: 'Business Sprint Testing', color: '#22d3ee' },
-                        { label: 'Sprint Complete', color: '#2dd4bf' },
-                        { label: 'User Acceptance Testing', color: '#34d399' },
-                        { label: 'Approved for Release', color: '#4ade80' },
-                        { label: 'Ready for Deployment', color: '#84cc16' },
-                        { label: 'Closed', color: '#a78bfa' }
-                      ] : [
+                      {[
                         { label: 'New', color: '#94a3b8' },
                         { label: 'In Shaping', color: '#fbbf24' },
                         { label: 'In Planning', color: '#fb923c' },
                         { label: 'Planned', color: '#34d399' },
                         { label: 'In Process', color: '#60a5fa' },
                         { label: 'Closed', color: '#a78bfa' }
-                      ]).map((item, idx) => (
+                      ].map((item, idx) => (
                         <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                           <div style={{ width: '12px', height: '12px', background: item.color, borderRadius: '2px' }}></div>
                           <span style={{ fontSize: '11px' }}>{item.label}</span>
                         </div>
                       ))}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '10px' }}>
-                      <div style={{ width: '2px', height: '12px', background: '#333333' }}></div>
-                      <span style={{ fontSize: '11px' }}>Today</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '8px solid #f43f5e' }}></div>
-                      <span style={{ fontSize: '11px' }}>Target Date</span>
-                    </div>
-                    {!selectedFeature && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '10px' }}>
+                        <div style={{ width: '2px', height: '12px', background: '#333333' }}></div>
+                        <span style={{ fontSize: '11px' }}>Today</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '8px solid #f43f5e' }}></div>
+                        <span style={{ fontSize: '11px' }}>Target Date</span>
+                      </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                         <div style={{ width: '8px', height: '8px', background: '#1e3a8a', transform: 'rotate(45deg)' }}></div>
                         <span style={{ fontSize: '11px' }}>Release Fix Version</span>
                       </div>
-                    )}                              
                     </div>
                   </div>
 
@@ -1252,39 +1272,10 @@ app.get('/dashboard', (req, res) => {
 
                   {selectedFeature ? (
                     <div className="table-wrapper" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                      <div style={{ padding: '15px', background: '#f0f0f0', display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '2px solid #ddd' }}>
-                        <button
-                          style={{ padding: '6px 12px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px' }}
-                          onClick={() => { setSelectedFeature(null); setRoadmapPage(1); }}
-                        >
-                          ← Back to Features
-                        </button>
-                        <span style={{ fontSize: '14px', color: '#000', textDecoration: 'underline' }}>Feature stories detail ID: {selectedFeature.id} - {selectedFeature.title}</span>
-                      </div>
                       <table>
                         <thead>
                           <tr>
-                            <th style={{ width: '80px' }}>ID</th>
-                            <th style={{ width: '300px' }}>Story</th>
-                            <th>Timeline</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {loadingStoriesIds[selectedFeature.id] ? (
-                            <tr><td colSpan="3" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td></tr>
-                          ) : (
-                            pageItems.map(s => (
-                              <StoryRow key={s.id} storyId={s.id} title={s.title} storyPoints={s.storyPoints} state={s.state} iterationPath={s.iterationPath} formatDate={formatDate} weekOffset={weekOffset} adoLink={adoLink} states={historyCache[s.id] || []} loading={loadingHistory} />
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="table-wrapper" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                      <table>
-                        <thead>
-                          <tr>
+                            <th style={{ width: '30px' }}></th>
                             <th style={{ width: '80px' }}>ID</th>
                             <th style={{ width: '300px' }}>Feature</th>
                             <th>Timeline</th>
@@ -1292,19 +1283,44 @@ app.get('/dashboard', (req, res) => {
                         </thead>
                         <tbody>
                           {pageItems.map(f => (
-                            <FeatureRow 
-                              key={f.id} 
-                              featureId={f.id} 
-                              title={f.title} 
-                              targetDate={f.targetDate} 
-                              releaseFixVersion={f.releaseFixVersion} 
-                              formatDate={formatDate} 
-                              timelineOffset={timelineOffset} 
-                              adoLink={adoLink} 
-                              onSelectFeature={() => { setSelectedFeature(f); setRoadmapPage(1); }} 
-                              states={historyCache[f.id] || []} 
-                              loading={loadingHistory} 
-                            />
+                            <React.Fragment key={f.id}>
+                              <FeatureRow 
+                                featureId={f.id} 
+                                title={f.title} 
+                                targetDate={f.targetDate} 
+                                releaseFixVersion={f.releaseFixVersion} 
+                                formatDate={formatDate} 
+                                timelineOffset={timelineOffset} 
+                                adoLink={adoLink} 
+                                isExpanded={expandedRoadmapFeatureId === f.id}
+                                onToggleExpand={() => toggleRoadmapFeature(f.id)}
+                                states={historyCache[f.id] || []} 
+                                loading={loadingHistory} 
+                              />
+                              {expandedRoadmapFeatureId === f.id && (
+                                loadingStoriesIds[f.id] ? (
+                                  <tr>
+                                    <td colSpan="4" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td>
+                                  </tr>
+                                ) : (
+                                  (storiesCache[f.id] || []).map(s => (
+                                    <StoryRow 
+                                      key={s.id} 
+                                      storyId={s.id} 
+                                      title={s.title} 
+                                      storyPoints={s.storyPoints} 
+                                      state={s.state} 
+                                      iterationPath={s.iterationPath} 
+                                      formatDate={formatDate} 
+                                      weekOffset={weekOffset} 
+                                      adoLink={adoLink} 
+                                      states={storyHistoryCache[s.id] || []} 
+                                      loading={loadingStoryHistory} 
+                                    />
+                                  ))
+                                )
+                              )}
+                            </React.Fragment>
                           ))}
                         </tbody>
                       </table>
