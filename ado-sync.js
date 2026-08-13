@@ -470,6 +470,8 @@ app.get('/dashboard', (req, res) => {
 
       console.log('DEBUG SPRINT', {
         storyId,
+        iterationPath,        // 👈 agrega esta línea
+        sprintMatch,           // 👈 y esta también
         sprintStart,
         sprintEnd,
         timelineStart,
