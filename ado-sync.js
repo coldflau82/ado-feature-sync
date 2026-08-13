@@ -1190,7 +1190,7 @@ app.get('/dashboard', (req, res) => {
                 </select>
                 {filterReleaseVersion.length > 0 && <p className="filter-count">{filterReleaseVersion.length} selected</p>}
               </div>
-              <p style={{ padding: '15px', color: '#666', fontSize: '13px' }}>Showing {featuresPageItems.length} of {sortedFiltered.length} (Page {featuresPage} of {featuresTotalPages})</p>
+              <p style={{ padding: '15px', color: '#666', fontSize: '11px' }}>Showing {featuresPageItems.length} of {sortedFiltered.length} (Page {featuresPage} of {featuresTotalPages})</p>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', cursor: 'pointer', alignSelf: 'end', paddingBottom: '8px' }}>
                 <input type="checkbox" checked={saveAsDefault} onChange={handleSaveAsDefaultChange} />
                 Save as default filter
@@ -1321,10 +1321,7 @@ app.get('/dashboard', (req, res) => {
               {(() => {
             return (
                 <>
-                  <div style={{ background: 'white', padding: '10px 15px', borderRadius: '8px', marginBottom: '10px', display: 'flex', gap: '15px', alignItems: 'left', flexWrap: 'wrap', justifyContent: 'space-between', flexDirection: 'column' }}>
-                    <span style={{ color: '#666', fontSize: '10px', whiteSpace: 'nowrap' }}>
-                      Showing {pageItems.length} of {activeList.length} Features - Page {roadmapPage} of {totalPages}
-                    </span>
+                  <div style={{ background: 'white', padding: '10px 15px', borderRadius: '8px', marginBottom: '10px', display: 'flex', gap: '15px', alignItems: 'left', flexWrap: 'wrap', justifyContent: 'space-between', flexDirection: 'column' }}
                     <div style={{ display: 'flex', gap: '15px', alignItems: 'left', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '11px', fontWeight: 'bold' }}>Feature Status:</span>
                       {[
