@@ -1321,7 +1321,7 @@ app.get('/dashboard', (req, res) => {
               {(() => {
             return (
                 <>
-                  <div style={{ background: 'white', padding: '10px 15px', borderRadius: '8px', marginBottom: '10px', display: 'flex', gap: '15px', alignItems: 'left', flexWrap: 'wrap', justifyContent: 'space-between', flexDirection: 'column' }}
+                  <div style={{ background: 'white', padding: '10px 15px', borderRadius: '8px', marginBottom: '10px', display: 'flex', gap: '15px', alignItems: 'left', flexWrap: 'wrap', justifyContent: 'space-between', flexDirection: 'column' }}>
                     <div style={{ display: 'flex', gap: '15px', alignItems: 'left', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '11px', fontWeight: 'bold' }}>Feature Status:</span>
                       {[
