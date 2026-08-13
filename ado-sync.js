@@ -128,10 +128,16 @@ app.get('/api/story-history/:id', async (req, res) => {
       }
     });
 
+    // 👇 Tomamos el IterationPath de la última revisión (el estado actual)
+    const revisions = revisionsResponse.data.value;
+    const lastRevision = revisions[revisions.length - 1];
+    const iterationPath = lastRevision?.fields['System.IterationPath'] || null;
+
     res.json({
       id: storyId,
+      iterationPath: iterationPath,   // 👈 nuevo campo agregado
       stateChanges: stateChanges,
-      totalRevisions: revisionsResponse.data.value.length
+      totalRevisions: revisions.length
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
