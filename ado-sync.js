@@ -215,7 +215,7 @@ app.get('/api/feature-stories/:id', async (req, res) => {
 
     const batch = await c.post('/wit/workitemsbatch?api-version=7.0', {
       ids: storyIds,
-      fields: ['System.Id', 'System.Title', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State', 'System.WorkItemType', 'System.IterationPath']
+      fields: ['System.Id', 'System.Title', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State', 'System.WorkItemType', 'System.IterationPath',]
     });
 
     const stories = batch.data.value
@@ -281,7 +281,7 @@ app.get('/api/features', async (req, res) => {
     for (let i = 0; i < allIds.length; i += batchSize) {
       const batch = await c.post('/wit/workitemsbatch?api-version=7.0', {
         ids: allIds.slice(i, i + batchSize),
-        fields: ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'System.IterationPath', 'Microsoft.VSTS.Common.Priority', 'Microsoft.VSTS.Scheduling.TargetDate', 'Custom.PlannedMonth', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing', 'Custom.ReleaseFixVersion', 'System.Tags']
+        fields: ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'System.IterationPath', 'Microsoft.VSTS.Common.Priority', 'Microsoft.VSTS.Scheduling.TargetDate', 'Custom.PlannedMonth', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing', 'Custom.ReleaseFixVersion', 'System.Tags', 'System.AssignedTo']
       });
 
       allFeatures = [...allFeatures, ...batch.data.value];
@@ -309,6 +309,7 @@ app.get('/api/features', async (req, res) => {
         plannedMonth: i.fields['Custom.PlannedMonth'] || '',
         releaseFixVersion: i.fields['Custom.ReleaseFixVersion'] || '',
         tags: i.fields['System.Tags'] || '',
+        assignedTo: i.fields['System.AssignedTo']?.displayName || '',
         estimation: {
           be: i.fields['Custom.BEEstimate'] || '',
           fe: i.fields['Custom.FEEstimates'] || '',
@@ -680,11 +681,12 @@ app.get('/dashboard', (req, res) => {
       const [storiesCache, setStoriesCache] = useState({});
       const [loadingStoriesIds, setLoadingStoriesIds] = useState({});
       const [featuresPage, setFeaturesPage] = useState(1);
+      const [filterAssignedTo, setFilterAssignedTo] = useState([]);
 
       useEffect(() => {
         setRoadmapPage(1);
         setFeaturesPage(1);
-      }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, searchTitle]);
+      }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle]);
       
       useEffect(() => {
         if (selectedFeature && !storiesCache[selectedFeature.id]) {
@@ -722,6 +724,7 @@ app.get('/dashboard', (req, res) => {
       const states = [...new Set(features.map(f => f.state).filter(a => a))].sort();
       const targetYears = [...new Set(features.map(f => f.targetDate ? new Date(f.targetDate).getFullYear() : null).filter(y => y))].sort((a, b) => b - a);
       const releaseVersions = [...new Set(features.map(f => f.releaseFixVersion).filter(v => v))].sort();
+      const assignedTos = [...new Set(features.map(f => f.assignedTo).filter(a => a))].sort();
 
       const monthsByYear = {};
       features.forEach(f => {
@@ -738,6 +741,7 @@ app.get('/dashboard', (req, res) => {
         const areaOk = filterAreaPath.length === 0 || filterAreaPath.includes(f.areaPath);
         const iterOk = filterIteration.length === 0 || filterIteration.includes(f.iterationPath);
         const stateOk = filterState.length === 0 || filterState.includes(f.state);
+        const assignedOk = filterAssignedTo.length === 0 || filterAssignedTo.includes(f.assignedTo);
           let dateOk = filterTargetDate.length === 0;
           if (filterTargetDate.length > 0 && f.targetDate) {
             const d = new Date(f.targetDate);
@@ -747,7 +751,7 @@ app.get('/dashboard', (req, res) => {
           }        
           const searchOk = searchTitle === '' || f.title.toLowerCase().includes(searchTitle.toLowerCase()) || f.tags.toLowerCase().includes(searchTitle.toLowerCase());
           const releaseOk = filterReleaseVersion.length === 0 || filterReleaseVersion.includes(f.releaseFixVersion);
-          return areaOk && iterOk && stateOk && dateOk && searchOk && releaseOk;
+          return areaOk && iterOk && stateOk && dateOk && searchOk && releaseOk && assignedOk;
         });
 
         // Ordenar features
@@ -894,12 +898,12 @@ app.get('/dashboard', (req, res) => {
           
             </div>
           
-            <button style={{ padding: '8px 16px', background: '#dc3545', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); setFilterReleaseVersion([]); }}>
+            <button style={{ padding: '8px 16px', background: '#dc3545', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); setFilterReleaseVersion([]); setFilterAssignedTo([]); }}>
               Clear filters
             </button>
           </div>
 
-              <div className="filters" style={{ display: 'grid', gridTemplateColumns: '0.7fr 1.8fr 0.7fr 0.7fr 1fr', gap: '15px', background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+              <div className="filters" style={{ display: 'grid', gridTemplateColumns: '0.7fr 1.8fr 1tr 0.7fr 0.7fr 1fr', gap: '15px', background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
                 
                 <div>
                   <label className="filter-label">Area Path</label>
@@ -919,6 +923,16 @@ app.get('/dashboard', (req, res) => {
                     ))}
                   </select>
                   {filterIteration.length > 0 && <p className="filter-count">{filterIteration.length} selected</p>}
+                </div>
+
+                <div>
+                  <label className="filter-label">Assigned To</label>
+                  <select multiple className="filter-select" value={filterAssignedTo} onChange={(e) => setFilterAssignedTo([...e.target.selectedOptions].map(o => o.value))}>
+                    {assignedTos.map(person => (
+                      <option key={person} value={person}>{person}</option>
+                    ))}
+                  </select>
+                  {filterAssignedTo.length > 0 && <p className="filter-count">{filterAssignedTo.length} selected</p>}
                 </div>
 
                 <div> 
