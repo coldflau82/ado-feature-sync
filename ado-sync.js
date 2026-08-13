@@ -1144,7 +1144,7 @@ app.get('/dashboard', (req, res) => {
                   </select>
                   {filterIteration.length > 0 && <p className="filter-count">{filterIteration.length} selected</p>}
                 </div>
-
+             
                 <div>
                   <label className="filter-label">Assigned To</label>
                   <select multiple className="filter-select" value={filterAssignedTo} onChange={(e) => setFilterAssignedTo([...e.target.selectedOptions].map(o => o.value))}>
@@ -1190,6 +1190,7 @@ app.get('/dashboard', (req, res) => {
                 </select>
           {filterReleaseVersion.length > 0 && <p className="filter-count">{filterReleaseVersion.length} selected</p>}
               </div>
+            </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '4px 2px' }}>
                 <span style={{ color: '#666', fontSize: '10px', whiteSpace: 'nowrap' }}>
@@ -1199,7 +1200,6 @@ app.get('/dashboard', (req, res) => {
                   <input type="checkbox" checked={saveAsDefault} onChange={handleSaveAsDefaultChange} style={{ width: '12px', height: '12px', margin: 0 }} />
                   Save as default filter
                 </label>
-              </div>
             </div>
               
           {currentPage === 'features' && (
