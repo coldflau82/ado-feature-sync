@@ -1248,9 +1248,10 @@ app.get('/dashboard', (req, res) => {
                       </table>
                     </div>
                   )}
-                  
-                  <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', position: 'sticky', bottom: '0', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)', zIndex: '100' }}>
-                    <button 
+
+                   {!loading && (
+                <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center' }}>
+                  <button 
                       style={{ padding: '8px 16px', background: roadmapPage === 1 ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: roadmapPage === 1 ? 'default' : 'pointer', borderRadius: '4px' }}
                       onClick={() => setRoadmapPage(roadmapPage - 1)}
                       disabled={roadmapPage === 1}
@@ -1266,6 +1267,7 @@ app.get('/dashboard', (req, res) => {
                       Next
                     </button>
                   </div>
+                )}
                 </>
               );
             })()}
