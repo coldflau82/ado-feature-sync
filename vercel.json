@@ -4,6 +4,13 @@
     {
       "src": "ado-sync.js",
       "use": "@vercel/node"
+      "config": {
+        "includeFiles": [
+          "favicon.png",
+          "dashboard.html",
+          "filters-cards/**"
+        ]
+      }
     }
   ],
   "routes": [
