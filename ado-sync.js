@@ -1352,7 +1352,7 @@ app.get('/dashboard', (req, res) => {
                     style={{ 
                       display: 'flex', 
                       alignItems: 'center', 
-                      gap: '15px', 
+                      justifyContent: 'space-between',
                       cursor: 'pointer',
                       userSelect: 'none'
                     }}
