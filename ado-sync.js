@@ -1079,7 +1079,7 @@ app.get('/dashboard', (req, res) => {
 
         return (
           <div className="container">
-           <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+           <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <div>
               <h1 style={{ margin: 0 }}>ADO Dashboard</h1>
             </div>
@@ -1096,7 +1096,7 @@ app.get('/dashboard', (req, res) => {
             </div>
           )}
 
-          <div style={{ background: 'white', padding: '15px', borderRadius: '8px', marginBottom: '20px', display: 'flex', gap: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ background: 'white', padding: '15px', borderRadius: '8px', marginBottom: '12px', display: 'flex', gap: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flex: 1 }}>
               <div style={{ flex: '0 0 auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <label style={{ fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap' }}>Search Feature Title</label>
@@ -1123,7 +1123,7 @@ app.get('/dashboard', (req, res) => {
             </button>
           </div>
 
-          <div className="filters-card" style={{ background: 'white', padding: '15px 20px 10px 20px', borderRadius: '8px', marginBottom: '20px' }}>
+          <div className="filters-card" style={{ background: 'white', padding: '15px 20px 10px 20px', borderRadius: '8px', marginBottom: '12px' }}>
 
               <div style={{ display: 'grid', gridTemplateColumns: '0.7fr 1.7fr 0.8fr 0.5fr 0.8fr 0.6fr', gap: '15px', alignItems: 'start' }}>
                 
