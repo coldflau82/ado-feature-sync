@@ -1125,7 +1125,7 @@ app.get('/dashboard', (req, res) => {
 
           <div className="filters-card" style={{ background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
 
-              <div className="filters" style={{ display: 'grid', gridTemplateColumns: '0.7fr 1.7fr 0.8fr 0.5fr 0.8fr 0.6fr', gap: '15px', alignItems: 'start', alignContent: 'start', height: 'auto' }}>
+              <div className="filters" style={{ display: 'grid', gridTemplateColumns: '0.7fr 1.7fr 0.8fr 0.5fr 0.8fr 0.6fr', gap: '15px', alignItems: 'start' }}>
                 
                 <div>
                   <label className="filter-label">Area Path</label>
@@ -1194,11 +1194,11 @@ app.get('/dashboard', (req, res) => {
               </div>
             </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '4px 2px', marginTop: '8px', boxSizing: 'border-box' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '2px', marginTop: '10px', boxSizing: 'border-box' }}>
                 <span style={{ color: '#666', fontSize: '10px', whiteSpace: 'nowrap' }}>
                   Showing {featuresPageItems.length} of {sortedFiltered.length} (Page {featuresPage} of {featuresTotalPages})
                 </span>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap'  }}>
                   <input type="checkbox" checked={saveAsDefault} onChange={handleSaveAsDefaultChange} style={{ width: '12px', height: '12px', margin: 0 }} />
                   Save as default filter
                 </label>
