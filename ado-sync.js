@@ -431,7 +431,7 @@ app.get('/dashboard', (req, res) => {
     .filters { display: grid; gap: 15px; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; overflow-x: auto; }
     .filter-div { }
     .filter-label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 13px; }
-    .filter-select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px; }
+    .filter-select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 60px; }
     .filter-count { font-size: 11px; color: #666; margin-top: 5px; }
     .clear-btn { width: 100%; padding: 10px 16px; background: #dc3545; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 13px; margin-bottom: 20px; }
     .table-wrapper { background: white; border-radius: 8px; overflow: hidden; }
