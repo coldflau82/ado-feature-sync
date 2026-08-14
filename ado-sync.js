@@ -1334,13 +1334,41 @@ app.get('/dashboard', (req, res) => {
             
                   {/* Header clickeable: título + flecha */}
                   <div 
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}
                     onClick={() => setLegendExpanded(!legendExpanded)}
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '15px', 
+                      cursor: 'pointer',
+                      userSelect: 'none'
+                    }}
                   >
-                    <span style={{ fontSize: '11px', transform: legendExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>
-                      ▶
-                    </span>
-                    <span style={{ fontSize: '12px', fontWeight: 'bold' }}>State Legends</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Legend</span>
+                      <span style={{ 
+                        fontSize: '10px', 
+                        transform: legendExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.2s'
+                      }}>
+                        ▼
+                      </span>
+                    </div>
+                  
+                    {/* Elementos siempre visibles */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                        <div style={{ width: '2px', height: '12px', background: '#333333', flexShrink: 0 }}></div>
+                        <span style={{ fontSize: '10px' }}>Today</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                        <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '8px solid #f43f5e', flexShrink: 0 }}></div>
+                        <span style={{ fontSize: '10px' }}>Target Date</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                        <div style={{ width: '8px', height: '8px', background: '#1e3a8a', transform: 'rotate(45deg)', flexShrink: 0 }}></div>
+                        <span style={{ fontSize: '10px' }}>Release Fix Version</span>
+                      </div>
+                    </div>
                   </div>
             
                   {/* Contenido colapsable */}
@@ -1361,18 +1389,6 @@ app.get('/dashboard', (req, res) => {
                             <span style={{ fontSize: '10px' }}>{item.label}</span>
                           </div>
                         ))}
-                        <div style={{ display: 'flex', alignItems: 'left', gap: '4px', marginLeft: '8px' }}>
-                          <div style={{ width: '2px', height: '12px', background: '#333333' }}></div>
-                          <span style={{ fontSize: '10px' }}>Today</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'left', gap: '4px' }}>
-                          <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '8px solid #f43f5e' }}></div>
-                          <span style={{ fontSize: '10px' }}>Target Date</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'left', gap: '4px' }}>
-                          <div style={{ width: '8px', height: '8px', background: '#1e3a8a', transform: 'rotate(45deg)' }}></div>
-                          <span style={{ fontSize: '10px' }}>Release Fix Version</span>
-                        </div>
                       </div>
             
                       {/* Stories States Legend */}
