@@ -1344,7 +1344,7 @@ app.get('/dashboard', (req, res) => {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Legend</span>
+                      <span style={{ fontSize: '13px', fontWeight: 'bold' }}>State Legends for Articles & Stories</span>
                       <span style={{ 
                         fontSize: '10px', 
                         transform: legendExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
@@ -1355,7 +1355,7 @@ app.get('/dashboard', (req, res) => {
                     </div>
                   
                     {/* Elementos siempre visibles */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
                         <div style={{ width: '2px', height: '12px', background: '#333333', flexShrink: 0 }}></div>
                         <span style={{ fontSize: '10px' }}>Today</span>
