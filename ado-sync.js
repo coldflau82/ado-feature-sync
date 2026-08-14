@@ -9,14 +9,14 @@ const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
 
-
-// Ruta explícita para el favicon
-app.get('/favicon.png', (req, res) => {
-  const faviconPath = path.join(__dirname, 'favicon.png');
-  const favicon = fs.readFileSync(faviconPath);
-  res.setHeader('Content-Type', 'image/png');
-  res.send(favicon);
+app.get('/dashboard.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dashboard.html'));
 });
+
+app.get('/favicon.png', (req, res) => {
+  res.sendFile(path.join(__dirname, 'favicon.png'));
+});
+
 
 // ===== CACHÉ PARA FEATURES "ANTIGUAS" (10-180 días) =====
 let oldFeaturesCache = {
