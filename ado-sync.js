@@ -787,7 +787,7 @@ app.get('/dashboard', (req, res) => {
       const [filterAssignedTo, setFilterAssignedTo] = useState([]);
       const [saveAsDefault, setSaveAsDefault] = useState(false);
       const [filtersLoaded, setFiltersLoaded] = useState(false);
-      const [legendExpanded, setLegendExpanded] = useState(true);
+      const [legendExpanded, setLegendExpanded] = useState(false);
 
       useEffect(() => {
         setRoadmapPage(1);
@@ -1340,13 +1340,13 @@ app.get('/dashboard', (req, res) => {
                     <span style={{ fontSize: '11px', transform: legendExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>
                       ▶
                     </span>
-                    <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Legend</span>
+                    <span style={{ fontSize: '12px', fontWeight: 'bold' }}>State Legends</span>
                   </div>
             
                   {/* Contenido colapsable */}
                   {legendExpanded && (
-                    <div style={{ display: 'flex', gap: '15px', alignItems: 'left', flexWrap: 'wrap', flexDirection: 'column', marginTop: '10px' }}>
-                      <div style={{ display: 'flex', gap: '15px', alignItems: 'left', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'left', flexWrap: 'wrap', flexDirection: 'column', marginTop: '10px' }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'left', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '11px', fontWeight: 'bold' }}>Feature States:</span>
                         {[
                           { label: 'New', color: '#94a3b8' },
@@ -1361,25 +1361,25 @@ app.get('/dashboard', (req, res) => {
                             <span style={{ fontSize: '10px' }}>{item.label}</span>
                           </div>
                         ))}
-                        <div style={{ display: 'flex', alignItems: 'left', gap: '5px', marginLeft: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'left', gap: '4px', marginLeft: '8px' }}>
                           <div style={{ width: '2px', height: '12px', background: '#333333' }}></div>
                           <span style={{ fontSize: '10px' }}>Today</span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'left', gap: '5px' }}>
+                        <div style={{ display: 'flex', alignItems: 'left', gap: '4px' }}>
                           <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '8px solid #f43f5e' }}></div>
                           <span style={{ fontSize: '10px' }}>Target Date</span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'left', gap: '5px' }}>
+                        <div style={{ display: 'flex', alignItems: 'left', gap: '4px' }}>
                           <div style={{ width: '8px', height: '8px', background: '#1e3a8a', transform: 'rotate(45deg)' }}></div>
                           <span style={{ fontSize: '10px' }}>Release Fix Version</span>
                         </div>
                       </div>
             
                       {/* Stories States Legend */}
-                      <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center', fontSize: '10px' }}>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', fontSize: '10px' }}>
                         <span style={{ fontSize: '11px', fontWeight: 'bold' }}>Stories States:</span>
                         {Object.entries(storyStateColors).map(([state, color]) => (
-                          <div key={state} style={{ display: 'flex', alignItems: 'left', gap: '5px' }}>
+                          <div key={state} style={{ display: 'flex', alignItems: 'left', gap: '4px' }}>
                             <div style={{ width: '12px', height: '12px', background: color, borderRadius: '2px' }}></div>
                             <span>{state}</span>
                           </div>
