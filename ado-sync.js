@@ -17,7 +17,6 @@ app.get('/favicon.png', (req, res) => {
   res.sendFile(path.join(__dirname, 'favicon.png'));
 });
 
-
 const { Redis } = require('@upstash/redis');
 
 const redis = new Redis({
