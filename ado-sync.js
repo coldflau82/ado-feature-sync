@@ -2,6 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 
+const app = express();
+app.use(express.json());
+app.use(express.static(__dirname));
+
 // ===== CACHÉ PARA FEATURES "ANTIGUAS" (10-180 días) =====
 let oldFeaturesCache = {
   data: null,
@@ -114,9 +118,6 @@ async function fetchOldFeatures(c) {
   const raw = allIds.length ? await fetchFeatureDetailsBatch(c, allIds) : [];
   return { features: raw.map(mapFeature), rangeCounts };
 }
-
-const app = express();
-app.use(express.json());
 
 app.get('/api/health', (req, res) => res.json({ ok: 1 }));
 
