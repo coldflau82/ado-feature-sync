@@ -20,6 +20,12 @@ app.get('/favicon.png', (req, res) => {
 
 const { Redis } = require('@upstash/redis');
 
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL,
+  token: process.env.KV_REST_API_TOKEN
+});
+
+
 // Cliente Redis (lee automáticamente las env vars si se llaman KV_REST_API_URL / KV_REST_API_TOKEN)
 const redis = Redis.fromEnv();
 // Si tus variables tienen otro nombre, usa:
