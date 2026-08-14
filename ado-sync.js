@@ -1125,7 +1125,7 @@ app.get('/dashboard', (req, res) => {
 
           <div className="filters-card" style={{ background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
 
-              <div className="filters" style={{ display: 'grid', gridTemplateColumns: '0.7fr 1.7fr 0.8fr 0.5fr 0.8fr 0.6fr', gap: '15px' }}>
+              <div className="filters" style={{ display: 'grid', gridTemplateColumns: '0.7fr 1.7fr 0.8fr 0.5fr 0.8fr 0.6fr', gap: '15px', alignItems: 'start', alignContent: 'start', height: 'auto' }}>
                 
                 <div>
                   <label className="filter-label">Area Path</label>
@@ -1194,7 +1194,7 @@ app.get('/dashboard', (req, res) => {
               </div>
             </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '4px 2px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '4px 2px', marginTop: '8px', boxSizing: 'border-box' }}>
                 <span style={{ color: '#666', fontSize: '10px', whiteSpace: 'nowrap' }}>
                   Showing {featuresPageItems.length} of {sortedFiltered.length} (Page {featuresPage} of {featuresTotalPages})
                 </span>
