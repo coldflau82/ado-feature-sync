@@ -564,7 +564,7 @@ app.get('/dashboard', (req, res) => {
 
   
      return (
-        <tr style={{ borderBottom: '1px solid #eee', background: '#d1d1d1' }}>
+        <tr style={{ borderBottom: '1px solid #eee', background: '#ebebeb' }}>
           <td></td> {/* ← celda vacía para alinear con la columna del expand-btn de FeatureRow */}
           <td><a href={adoLink(storyId)} target="_blank">{storyId}</a></td>
           <td style={{ maxWidth: '300px' }}>
@@ -574,7 +574,7 @@ app.get('/dashboard', (req, res) => {
             </div>
           </td>
           <td style={{ padding: '8px' }}>  
-            <div style={{ minHeight: '32px', background: '#f9f9f9', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
+            <div style={{ minHeight: '32px', background: '#e0e0e0', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
     
               {/* Línea de "hoy" — MISMO estilo que FeatureRow */}
               {!loading && (
@@ -698,14 +698,14 @@ app.get('/dashboard', (req, res) => {
       }
     
       return (
-        <tr style={{ borderBottom: '1px solid #eee', background: isExpanded ? '#d1d1d1' : 'transparent' }}>
+        <tr style={{ borderBottom: '1px solid #eee', background: isExpanded ? '#ebebeb' : 'transparent' }}>
           <td className="expand-btn" onClick={onToggleExpand}>
             {isExpanded ? '▼' : '►'}
           </td>
           <td><a href={adoLink(featureId)} target="_blank">{featureId}</a></td>
           <td title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{title}</td>
           <td style={{ padding: '8px' }}>
-            <div style={{ minHeight: '32px', background: '#f9f9f9', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
+            <div style={{ minHeight: '32px', background: isExpanded ? '#e0e0e0' : '#f9f9f9', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
     
               {/* Línea de "hoy" */}
               {!loading && (() => {
@@ -1538,7 +1538,7 @@ app.get('/dashboard', (req, res) => {
                                   />
                                   {isExpanded && (
                                     loadingStoriesIds[f.id] ? (
-                                      <tr style={{ background: '#d1d1d1' }}>
+                                      <tr style={{ background: '#ebebeb' }}>
                                         <td colSpan="4" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td>
                                       </tr>
                                     ) : (
