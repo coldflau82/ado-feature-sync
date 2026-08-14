@@ -563,8 +563,8 @@ app.get('/dashboard', (req, res) => {
       };
 
   
-      return (
-        <tr style={{ borderBottom: '1px solid #eee' }}>
+     return (
+        <tr style={{ borderBottom: '1px solid #eee', background: '#d1d1d1' }}>
           <td></td> {/* ← celda vacía para alinear con la columna del expand-btn de FeatureRow */}
           <td><a href={adoLink(storyId)} target="_blank">{storyId}</a></td>
           <td style={{ maxWidth: '300px' }}>
@@ -698,7 +698,7 @@ app.get('/dashboard', (req, res) => {
       }
     
       return (
-        <tr style={{ borderBottom: '1px solid #eee' }}>
+        <tr style={{ borderBottom: '1px solid #eee', background: isExpanded ? '#d1d1d1' : 'transparent' }}>
           <td className="expand-btn" onClick={onToggleExpand}>
             {isExpanded ? '▼' : '►'}
           </td>
@@ -1538,7 +1538,7 @@ app.get('/dashboard', (req, res) => {
                                   />
                                   {isExpanded && (
                                     loadingStoriesIds[f.id] ? (
-                                      <tr>
+                                      <tr style={{ background: '#d1d1d1' }}>
                                         <td colSpan="4" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td>
                                       </tr>
                                     ) : (
