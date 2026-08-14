@@ -1438,7 +1438,7 @@ app.get('/dashboard', (req, res) => {
                         <div style={{ display: 'flex', gap: '20px', padding: '12px', marginBottom: '10px', alignItems: 'center' }}>
                           <div style={{ flex: '0 0 300px', display: 'flex', justifyContent: 'flex-end' }}>
                             <button 
-                              style={{ padding: '4px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }}
+                              style={{ padding: '4px 10px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }}
                               onClick={() => setWeekOffset(weekOffset - 1)}
                             >
                               ◄
@@ -1448,7 +1448,7 @@ app.get('/dashboard', (req, res) => {
                             {weekLabels.map((w, i) => <div key={i}>{w}</div>)}
                           </div>
                           <button 
-                            style={{ padding: '4px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }}
+                            style={{ padding: '4px 10px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }}
                             onClick={() => setWeekOffset(weekOffset + 1)}
                           >
                             ►
