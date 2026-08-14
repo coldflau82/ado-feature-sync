@@ -570,7 +570,7 @@ app.get('/dashboard', (req, res) => {
           <td style={{ maxWidth: '300px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '0 1 auto', minWidth: '0' }}>{title}</span>
-              <span style={{ color: '#999', flexShrink: 0, fontSize: '11px' }}>({storyPoints} pts)</span>
+              <span style={{ color: '#696969', flexShrink: 0, fontSize: '11px' }}>({storyPoints} pts)</span>
             </div>
           </td>
           <td style={{ padding: '8px' }}>  
