@@ -18,16 +18,18 @@ app.get('/favicon.png', (req, res) => {
 });
 
 
-// ===== CACHÉ PARA FEATURES "ANTIGUAS" (10-180 días) =====
-let oldFeaturesCache = {
-  data: null,
-  rangeCounts: null,
-  timestamp: 0
-};
-const OLD_FEATURES_CACHE_TTL = 12 * 60 * 60 * 1000; // 12 horas en milisegundos
-const RECENT_DAYS_THRESHOLD = 10; // Punto de corte entre "reciente" y "antiguo"
+const { Redis } = require('@upstash/redis');
 
-// ===== Cliente ADO reutilizable (antes lo creabas dentro del endpoint) =====
+// Cliente Redis (lee automáticamente las env vars si se llaman KV_REST_API_URL / KV_REST_API_TOKEN)
+const redis = Redis.fromEnv();
+// Si tus variables tienen otro nombre, usa:
+// const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN });
+
+const OLD_FEATURES_CACHE_TTL_SECONDS = 12 * 60 * 60;
+const RECENT_DAYS_THRESHOLD = 10;
+const CACHE_KEY = 'oldFeaturesCache';
+
+// ===== Cliente ADO reutilizable =====
 function getAdoClient() {
   return axios.create({
     baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
@@ -37,7 +39,6 @@ function getAdoClient() {
     }
   });
 }
-
 
 // ===== Filtro base de Area Path (idéntico al que ya tenías) =====
 const BASE_FILTER = 'AND [System.State] <> "Removed" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")';
@@ -373,8 +374,10 @@ app.get('/api/features', async (req, res) => {
     const forceRefresh = req.query.refresh === '1';
     const now = Date.now();
 
-    // 1. Refrescar caché "antiguo" solo si expiró (12h) o si el usuario forzó refresh
-    const cacheExpired = !oldFeaturesCache.data || (now - oldFeaturesCache.timestamp) > OLD_FEATURES_CACHE_TTL;
+    // 1. Leer el caché "antiguo" desde Redis (persiste entre cold starts e instancias)
+    let oldFeaturesCache = await redis.get(CACHE_KEY); // devuelve null si no existe o ya expiró
+
+    const cacheExpired = !oldFeaturesCache;
 
     if (cacheExpired || forceRefresh) {
       console.log(forceRefresh ? 'Refreshing cache by manual request...' : 'Cache expired, refreshing...');
@@ -384,6 +387,8 @@ app.get('/api/features', async (req, res) => {
         rangeCounts: oldResult.rangeCounts,
         timestamp: now
       };
+      // Guardamos en Redis con TTL nativo de 12h (en segundos)
+      await redis.set(CACHE_KEY, oldFeaturesCache, { ex: OLD_FEATURES_CACHE_TTL_SECONDS });
     }
 
     // 2. La consulta "reciente" SIEMPRE es en vivo (nunca se cachea)
@@ -392,11 +397,10 @@ app.get('/api/features', async (req, res) => {
     // 3. Deduplicación: si un ID aparece en ambos lados, gana la versión reciente (fresca)
     const recentIds = new Set(recentResult.features.map(f => f.id));
     const cleanOldFeatures = oldFeaturesCache.data.filter(f => !recentIds.has(f.id));
-    oldFeaturesCache.data = cleanOldFeatures; // limpieza persistente en memoria
 
     const allFeatures = [...recentResult.features, ...cleanOldFeatures];
 
-    // 4. rangeCounts y warnings combinados (igual que tu lógica original)
+    // 4. rangeCounts y warnings combinados
     const rangeCounts = { ...oldFeaturesCache.rangeCounts, ...recentResult.rangeCounts };
     const warnings = [];
     for (const [range, count] of Object.entries(rangeCounts)) {
