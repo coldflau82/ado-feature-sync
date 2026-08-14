@@ -1096,7 +1096,7 @@ app.get('/dashboard', (req, res) => {
           <div className="container">
            <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <div>
-              <h1 style={{ margin: 0 }}>ADO Dashboard</h1>
+              <h1 style={{ margin: 0 }}>ADO DEC Dashboard</h1>
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button style={{ padding: '8px 16px', background: currentPage === 'features' ? '#007bff' : 'white', color: currentPage === 'features' ? 'white' : 'black', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '13px' }} onClick={() => setCurrentPage('features')}>Feature List</button>
