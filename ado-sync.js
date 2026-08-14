@@ -1361,7 +1361,7 @@ app.get('/dashboard', (req, res) => {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 'bold' }}>State Legends for Articles & Stories</span>
+                      <span style={{ fontSize: '13px', fontWeight: 'bold' }}>State Legends for Features & Stories</span>
                       <span style={{ 
                         fontSize: '10px', 
                         transform: legendExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
