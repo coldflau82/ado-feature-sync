@@ -427,7 +427,7 @@ app.get('/dashboard', (req, res) => {
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>ADO Dashboard</title>
+  <title>ADO DEC Dashboard</title>
   <link rel="icon" type="image/png" href="/favicon.png">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
