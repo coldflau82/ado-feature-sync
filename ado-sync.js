@@ -424,7 +424,7 @@ app.get('/dashboard', (req, res) => {
     .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
     .header { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
     .header h1 { font-size: 24px; }
-    .tabs { margin-top: 15px; display: flex; gap: 10px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+    .tabs { margin-top: 12px; display: flex; gap: 10px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
     .tab-btn { padding: 8px 16px; background: white; color: black; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; }
     .tab-btn.active { background: #007bff; color: white; }
     .warnings { background: #fff3cd; color: '#856404'; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffc107; }
@@ -433,7 +433,7 @@ app.get('/dashboard', (req, res) => {
     .filter-label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 13px; }
     .filter-select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
     .filter-count { font-size: 11px; color: #666; margin-top: 5px; }
-    .clear-btn { width: 100%; padding: 10px 16px; background: #dc3545; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 13px; margin-bottom: 20px; }
+    .clear-btn { width: 100%; padding: 10px 16px; background: #dc3545; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 13px; margin-bottom: 12px; }
     .table-wrapper { background: white; border-radius: 8px; overflow: hidden; }
     table { width: 100%; border-collapse: collapse; }
     th { background: #f9f9f9; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #eee; font-size: 13px; }
