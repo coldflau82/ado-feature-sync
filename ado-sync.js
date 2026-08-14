@@ -615,8 +615,8 @@ app.get('/dashboard', (req, res) => {
               
                 return (
                   <>
-                    <div style={{ position: 'absolute', top: '0', bottom: '0', left: clampedStart + '%', width: '1px', borderLeft: '1px dashed #999', zIndex: 5 }} />
-                    <div style={{ position: 'absolute', top: '0', bottom: '0', left: clampedEnd + '%', width: '1px', borderLeft: '1px dashed #999', zIndex: 5 }} />
+                    <div style={{ position: 'absolute', top: '0', bottom: '0', left: clampedStart + '%', width: '1px', borderLeft: '1px dashed #123770', zIndex: 5 }} />
+                    <div style={{ position: 'absolute', top: '0', bottom: '0', left: clampedEnd + '%', width: '1px', borderLeft: '1px dashed #123770', zIndex: 5 }} />
                     <div style={{ position: 'absolute', top: '1px', left: midPercent + '%', transform: 'translateX(-50%)', fontSize: '9px', color: 'white', background: '#123770', padding: '1px 4px', borderRadius: '2px', whiteSpace: 'nowrap', zIndex: 6 }}>
                       {sprintLabel}
                     </div>
