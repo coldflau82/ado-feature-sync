@@ -2,9 +2,21 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 
+const fs = require('fs');
+const path = require('path');
+
 const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
+
+
+// Ruta explícita para el favicon
+app.get('/favicon.png', (req, res) => {
+  const faviconPath = path.join(__dirname, 'favicon.png');
+  const favicon = fs.readFileSync(faviconPath);
+  res.setHeader('Content-Type', 'image/png');
+  res.send(favicon);
+});
 
 // ===== CACHÉ PARA FEATURES "ANTIGUAS" (10-180 días) =====
 let oldFeaturesCache = {
