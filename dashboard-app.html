@@ -967,7 +967,7 @@
                                         key={gi}
                                         style={{
                                           gridColumn: 'span ' + g.weeks.length,
-                                          background: (g.key.includes('Q1') || g.key.includes('Q3')) ? '#1e3a8a' : '#2563eb',
+                                          background: parseInt(g.key) % 2 === 0 ? '#1e3a8a' : '#2563eb',
                                           color: 'white',
                                           textAlign: 'center',
                                           fontSize: '10px',
@@ -1045,7 +1045,7 @@
                                         key={gi}
                                         style={{
                                           gridColumn: 'span ' + g.months.length,
-                                          background: gi % 2 === 0 ? '#1e3a8a' : '#2563eb',
+                                          background: (() => { const [y, q] = g.key.split('-Q'); return (parseInt(y) * 4 + parseInt(q)) % 2 === 0 ? '#1e3a8a' : '#2563eb'; })(),
                                           color: 'white',
                                           textAlign: 'center',
                                           fontSize: '10px',
