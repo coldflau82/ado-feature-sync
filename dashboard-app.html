@@ -940,8 +940,70 @@
                           <div style={{ flex: '0 0 300px', display: 'flex', justifyContent: 'flex-end' }}>
                             <button style={{ padding: '4px 10px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }} onClick={() => setWeekOffset(weekOffset - 1)}>◄</button>
                           </div>
-                          <div style={{ flex: 1, background: '#e0e0e0', borderRadius: '4px', padding: '8px', display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', fontSize: '9px', fontWeight: 'bold', textAlign: 'center' }}>
-                            {weekLabels.map((w, i) => <div key={i}>{w}</div>)}
+                          <div style={{ flex: 1 }}>
+                            {(() => {
+                              // Agrupar semanas por año-trimestre
+                              const groups = [];
+                              let currentGroup = null;
+                              for (let i = 0; i < 12; i++) {
+                                const weekStart = new Date(thisMonday);
+                                weekStart.setDate(thisMonday.getDate() + (weekOffset + i) * 7);
+                                const year = weekStart.getFullYear();
+                                const quarter = Math.floor(weekStart.getMonth() / 3) + 1;
+                                const quarterKey = year + '-Q' + quarter;
+                                const label = weekStart.toLocaleString('default', { month: 'short', day: 'numeric' });
+                                if (!currentGroup || currentGroup.key !== quarterKey) {
+                                  currentGroup = { key: quarterKey, label: year + ' · Q' + quarter, weeks: [] };
+                                  groups.push(currentGroup);
+                                }
+                                currentGroup.weeks.push(label);
+                              }
+                              return (
+                                <div>
+                                  {/* Fila de año-trimestre */}
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
+                                    {groups.map((g, gi) => (
+                                      <div
+                                        key={gi}
+                                        style={{
+                                          gridColumn: 'span ' + g.weeks.length,
+                                          background: gi % 2 === 0 ? '#1e3a8a' : '#2563eb',
+                                          color: 'white',
+                                          textAlign: 'center',
+                                          fontSize: '10px',
+                                          fontWeight: 'bold',
+                                          padding: '3px 0',
+                                          borderRadius: '3px'
+                                        }}
+                                      >
+                                        {g.label}
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {/* Fila de semanas */}
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px' }}>
+                                    {groups.map((g, gi) =>
+                                      g.weeks.map((week, wi) => (
+                                        <div
+                                          key={gi + '-' + wi}
+                                          style={{
+                                            background: '#e2e8f0',
+                                            textAlign: 'center',
+                                            fontSize: '9px',
+                                            fontWeight: 'bold',
+                                            padding: '3px 0',
+                                            borderRadius: '3px',
+                                            color: '#334155'
+                                          }}
+                                        >
+                                          {week}
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                           <button style={{ padding: '4px 10px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }} onClick={() => setWeekOffset(weekOffset + 1)}>►</button>
                         </div>
