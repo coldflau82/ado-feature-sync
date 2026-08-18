@@ -445,6 +445,28 @@
         }
       };
 
+      // Precarga stories de todos los features visibles en la página actual
+      useEffect(() => {
+        const featuresToLoad = featuresPageItems
+          .map(f => f.id)
+          .filter(id => !storiesCache[id] && !loadingStoriesIds[id]);
+        if (featuresToLoad.length === 0) return;
+
+        featuresToLoad.forEach(featureId => {
+          setLoadingStoriesIds(prev => ({ ...prev, [featureId]: true }));
+          fetch('/api/feature-stories/' + featureId)
+            .then(r => r.json())
+            .then(d => {
+              setStoriesCache(prev => ({ ...prev, [featureId]: d.stories || [] }));
+              setLoadingStoriesIds(prev => ({ ...prev, [featureId]: false }));
+            })
+            .catch(() => {
+              setStoriesCache(prev => ({ ...prev, [featureId]: [] }));
+              setLoadingStoriesIds(prev => ({ ...prev, [featureId]: false }));
+            });
+        });
+      }, [featuresPage, sortedFiltered.length, filterAreaPath.join(','), filterIteration.join(','), filterState.join(','), filterTargetDate.join(','), filterReleaseVersion.join(','), filterAssignedTo.join(','), searchTitle]);
+
       const toggleRoadmapFeature = (featureId) => {
         if (expandedRoadmapFeatureId === featureId) { setExpandedRoadmapFeatureId(null); return; }
         setExpandedRoadmapFeatureId(featureId);
@@ -672,8 +694,10 @@
                                 </span>
                               </td>
                               <td style={{ fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '130px' }} title={f.assignedTo}>{f.assignedTo || '—'}</td>
-                              <td style={{ textAlign: 'center', padding: '8px' }}>
-                                {storiesCache[f.id] ? (() => {
+                                                            <td style={{ textAlign: 'center', padding: '8px' }}>
+                                {loadingStoriesIds[f.id] ? (
+                                  <span style={{ fontSize: '10px', color: '#aaa', fontStyle: 'italic' }}>Loading...</span>
+                                ) : storiesCache[f.id] ? (() => {
                                   const stories = storiesCache[f.id];
                                   const closed = stories.filter(s => s.state === 'Closed' || s.state === 'Approved for Release' || s.state === 'Ready for Deployment').length;
                                   const total = stories.length;
