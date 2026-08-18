@@ -1123,7 +1123,6 @@ app.get('/dashboard', (req, res) => {
             <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flex: 1 }}>
               <div style={{ flex: '0 0 auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <label style={{ fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap' }}>Search Feature Title</label>
-                // DESPUÉS — usa searchInput para el valor inmediato del input
                 <input 
                   type="text" 
                   placeholder="Type feature title..." 
