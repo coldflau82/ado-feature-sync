@@ -1233,7 +1233,7 @@ app.get('/dashboard', (req, res) => {
               {loading ? <div>Loading...</div> : (
                 <div className="table-wrapper">
                   <table>
-                    <thead>
+                                          <thead>
                       <tr>
                           <th style={{ width: '30px' }}></th>
                           <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('id'); setSortOrder(sortColumn === 'id' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
@@ -1261,12 +1261,34 @@ app.get('/dashboard', (req, res) => {
                           <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('state'); setSortOrder(sortColumn === 'state' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
                             State {sortColumn === 'state' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
                           </th>
+                          <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('assignedTo'); setSortOrder(sortColumn === 'assignedTo' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                            Assigned To {sortColumn === 'assignedTo' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+                          </th>
+                          <th style={{ width: '120px', textAlign: 'center' }}>Progress</th>
                         </tr>
                       </thead>
+
                     <tbody>
-                     {featuresPageItems.map(f => (
+                     {featuresPageItems.map(f => {
+                        const featureRowBg = {
+                          'New': '#f8fafc',
+                          'In Shaping': '#fffbeb',
+                          'In Planning': '#fff7ed',
+                          'Planned': '#f0fdf4',
+                          'In Process': '#eff6ff',
+                          'Closed': '#f5f3ff'
+                        }[f.state] || 'white';
+                        const featureStateDot = {
+                          'New': '#94a3b8',
+                          'In Shaping': '#fbbf24',
+                          'In Planning': '#fb923c',
+                          'Planned': '#34d399',
+                          'In Process': '#60a5fa',
+                          'Closed': '#a78bfa'
+                        }[f.state] || '#ccc';
+                        return (
                         <React.Fragment key={f.id}>
-                        <tr>
+                        <tr style={{ background: featureRowBg, borderLeft: `3px solid ${featureStateDot}` }}>
                           <td className="expand-btn" onClick={() => toggleFeatureExpand(f.id)}>
                             {expandedRows[f.id] ? '▼' : '►'}
                           </td>
@@ -1280,13 +1302,40 @@ app.get('/dashboard', (req, res) => {
                           <td>{f.estimation.be || '-'}</td>
                           <td>{f.estimation.fe || '-'}</td>
                           <td>{f.estimation.qa || '-'}</td>
-                          <td>{f.state}</td>
+                          <td>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: featureStateDot, flexShrink: 0, display: 'inline-block' }}></span>
+                              {f.state}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '130px' }} title={f.assignedTo}>
+                            {f.assignedTo || '—'}
+                          </td>
+                          <td style={{ textAlign: 'center', padding: '8px' }}>
+                            {storiesCache[f.id] ? (() => {
+                              const stories = storiesCache[f.id];
+                              const closed = stories.filter(s => s.state === 'Closed' || s.state === 'Approved for Release' || s.state === 'Ready for Deployment').length;
+                              const total = stories.length;
+                              const pct = total === 0 ? 0 : Math.round((closed / total) * 100);
+                              const barColor = pct === 100 ? '#34d399' : pct >= 50 ? '#60a5fa' : '#fbbf24';
+                              return (
+                                <div title={closed + ' of ' + total + ' stories done'}>
+                                  <div style={{ fontSize: '10px', color: '#666', marginBottom: '3px' }}>{closed}/{total} ({pct}%)</div>
+                                  <div style={{ height: '6px', background: '#e5e7eb', borderRadius: '3px', overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', width: pct + '%', background: barColor, borderRadius: '3px', transition: 'width 0.3s ease' }} />
+                                  </div>
+                                </div>
+                              );
+                            })() : (
+                              <span style={{ fontSize: '10px', color: '#bbb' }}>—</span>
+                            )}
+                          </td>
                         </tr>
                         {expandedRows[f.id] && (() => {
                           if (loadingStoriesIds[f.id]) {
                             return (
                               <tr style={{ background: '#f9f9f9' }}>
-                                <td colSpan="12" style={{ paddingLeft: '60px', paddingTop: '15px', paddingBottom: '15px' }}>
+                                <td colSpan="14" style={{ paddingLeft: '40px', paddingTop: '15px', paddingBottom: '15px' }}>
                                   Loading stories...
                                 </td>
                               </tr>
@@ -1296,7 +1345,7 @@ app.get('/dashboard', (req, res) => {
                           if (fStories.length === 0) {
                             return (
                               <tr style={{ background: '#f9f9f9' }}>
-                                <td colSpan="12" style={{ paddingLeft: '60px', paddingTop: '15px', paddingBottom: '15px' }}>
+                                <td colSpan="14" style={{ paddingLeft: '40px', paddingTop: '15px', paddingBottom: '15px' }}>
                                   No stories found for this feature.
                                 </td>
                               </tr>
@@ -1304,22 +1353,59 @@ app.get('/dashboard', (req, res) => {
                           }
                           return (
                             <tr style={{ background: '#f9f9f9' }}>
-                            <td colSpan="12" style={{ paddingLeft: '60px', paddingTop: '15px', paddingBottom: '15px' }}>
+                            <td colSpan="14" style={{ paddingLeft: '40px', paddingTop: '12px', paddingBottom: '12px', paddingRight: '20px' }}>
                               <div>
-                              <strong style={{ marginBottom: '10px', display: 'block' }}>User Stories ({fStories.length}):</strong>
-                              {fStories.map(story => (
-                                <div key={story.id} style={{ padding: '8px', marginBottom: '8px', background: 'white', borderLeft: '3px solid #007bff', paddingLeft: '12px', borderRadius: '4px' }}>
-                                  <strong>#{story.id}</strong> - {story.title} <br/>
-                                  <span style={{ fontSize: '11px', color: '#666' }}>Points: {story.storyPoints} | State: {story.state}</span>
+                              <strong style={{ marginBottom: '10px', display: 'block', fontSize: '12px' }}>
+                                Stories & Bugs ({fStories.length})
+                                {' — '}
+                                <span style={{ color: '#34d399' }}>
+                                  {fStories.filter(s => s.state === 'Closed' || s.state === 'Approved for Release' || s.state === 'Ready for Deployment').length} done
+                                </span>
+                                {' / '}
+                                <span style={{ color: '#60a5fa' }}>
+                                  {fStories.filter(s => s.state === 'In Process' || s.state === 'QA Testing' || s.state === 'Business Sprint Testing').length} in progress
+                                </span>
+                                {' / '}
+                                <span style={{ color: '#fbbf24' }}>
+                                  {fStories.filter(s => !['Closed','Approved for Release','Ready for Deployment','In Process','QA Testing','Business Sprint Testing'].includes(s.state)).length} pending
+                                </span>
+                              </strong>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '8px' }}>
+                              {fStories.map(story => {
+                                const storyDotColor = storyStateColors[story.state] || '#ccc';
+                                const isBug = story.workItemType === 'Bug';
+                                const sprintLabel = (() => {
+                                  const m = story.iterationPath && story.iterationPath.match(/(\d{4})_(S\d+)_/);
+                                  return m ? m[1] + ' ' + m[2] : story.iterationPath ? story.iterationPath.split('\\\\').pop() : '—';
+                                })();
+                                return (
+                                <div key={story.id} style={{ padding: '8px 12px', background: 'white', borderLeft: '3px solid ' + storyDotColor, borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                        {isBug && <span style={{ fontSize: '9px', background: '#fee2e2', color: '#dc2626', padding: '1px 5px', borderRadius: '3px', fontWeight: 'bold', flexShrink: 0 }}>BUG</span>}
+                                        <a href={adoLink(story.id)} target="_blank" style={{ fontSize: '11px', fontWeight: 'bold', color: '#007bff', flexShrink: 0 }}>#{story.id}</a>
+                                        <span style={{ fontSize: '11px', color: '#333', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{story.title}</span>
+                                      </div>
+                                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <span style={{ fontSize: '10px', background: storyDotColor, color: 'white', padding: '1px 6px', borderRadius: '3px', whiteSpace: 'nowrap' }}>{story.state}</span>
+                                        <span style={{ fontSize: '10px', color: '#666' }}>📍 {sprintLabel}</span>
+                                        <span style={{ fontSize: '10px', color: '#666' }}>🎯 {story.storyPoints || 0} pts</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                );
+                              })}
                               </div>
-                              ))}
                             </div>
                             </td>
                           </tr>
                           );
                         })()}
                         </React.Fragment>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
