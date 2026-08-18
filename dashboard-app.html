@@ -698,7 +698,7 @@
                                 {loadingStoriesIds[f.id] ? (
                                   <span style={{ fontSize: '10px', color: '#aaa', fontStyle: 'italic' }}>Loading...</span>
                                 ) : storiesCache[f.id] ? (() => {
-                                  const stories = storiesCache[f.id];
+                                  const stories = storiesCache[f.id].filter(s => s.state !== 'Removed');
                                   const closed = stories.filter(s => s.state === 'Closed' || s.state === 'Approved for Release' || s.state === 'Ready for Deployment').length;
                                   const total = stories.length;
                                   const pct = total === 0 ? 0 : Math.round((closed / total) * 100);
@@ -735,16 +735,26 @@
                                   <td colSpan="14" style={{ paddingLeft: '40px', paddingTop: '12px', paddingBottom: '12px', paddingRight: '20px' }}>
                                     <div>
                                       <strong style={{ marginBottom: '10px', display: 'block', fontSize: '12px' }}>
-                                        Stories & Bugs ({fStories.length})
-                                        {' — '}
-                                        <span style={{ color: '#34d399' }}>{fStories.filter(s => ['Closed','Approved for Release','Ready for Deployment'].includes(s.state)).length} done</span>
-                                        {' / '}
-                                        <span style={{ color: '#60a5fa' }}>{fStories.filter(s => ['In Process','QA Testing','Business Sprint Testing'].includes(s.state)).length} in progress</span>
-                                        {' / '}
-                                        <span style={{ color: '#fbbf24' }}>{fStories.filter(s => !['Closed','Approved for Release','Ready for Deployment','In Process','QA Testing','Business Sprint Testing'].includes(s.state)).length} pending</span>
+                                        {(() => {
+                                          const activeStories = fStories.filter(s => s.state !== 'Removed');
+                                          const removedCount = fStories.length - activeStories.length;
+                                          return (
+                                            <>
+                                              Stories & Bugs ({activeStories.length}{removedCount > 0 ? <span style={{ color: '#94a3b8', fontWeight: 'normal' }}> +{removedCount} removed</span> : ''})
+                                              {' — '}
+                                              <span style={{ color: '#34d399' }}>{activeStories.filter(s => ['Closed','Approved for Release','Ready for Deployment'].includes(s.state)).length} done</span>
+                                              {' / '}
+                                              <span style={{ color: '#60a5fa' }}>{activeStories.filter(s => ['In Process','QA Testing','Business Sprint Testing'].includes(s.state)).length} in progress</span>
+                                              {' / '}
+                                              <span style={{ color: '#fbbf24' }}>{activeStories.filter(s => !['Closed','Approved for Release','Ready for Deployment','In Process','QA Testing','Business Sprint Testing'].includes(s.state)).length} pending</span>
+                                            </>
+                                          );
+                                        })()}
                                       </strong>
                                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '8px' }}>
                                         {fStories.map(story => {
+                                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '8px' }}>
+                                       {fStories.filter(s => s.state !== 'Removed').map(story => {
                                           const storyDotColor = storyStateColors[story.state] || '#ccc';
                                           const isBug = story.workItemType === 'Bug';
                                           const sprintLabel = (() => {
