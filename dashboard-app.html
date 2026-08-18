@@ -1045,7 +1045,7 @@
                                         key={gi}
                                         style={{
                                           gridColumn: 'span ' + g.months.length,
-                                          background: (() => { const [y, q] = g.key.split('-Q'); return (parseInt(y) * 4 + parseInt(q)) % 2 === 0 ? '#1e3a8a' : '#2563eb'; })(),
+                                          background: (() => { const parts = g.key.split('-Q'); return (parseInt(parts[0]) * 4 + parseInt(parts[1])) % 2 === 0 ? '#1e3a8a' : '#2563eb'; })(),
                                           color: 'white',
                                           textAlign: 'center',
                                           fontSize: '10px',
