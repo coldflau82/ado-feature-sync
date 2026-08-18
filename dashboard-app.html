@@ -128,10 +128,11 @@
       const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
       const clampedTodayPercent = Math.max(0, Math.min(100, todayPercent));
 
+      // Calcular segmentos de estado
       const segments = [];
       if (states.length > 0) {
-        states.forEach((state, idx) => {
-          const stateStart = new Date(state.changedDate);
+        states.forEach((st, idx) => {
+          const stateStart = new Date(st.changedDate);
           const stateEnd = idx === states.length - 1 ? today : new Date(states[idx + 1].changedDate);
           const daysFromStart = (stateStart - timelineStart) / (1000 * 60 * 60 * 24);
           const daysToEnd = (stateEnd - timelineStart) / (1000 * 60 * 60 * 24);
@@ -140,29 +141,29 @@
           if (rawStartPercent < 100 && rawEndPercent > 0) {
             const clampedStart = Math.max(0, rawStartPercent);
             const clampedEnd = Math.min(100, rawEndPercent);
-            const widthPercent = Math.max(1, clampedEnd - clampedStart);
             segments.push({
-              color: storyStateColors[state.state] || '#cccccc',
-              state: state.state,
+              color: storyStateColors[st.state] || '#cccccc',
+              state: st.state,
               startPercent: clampedStart,
-              widthPercent: widthPercent
+              widthPercent: Math.max(1, clampedEnd - clampedStart)
             });
           }
         });
       }
 
+      // Calcular sprint — si no hay match, sprintStart/sprintEnd quedan null y no se pinta nada
       let sprintStart = null;
       let sprintEnd = null;
-      const sprintMatch = iterationPath && iterationPath.match(/(\d{4})_(S\d+)_([A-Za-z]+)(\d+)-([A-Za-z]+)(\d+)/);
       let sprintLabel = '';
+      const sprintMatch = iterationPath && iterationPath.match(/(\d{4})_(S\d+)_([A-Za-z]+)(\d+)-([A-Za-z]+)(\d+)/);
       if (sprintMatch) {
         const year = parseInt(sprintMatch[1]);
         sprintLabel = sprintMatch[2];
+        const monthMap = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
         const startMonth = sprintMatch[3];
         const startDay = parseInt(sprintMatch[4]);
         const endMonth = sprintMatch[5];
         const endDay = parseInt(sprintMatch[6]);
-        const monthMap = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
         sprintStart = new Date(year, monthMap[startMonth], startDay);
         sprintEnd = new Date(year, monthMap[endMonth], endDay);
         if (monthMap[endMonth] < monthMap[startMonth]) {
@@ -175,6 +176,20 @@
         return (days / timelineTotalDays) * 100;
       };
 
+      // Calcular posición del sprint solo si existe
+      let sprintStartPercent = null;
+      let sprintEndPercent = null;
+      let sprintMidPercent = null;
+      if (sprintStart && sprintEnd) {
+        const rawStart = getSprintPercent(sprintStart);
+        const rawEnd = getSprintPercent(sprintEnd);
+        if (rawEnd > 0 && rawStart < 100) {
+          sprintStartPercent = Math.max(0, rawStart);
+          sprintEndPercent = Math.min(100, rawEnd);
+          sprintMidPercent = (sprintStartPercent + sprintEndPercent) / 2;
+        }
+      }
+
       return (
         <tr style={{ borderBottom: '1px solid #eee', background: '#f2f2f2' }}>
           <td></td>
@@ -185,86 +200,66 @@
               <span style={{ color: '#696969', flexShrink: 0, fontSize: '11px' }}>({storyPoints} pts)</span>
             </div>
           </td>
-          <td style={{ padding: '8px' }}>
-            <div style={{ minHeight: '32px', background: '#e0e0e0', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
-              {!loading && (
-                <div style={{ position: 'absolute', top: '0', bottom: '0', left: clampedTodayPercent + '%', width: '1px', background: '#1e3a8a', opacity: 0.9, zIndex: 10 }} />
+          <td style={{ padding: '6px 8px' }}>
+            <div style={{ height: '36px', background: '#e0e0e0', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
+
+              {/* Segmentos de estado — base de la barra, z-index bajo */}
+              {!loading && segments.map((seg, idx) => {
+                const segStartDate = new Date(timelineStart.getTime() + (seg.startPercent / 100) * (timelineEnd - timelineStart));
+                const segEndDate = new Date(timelineStart.getTime() + ((seg.startPercent + seg.widthPercent) / 100) * (timelineEnd - timelineStart));
+                const diffDays = Math.round((segEndDate - segStartDate) / (1000 * 60 * 60 * 24));
+                const tooltipContent = (
+                  <div>
+                    <div style={{ fontWeight: 'bold', marginBottom: '4px', color: seg.color, fontSize: '12px' }}>● {seg.state}</div>
+                    <div>From: {segStartDate.toLocaleDateString('es-CO')}</div>
+                    <div>To:&nbsp;&nbsp; {segEndDate.toLocaleDateString('es-CO')}</div>
+                    <div style={{ marginTop: '4px', color: '#94a3b8' }}>{diffDays} day{diffDays !== 1 ? 's' : ''} in this state</div>
+                  </div>
+                );
+                return (
+                  <div
+                    key={idx}
+                    style={{ position: 'absolute', top: '8px', left: seg.startPercent + '%', width: seg.widthPercent + '%', height: '20px', background: seg.color, borderRadius: '3px', opacity: 0.85, minWidth: '6px', cursor: 'pointer', zIndex: 2 }}
+                    onMouseEnter={(e) => showTooltip && showTooltip(e, tooltipContent)}
+                    onMouseMove={(e) => moveTooltip && moveTooltip(e)}
+                    onMouseLeave={() => hideTooltip && hideTooltip()}
+                  />
+                );
+              })}
+
+              {/* Loading / No data — solo si no hay segmentos */}
+              {loading && (
+                <div style={{ position: 'absolute', top: '50%', left: '8px', transform: 'translateY(-50%)', fontSize: '11px', color: '#999', zIndex: 2 }}>Loading...</div>
               )}
+              {!loading && segments.length === 0 && (
+                <div style={{ position: 'absolute', top: '50%', left: '8px', transform: 'translateY(-50%)', fontSize: '11px', color: '#999', zIndex: 2 }}>No data</div>
+              )}
+
+              {/* Líneas y label del Sprint — solo si hay sprint válido en el rango */}
+              {!loading && sprintStartPercent !== null && (
+                <>
+                  <div style={{ position: 'absolute', top: 0, bottom: 0, left: sprintStartPercent + '%', width: '1px', borderLeft: '1px dashed #123770', zIndex: 5, pointerEvents: 'none' }} />
+                  <div style={{ position: 'absolute', top: 0, bottom: 0, left: sprintEndPercent + '%', width: '1px', borderLeft: '1px dashed #123770', zIndex: 5, pointerEvents: 'none' }} />
+                  <div style={{ position: 'absolute', top: '2px', left: sprintMidPercent + '%', transform: 'translateX(-50%)', fontSize: '9px', color: 'white', background: '#123770', padding: '1px 5px', borderRadius: '2px', whiteSpace: 'nowrap', zIndex: 8, pointerEvents: 'none' }}>
+                    {sprintLabel}
+                  </div>
+                </>
+              )}
+
+              {/* Línea de hoy */}
+              {!loading && (
+                <div style={{ position: 'absolute', top: 0, bottom: 0, left: clampedTodayPercent + '%', width: '1px', background: '#1e3a8a', opacity: 0.9, zIndex: 10, pointerEvents: 'none' }} />
+              )}
+
+              {/* Badge de estado actual a la derecha de la línea de hoy */}
               {!loading && state && (
-                <div style={{ position: 'absolute', top: '50%', left: clampedTodayPercent + '%', transform: 'translateY(-50%)', zIndex: 15, paddingLeft: '6px', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
-                  <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '3px', background: storyStateColors[state] || '#cccccc', color: 'white', whiteSpace: 'nowrap' }}>
+                <div style={{ position: 'absolute', top: '50%', left: clampedTodayPercent + '%', transform: 'translateY(-50%)', zIndex: 15, paddingLeft: '5px', pointerEvents: 'none' }}>
+                  <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '3px', background: storyStateColors[state] || '#cccccc', color: 'white', whiteSpace: 'nowrap', display: 'inline-block' }}>
                     {state}
                   </span>
                 </div>
               )}
-              {!loading && sprintStart && sprintEnd && (() => {
-                const startPercent = getSprintPercent(sprintStart);
-                const endPercent = getSprintPercent(sprintEnd);
-                if (endPercent < 0 || startPercent > 100) return null;
-                const clampedStart = Math.max(0, startPercent);
-                const clampedEnd = Math.min(100, endPercent);
-                const midPercent = (clampedStart + clampedEnd) / 2;
-                return (
-                  <>
-                    <div style={{ position: 'absolute', top: '0', bottom: '0', left: clampedStart + '%', width: '1px', borderLeft: '1px dashed #123770', zIndex: 5 }} />
-                    <div style={{ position: 'absolute', top: '0', bottom: '0', left: clampedEnd + '%', width: '1px', borderLeft: '1px dashed #123770', zIndex: 5 }} />
-                    <div style={{ width: '100%', position: 'relative', height: '20px' }}>
-                  {segments.map((seg, idx) => {
-                    const segStartDate = new Date(timelineStart.getTime() + (seg.startPercent / 100) * (timelineEnd - timelineStart));
-                    const segEndDate = new Date(timelineStart.getTime() + ((seg.startPercent + seg.widthPercent) / 100) * (timelineEnd - timelineStart));
-                    const diffDays = Math.round((segEndDate - segStartDate) / (1000 * 60 * 60 * 24));
-                    const tooltipContent = (
-                      <div>
-                        <div style={{ fontWeight: 'bold', marginBottom: '4px', color: seg.color, fontSize: '12px' }}>● {seg.state}</div>
-                        <div>From: {segStartDate.toLocaleDateString('es-CO')}</div>
-                        <div>To: {segEndDate.toLocaleDateString('es-CO')}</div>
-                        <div style={{ marginTop: '4px', color: '#94a3b8' }}>{diffDays} day{diffDays !== 1 ? 's' : ''} in this state</div>
-                      </div>
-                    );
-                    return (
-                      <div
-                        key={idx}
-                        style={{ position: 'absolute', left: seg.startPercent + '%', width: seg.widthPercent + '%', height: '28px', background: seg.color, borderRadius: '3px', opacity: 0.85, minWidth: '6px', cursor: 'pointer' }}
-                        onMouseEnter={(e) => showTooltip && showTooltip(e, tooltipContent)}
-                        onMouseMove={(e) => moveTooltip && moveTooltip(e)}
-                        onMouseLeave={() => hideTooltip && hideTooltip()}
-                      />
-                    );
-                  })}
-                </div>
-                  </>
-                );
-              })()}
-              {loading ? (
-                <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
-                            ) : segments.length === 0 ? (
-                <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
-              ) : (
-                <div style={{ width: '100%', position: 'relative', height: '20px' }}>
-                  {segments.map((seg, idx) => {
-                    const segStartDate = new Date(timelineStart.getTime() + (seg.startPercent / 100) * (timelineEnd - timelineStart));
-                    const segEndDate = new Date(timelineStart.getTime() + ((seg.startPercent + seg.widthPercent) / 100) * (timelineEnd - timelineStart));
-                    const diffDays = Math.round((segEndDate - segStartDate) / (1000 * 60 * 60 * 24));
-                    const tooltipContent = (
-                      <div>
-                        <div style={{ fontWeight: 'bold', marginBottom: '4px', color: seg.color, fontSize: '12px' }}>● {seg.state}</div>
-                        <div>From: {segStartDate.toLocaleDateString('es-CO')}</div>
-                        <div>To: {segEndDate.toLocaleDateString('es-CO')}</div>
-                        <div style={{ marginTop: '4px', color: '#94a3b8' }}>{diffDays} day{diffDays !== 1 ? 's' : ''} in this state</div>
-                      </div>
-                    );
-                    return (
-                      <div
-                        key={idx}
-                        style={{ position: 'absolute', left: seg.startPercent + '%', width: seg.widthPercent + '%', height: '20px', background: seg.color, borderRadius: '3px', opacity: 0.85, minWidth: '6px', cursor: 'pointer' }}
-                        onMouseEnter={(e) => showTooltip && showTooltip(e, tooltipContent)}
-                        onMouseMove={(e) => moveTooltip && moveTooltip(e)}
-                        onMouseLeave={() => hideTooltip && hideTooltip()}
-                      />
-                    );
-                  })}
-                </div>
-              )}
+
             </div>
           </td>
         </tr>
