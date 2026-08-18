@@ -967,7 +967,7 @@
                                         key={gi}
                                         style={{
                                           gridColumn: 'span ' + g.weeks.length,
-                                          background: gi % 2 === 0 ? '#1e3a8a' : '#2563eb',
+                                          background: (g.key.includes('Q1') || g.key.includes('Q3')) ? '#1e3a8a' : '#2563eb',
                                           color: 'white',
                                           textAlign: 'center',
                                           fontSize: '10px',
