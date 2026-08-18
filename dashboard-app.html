@@ -78,7 +78,51 @@
       'Closed': '#a78bfa'
     };
 
-    function StoryRow({ storyId, title, storyPoints, state, iterationPath, formatDate, timelineStart, timelineEnd, adoLink, states, loading }) {
+    // ── Tooltip global ──────────────────────────────────────────────
+    function useTooltip() {
+      const [tooltip, setTooltip] = React.useState({ visible: false, x: 0, y: 0, content: null });
+      const showTooltip = React.useCallback((e, content) => {
+        setTooltip({ visible: true, x: e.clientX, y: e.clientY, content });
+      }, []);
+      const moveTooltip = React.useCallback((e) => {
+        setTooltip(prev => ({ ...prev, x: e.clientX, y: e.clientY }));
+      }, []);
+      const hideTooltip = React.useCallback(() => {
+        setTooltip(prev => ({ ...prev, visible: false }));
+      }, []);
+      return { tooltip, showTooltip, moveTooltip, hideTooltip };
+    }
+
+    function Tooltip({ tooltip }) {
+      if (!tooltip.visible || !tooltip.content) return null;
+      const style = {
+        position: 'fixed',
+        left: tooltip.x + 14,
+        top: tooltip.y - 10,
+        background: 'rgba(15, 23, 42, 0.93)',
+        color: 'white',
+        padding: '8px 12px',
+        borderRadius: '6px',
+        fontSize: '11px',
+        lineHeight: '1.6',
+        pointerEvents: 'none',
+        zIndex: 9999,
+        maxWidth: '260px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+        whiteSpace: 'pre-wrap'
+      };
+      // Ajuste para que no se salga por la derecha
+      const adjustedLeft = tooltip.x + 14 + 260 > window.innerWidth
+        ? tooltip.x - 274
+        : tooltip.x + 14;
+      return (
+        <div style={{ ...style, left: adjustedLeft }}>
+          {tooltip.content}
+        </div>
+      );
+    }
+    
+    function StoryRow({ storyId, title, storyPoints, state, iterationPath, formatDate, timelineStart, timelineEnd, adoLink, states, loading, showTooltip, moveTooltip, hideTooltip }) {
       const today = new Date();
       const timelineTotalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
       const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
@@ -164,21 +208,61 @@
                   <>
                     <div style={{ position: 'absolute', top: '0', bottom: '0', left: clampedStart + '%', width: '1px', borderLeft: '1px dashed #123770', zIndex: 5 }} />
                     <div style={{ position: 'absolute', top: '0', bottom: '0', left: clampedEnd + '%', width: '1px', borderLeft: '1px dashed #123770', zIndex: 5 }} />
-                    <div style={{ position: 'absolute', top: '1px', left: midPercent + '%', transform: 'translateX(-50%)', fontSize: '9px', color: 'white', background: '#123770', padding: '1px 4px', borderRadius: '2px', whiteSpace: 'nowrap', zIndex: 6 }}>
-                      {sprintLabel}
-                    </div>
+                    <div style={{ width: '100%', position: 'relative', height: '20px' }}>
+                  {segments.map((seg, idx) => {
+                    const segStartDate = new Date(timelineStart.getTime() + (seg.startPercent / 100) * (timelineEnd - timelineStart));
+                    const segEndDate = new Date(timelineStart.getTime() + ((seg.startPercent + seg.widthPercent) / 100) * (timelineEnd - timelineStart));
+                    const diffDays = Math.round((segEndDate - segStartDate) / (1000 * 60 * 60 * 24));
+                    const tooltipContent = (
+                      <div>
+                        <div style={{ fontWeight: 'bold', marginBottom: '4px', color: seg.color, fontSize: '12px' }}>● {seg.state}</div>
+                        <div>From: {segStartDate.toLocaleDateString('es-CO')}</div>
+                        <div>To: {segEndDate.toLocaleDateString('es-CO')}</div>
+                        <div style={{ marginTop: '4px', color: '#94a3b8' }}>{diffDays} day{diffDays !== 1 ? 's' : ''} in this state</div>
+                      </div>
+                    );
+                    return (
+                      <div
+                        key={idx}
+                        style={{ position: 'absolute', left: seg.startPercent + '%', width: seg.widthPercent + '%', height: '28px', background: seg.color, borderRadius: '3px', opacity: 0.85, minWidth: '6px', cursor: 'pointer' }}
+                        onMouseEnter={(e) => showTooltip && showTooltip(e, tooltipContent)}
+                        onMouseMove={(e) => moveTooltip && moveTooltip(e)}
+                        onMouseLeave={() => hideTooltip && hideTooltip()}
+                      />
+                    );
+                  })}
+                </div>
                   </>
                 );
               })()}
               {loading ? (
                 <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
-              ) : segments.length === 0 ? (
+                            ) : segments.length === 0 ? (
                 <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
               ) : (
                 <div style={{ width: '100%', position: 'relative', height: '20px' }}>
-                  {segments.map((seg, idx) => (
-                    <div key={idx} style={{ position: 'absolute', left: seg.startPercent + '%', width: seg.widthPercent + '%', height: '20px', background: seg.color, borderRadius: '3px', opacity: 0.85, minWidth: '6px' }} title={seg.state} />
-                  ))}
+                  {segments.map((seg, idx) => {
+                    const segStartDate = new Date(timelineStart.getTime() + (seg.startPercent / 100) * (timelineEnd - timelineStart));
+                    const segEndDate = new Date(timelineStart.getTime() + ((seg.startPercent + seg.widthPercent) / 100) * (timelineEnd - timelineStart));
+                    const diffDays = Math.round((segEndDate - segStartDate) / (1000 * 60 * 60 * 24));
+                    const tooltipContent = (
+                      <div>
+                        <div style={{ fontWeight: 'bold', marginBottom: '4px', color: seg.color, fontSize: '12px' }}>● {seg.state}</div>
+                        <div>From: {segStartDate.toLocaleDateString('es-CO')}</div>
+                        <div>To: {segEndDate.toLocaleDateString('es-CO')}</div>
+                        <div style={{ marginTop: '4px', color: '#94a3b8' }}>{diffDays} day{diffDays !== 1 ? 's' : ''} in this state</div>
+                      </div>
+                    );
+                    return (
+                      <div
+                        key={idx}
+                        style={{ position: 'absolute', left: seg.startPercent + '%', width: seg.widthPercent + '%', height: '20px', background: seg.color, borderRadius: '3px', opacity: 0.85, minWidth: '6px', cursor: 'pointer' }}
+                        onMouseEnter={(e) => showTooltip && showTooltip(e, tooltipContent)}
+                        onMouseMove={(e) => moveTooltip && moveTooltip(e)}
+                        onMouseLeave={() => hideTooltip && hideTooltip()}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -187,7 +271,7 @@
       );
     }
 
-    function FeatureRow({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineStart, timelineEnd, adoLink, isExpanded, onToggleExpand, states, loading }) {
+    function FeatureRow({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineStart, timelineEnd, adoLink, isExpanded, onToggleExpand, states, loading, showTooltip, moveTooltip, hideTooltip }) {
       const stateColors = {
         'New': '#94a3b8',
         'In Shaping': '#fbbf24',
@@ -271,6 +355,7 @@
     }
 
     function Dashboard() {
+      const { tooltip, showTooltip, moveTooltip, hideTooltip } = useTooltip();
       const [features, setFeatures] = useState([]);
       const [loading, setLoading] = useState(true);
       const [warnings, setWarnings] = useState([]);
@@ -939,6 +1024,9 @@
                                     onToggleExpand={() => toggleRoadmapFeature(f.id)}
                                     states={historyCache[f.id] || []}
                                     loading={loadingHistory}
+                                    showTooltip={showTooltip}
+                                    moveTooltip={moveTooltip}
+                                    hideTooltip={hideTooltip}
                                   />
                                   {isExpanded && (
                                     loadingStoriesIds[f.id] ? (
@@ -960,6 +1048,9 @@
                                           adoLink={adoLink}
                                           states={storyHistoryCache[s.id] || []}
                                           loading={loadingStoryHistory}
+                                          showTooltip={showTooltip}
+                                          moveTooltip={moveTooltip}
+                                          hideTooltip={hideTooltip}
                                         />
                                       ))
                                     )
@@ -984,6 +1075,7 @@
               })()}
             </>
           )}
+          <Tooltip tooltip={tooltip} />
         </div>
       );
     }
