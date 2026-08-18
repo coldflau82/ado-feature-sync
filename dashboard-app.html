@@ -969,13 +969,72 @@
                         const m = new Date(timelineStart.getFullYear(), timelineStart.getMonth() + i, 1);
                         monthLabels.push(m.toLocaleString('default', { month: 'short', year: '2-digit' }));
                       }
-                      return (
+                                           return (
                         <div style={{ display: 'flex', gap: '20px', padding: '12px', marginBottom: '10px', alignItems: 'center' }}>
                           <div style={{ flex: '0 0 300px', display: 'flex', justifyContent: 'flex-end' }}>
                             <button style={{ padding: '4px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }} onClick={() => setTimelineOffset(timelineOffset - 1)}>◄</button>
                           </div>
-                          <div style={{ flex: 1, background: '#e0e0e0', borderRadius: '4px', padding: '8px', display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', fontSize: '10px', fontWeight: 'bold', textAlign: 'center' }}>
-                            {monthLabels.map((m, i) => <div key={i}>{m}</div>)}
+                          <div style={{ flex: 1 }}>
+                            {(() => {
+                              // Agrupar meses por año
+                              const groups = [];
+                              let currentGroup = null;
+                              for (let i = 0; i < 12; i++) {
+                                const m = new Date(timelineStart.getFullYear(), timelineStart.getMonth() + i, 1);
+                                const year = m.getFullYear();
+                                const monthName = m.toLocaleString('default', { month: 'short' });
+                                if (!currentGroup || currentGroup.year !== year) {
+                                  currentGroup = { year, months: [] };
+                                  groups.push(currentGroup);
+                                }
+                                currentGroup.months.push(monthName);
+                              }
+                              return (
+                                <div>
+                                  {/* Fila de años */}
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
+                                    {groups.map((g, gi) => (
+                                      <div
+                                        key={gi}
+                                        style={{
+                                          gridColumn: 'span ' + g.months.length,
+                                          background: gi % 2 === 0 ? '#1e3a8a' : '#2563eb',
+                                          color: 'white',
+                                          textAlign: 'center',
+                                          fontSize: '10px',
+                                          fontWeight: 'bold',
+                                          padding: '3px 0',
+                                          borderRadius: '3px'
+                                        }}
+                                      >
+                                        {g.year}
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {/* Fila de meses */}
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px' }}>
+                                    {groups.map((g, gi) =>
+                                      g.months.map((month, mi) => (
+                                        <div
+                                          key={gi + '-' + mi}
+                                          style={{
+                                            background: '#e2e8f0',
+                                            textAlign: 'center',
+                                            fontSize: '10px',
+                                            fontWeight: 'bold',
+                                            padding: '3px 0',
+                                            borderRadius: '3px',
+                                            color: '#334155'
+                                          }}
+                                        >
+                                          {month}
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                           <button style={{ padding: '4px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }} onClick={() => setTimelineOffset(timelineOffset + 1)}>►</button>
                         </div>
