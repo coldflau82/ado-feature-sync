@@ -250,16 +250,6 @@
               {!loading && (
                 <div style={{ position: 'absolute', top: 0, bottom: 0, left: clampedTodayPercent + '%', width: '1px', background: '#1e3a8a', opacity: 0.9, zIndex: 10, pointerEvents: 'none' }} />
               )}
-
-              {/* Badge de estado actual a la derecha de la línea de hoy */}
-              {!loading && state && (
-                <div style={{ position: 'absolute', top: '50%', left: clampedTodayPercent + '%', transform: 'translateY(-50%)', zIndex: 15, paddingLeft: '5px', pointerEvents: 'none' }}>
-                  <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '3px', background: storyStateColors[state] || '#cccccc', color: 'white', whiteSpace: 'nowrap', display: 'inline-block' }}>
-                    {state}
-                  </span>
-                </div>
-              )}
-
             </div>
           </td>
         </tr>
