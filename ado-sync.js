@@ -805,12 +805,16 @@ app.get('/dashboard', (req, res) => {
       const [saveAsDefault, setSaveAsDefault] = useState(false);
       const [filtersLoaded, setFiltersLoaded] = useState(false);
       const [legendExpanded, setLegendExpanded] = useState(false);
+      const [searchInput, setSearchInput] = useState(''); // valor del input (inmediato)
+      // searchTitle ya existe y será el valor "debounced"
 
+      // Debounce: actualiza searchTitle 300ms después de que el usuario deja de escribir
       useEffect(() => {
-        setRoadmapPage(1);
-        setFeaturesPage(1);
-        setExpandedRoadmapFeatureId(null);
-      }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle]);
+        const timer = setTimeout(() => {
+          setSearchTitle(searchInput);
+        }, 300);
+        return () => clearTimeout(timer);
+      }, [searchInput]);
 
       const [refreshing, setRefreshing] = useState(false);
       const [cacheInfo, setCacheInfo] = useState(null);
@@ -1052,9 +1056,12 @@ app.get('/dashboard', (req, res) => {
       const expandedRoadmapStories = expandedRoadmapFeatureId ? (storiesCache[expandedRoadmapFeatureId] || []) : [];
       const expandedStoryIds = expandedRoadmapStories.map(s => s.id).join(',');
 
+      // DESPUÉS — hace merge acumulativo
       useEffect(() => {
         if (currentPage !== 'roadmap' || pageItems.length === 0) return;
-        const ids = pageItems.map(item => item.id);
+        // Solo pedir los IDs que NO están ya en cache
+        const ids = pageItems.map(item => item.id).filter(id => !historyCache[id]);
+        if (ids.length === 0) return; // ← todos ya están en cache, no llamar a ADO
         setLoadingHistory(true);
         fetch('/api/features-history-batch', {
           method: 'POST',
@@ -1063,21 +1070,20 @@ app.get('/dashboard', (req, res) => {
         })
           .then(r => r.json())
           .then(d => {
-            setHistoryCache(d.results || {});
+            setHistoryCache(prev => ({ ...prev, ...(d.results || {}) })); // ← merge
             setLoadingHistory(false);
           })
           .catch(() => {
-            setHistoryCache({});
-            setLoadingHistory(false);
+            setLoadingHistory(false); // ← no borra lo que ya había
           });
       }, [pageItemIds, currentPage]);
 
+      // DESPUÉS — acumula y nunca borra
       useEffect(() => {
-        if (!expandedRoadmapFeatureId || expandedRoadmapStories.length === 0) {
-          setStoryHistoryCache({});
-          return;
-        }
-        const ids = expandedRoadmapStories.map(s => s.id);
+        if (!expandedRoadmapFeatureId || expandedRoadmapStories.length === 0) return; // ← no borra nada
+        // Solo pedir stories que no están en cache
+        const ids = expandedRoadmapStories.map(s => s.id).filter(id => !storyHistoryCache[id]);
+        if (ids.length === 0) return; // ← ya están todas en cache
         setLoadingStoryHistory(true);
         fetch('/api/stories-history-batch', {
           method: 'POST',
@@ -1086,11 +1092,10 @@ app.get('/dashboard', (req, res) => {
         })
           .then(r => r.json())
           .then(d => {
-            setStoryHistoryCache(d.results || {});
+            setStoryHistoryCache(prev => ({ ...prev, ...(d.results || {}) })); // ← merge
             setLoadingStoryHistory(false);
           })
           .catch(() => {
-            setStoryHistoryCache({});
             setLoadingStoryHistory(false);
           });
       }, [expandedRoadmapFeatureId, expandedStoryIds]);
@@ -1118,11 +1123,12 @@ app.get('/dashboard', (req, res) => {
             <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flex: 1 }}>
               <div style={{ flex: '0 0 auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <label style={{ fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap' }}>Search Feature Title</label>
+                // DESPUÉS — usa searchInput para el valor inmediato del input
                 <input 
                   type="text" 
                   placeholder="Type feature title..." 
-                  value={searchTitle}
-                  onChange={(e) => setSearchTitle(e.target.value)}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
                   style={{ width: '300px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' }}
                 />
               </div>
