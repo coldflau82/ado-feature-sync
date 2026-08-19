@@ -145,13 +145,28 @@ async function fetchFeatureDetailsBatch(c, ids) {
   let allFeatures = [];
 
   for (let i = 0; i < ids.length; i += batchSize) {
-    const batch = await c.post('/wit/workitemsbatch?api-version=7.0', {
-      ids: ids.slice(i, i + batchSize),
-      fields: FEATURE_FIELDS,
-      $expand: 'Relations'
-    });
+    const currentIds = ids.slice(i, i + batchSize);
 
-    allFeatures = [...allFeatures, ...batch.data.value];
+    try {
+      const batch = await c.post('/wit/workitemsbatch?api-version=7.0', {
+        ids: currentIds,
+        fields: FEATURE_FIELDS,
+        $expand: 'Relations'
+      });
+
+      allFeatures = [...allFeatures, ...batch.data.value];
+    } catch (error) {
+      console.error('ERROR fetching Feature details batch from ADO', {
+        batchStart: i,
+        batchSize: currentIds.length,
+        adoStatus: error.response?.status || null,
+        adoStatusText: error.response?.statusText || null,
+        adoResponse: error.response?.data || null,
+        message: error.message
+      });
+
+      throw error;
+    }
   }
 
   return allFeatures;
@@ -488,8 +503,19 @@ app.get('/api/features', async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('ERROR /api/features', {
+      adoStatus: error.response?.status || null,
+      adoStatusText: error.response?.statusText || null,
+      adoResponse: error.response?.data || null,
+      message: error.message
+    });
+
+    res.status(500).json({
+      error: 'Unable to fetch Features from ADO.'
+    });
   }
 });
+
+app.listen(process.env.PORT || 3000, () => console.log('ok'));
 
 app.listen(process.env.PORT || 3000, () => console.log('ok'));
