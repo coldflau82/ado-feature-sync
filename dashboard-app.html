@@ -1101,8 +1101,8 @@
                   style={{ width: '300px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' }}
                 />
               </div>
-              <div style={{ minWidth: '180px' }}>
-                <label className="filter-label">Health</label>
+              <div style={{ flex: '0 0 auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <label className="filter-label" style={{ marginBottom: 0, whiteSpace: 'nowrap' }}>Health</label>
                 <select className="filter-select health-filter" value={healthFilter} onChange={(e) => {
                     setHealthFilter(e.target.value);
                     setFeaturesPage(1);
@@ -1110,6 +1110,7 @@
                     setExpandedRoadmapFeatureId(null);
                   }}
                   title="Filter Features by health status"
+                  style={{ width: '180px' }
                 >
                   <option value="All">All health statuses</option>
                   <option value="Healthy">Healthy</option>
