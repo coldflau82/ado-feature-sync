@@ -150,8 +150,7 @@ async function fetchFeatureDetailsBatch(c, ids) {
     try {
       const batch = await c.post('/wit/workitemsbatch?api-version=7.0', {
         ids: currentIds,
-        fields: FEATURE_FIELDS,
-        $expand: 'Relations'
+        fields: FEATURE_FIELDS
       });
 
       allFeatures = [...allFeatures, ...batch.data.value];
