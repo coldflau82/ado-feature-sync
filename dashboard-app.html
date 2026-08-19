@@ -702,59 +702,52 @@
           }
 
           return (
-            <tr style={{ background: 'white' }}>
-              {/* Las 4 columnas fijas: sin botón, ya está en el <th> de Feature */}
-              <td colSpan="4" style={{ padding: '0px' }}></td>
-              {/* Celda Timeline: solo labels + botón ► a la derecha */}
-              <td style={{ padding: '4px 6px 4px 6px', verticalAlign: 'middle' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {/* Fila año-trimestre */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
-                      {groups.map((g, gi) => (
-                        <div
-                          key={gi}
-                          style={{
-                            gridColumn: 'span ' + g.weeks.length,
-                            background: (() => {
-                              const parts = g.key.split('-Q');
-                              return (parseInt(parts[0]) * 4 + parseInt(parts[1])) % 2 === 0 ? '#1e3a8a' : '#2563eb';
-                            })(),
-                            color: 'white',
-                            textAlign: 'center',
-                            fontSize: '10px',
-                            fontWeight: 'bold',
-                            padding: '3px 0',
-                            borderRadius: '3px'
-                          }}
-                        >
-                          {g.label}
-                        </div>
-                      ))}
-                    </div>
-                    {/* Fila semanas */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px' }}>
-                      {groups.map((g, gi) =>
-                        g.weeks.map((week, wi) => (
-                          <div
-                            key={gi + '-' + wi}
-                            style={{ background: '#e2e8f0', textAlign: 'center', fontSize: '9px', fontWeight: 'bold', padding: '3px 0', borderRadius: '3px', color: '#334155' }}
-                          >
-                            {week}
-                          </div>
-                        ))
-                      )}
-                    </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                  {/* Fila año-trimestre */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
+                    {groups.map((g, gi) => (
+                      <div
+                        key={gi}
+                        style={{
+                          gridColumn: 'span ' + g.weeks.length,
+                          background: (() => {
+                            const parts = g.key.split('-Q');
+                            return (parseInt(parts[0]) * 4 + parseInt(parts[1])) % 2 === 0 ? '#1e3a8a' : '#2563eb';
+                          })(),
+                          color: 'white',
+                          textAlign: 'center',
+                          fontSize: '10px',
+                          fontWeight: 'bold',
+                          padding: '3px 0',
+                          borderRadius: '3px'
+                        }}
+                      >
+                        {g.label}
+                      </div>
+                    ))}
                   </div>
-                  <button
-                    style={{ padding: '2px 8px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px', lineHeight: 1, flexShrink: 0, alignSelf: 'stretch' }}
-                    onClick={onNext}
-                  >►</button>
+                  {/* Fila semanas */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px' }}>
+                    {groups.map((g, gi) =>
+                      g.weeks.map((week, wi) => (
+                        <div
+                          key={gi + '-' + wi}
+                          style={{ background: '#e2e8f0', textAlign: 'center', fontSize: '9px', fontWeight: 'bold', padding: '3px 0', borderRadius: '3px', color: '#334155' }}
+                        >
+                          {week}
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
-              </td>
-            </tr>
-          );
-        }                            
+                <button
+                  style={{ padding: '2px 8px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px', lineHeight: 1, flexShrink: 0, alignSelf: 'stretch' }}
+                  onClick={onNext}
+                >►</button>
+            </div>
+          </div>
+        );                         
 
         // Modo meses
         const timelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
@@ -772,13 +765,8 @@
         }
 
         return (
-            <tr style={{ background: 'white' }}>
-              {/* Las 4 columnas fijas: sin botón, ya está en el <th> de Feature */}
-              <td colSpan="4" style={{ padding: '0px' }}></td>
-              {/* Celda Timeline: solo labels + botón ► a la derecha */}
-              <td style={{ padding: '4px 6px 4px 6px', verticalAlign: 'middle' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
                   {/* Fila años */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
                     {groups.map((g, gi) => (
@@ -818,8 +806,7 @@
                   onClick={onNext}
                 >►</button>
               </div>
-            </td>
-          </tr>
+          </div>
         );
       }
 
@@ -1160,19 +1147,15 @@
                           >◄</button>
                         </div>
                       </th>
-                      <th style={{ padding: '0px' }}></th>
+                     <th style={{ padding: '4px 6px', verticalAlign: 'middle', fontWeight: 'normal' }}>
+                        <TimelineSubHeader
+                          isWeekMode={expandedRoadmapFeatureId !== null}
+                          timelineOffset={timelineOffset}
+                          weekOffset={weekOffset}
+                          onNext={() => expandedRoadmapFeatureId !== null ? setWeekOffset(weekOffset + 1) : setTimelineOffset(timelineOffset + 1)}
+                        />
+                      </th>
                     </tr>
-                    {/* ── Fila del header de la línea de tiempo ──
-                        Vive en <thead> para quedar sticky junto al encabezado de columnas.
-                        Usa exactamente las mismas celdas que las filas de datos,
-                        así el grid de meses/semanas ocupa idéntico ancho que las barras Gantt. */}
-                    <TimelineSubHeader
-                      isWeekMode={expandedRoadmapFeatureId !== null}
-                      timelineOffset={timelineOffset}
-                      weekOffset={weekOffset}
-                      onPrev={() => expandedRoadmapFeatureId !== null ? setWeekOffset(weekOffset - 1) : setTimelineOffset(timelineOffset - 1)}
-                      onNext={() => expandedRoadmapFeatureId !== null ? setWeekOffset(weekOffset + 1) : setTimelineOffset(timelineOffset + 1)}
-                    />
                   </thead>
                   <tbody>
                     {(() => {
