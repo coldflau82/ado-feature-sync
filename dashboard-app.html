@@ -193,6 +193,7 @@
       return (
         <tr style={{ borderBottom: '1px solid #eee', background: '#f2f2f2' }}>
           <td></td>
+          <td></td>
           <td><a href={adoLink(storyId)} target="_blank">{storyId}</a></td>
           <td style={{ maxWidth: '300px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -256,7 +257,7 @@
       );
     }
 
-    function FeatureRow({ featureId, title, targetDate, releaseFixVersion, estimation, formatDate, timelineStart, timelineEnd, adoLink, isExpanded, onToggleExpand, states, loading, showTooltip, moveTooltip, hideTooltip }) {
+    function FeatureRow({ featureId, title, targetDate, releaseFixVersion, estimation,  priority, formatDate, timelineStart, timelineEnd, adoLink, isExpanded, onToggleExpand, states, loading, showTooltip, moveTooltip, hideTooltip }) {
       const stateColors = {
         'New': '#94a3b8',
         'In Shaping': '#fbbf24',
@@ -296,6 +297,9 @@
         <tr style={{ borderBottom: '1px solid #eee', background: isExpanded ? '#f2f2f2' : 'transparent' }}>
           <td className="expand-btn" onClick={onToggleExpand}>
             {isExpanded ? '▼' : '►'}
+          </td>
+          <td style={{ width: '36px', textAlign: 'center', fontSize: '12px', fontWeight: 'bold', color: priority ? '#1e3a8a' : '#ccc' }}>
+            {priority || '—'}
           </td>
           <td><a href={adoLink(featureId)} target="_blank">{featureId}</a></td>
           <td
@@ -1147,6 +1151,12 @@
                         <thead>
                           <tr>
                             <th style={{ width: '30px' }}></th>
+                            <th
+                              style={{ width: '40px', textAlign: 'center', cursor: 'pointer', fontSize: '12px', whiteSpace: 'nowrap' }}
+                              onClick={() => { setSortColumn('priority'); setSortOrder(sortColumn === 'priority' && sortOrder === 'asc' ? 'desc' : 'asc'); }}
+                            >
+                              P {sortColumn === 'priority' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+                            </th>
                             <th style={{ width: '80px' }}>ID</th>
                             <th style={{ width: '300px' }}>Feature</th>
                             <th>Timeline</th>
@@ -1177,6 +1187,7 @@
                                     targetDate={f.targetDate}
                                     releaseFixVersion={f.releaseFixVersion}
                                     estimation={f.estimation}
+                                    priority={f.priority}
                                     formatDate={formatDate}
                                     timelineStart={featureTimelineStart}
                                     timelineEnd={featureTimelineEnd}
