@@ -46,10 +46,44 @@ function getAdoClient() {
 // ===== Filtro base de Area Path (idéntico al que ya tenías) =====
 const BASE_FILTER = 'AND [System.State] <> "Removed" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3")';
 
-// ===== Campos que se traen en el batch (idénticos a los que ya tenías) =====
-const FEATURE_FIELDS = ['System.Id', 'System.Title', 'System.State', 'System.AreaPath', 'System.IterationPath', 'Microsoft.VSTS.Common.Priority', 'Microsoft.VSTS.Scheduling.TargetDate', 'Custom.PlannedMonth', 'Custom.BEEstimate', 'Custom.FEEstimates', 'Custom.QASizing', 'Custom.ReleaseFixVersion', 'System.Tags', 'System.AssignedTo'];
+// ===== Campos que se traen en el batch =====
+// Los campos HTML se consultan solo para devolver una bandera boolean.
+// Su contenido nunca se envía al navegador.
+const FEATURE_FIELDS = [
+  'System.Id',
+  'System.Title',
+  'System.State',
+  'System.AreaPath',
+  'System.IterationPath',
+  'Microsoft.VSTS.Common.Priority',
+  'Microsoft.VSTS.Scheduling.TargetDate',
+  'Custom.PlannedMonth',
+  'Custom.BEEstimate',
+  'Custom.FEEstimates',
+  'Custom.QASizing',
+  'Custom.ReleaseFixVersion',
+  'System.Tags',
+  'System.AssignedTo',
+  'Microsoft.VSTS.Common.AcceptanceCriteria',
+  'System.Description'
+];
 
-// ===== Mapeo de un work item crudo -> objeto de salida (idéntico a tu .map actual) =====
+// ===== Evalúa si un campo simple o HTML tiene contenido visible =====
+// No devuelve el texto; únicamente se usa para producir true / false.
+function hasMeaningfulValue(value) {
+  if (value === null || value === undefined) {
+    return false;
+  }
+
+  const plainText = String(value)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .trim();
+
+  return plainText.length > 0;
+}
+
+// ===== Mapeo de un work item crudo -> objeto de salida =====
 function mapFeature(i) {
   return {
     id: i.id,
@@ -67,6 +101,18 @@ function mapFeature(i) {
       be: i.fields['Custom.BEEstimate'] || '',
       fe: i.fields['Custom.FEEstimates'] || '',
       qa: i.fields['Custom.QASizing'] || ''
+    },
+    requiredFields: {
+      acceptanceCriteria: hasMeaningfulValue(
+        i.fields['Microsoft.VSTS.Common.AcceptanceCriteria']
+      ),
+      businessImpact: false, // TODO: reemplazar cuando confirmemos el reference name real.
+      parent: false, // TODO: se resolverá leyendo relaciones Hierarchy-Reverse del Feature.
+      priority: Number(i.fields['Microsoft.VSTS.Common.Priority']) > 0,
+      targetDate: hasMeaningfulValue(
+        i.fields['Microsoft.VSTS.Scheduling.TargetDate']
+      ),
+      description: hasMeaningfulValue(i.fields['System.Description'])
     }
   };
 }
