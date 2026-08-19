@@ -256,7 +256,7 @@
       );
     }
 
-    function FeatureRow({ featureId, title, targetDate, releaseFixVersion, formatDate, timelineStart, timelineEnd, adoLink, isExpanded, onToggleExpand, states, loading, showTooltip, moveTooltip, hideTooltip }) {
+    function FeatureRow({ featureId, title, targetDate, releaseFixVersion, estimation, formatDate, timelineStart, timelineEnd, adoLink, isExpanded, onToggleExpand, states, loading, showTooltip, moveTooltip, hideTooltip }) {
       const stateColors = {
         'New': '#94a3b8',
         'In Shaping': '#fbbf24',
@@ -298,7 +298,18 @@
             {isExpanded ? '▼' : '►'}
           </td>
           <td><a href={adoLink(featureId)} target="_blank">{featureId}</a></td>
-          <td title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{title}</td>
+          <td
+            style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px', cursor: 'default' }}
+            onMouseEnter={(e) => showTooltip && showTooltip(e, (
+              <div>
+                <div style={{ fontWeight: 'bold', color: '#60a5fa', marginBottom: '4px', fontSize: '12px' }}>Feature #{featureId}</div>
+                <div style={{ marginBottom: '6px', maxWidth: '240px', whiteSpace: 'normal', lineHeight: '1.4' }}>{title}</div>
+                {targetDate && <div style={{ color: '#94a3b8', fontSize: '10px' }}>🎯 Target: {formatDate(targetDate)}</div>}
+              </div>
+            ))}
+            onMouseMove={(e) => moveTooltip && moveTooltip(e)}
+            onMouseLeave={() => hideTooltip && hideTooltip()}
+          >{title}</td>
           <td style={{ padding: '8px' }}>
             <div style={{ minHeight: '32px', background: isExpanded ? '#e0e0e0' : '#f9f9f9', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
               {!loading && (() => {
@@ -329,8 +340,30 @@
               ) : (
                 <div style={{ width: '100%', position: 'relative', height: '20px' }}>
                   {segments.map((seg, idx) => (
-                    <div key={idx} style={{ position: 'absolute', left: seg.startPercent + '%', width: seg.widthPercent + '%', height: '28px', background: seg.color, borderRadius: '3px', opacity: 0.85, minWidth: '6px' }} title={seg.state} />
-                  ))}
+                                  ) : (
+                <div style={{ width: '100%', position: 'relative', height: '20px' }}>
+                  {segments.map((seg, idx) => {
+                    const est = estimation || {};
+                    const tooltipContent = (
+                      <div>
+                        <div style={{ fontWeight: 'bold', color: seg.color, marginBottom: '6px', fontSize: '12px' }}>● {seg.state}</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', textAlign: 'center' }}>
+                          <div><div style={{ color: '#94a3b8', fontSize: '9px', marginBottom: '2px' }}>BE</div><div style={{ fontWeight: 'bold', fontSize: '13px' }}>{est.be || '—'}</div></div>
+                          <div><div style={{ color: '#94a3b8', fontSize: '9px', marginBottom: '2px' }}>FE</div><div style={{ fontWeight: 'bold', fontSize: '13px' }}>{est.fe || '—'}</div></div>
+                          <div><div style={{ color: '#94a3b8', fontSize: '9px', marginBottom: '2px' }}>QA</div><div style={{ fontWeight: 'bold', fontSize: '13px' }}>{est.qa || '—'}</div></div>
+                        </div>
+                      </div>
+                    );
+                    return (
+                      <div
+                        key={idx}
+                        style={{ position: 'absolute', left: seg.startPercent + '%', width: seg.widthPercent + '%', height: '28px', background: seg.color, borderRadius: '3px', opacity: 0.85, minWidth: '6px', cursor: 'pointer' }}
+                        onMouseEnter={(e) => showTooltip && showTooltip(e, tooltipContent)}
+                        onMouseMove={(e) => moveTooltip && moveTooltip(e)}
+                        onMouseLeave={() => hideTooltip && hideTooltip()}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1147,6 +1180,7 @@
                                     title={f.title}
                                     targetDate={f.targetDate}
                                     releaseFixVersion={f.releaseFixVersion}
+                                    estimation={f.estimation}
                                     formatDate={formatDate}
                                     timelineStart={featureTimelineStart}
                                     timelineEnd={featureTimelineEnd}
