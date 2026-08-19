@@ -677,7 +677,7 @@
       // ── Renderiza el header de la línea de tiempo (meses o semanas) ──
       // Ahora vive DENTRO de la tabla, en un <thead> secundario,
       // así la columna Timeline comparte exactamente el mismo ancho.
-        function TimelineSubHeader({ isWeekMode, timelineOffset, weekOffset, onNext }) {
+              function TimelineSubHeader({ isWeekMode, timelineOffset, weekOffset, onNext }) {
         const today = new Date();
 
         if (isWeekMode) {
@@ -803,67 +803,6 @@
             >►</button>
           </div>
         );
-      }                       
-
-        // Modo meses
-        const timelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
-        const groups = [];
-        let currentGroup = null;
-        for (let i = 0; i < 12; i++) {
-          const m = new Date(timelineStart.getFullYear(), timelineStart.getMonth() + i, 1);
-          const year = m.getFullYear();
-          const monthName = m.toLocaleString('default', { month: 'short' });
-          if (!currentGroup || currentGroup.year !== year) {
-            currentGroup = { year, months: [] };
-            groups.push(currentGroup);
-          }
-          currentGroup.months.push(monthName);
-        }
-
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-                  {/* Fila años */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
-                    {groups.map((g, gi) => (
-                      <div
-                        key={gi}
-                        style={{
-                          gridColumn: 'span ' + g.months.length,
-                          background: gi % 2 === 0 ? '#1e3a8a' : '#2563eb',
-                          color: 'white',
-                          textAlign: 'center',
-                          fontSize: '10px',
-                          fontWeight: 'bold',
-                          padding: '3px 0',
-                          borderRadius: '3px'
-                        }}
-                      >
-                        {g.year}
-                      </div>
-                    ))}
-                  </div>
-                  {/* Fila meses */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px' }}>
-                    {groups.map((g, gi) =>
-                      g.months.map((month, mi) => (
-                        <div
-                          key={gi + '-' + mi}
-                          style={{ background: '#e2e8f0', textAlign: 'center', fontSize: '10px', fontWeight: 'bold', padding: '3px 0', borderRadius: '3px', color: '#334155' }}
-                        >
-                          {month}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-                <button
-                  style={{ padding: '2px 8px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px', lineHeight: 1, flexShrink: 0, alignSelf: 'stretch' }}
-                  onClick={onNext}
-                >►</button>
-              </div>
-           </div>
-         );
       }
 
       return (
