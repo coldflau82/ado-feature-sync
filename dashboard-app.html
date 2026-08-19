@@ -1131,11 +1131,11 @@
                         P {sortColumn === 'priority' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
                       </th>
                       <th style={{ width: '80px' }}>ID</th>
-                      <th style={{ width: '300px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span>Feature</span>
+                      <th style={{ width: '300px', padding: '0px 0px 0px 12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', height: '100%' }}>
+                          <span style={{ display: 'flex', alignItems: 'center' }}>Feature</span>
                           <button
-                            style={{ padding: '2px 8px', background: expandedRoadmapFeatureId !== null ? '#537fbd' : '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px', lineHeight: 1, marginLeft: '6px', alignSelf: 'stretch' }}
+                            style={{ padding: '0px 10px', background: expandedRoadmapFeatureId !== null ? '#537fbd' : '#007bff', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px', lineHeight: 1, marginLeft: '6px', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }}
                             onClick={() => expandedRoadmapFeatureId !== null ? setWeekOffset(weekOffset - 1) : setTimelineOffset(timelineOffset - 1)}
                           >◄</button>
                         </div>
