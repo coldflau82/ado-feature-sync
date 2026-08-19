@@ -66,6 +66,7 @@ const FEATURE_FIELDS = [
   'System.AssignedTo',
   'Microsoft.VSTS.Common.AcceptanceCriteria',
   'System.Description'
+  'Custom.PI_CustomerBenefit'
 ];
 
 // ===== Evalúa si un campo simple o HTML tiene contenido visible =====
@@ -81,6 +82,15 @@ function hasMeaningfulValue(value) {
     .trim();
 
   return plainText.length > 0;
+}
+
+// ===== Determina si el Feature tiene un Parent jerárquico =====
+// Solo devuelve true / false. No expone información del elemento padre.
+function hasParentRelation(workItem) {
+  return Array.isArray(workItem.relations) &&
+    workItem.relations.some(
+      relation => relation.rel === 'System.LinkTypes.Hierarchy-Reverse'
+    );
 }
 
 // ===== Mapeo de un work item crudo -> objeto de salida =====
@@ -103,11 +113,13 @@ function mapFeature(i) {
       qa: i.fields['Custom.QASizing'] || ''
     },
     requiredFields: {
-      acceptanceCriteria: hasMeaningfulValue(
+            acceptanceCriteria: hasMeaningfulValue(
         i.fields['Microsoft.VSTS.Common.AcceptanceCriteria']
       ),
-      businessImpact: false, // TODO: reemplazar cuando confirmemos el reference name real.
-      parent: false, // TODO: se resolverá leyendo relaciones Hierarchy-Reverse del Feature.
+      businessImpact: hasMeaningfulValue(
+        i.fields['Custom.PI_CustomerBenefit']
+      ),
+      parent: hasParentRelation(i),
       priority: Number(i.fields['Microsoft.VSTS.Common.Priority']) > 0,
       targetDate: hasMeaningfulValue(
         i.fields['Microsoft.VSTS.Scheduling.TargetDate']
@@ -125,17 +137,23 @@ async function fetchIdsForRange(c, range) {
   return r.data.workItems.map(i => i.id);
 }
 
-// ===== Trae los campos completos en lotes de 200 (idéntico a tu lógica actual de batch) =====
+// ===== Trae los campos completos en lotes de 200 =====
+// También solicita relaciones para validar si cada Feature tiene Parent,
+// sin realizar solicitudes adicionales por Feature.
 async function fetchFeatureDetailsBatch(c, ids) {
   const batchSize = 200;
   let allFeatures = [];
+
   for (let i = 0; i < ids.length; i += batchSize) {
     const batch = await c.post('/wit/workitemsbatch?api-version=7.0', {
       ids: ids.slice(i, i + batchSize),
-      fields: FEATURE_FIELDS
+      fields: FEATURE_FIELDS,
+      $expand: 'Relations'
     });
+
     allFeatures = [...allFeatures, ...batch.data.value];
   }
+
   return allFeatures;
 }
 
