@@ -95,26 +95,39 @@ function hasParentRelation(workItem) {
 
 const UNKNOWN = 'unknown';
 
+// ===== Evalúa si un campo simple o HTML tiene contenido visible =====
+// Devuelve true / false. No devuelve ni expone el contenido.
 function hasMeaningfulValue(value) {
   if (value === null || value === undefined) {
     return false;
   }
 
-  // Descripciones y criterios suelen venir como HTML.
-  // "<p></p>" o "&nbsp;" no deberían contar como contenido.
+  // Para campos HTML como Description y Acceptance Criteria,
+  // evita considerar "<p></p>" o "&nbsp;" como contenido válido.
   if (typeof value === 'string') {
-    const text = value
-      .replace(/<[^>]*>/g, '')
+    const plainText = value
+      .replace(/<[^>]*>/g, ' ')
       .replace(/&nbsp;/gi, ' ')
       .trim();
 
-    return text.length > 0;
+    return plainText.length > 0;
   }
 
-  // Incluye 0 y false como valores presentes, si el campo los admite.
+  // Valores como 0 o false siguen siendo valores existentes.
   return true;
 }
 
+// ===== Determina si el Feature tiene un Parent jerárquico =====
+function hasParentRelation(workItem) {
+  return Array.isArray(workItem.relations) &&
+    workItem.relations.some(
+      relation => relation.rel === 'System.LinkTypes.Hierarchy-Reverse'
+    );
+}
+
+// ===== Resultado de validación para campos obtenidos desde ADO =====
+// Si ADO no devolvió el work item o falló la consulta de campos,
+// no se debe decir que el dato está ausente: es "unknown".
 function fieldCheck(sourceStatus, value) {
   if (sourceStatus === UNKNOWN) {
     return UNKNOWN;
@@ -123,38 +136,106 @@ function fieldCheck(sourceStatus, value) {
   return hasMeaningfulValue(value);
 }
 
+// ===== Validación específica para Priority =====
+// Priority debe existir y ser un número mayor a cero.
+function priorityCheck(sourceStatus, value) {
+  if (sourceStatus === UNKNOWN) {
+    return UNKNOWN;
+  }
+
+  return Number(value) > 0;
+}
+
 // ===== Mapeo de un work item crudo -> objeto de salida =====
 function mapFeature(i) {
+  const fields = i.fields || {};
+
+  // Compatibilidad: si un objeto no tiene _healthSource,
+  // asumimos que sus datos llegaron correctamente.
+  const fieldsSource = i._healthSource?.fields || 'ok';
+  const relationsSource = i._healthSource?.relations || 'ok';
+
+  const requiredFields = {
+    acceptanceCriteria: fieldCheck(
+      fieldsSource,
+      fields['Microsoft.VSTS.Common.AcceptanceCriteria']
+    ),
+
+    businessImpact: fieldCheck(
+      fieldsSource,
+      fields['Custom.PI_CustomerBenefit']
+    ),
+
+    parent:
+      relationsSource === UNKNOWN
+        ? UNKNOWN
+        : hasParentRelation(i),
+
+    priority: priorityCheck(
+      fieldsSource,
+      fields['Microsoft.VSTS.Common.Priority']
+    ),
+
+    targetDate: fieldCheck(
+      fieldsSource,
+      fields['Microsoft.VSTS.Scheduling.TargetDate']
+    ),
+
+    description: fieldCheck(
+      fieldsSource,
+      fields['System.Description']
+    )
+  };
+
+  const missingChecks = Object.entries(requiredFields)
+    .filter(([, value]) => value === false)
+    .map(([name]) => name);
+
+  const unknownChecks = Object.entries(requiredFields)
+    .filter(([, value]) => value === UNKNOWN)
+    .map(([name]) => name);
+
+  // Política de salud:
+  // - Incomplete: se confirmó que al menos un requisito falta.
+  // - Unknown: no falta nada confirmado, pero ADO no permitió validar algo.
+  // - Healthy: todos los criterios fueron comprobados y cumplen.
+  const health =
+    missingChecks.length > 0
+      ? 'Incomplete'
+      : unknownChecks.length > 0
+        ? 'Unknown'
+        : 'Healthy';
+
   return {
+    // ===== Datos existentes para el dashboard: se conservan =====
     id: i.id,
-    title: i.fields['System.Title'] || '',
-    state: i.fields['System.State'] || '',
-    areaPath: i.fields['System.AreaPath'] || '',
-    iterationPath: i.fields['System.IterationPath'] || '',
-    priority: i.fields['Microsoft.VSTS.Common.Priority'] || '',
-    targetDate: i.fields['Microsoft.VSTS.Scheduling.TargetDate'] || '',
-    plannedMonth: i.fields['Custom.PlannedMonth'] || '',
-    releaseFixVersion: i.fields['Custom.ReleaseFixVersion'] || '',
-    tags: i.fields['System.Tags'] || '',
-    assignedTo: i.fields['System.AssignedTo']?.displayName || '',
+    title: fields['System.Title'] || '',
+    state: fields['System.State'] || '',
+    areaPath: fields['System.AreaPath'] || '',
+    iterationPath: fields['System.IterationPath'] || '',
+    priority: fields['Microsoft.VSTS.Common.Priority'] || '',
+    targetDate: fields['Microsoft.VSTS.Scheduling.TargetDate'] || '',
+    plannedMonth: fields['Custom.PlannedMonth'] || '',
+    releaseFixVersion: fields['Custom.ReleaseFixVersion'] || '',
+    tags: fields['System.Tags'] || '',
+    assignedTo: fields['System.AssignedTo']?.displayName || '',
+
     estimation: {
-      be: i.fields['Custom.BEEstimate'] || '',
-      fe: i.fields['Custom.FEEstimates'] || '',
-      qa: i.fields['Custom.QASizing'] || ''
+      be: fields['Custom.BEEstimate'] || '',
+      fe: fields['Custom.FEEstimates'] || '',
+      qa: fields['Custom.QASizing'] || ''
     },
-    requiredFields: {
-            acceptanceCriteria: hasMeaningfulValue(
-        i.fields['Microsoft.VSTS.Common.AcceptanceCriteria']
-      ),
-      businessImpact: hasMeaningfulValue(
-        i.fields['Custom.PI_CustomerBenefit']
-      ),
-      parent: hasParentRelation(i),
-      priority: Number(i.fields['Microsoft.VSTS.Common.Priority']) > 0,
-      targetDate: hasMeaningfulValue(
-        i.fields['Microsoft.VSTS.Scheduling.TargetDate']
-      ),
-      description: hasMeaningfulValue(i.fields['System.Description'])
+
+    // ===== Indicador de salud =====
+    requiredFields,
+    health,
+    missingChecks,
+    unknownChecks,
+
+    // Útil para diagnóstico técnico; no contiene datos sensibles.
+    dataSources: {
+      fields: fieldsSource,
+      relations: relationsSource
     }
   };
 }
@@ -622,7 +703,5 @@ app.get('/api/features', async (req, res) => {
     });
   }
 });
-
-app.listen(process.env.PORT || 3000, () => console.log('ok'));
 
 app.listen(process.env.PORT || 3000, () => console.log('ok'));
