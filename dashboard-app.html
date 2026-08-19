@@ -31,6 +31,29 @@
     a { color: #007bff; text-decoration: none; }
     a:hover { text-decoration: underline; }
     .expand-btn { cursor: pointer; user-select: none; text-align: center; width: 30px; }
+    .health-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: bold; white-space: nowrap; }
+    .health-badge__icon { width: 15px; height: 15px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 10px; line-height: 1; }
+    .health--healthy { color: #166534; background: #dcfce7; }
+    .health--healthy .health-badge__icon { color: white; background: #16a34a; }
+    .health--incomplete { color: #9a3412; background: #ffedd5; }
+    .health--incomplete .health-badge__icon { color: white; background: #ea580c; }
+    .health--unknown { color: #475569; background: #e2e8f0; }
+    .health--unknown .health-badge__icon { color: white; background: #64748b; }
+    .health-details { margin-top: 14px; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
+    .health-details__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .health-checks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+    .health-check { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 5px; font-size: 11px; border: 1px solid transparent; }
+    .health-check__icon { width: 17px; height: 17px; display: inline-flex; justify-content: center; align-items: center; border-radius: 50%; color: white; font-size: 10px; font-weight: bold; flex-shrink: 0; }
+    .check--pass { color: #166534; background: #f0fdf4; border-color: #bbf7d0; }
+    .check--pass .health-check__icon { background: #16a34a; }
+    .check--fail { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
+    .check--fail .health-check__icon { background: #dc2626; }
+    .check--unknown { color: #475569; background: #f8fafc; border-color: #cbd5e1; }
+    .check--unknown .health-check__icon { background: #64748b; }
+    .health-summary { margin-top: 10px; font-size: 11px; line-height: 1.5; }
+    .health-summary--missing { color: #b91c1c; }
+    .health-summary--unknown { color: #475569; }
+    
   </style>
 </head>
 <body>
@@ -78,6 +101,150 @@
       'Closed': '#a78bfa'
     };
 
+    const healthCheckLabels = {
+      acceptanceCriteria: 'Acceptance Criteria',
+      businessImpact: 'Business Impact',
+      parent: 'Parent',
+      priority: 'Priority',
+      targetDate: 'Target Date',
+      description: 'Description'
+    };
+
+    function getHealthMeta(health) {
+      switch (health) {
+        case 'Healthy':
+          return {
+            label: 'Healthy',
+            className: 'health--healthy',
+            icon: '✓'
+          };
+
+        case 'Incomplete':
+          return {
+            label: 'Incomplete',
+            className: 'health--incomplete',
+            icon: '!'
+          };
+
+        case 'Unknown':
+          return {
+            label: 'Unable to validate',
+            className: 'health--unknown',
+            icon: '?'
+          };
+
+        default:
+          return {
+            label: 'Not evaluated',
+            className: 'health--unknown',
+            icon: '?'
+          };
+      }
+    }
+
+    function getCheckMeta(value) {
+      if (value === true) {
+        return {
+          label: 'Complete',
+          className: 'check--pass',
+          icon: '✓'
+        };
+      }
+
+      if (value === false) {
+        return {
+          label: 'Missing',
+          className: 'check--fail',
+          icon: '✕'
+        };
+      }
+
+      return {
+        label: 'Unable to validate',
+        className: 'check--unknown',
+        icon: '?'
+      };
+    }
+
+    function HealthBadge({ health }) {
+      const meta = getHealthMeta(health);
+
+      return (
+        <span
+          className={`health-badge ${meta.className}`}
+          title={meta.label}
+        >
+          <span className="health-badge__icon">{meta.icon}</span>
+          {meta.label}
+        </span>
+      );
+    }
+
+    function FeatureHealthDetails({ feature }) {
+      const checks = feature.requiredFields || {};
+
+      const orderedChecks = [
+        'acceptanceCriteria',
+        'businessImpact',
+        'parent',
+        'priority',
+        'targetDate',
+        'description'
+      ];
+
+      const missingChecks = feature.missingChecks || [];
+      const unknownChecks = feature.unknownChecks || [];
+
+      return (
+        <div className="health-details">
+          <div className="health-details__header">
+            <strong style={{ fontSize: '12px', color: '#334155' }}>
+              Feature health validation
+            </strong>
+
+            <HealthBadge health={feature.health} />
+          </div>
+
+          <div className="health-checks-grid">
+            {orderedChecks.map((key) => {
+              const meta = getCheckMeta(checks[key]);
+
+              return (
+                <div
+                  key={key}
+                  className={`health-check ${meta.className}`}
+                  title={`${healthCheckLabels[key]}: ${meta.label}`}
+                >
+                  <span className="health-check__icon">{meta.icon}</span>
+
+                  <span>
+                    <strong>{healthCheckLabels[key]}</strong>
+                    <span style={{ marginLeft: '5px', opacity: 0.85 }}>
+                      — {meta.label}
+                    </span>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {missingChecks.length > 0 && (
+            <div className="health-summary health-summary--missing">
+              <strong>Missing:</strong>{' '}
+              {missingChecks.map(check => healthCheckLabels[check] || check).join(', ')}
+            </div>
+          )}
+
+          {unknownChecks.length > 0 && (
+            <div className="health-summary health-summary--unknown">
+              <strong>Unable to validate:</strong>{' '}
+              {unknownChecks.map(check => healthCheckLabels[check] || check).join(', ')}
+            </div>
+          )}
+        </div>
+      );
+    }
+    
     // ── Tooltip global ──────────────────────────────────────────────
     function useTooltip() {
       const [tooltip, setTooltip] = React.useState({ visible: false, x: 0, y: 0, content: null });
@@ -541,6 +708,7 @@
           else if (sortColumn === 'state') { valA = (a.state || '').toLowerCase(); valB = (b.state || '').toLowerCase(); }
           else if (sortColumn === 'targetDate') { valA = (a.targetDate || ''); valB = (b.targetDate || ''); }
           else if (sortColumn === 'assignedTo') { valA = (a.assignedTo || '').toLowerCase(); valB = (b.assignedTo || '').toLowerCase(); }
+          else if (sortColumn === 'health') { const healthOrder = { 'Incomplete': 1, 'Unknown': 2, 'Healthy': 3 }; valA = healthOrder[a.health] || 4; valB = healthOrder[b.health] || 4; }
           if (sortOrder === 'asc') return valA < valB ? -1 : valA > valB ? 1 : 0;
           else return valA > valB ? -1 : valA < valB ? 1 : 0;
         });
@@ -921,6 +1089,7 @@
                         <th>QA</th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('state'); setSortOrder(sortColumn === 'state' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>State {sortColumn === 'state' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('assignedTo'); setSortOrder(sortColumn === 'assignedTo' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>Assigned To {sortColumn === 'assignedTo' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
+                        <th style={{ width: '145px', textAlign: 'center', cursor: 'pointer' }} onClick={() => {setSortColumn('health'); setSortOrder(sortColumn === 'health' && sortOrder === 'asc' ? 'desc' : 'asc');}}> Health {sortColumn === 'health' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
                         <th style={{ width: '120px', textAlign: 'center' }}>Progress</th>
                       </tr>
                     </thead>
@@ -948,7 +1117,7 @@
                                   {f.state}
                                 </span>
                               </td>
-                              <td style={{ fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '130px' }} title={f.assignedTo}>{f.assignedTo || '—'}</td>
+                              <td style={{ fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '130px' }} title={f.assignedTo} > {f.assignedTo || '—'} </td> <td style={{ textAlign: 'center', padding: '8px' }}> <HealthBadge health={f.health} /> </td>
                               <td style={{ textAlign: 'center', padding: '8px' }}>
                                 {loadingStoriesIds[f.id] ? (
                                   <span style={{ fontSize: '10px', color: '#aaa', fontStyle: 'italic' }}>Loading...</span>
@@ -973,7 +1142,7 @@
                               if (loadingStoriesIds[f.id]) {
                                 return (
                                   <tr style={{ background: '#f9f9f9' }}>
-                                    <td colSpan="14" style={{ paddingLeft: '40px', paddingTop: '15px', paddingBottom: '15px' }}>Loading stories...</td>
+                                    <td colSpan="15" style={{ paddingLeft: '40px', paddingTop: '15px', paddingBottom: '15px' }}>Loading stories...</td>
                                   </tr>
                                 );
                               }
@@ -981,62 +1150,65 @@
                               if (fStories.length === 0) {
                                 return (
                                   <tr style={{ background: '#f9f9f9' }}>
-                                    <td colSpan="14" style={{ paddingLeft: '40px', paddingTop: '15px', paddingBottom: '15px' }}>No stories found for this feature.</td>
+                                    <td colSpan="15" style={{ paddingLeft: '40px', paddingTop: '15px', paddingBottom: '15px' }}>No stories found for this feature.</td>
                                   </tr>
                                 );
                               }
                               return (
                                 <tr style={{ background: '#f9f9f9' }}>
-                                  <td colSpan="14" style={{ paddingLeft: '40px', paddingTop: '12px', paddingBottom: '12px', paddingRight: '20px' }}>
+                                  <td colSpan="15" style={{ paddingLeft: '40px', paddingTop: '12px', paddingBottom: '12px', paddingRight: '20px' }}>
                                     <div>
-                                      {(() => {
-                                        const activeStories = fStories.filter(s => s.state !== 'Removed');
-                                        const removedCount = fStories.length - activeStories.length;
-                                        const doneCount = activeStories.filter(s => ['Closed','Approved for Release','Ready for Deployment','Sprint Completed'].includes(s.state)).length;
-                                        const inProgressCount = activeStories.filter(s => ['In Process','QA Testing','Business Sprint Testing'].includes(s.state)).length;
-                                        const pendingCount = activeStories.filter(s => !['Business Refinement', 'Technical Refinement', 'Ready for Development'].includes(s.state)).length;
-                                        return (
-                                          <div style={{ marginBottom: '10px', fontSize: '12px', fontWeight: 'bold' }}>
-                                            Stories & Bugs ({activeStories.length}
-                                            {removedCount > 0 && <span style={{ color: '#94a3b8', fontWeight: 'normal' }}> +{removedCount} removed</span>}
-                                            ){' — '}
-                                            <span style={{ color: '#34d399' }}>{doneCount} done</span>
-                                            {' / '}
-                                            <span style={{ color: '#60a5fa' }}>{inProgressCount} in progress</span>
-                                            {' / '}
-                                            <span style={{ color: '#fbbf24' }}>{pendingCount} pending</span>
-                                          </div>
-                                        );
-                                      })()}
-                                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '8px' }}>
-                                        {fStories.filter(s => s.state !== 'Removed').map(story => {
-                                          const storyDotColor = storyStateColors[story.state] || '#ccc';
-                                          const isBug = story.workItemType === 'Bug';
-                                          const sprintLabel = (() => {
-                                            const m = story.iterationPath && story.iterationPath.match(/(\d{4})_(S\d+)_/);
-                                            return m ? m[1] + ' ' + m[2] : story.iterationPath ? story.iterationPath.split('\\').pop() : '—';
-                                          })();
+                                    <FeatureHealthDetails feature={f} />
+                                      <div style={{ marginTop: '14px' }}>
+                                        {(() => {
+                                          const activeStories = fStories.filter(s => s.state !== 'Removed');
+                                          const removedCount = fStories.length - activeStories.length;
+                                          const doneCount = activeStories.filter(s => ['Closed','Approved for Release','Ready for Deployment','Sprint Completed'].includes(s.state)).length;
+                                          const inProgressCount = activeStories.filter(s => ['In Process','QA Testing','Business Sprint Testing'].includes(s.state)).length;
+                                          const pendingCount = activeStories.filter(s => !['Business Refinement', 'Technical Refinement', 'Ready for Development'].includes(s.state)).length;
                                           return (
-                                            <div key={story.id} style={{ padding: '8px 12px', background: 'white', borderLeft: '3px solid ' + storyDotColor, borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-                                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                                                    {isBug && <span style={{ fontSize: '9px', background: '#fee2e2', color: '#dc2626', padding: '1px 5px', borderRadius: '3px', fontWeight: 'bold', flexShrink: 0 }}>BUG</span>}
-                                                    <a href={adoLink(story.id)} target="_blank" style={{ fontSize: '11px', fontWeight: 'bold', color: '#007bff', flexShrink: 0 }}>#{story.id}</a>
-                                                    <span style={{ fontSize: '11px', color: '#333', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{story.title}</span>
-                                                  </div>
-                                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                                    <span style={{ fontSize: '10px', background: storyDotColor, color: 'white', padding: '1px 6px', borderRadius: '3px', whiteSpace: 'nowrap' }}>{story.state}</span>
-                                                    <span style={{ fontSize: '10px', color: '#666' }}>📍 {sprintLabel}</span>
-                                                    <span style={{ fontSize: '10px', color: '#666' }}>🎯 {story.storyPoints || 0} pts</span>
+                                            <div style={{ marginBottom: '10px', fontSize: '12px', fontWeight: 'bold' }}>
+                                              Stories & Bugs ({activeStories.length}
+                                              {removedCount > 0 && <span style={{ color: '#94a3b8', fontWeight: 'normal' }}> +{removedCount} removed</span>}
+                                              ){' — '}
+                                              <span style={{ color: '#34d399' }}>{doneCount} done</span>
+                                              {' / '}
+                                              <span style={{ color: '#60a5fa' }}>{inProgressCount} in progress</span>
+                                              {' / '}
+                                              <span style={{ color: '#fbbf24' }}>{pendingCount} pending</span>
+                                            </div>
+                                          );
+                                        })()}
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '8px' }}>
+                                          {fStories.filter(s => s.state !== 'Removed').map(story => {
+                                            const storyDotColor = storyStateColors[story.state] || '#ccc';
+                                            const isBug = story.workItemType === 'Bug';
+                                            const sprintLabel = (() => {
+                                              const m = story.iterationPath && story.iterationPath.match(/(\d{4})_(S\d+)_/);
+                                              return m ? m[1] + ' ' + m[2] : story.iterationPath ? story.iterationPath.split('\\').pop() : '—';
+                                            })();
+                                            return (
+                                              <div key={story.id} style={{ padding: '8px 12px', background: 'white', borderLeft: '3px solid ' + storyDotColor, borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                                      {isBug && <span style={{ fontSize: '9px', background: '#fee2e2', color: '#dc2626', padding: '1px 5px', borderRadius: '3px', fontWeight: 'bold', flexShrink: 0 }}>BUG</span>}
+                                                      <a href={adoLink(story.id)} target="_blank" style={{ fontSize: '11px', fontWeight: 'bold', color: '#007bff', flexShrink: 0 }}>#{story.id}</a>
+                                                      <span style={{ fontSize: '11px', color: '#333', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{story.title}</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                      <span style={{ fontSize: '10px', background: storyDotColor, color: 'white', padding: '1px 6px', borderRadius: '3px', whiteSpace: 'nowrap' }}>{story.state}</span>
+                                                      <span style={{ fontSize: '10px', color: '#666' }}>📍 {sprintLabel}</span>
+                                                      <span style={{ fontSize: '10px', color: '#666' }}>🎯 {story.storyPoints || 0} pts</span>
+                                                    </div>
                                                   </div>
                                                 </div>
                                               </div>
-                                            </div>
-                                          );
-                                        })}
+                                            );
+                                          })}
+                                        </div>
                                       </div>
-                                    </div>
+                                    </div> 
                                   </td>
                                 </tr>
                               );
