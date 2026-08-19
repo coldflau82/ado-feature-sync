@@ -1092,7 +1092,7 @@
           <div style={{ background: 'white', padding: '15px', borderRadius: '8px', marginBottom: '12px', display: 'flex', gap: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flex: 1 }}>
               <div style={{ flex: '0 0 auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <label style={{ fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap' }}>Search Feature Title or Tag</label>
+                <label className="filter-label">Search Feature Title or Tag</label>
                 <input
                   type="text"
                   placeholder="Type feature title or Tag..."
@@ -1103,7 +1103,7 @@
               </div>
               <div style={{ minWidth: '180px' }}>
                 <label className="filter-label">Health</label>
-                <select  className="filter-select health-filter" value={healthFilter} onChange={(e) => {
+                <select className="filter-select health-filter" value={healthFilter} onChange={(e) => {
                     setHealthFilter(e.target.value);
                     setFeaturesPage(1);
                     setRoadmapPage(1);
