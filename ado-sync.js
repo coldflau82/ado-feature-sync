@@ -66,7 +66,7 @@ const FEATURE_FIELDS = [
   'System.AssignedTo',
   'Microsoft.VSTS.Common.AcceptanceCriteria',
   'System.Description',
-  'Custom.PI_CustomerBenefit'
+  'Custom.PI_CustomerBenefit',
 ];
 
 // ===== Evalúa si un campo simple o HTML tiene contenido visible =====
