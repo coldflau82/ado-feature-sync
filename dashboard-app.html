@@ -1134,10 +1134,8 @@
                       <th style={{ width: '300px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span>Feature</span>
-                          {/* Botón ◄ vive aquí, pegado visualmente al borde derecho
-                              de esta columna, que es el borde izquierdo de la timeline */}
                           <button
-                            style={{ padding: '2px 8px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px', lineHeight: 1, marginLeft: '6px' }}
+                            style={{ padding: '2px 8px', background: expandedRoadmapFeatureId !== null ? '#537fbd' : '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px', lineHeight: 1, marginLeft: '6px', alignSelf: 'stretch' }}
                             onClick={() => expandedRoadmapFeatureId !== null ? setWeekOffset(weekOffset - 1) : setTimelineOffset(timelineOffset - 1)}
                           >◄</button>
                         </div>
