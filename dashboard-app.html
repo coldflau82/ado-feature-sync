@@ -313,8 +313,8 @@
             onMouseMove={(e) => moveTooltip && moveTooltip(e)}
             onMouseLeave={() => hideTooltip && hideTooltip()}
           >{title}</td>
-          <td style={{ padding: '8px' }}>
-            <div style={{ minHeight: '32px', background: isExpanded ? '#e0e0e0' : '#f9f9f9', borderRadius: '4px', padding: '4px 10px', overflow: 'hidden', position: 'relative' }}>
+          <td style={{ padding: '4px 6px' }}>
+            <div style={{ minHeight: '32px', background: isExpanded ? '#e0e0e0' : '#f9f9f9', borderRadius: '4px', padding: '0', overflow: 'visible', position: 'relative' }}>
               {!loading && (() => {
                 const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
                 if (todayPercent < 0 || todayPercent > 100) return null;
@@ -990,7 +990,7 @@
                       }
                       return (
                         <div style={{ display: 'flex', gap: '20px', padding: '12px', marginBottom: '10px', alignItems: 'center' }}>
-                          <div style={{ flex: '0 0 300px', display: 'flex', justifyContent: 'flex-end' }}>
+                          <div style={{ flex: '0 0 462px', display: 'flex', justifyContent: 'flex-end' }}>
                             <button style={{ padding: '4px 10px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }} onClick={() => setWeekOffset(weekOffset - 1)}>◄</button>
                           </div>
                           <div style={{ flex: 1 }}>
@@ -1069,9 +1069,9 @@
                         const m = new Date(timelineStart.getFullYear(), timelineStart.getMonth() + i, 1);
                         monthLabels.push(m.toLocaleString('default', { month: 'short', year: '2-digit' }));
                       }
-                                           return (
+                     return (
                         <div style={{ display: 'flex', gap: '20px', padding: '12px', marginBottom: '10px', alignItems: 'center' }}>
-                          <div style={{ flex: '0 0 300px', display: 'flex', justifyContent: 'flex-end' }}>
+                          <div style={{ flex: '0 0 462px', display: 'flex', justifyContent: 'flex-end' }}>
                             <button style={{ padding: '4px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }} onClick={() => setTimelineOffset(timelineOffset - 1)}>◄</button>
                           </div>
                           <div style={{ flex: 1 }}>
@@ -1147,7 +1147,7 @@
                     })()}
 
                     <div className="table-wrapper" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                      <table>
+                      <table style={{ tableLayout: 'fixed', width: '100%' }}>
                         <thead>
                           <tr>
                             <th style={{ width: '30px' }}></th>
