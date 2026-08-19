@@ -37,7 +37,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef, useCallback } = React;
 
     const releaseDates = {
       'CE-2026-FEB': '2026-02-09',
@@ -111,7 +111,6 @@
         boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
         whiteSpace: 'pre-wrap'
       };
-      // Ajuste para que no se salga por la derecha
       const adjustedLeft = tooltip.x + 14 + 260 > window.innerWidth
         ? tooltip.x - 274
         : tooltip.x + 14;
@@ -121,14 +120,13 @@
         </div>
       );
     }
-    
+
     function StoryRow({ storyId, title, storyPoints, state, iterationPath, formatDate, timelineStart, timelineEnd, adoLink, states, loading, showTooltip, moveTooltip, hideTooltip }) {
       const today = new Date();
       const timelineTotalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
       const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
       const clampedTodayPercent = Math.max(0, Math.min(100, todayPercent));
 
-      // Calcular segmentos de estado
       const segments = [];
       if (states.length > 0) {
         states.forEach((st, idx) => {
@@ -151,7 +149,6 @@
         });
       }
 
-      // Calcular sprint — si no hay match, sprintStart/sprintEnd quedan null y no se pinta nada
       let sprintStart = null;
       let sprintEnd = null;
       let sprintLabel = '';
@@ -176,7 +173,6 @@
         return (days / timelineTotalDays) * 100;
       };
 
-      // Calcular posición del sprint solo si existe
       let sprintStartPercent = null;
       let sprintEndPercent = null;
       let sprintMidPercent = null;
@@ -203,8 +199,6 @@
           </td>
           <td style={{ padding: '6px 8px' }}>
             <div style={{ height: '36px', background: '#e0e0e0', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
-
-              {/* Segmentos de estado — base de la barra, z-index bajo */}
               {!loading && segments.map((seg, idx) => {
                 const segStartDate = new Date(timelineStart.getTime() + (seg.startPercent / 100) * (timelineEnd - timelineStart));
                 const segEndDate = new Date(timelineStart.getTime() + ((seg.startPercent + seg.widthPercent) / 100) * (timelineEnd - timelineStart));
@@ -227,16 +221,12 @@
                   />
                 );
               })}
-
-              {/* Loading / No data — solo si no hay segmentos */}
               {loading && (
                 <div style={{ position: 'absolute', top: '50%', left: '8px', transform: 'translateY(-50%)', fontSize: '11px', color: '#999', zIndex: 2 }}>Loading...</div>
               )}
               {!loading && segments.length === 0 && (
                 <div style={{ position: 'absolute', top: '50%', left: '8px', transform: 'translateY(-50%)', fontSize: '11px', color: '#999', zIndex: 2 }}>No data</div>
               )}
-
-              {/* Líneas y label del Sprint — solo si hay sprint válido en el rango */}
               {!loading && sprintStartPercent !== null && (
                 <>
                   <div style={{ position: 'absolute', top: 0, bottom: 0, left: sprintStartPercent + '%', width: '1px', borderLeft: '1px dashed #123770', zIndex: 5, pointerEvents: 'none' }} />
@@ -246,8 +236,6 @@
                   </div>
                 </>
               )}
-
-              {/* Línea de hoy */}
               {!loading && (
                 <div style={{ position: 'absolute', top: 0, bottom: 0, left: clampedTodayPercent + '%', width: '1px', background: '#1e3a8a', opacity: 0.9, zIndex: 10, pointerEvents: 'none' }} />
               )}
@@ -257,7 +245,7 @@
       );
     }
 
-    function FeatureRow({ featureId, title, targetDate, releaseFixVersion, estimation,  priority, formatDate, timelineStart, timelineEnd, adoLink, isExpanded, onToggleExpand, states, loading, showTooltip, moveTooltip, hideTooltip }) {
+    function FeatureRow({ featureId, title, targetDate, releaseFixVersion, estimation, priority, formatDate, timelineStart, timelineEnd, adoLink, isExpanded, onToggleExpand, states, loading, showTooltip, moveTooltip, hideTooltip }) {
       const stateColors = {
         'New': '#94a3b8',
         'In Shaping': '#fbbf24',
@@ -372,6 +360,31 @@
       );
     }
 
+    // ── Hook: mide el ancho real de la celda Timeline en la tabla ──
+    function useTimelineWidth(tableRef) {
+      const [timelineWidth, setTimelineWidth] = useState(null);
+
+      useEffect(() => {
+        function measure() {
+          if (!tableRef.current) return;
+          // La última columna (Timeline) es la 5ta <th> (índice 4)
+          const ths = tableRef.current.querySelectorAll('thead th');
+          if (ths.length >= 5) {
+            const lastTh = ths[ths.length - 1];
+            const rect = lastTh.getBoundingClientRect();
+            // Descontamos el padding horizontal de la celda (6px cada lado según td padding: '4px 6px')
+            setTimelineWidth(rect.width - 12);
+          }
+        }
+        measure();
+        const ro = new ResizeObserver(measure);
+        if (tableRef.current) ro.observe(tableRef.current);
+        return () => ro.disconnect();
+      }, [tableRef]);
+
+      return timelineWidth;
+    }
+
     function Dashboard() {
       const { tooltip, showTooltip, moveTooltip, hideTooltip } = useTooltip();
       const [features, setFeatures] = useState([]);
@@ -406,7 +419,10 @@
       const [refreshing, setRefreshing] = useState(false);
       const [cacheInfo, setCacheInfo] = useState(null);
 
-      // Debounce searchInput -> searchTitle
+      // ── Ref a la tabla del Roadmap para medir la columna Timeline ──
+      const roadmapTableRef = useRef(null);
+      const timelineWidth = useTimelineWidth(roadmapTableRef);
+
       useEffect(() => {
         const timer = setTimeout(() => { setSearchTitle(searchInput); }, 300);
         return () => clearTimeout(timer);
@@ -548,13 +564,16 @@
         }
       };
 
-      // Precarga stories de todos los features visibles en la página actual
+      const featuresItemsPerPage = 15;
+      const featuresTotalPages = Math.ceil(sortedFiltered.length / featuresItemsPerPage);
+      const featuresStartIdx = (featuresPage - 1) * featuresItemsPerPage;
+      const featuresPageItems = sortedFiltered.slice(featuresStartIdx, featuresStartIdx + featuresItemsPerPage);
+
       useEffect(() => {
         const featuresToLoad = featuresPageItems
           .map(f => f.id)
           .filter(id => !storiesCache[id] && !loadingStoriesIds[id]);
         if (featuresToLoad.length === 0) return;
-
         featuresToLoad.forEach(featureId => {
           setLoadingStoriesIds(prev => ({ ...prev, [featureId]: true }));
           fetch('/api/feature-stories/' + featureId)
@@ -588,11 +607,6 @@
         }
       };
 
-      const featuresItemsPerPage = 15;
-      const featuresTotalPages = Math.ceil(sortedFiltered.length / featuresItemsPerPage);
-      const featuresStartIdx = (featuresPage - 1) * featuresItemsPerPage;
-      const featuresPageItems = sortedFiltered.slice(featuresStartIdx, featuresStartIdx + featuresItemsPerPage);
-
       const adoLink = (id) => `https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/${id}`;
       const formatDate = (date) => { if (!date) return '-'; return new Date(date).toLocaleDateString('es-CO'); };
 
@@ -605,7 +619,6 @@
       const expandedRoadmapStories = expandedRoadmapFeatureId ? (storiesCache[expandedRoadmapFeatureId] || []) : [];
       const expandedStoryIds = expandedRoadmapStories.map(s => s.id).join(',');
 
-      // Fix 1.1 — historyCache acumulativo
       useEffect(() => {
         if (currentPage !== 'roadmap' || pageItems.length === 0) return;
         const ids = pageItems.map(item => item.id).filter(id => !historyCache[id]);
@@ -624,7 +637,6 @@
           .catch(() => { setLoadingHistory(false); });
       }, [pageItemIds, currentPage]);
 
-      // Fase 4 — Prefetch de la siguiente página del Roadmap
       useEffect(() => {
         if (currentPage !== 'roadmap') return;
         const nextStart = roadmapPage * itemsPerPage;
@@ -644,7 +656,6 @@
           .catch(() => {});
       }, [roadmapPage, currentPage, sortedFiltered.length, filterAreaPath.join(','), filterIteration.join(','), filterState.join(','), filterTargetDate.join(','), filterReleaseVersion.join(','), filterAssignedTo.join(','), searchTitle]);
 
-      // Fix 1.2 — storyHistoryCache acumulativo
       useEffect(() => {
         if (!expandedRoadmapFeatureId || expandedRoadmapStories.length === 0) return;
         const ids = expandedRoadmapStories.map(s => s.id).filter(id => !storyHistoryCache[id]);
@@ -662,6 +673,169 @@
           })
           .catch(() => { setLoadingStoryHistory(false); });
       }, [expandedRoadmapFeatureId, expandedStoryIds]);
+
+      // ── Renderiza el header de la línea de tiempo (meses o semanas) ──
+      // Ahora vive DENTRO de la tabla, en un <thead> secundario,
+      // así la columna Timeline comparte exactamente el mismo ancho.
+      function TimelineSubHeader({ isWeekMode, timelineOffset, weekOffset, onPrev, onNext }) {
+        const today = new Date();
+
+        if (isWeekMode) {
+          const dayOfWeek = today.getDay();
+          const thisMonday = new Date(today);
+          thisMonday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+
+          const groups = [];
+          let currentGroup = null;
+          for (let i = 0; i < 12; i++) {
+            const weekStart = new Date(thisMonday);
+            weekStart.setDate(thisMonday.getDate() + (weekOffset + i) * 7);
+            const year = weekStart.getFullYear();
+            const quarter = Math.floor(weekStart.getMonth() / 3) + 1;
+            const quarterKey = year + '-Q' + quarter;
+            const label = weekStart.toLocaleString('default', { month: 'short', day: 'numeric' });
+            if (!currentGroup || currentGroup.key !== quarterKey) {
+              currentGroup = { key: quarterKey, label: year + ' · Q' + quarter, weeks: [] };
+              groups.push(currentGroup);
+            }
+            currentGroup.weeks.push(label);
+          }
+
+          return (
+            <tr style={{ background: 'white' }}>
+              {/* Celdas vacías para expand, priority, ID, Feature */}
+              <td colSpan="4" style={{ padding: '6px 8px', verticalAlign: 'middle' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    style={{ padding: '3px 10px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', lineHeight: 1 }}
+                    onClick={onPrev}
+                  >◄</button>
+                </div>
+              </td>
+              {/* Celda Timeline: labels + botón siguiente */}
+              <td style={{ padding: '4px 6px', verticalAlign: 'middle' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* Fila año-trimestre */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
+                      {groups.map((g, gi) => (
+                        <div
+                          key={gi}
+                          style={{
+                            gridColumn: 'span ' + g.weeks.length,
+                            background: (() => {
+                              const parts = g.key.split('-Q');
+                              return (parseInt(parts[0]) * 4 + parseInt(parts[1])) % 2 === 0 ? '#1e3a8a' : '#2563eb';
+                            })(),
+                            color: 'white',
+                            textAlign: 'center',
+                            fontSize: '10px',
+                            fontWeight: 'bold',
+                            padding: '3px 0',
+                            borderRadius: '3px'
+                          }}
+                        >
+                          {g.label}
+                        </div>
+                      ))}
+                    </div>
+                    {/* Fila semanas */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px' }}>
+                      {groups.map((g, gi) =>
+                        g.weeks.map((week, wi) => (
+                          <div
+                            key={gi + '-' + wi}
+                            style={{ background: '#e2e8f0', textAlign: 'center', fontSize: '9px', fontWeight: 'bold', padding: '3px 0', borderRadius: '3px', color: '#334155' }}
+                          >
+                            {week}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    style={{ padding: '3px 10px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', lineHeight: 1, flexShrink: 0 }}
+                    onClick={onNext}
+                  >►</button>
+                </div>
+              </td>
+            </tr>
+          );
+        }
+
+        // Modo meses
+        const timelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
+        const groups = [];
+        let currentGroup = null;
+        for (let i = 0; i < 12; i++) {
+          const m = new Date(timelineStart.getFullYear(), timelineStart.getMonth() + i, 1);
+          const year = m.getFullYear();
+          const monthName = m.toLocaleString('default', { month: 'short' });
+          if (!currentGroup || currentGroup.year !== year) {
+            currentGroup = { year, months: [] };
+            groups.push(currentGroup);
+          }
+          currentGroup.months.push(monthName);
+        }
+
+        return (
+          <tr style={{ background: 'white' }}>
+            {/* Celdas vacías para expand, priority, ID, Feature — botón prev al final */}
+            <td colSpan="4" style={{ padding: '6px 8px', verticalAlign: 'middle' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  style={{ padding: '3px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', lineHeight: 1 }}
+                  onClick={onPrev}
+                >◄</button>
+              </div>
+            </td>
+            {/* Celda Timeline */}
+            <td style={{ padding: '4px 6px', verticalAlign: 'middle' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {/* Fila años */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
+                    {groups.map((g, gi) => (
+                      <div
+                        key={gi}
+                        style={{
+                          gridColumn: 'span ' + g.months.length,
+                          background: gi % 2 === 0 ? '#1e3a8a' : '#2563eb',
+                          color: 'white',
+                          textAlign: 'center',
+                          fontSize: '10px',
+                          fontWeight: 'bold',
+                          padding: '3px 0',
+                          borderRadius: '3px'
+                        }}
+                      >
+                        {g.year}
+                      </div>
+                    ))}
+                  </div>
+                  {/* Fila meses */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px' }}>
+                    {groups.map((g, gi) =>
+                      g.months.map((month, mi) => (
+                        <div
+                          key={gi + '-' + mi}
+                          style={{ background: '#e2e8f0', textAlign: 'center', fontSize: '10px', fontWeight: 'bold', padding: '3px 0', borderRadius: '3px', color: '#334155' }}
+                        >
+                          {month}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <button
+                  style={{ padding: '3px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', lineHeight: 1, flexShrink: 0 }}
+                  onClick={onNext}
+                >►</button>
+              </div>
+            </td>
+          </tr>
+        );
+      }
 
       return (
         <div className="container">
@@ -817,7 +991,7 @@
                                 </span>
                               </td>
                               <td style={{ fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '130px' }} title={f.assignedTo}>{f.assignedTo || '—'}</td>
-                                                            <td style={{ textAlign: 'center', padding: '8px' }}>
+                              <td style={{ textAlign: 'center', padding: '8px' }}>
                                 {loadingStoriesIds[f.id] ? (
                                   <span style={{ fontSize: '10px', color: '#aaa', fontStyle: 'italic' }}>Loading...</span>
                                 ) : storiesCache[f.id] ? (() => {
@@ -857,13 +1031,12 @@
                                 <tr style={{ background: '#f9f9f9' }}>
                                   <td colSpan="14" style={{ paddingLeft: '40px', paddingTop: '12px', paddingBottom: '12px', paddingRight: '20px' }}>
                                     <div>
-                                     {(() => {
+                                      {(() => {
                                         const activeStories = fStories.filter(s => s.state !== 'Removed');
                                         const removedCount = fStories.length - activeStories.length;
                                         const doneCount = activeStories.filter(s => ['Closed','Approved for Release','Ready for Deployment'].includes(s.state)).length;
                                         const inProgressCount = activeStories.filter(s => ['In Process','QA Testing','Business Sprint Testing'].includes(s.state)).length;
                                         const pendingCount = activeStories.filter(s => !['Closed','Approved for Release','Ready for Deployment','In Process','QA Testing','Business Sprint Testing'].includes(s.state)).length;
-                                        const removedLabel = removedCount > 0 ? ' +' + removedCount + ' removed' : '';
                                         return (
                                           <div style={{ marginBottom: '10px', fontSize: '12px', fontWeight: 'bold' }}>
                                             Stories & Bugs ({activeStories.length}
@@ -878,7 +1051,7 @@
                                         );
                                       })()}
                                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '8px' }}>
-                                       {fStories.filter(s => s.state !== 'Removed').map(story => {
+                                        {fStories.filter(s => s.state !== 'Removed').map(story => {
                                           const storyDotColor = storyStateColors[story.state] || '#ccc';
                                           const isBug = story.workItemType === 'Bug';
                                           const sprintLabel = (() => {
@@ -929,322 +1102,163 @@
 
           {currentPage === 'roadmap' && (
             <>
-              {(() => {
-                return (
-                  <>
-                    <div style={{ background: 'white', padding: '10px 15px', borderRadius: '8px', marginBottom: '10px' }}>
-                      <div onClick={() => setLegendExpanded(!legendExpanded)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Features & Stories states</span>
-                          <span style={{ fontSize: '10px', transform: legendExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'nowrap' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                            <div style={{ width: '2px', height: '12px', background: '#333333', flexShrink: 0 }}></div>
-                            <span style={{ fontSize: '10px' }}>Today</span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                            <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '8px solid #f43f5e', flexShrink: 0 }}></div>
-                            <span style={{ fontSize: '10px' }}>Target Date</span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                            <div style={{ width: '8px', height: '8px', background: '#1e3a8a', transform: 'rotate(45deg)', flexShrink: 0 }}></div>
-                            <span style={{ fontSize: '10px' }}>Release Fix Version</span>
-                          </div>
-                        </div>
-                      </div>
-                      {legendExpanded && (
-                        <div style={{ display: 'flex', gap: '10px', alignItems: 'left', flexWrap: 'wrap', flexDirection: 'column', marginTop: '10px' }}>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'left', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: '11px', fontWeight: 'bold' }}>Feature States:</span>
-                            {[{ label: 'New', color: '#94a3b8' }, { label: 'In Shaping', color: '#fbbf24' }, { label: 'In Planning', color: '#fb923c' }, { label: 'Planned', color: '#34d399' }, { label: 'In Process', color: '#60a5fa' }, { label: 'Closed', color: '#a78bfa' }].map((item, idx) => (
-                              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <div style={{ width: '12px', height: '12px', background: item.color, borderRadius: '2px' }}></div>
-                                <span style={{ fontSize: '10px' }}>{item.label}</span>
-                              </div>
-                            ))}
-                          </div>
-                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', fontSize: '10px' }}>
-                            <span style={{ fontSize: '11px', fontWeight: 'bold' }}>Stories States:</span>
-                            {Object.entries(storyStateColors).map(([state, color]) => (
-                              <div key={state} style={{ display: 'flex', alignItems: 'left', gap: '4px' }}>
-                                <div style={{ width: '12px', height: '12px', background: color, borderRadius: '2px' }}></div>
-                                <span>{state}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+              {/* Leyenda */}
+              <div style={{ background: 'white', padding: '10px 15px', borderRadius: '8px', marginBottom: '10px' }}>
+                <div onClick={() => setLegendExpanded(!legendExpanded)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Features & Stories states</span>
+                    <span style={{ fontSize: '10px', transform: legendExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'nowrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                      <div style={{ width: '2px', height: '12px', background: '#333333', flexShrink: 0 }}></div>
+                      <span style={{ fontSize: '10px' }}>Today</span>
                     </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                      <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '8px solid #f43f5e', flexShrink: 0 }}></div>
+                      <span style={{ fontSize: '10px' }}>Target Date</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                      <div style={{ width: '8px', height: '8px', background: '#1e3a8a', transform: 'rotate(45deg)', flexShrink: 0 }}></div>
+                      <span style={{ fontSize: '10px' }}>Release Fix Version</span>
+                    </div>
+                  </div>
+                </div>
+                {legendExpanded && (
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'left', flexWrap: 'wrap', flexDirection: 'column', marginTop: '10px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'left', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold' }}>Feature States:</span>
+                      {[{ label: 'New', color: '#94a3b8' }, { label: 'In Shaping', color: '#fbbf24' }, { label: 'In Planning', color: '#fb923c' }, { label: 'Planned', color: '#34d399' }, { label: 'In Process', color: '#60a5fa' }, { label: 'Closed', color: '#a78bfa' }].map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <div style={{ width: '12px', height: '12px', background: item.color, borderRadius: '2px' }}></div>
+                          <span style={{ fontSize: '10px' }}>{item.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', fontSize: '10px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold' }}>Stories States:</span>
+                      {Object.entries(storyStateColors).map(([state, color]) => (
+                        <div key={state} style={{ display: 'flex', alignItems: 'left', gap: '4px' }}>
+                          <div style={{ width: '12px', height: '12px', background: color, borderRadius: '2px' }}></div>
+                          <span>{state}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
-                    {expandedRoadmapFeatureId ? (() => {
+              {/* ── TABLA PRINCIPAL DEL ROADMAP ── */}
+              {/* El header de la línea de tiempo ahora vive DENTRO de la tabla
+                  como una fila especial, garantizando alineación perfecta */}
+              <div className="table-wrapper" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                <table ref={roadmapTableRef} style={{ tableLayout: 'fixed', width: '100%' }}>
+                  <thead>
+                    {/* Fila de columnas normales */}
+                    <tr>
+                      <th style={{ width: '30px' }}></th>
+                      <th
+                        style={{ width: '40px', textAlign: 'center', cursor: 'pointer', fontSize: '12px', whiteSpace: 'nowrap' }}
+                        onClick={() => { setSortColumn('priority'); setSortOrder(sortColumn === 'priority' && sortOrder === 'asc' ? 'desc' : 'asc'); }}
+                      >
+                        P {sortColumn === 'priority' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+                      </th>
+                      <th style={{ width: '80px' }}>ID</th>
+                      <th style={{ width: '300px' }}>Feature</th>
+                      <th>Timeline</th>
+                    </tr>
+                    {/* ── Fila del header de la línea de tiempo ──
+                        Vive en <thead> para quedar sticky junto al encabezado de columnas.
+                        Usa exactamente las mismas celdas que las filas de datos,
+                        así el grid de meses/semanas ocupa idéntico ancho que las barras Gantt. */}
+                    <TimelineSubHeader
+                      isWeekMode={expandedRoadmapFeatureId !== null}
+                      timelineOffset={timelineOffset}
+                      weekOffset={weekOffset}
+                      onPrev={() => expandedRoadmapFeatureId !== null ? setWeekOffset(weekOffset - 1) : setTimelineOffset(timelineOffset - 1)}
+                      onNext={() => expandedRoadmapFeatureId !== null ? setWeekOffset(weekOffset + 1) : setTimelineOffset(timelineOffset + 1)}
+                    />
+                  </thead>
+                  <tbody>
+                    {(() => {
                       const today = new Date();
+                      const monthTimelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
+                      const monthTimelineEnd = new Date(today.getFullYear(), today.getMonth() + timelineOffset + 12, 0);
                       const dayOfWeek = today.getDay();
                       const thisMonday = new Date(today);
                       thisMonday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-                      const weekLabels = [];
-                      for (let i = 0; i < 12; i++) {
-                        const weekStart = new Date(thisMonday);
-                        weekStart.setDate(thisMonday.getDate() + (weekOffset + i) * 7);
-                        weekLabels.push(weekStart.toLocaleString('default', { month: 'short', day: 'numeric' }));
-                      }
-                      return (
-                        <div style={{ display: 'flex', gap: '20px', padding: '12px', marginBottom: '10px', alignItems: 'center' }}>
-                          <div style={{ flex: '0 0 462px', display: 'flex', justifyContent: 'flex-end' }}>
-                            <button style={{ padding: '4px 10px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }} onClick={() => setWeekOffset(weekOffset - 1)}>◄</button>
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            {(() => {
-                              // Agrupar semanas por año-trimestre
-                              const groups = [];
-                              let currentGroup = null;
-                              for (let i = 0; i < 12; i++) {
-                                const weekStart = new Date(thisMonday);
-                                weekStart.setDate(thisMonday.getDate() + (weekOffset + i) * 7);
-                                const year = weekStart.getFullYear();
-                                const quarter = Math.floor(weekStart.getMonth() / 3) + 1;
-                                const quarterKey = year + '-Q' + quarter;
-                                const label = weekStart.toLocaleString('default', { month: 'short', day: 'numeric' });
-                                if (!currentGroup || currentGroup.key !== quarterKey) {
-                                  currentGroup = { key: quarterKey, label: year + ' · Q' + quarter, weeks: [] };
-                                  groups.push(currentGroup);
-                                }
-                                currentGroup.weeks.push(label);
-                              }
-                              return (
-                                <div>
-                                  {/* Fila de año-trimestre */}
-                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
-                                    {groups.map((g, gi) => (
-                                      <div
-                                        key={gi}
-                                        style={{
-                                          gridColumn: 'span ' + g.weeks.length,
-                                          background: parseInt(g.key) % 2 === 0 ? '#1e3a8a' : '#2563eb',
-                                          color: 'white',
-                                          textAlign: 'center',
-                                          fontSize: '10px',
-                                          fontWeight: 'bold',
-                                          padding: '3px 0',
-                                          borderRadius: '3px'
-                                        }}
-                                      >
-                                        {g.label}
-                                      </div>
-                                    ))}
-                                  </div>
-                                  {/* Fila de semanas */}
-                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px' }}>
-                                    {groups.map((g, gi) =>
-                                      g.weeks.map((week, wi) => (
-                                        <div
-                                          key={gi + '-' + wi}
-                                          style={{
-                                            background: '#e2e8f0',
-                                            textAlign: 'center',
-                                            fontSize: '9px',
-                                            fontWeight: 'bold',
-                                            padding: '3px 0',
-                                            borderRadius: '3px',
-                                            color: '#334155'
-                                          }}
-                                        >
-                                          {week}
-                                        </div>
-                                      ))
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })()}
-                          </div>
-                          <button style={{ padding: '4px 10px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }} onClick={() => setWeekOffset(weekOffset + 1)}>►</button>
-                        </div>
-                      );
-                    })() : (() => {
-                      const today = new Date();
-                      const timelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
-                      const monthLabels = [];
-                      for (let i = 0; i < 12; i++) {
-                        const m = new Date(timelineStart.getFullYear(), timelineStart.getMonth() + i, 1);
-                        monthLabels.push(m.toLocaleString('default', { month: 'short', year: '2-digit' }));
-                      }
-                     return (
-                        <div style={{ display: 'flex', gap: '20px', padding: '12px', marginBottom: '10px', alignItems: 'center' }}>
-                          <div style={{ flex: '0 0 462px', display: 'flex', justifyContent: 'flex-end' }}>
-                            <button style={{ padding: '4px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }} onClick={() => setTimelineOffset(timelineOffset - 1)}>◄</button>
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            {(() => {
-                              // Agrupar meses por año
-                              const groups = [];
-                              let currentGroup = null;
-                              for (let i = 0; i < 12; i++) {
-                                const m = new Date(timelineStart.getFullYear(), timelineStart.getMonth() + i, 1);
-                                const year = m.getFullYear();
-                                const monthName = m.toLocaleString('default', { month: 'short' });
-                                if (!currentGroup || currentGroup.year !== year) {
-                                  currentGroup = { year, months: [] };
-                                  groups.push(currentGroup);
-                                }
-                                currentGroup.months.push(monthName);
-                              }
-                              return (
-                                <div>
-                                  {/* Fila de años */}
-                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
-                                    {groups.map((g, gi) => (
-                                      <div
-                                        key={gi}
-                                        style={{
-                                          gridColumn: 'span ' + g.months.length,
-                                          background: (() => {
-                                            if (!g.key || typeof g.key !== 'string') return '#1e3a8a';
-                                            const parts = g.key.split('-Q');
-                                            if (parts.length !== 2) return '#1e3a8a';
-                                            return (parseInt(parts[0]) * 4 + parseInt(parts[1])) % 2 === 0 ? '#1e3a8a' : '#2563eb';
-                                          })(),
-                                          color: 'white',
-                                          textAlign: 'center',
-                                          fontSize: '10px',
-                                          fontWeight: 'bold',
-                                          padding: '3px 0',
-                                          borderRadius: '3px'
-                                        }}
-                                      >
-                                        {g.year}
-                                      </div>
-                                    ))}
-                                  </div>
-                                  {/* Fila de meses */}
-                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px' }}>
-                                    {groups.map((g, gi) =>
-                                      g.months.map((month, mi) => (
-                                        <div
-                                          key={gi + '-' + mi}
-                                          style={{
-                                            background: '#e2e8f0',
-                                            textAlign: 'center',
-                                            fontSize: '10px',
-                                            fontWeight: 'bold',
-                                            padding: '3px 0',
-                                            borderRadius: '3px',
-                                            color: '#334155'
-                                          }}
-                                        >
-                                          {month}
-                                        </div>
-                                      ))
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })()}
-                          </div>
-                          <button style={{ padding: '4px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '14px' }} onClick={() => setTimelineOffset(timelineOffset + 1)}>►</button>
-                        </div>
-                      );
-                    })()}
+                      const weekTimelineStart = new Date(thisMonday);
+                      weekTimelineStart.setDate(thisMonday.getDate() + weekOffset * 7);
+                      const weekTimelineEnd = new Date(weekTimelineStart);
+                      weekTimelineEnd.setDate(weekTimelineStart.getDate() + 12 * 7);
 
-                    <div className="table-wrapper" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                      <table style={{ tableLayout: 'fixed', width: '100%' }}>
-                        <thead>
-                          <tr>
-                            <th style={{ width: '30px' }}></th>
-                            <th
-                              style={{ width: '40px', textAlign: 'center', cursor: 'pointer', fontSize: '12px', whiteSpace: 'nowrap' }}
-                              onClick={() => { setSortColumn('priority'); setSortOrder(sortColumn === 'priority' && sortOrder === 'asc' ? 'desc' : 'asc'); }}
-                            >
-                              P {sortColumn === 'priority' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
-                            </th>
-                            <th style={{ width: '80px' }}>ID</th>
-                            <th style={{ width: '300px' }}>Feature</th>
-                            <th>Timeline</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(() => {
-                            const today = new Date();
-                            const monthTimelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
-                            const monthTimelineEnd = new Date(today.getFullYear(), today.getMonth() + timelineOffset + 12, 0);
-                            const dayOfWeek = today.getDay();
-                            const thisMonday = new Date(today);
-                            thisMonday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-                            const weekTimelineStart = new Date(thisMonday);
-                            weekTimelineStart.setDate(thisMonday.getDate() + weekOffset * 7);
-                            const weekTimelineEnd = new Date(weekTimelineStart);
-                            weekTimelineEnd.setDate(weekTimelineStart.getDate() + 12 * 7);
-
-                            return pageItems.map(f => {
-                              const isExpanded = expandedRoadmapFeatureId === f.id;
-                              const featureTimelineStart = isExpanded ? weekTimelineStart : monthTimelineStart;
-                              const featureTimelineEnd = isExpanded ? weekTimelineEnd : monthTimelineEnd;
-                              return (
-                                <React.Fragment key={f.id}>
-                                  <FeatureRow
-                                    featureId={f.id}
-                                    title={f.title}
-                                    targetDate={f.targetDate}
-                                    releaseFixVersion={f.releaseFixVersion}
-                                    estimation={f.estimation}
-                                    priority={f.priority}
+                      return pageItems.map(f => {
+                        const isExpanded = expandedRoadmapFeatureId === f.id;
+                        const featureTimelineStart = isExpanded ? weekTimelineStart : monthTimelineStart;
+                        const featureTimelineEnd = isExpanded ? weekTimelineEnd : monthTimelineEnd;
+                        return (
+                          <React.Fragment key={f.id}>
+                            <FeatureRow
+                              featureId={f.id}
+                              title={f.title}
+                              targetDate={f.targetDate}
+                              releaseFixVersion={f.releaseFixVersion}
+                              estimation={f.estimation}
+                              priority={f.priority}
+                              formatDate={formatDate}
+                              timelineStart={featureTimelineStart}
+                              timelineEnd={featureTimelineEnd}
+                              adoLink={adoLink}
+                              isExpanded={isExpanded}
+                              onToggleExpand={() => toggleRoadmapFeature(f.id)}
+                              states={historyCache[f.id] || []}
+                              loading={loadingHistory}
+                              showTooltip={showTooltip}
+                              moveTooltip={moveTooltip}
+                              hideTooltip={hideTooltip}
+                            />
+                            {isExpanded && (
+                              loadingStoriesIds[f.id] ? (
+                                <tr style={{ background: '#f2f2f2' }}>
+                                  <td colSpan="5" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td>
+                                </tr>
+                              ) : (
+                                (storiesCache[f.id] || []).map(s => (
+                                  <StoryRow
+                                    key={s.id}
+                                    storyId={s.id}
+                                    title={s.title}
+                                    storyPoints={s.storyPoints}
+                                    state={s.state}
+                                    iterationPath={s.iterationPath}
                                     formatDate={formatDate}
-                                    timelineStart={featureTimelineStart}
-                                    timelineEnd={featureTimelineEnd}
+                                    timelineStart={weekTimelineStart}
+                                    timelineEnd={weekTimelineEnd}
                                     adoLink={adoLink}
-                                    isExpanded={isExpanded}
-                                    onToggleExpand={() => toggleRoadmapFeature(f.id)}
-                                    states={historyCache[f.id] || []}
-                                    loading={loadingHistory}
+                                    states={storyHistoryCache[s.id] || []}
+                                    loading={loadingStoryHistory}
                                     showTooltip={showTooltip}
                                     moveTooltip={moveTooltip}
                                     hideTooltip={hideTooltip}
                                   />
-                                  {isExpanded && (
-                                    loadingStoriesIds[f.id] ? (
-                                      <tr style={{ background: '#f2f2f2' }}>
-                                        <td colSpan="4" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td>
-                                      </tr>
-                                    ) : (
-                                      (storiesCache[f.id] || []).map(s => (
-                                        <StoryRow
-                                          key={s.id}
-                                          storyId={s.id}
-                                          title={s.title}
-                                          storyPoints={s.storyPoints}
-                                          state={s.state}
-                                          iterationPath={s.iterationPath}
-                                          formatDate={formatDate}
-                                          timelineStart={weekTimelineStart}
-                                          timelineEnd={weekTimelineEnd}
-                                          adoLink={adoLink}
-                                          states={storyHistoryCache[s.id] || []}
-                                          loading={loadingStoryHistory}
-                                          showTooltip={showTooltip}
-                                          moveTooltip={moveTooltip}
-                                          hideTooltip={hideTooltip}
-                                        />
-                                      ))
-                                    )
-                                  )}
-                                </React.Fragment>
-                              );
-                            });
-                          })()}
-                        </tbody>
-                      </table>
-                    </div>
+                                ))
+                              )
+                            )}
+                          </React.Fragment>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
 
-                    {!loading && (
-                      <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center' }}>
-                        <button style={{ padding: '8px 16px', background: roadmapPage === 1 ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: roadmapPage === 1 ? 'default' : 'pointer', borderRadius: '4px' }} onClick={() => setRoadmapPage(roadmapPage - 1)} disabled={roadmapPage === 1}>Previous</button>
-                        <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Page {roadmapPage} of {totalPages}</span>
-                        <button style={{ padding: '8px 16px', background: roadmapPage === totalPages ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: roadmapPage === totalPages ? 'default' : 'pointer', borderRadius: '4px' }} onClick={() => setRoadmapPage(roadmapPage + 1)} disabled={roadmapPage === totalPages}>Next</button>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
+              {!loading && (
+                <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center' }}>
+                  <button style={{ padding: '8px 16px', background: roadmapPage === 1 ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: roadmapPage === 1 ? 'default' : 'pointer', borderRadius: '4px' }} onClick={() => setRoadmapPage(roadmapPage - 1)} disabled={roadmapPage === 1}>Previous</button>
+                  <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Page {roadmapPage} of {totalPages}</span>
+                  <button style={{ padding: '8px 16px', background: roadmapPage === totalPages ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: roadmapPage === totalPages ? 'default' : 'pointer', borderRadius: '4px' }} onClick={() => setRoadmapPage(roadmapPage + 1)} disabled={roadmapPage === totalPages}>Next</button>
+                </div>
+              )}
             </>
           )}
           <Tooltip tooltip={tooltip} />
