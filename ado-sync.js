@@ -95,7 +95,7 @@ async function fetchFeatureDetailsBatch(c, ids) {
 
 // ===== Features editadas en los ÚLTIMOS 10 días (SIEMPRE en vivo) =====
 async function fetchRecentFeatures(c) {
-  const range = { from: `@today - ${RECENT_DAYS_THRESHOLD}`, to: '@today' };
+  const range = { from: `@today - ${RECENT_DAYS_THRESHOLD}`, to: '@today + 1' };
   const rangeCounts = {};
   let ids = [];
   try {
