@@ -137,9 +137,7 @@ async function fetchIdsForRange(c, range) {
   return r.data.workItems.map(i => i.id);
 }
 
-// ===== Trae los campos completos en lotes de 200 =====
-// También solicita relaciones para validar si cada Feature tiene Parent,
-// sin realizar solicitudes adicionales por Feature.
+// ===== Trae campos y relaciones de Features en lotes de 200 =====
 async function fetchFeatureDetailsBatch(c, ids) {
   const batchSize = 200;
   let allFeatures = [];
@@ -148,14 +146,41 @@ async function fetchFeatureDetailsBatch(c, ids) {
     const currentIds = ids.slice(i, i + batchSize);
 
     try {
-      const batch = await c.post('/wit/workitemsbatch?api-version=7.0', {
-        ids: currentIds,
-        fields: FEATURE_FIELDS
-      });
+      // Se hacen en paralelo para no duplicar el tiempo de espera.
+      // ADO no permite enviar `fields` y `$expand` juntos,
+      // por eso son dos requests independientes.
+      const [fieldsResponse, relationsResponse] = await Promise.all([
+        c.post('/wit/workitemsbatch?api-version=7.0', {
+          ids: currentIds,
+          fields: FEATURE_FIELDS,
+          errorPolicy: 'Omit'
+        }),
 
-      allFeatures = [...allFeatures, ...batch.data.value];
+        c.post('/wit/workitemsbatch?api-version=7.0', {
+          ids: currentIds,
+          $expand: 'Relations',
+          errorPolicy: 'Omit'
+        })
+      ]);
+
+      // Índice: ID de Feature -> lista de relaciones
+      const relationsById = new Map(
+        relationsResponse.data.value.map(workItem => [
+          workItem.id,
+          workItem.relations || []
+        ])
+      );
+
+      // Incorporar relaciones al objeto que sí contiene los campos.
+      const mergedFeatures = fieldsResponse.data.value.map(workItem => ({
+        ...workItem,
+        relations: relationsById.get(workItem.id) || []
+      }));
+
+      allFeatures = [...allFeatures, ...mergedFeatures];
+
     } catch (error) {
-      console.error('ERROR fetching Feature details batch from ADO', {
+      console.error('ERROR fetching Feature details/relations batch from ADO', {
         batchStart: i,
         batchSize: currentIds.length,
         adoStatus: error.response?.status || null,
