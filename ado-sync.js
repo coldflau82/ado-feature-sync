@@ -65,7 +65,7 @@ const FEATURE_FIELDS = [
   'System.Tags',
   'System.AssignedTo',
   'Microsoft.VSTS.Common.AcceptanceCriteria',
-  'System.Description'
+  'System.Description',
   'Custom.PI_CustomerBenefit'
 ];
 
