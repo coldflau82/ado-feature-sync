@@ -1002,9 +1002,9 @@
                                       {(() => {
                                         const activeStories = fStories.filter(s => s.state !== 'Removed');
                                         const removedCount = fStories.length - activeStories.length;
-                                        const doneCount = activeStories.filter(s => ['Closed','Approved for Release','Ready for Deployment'].includes(s.state)).length;
+                                        const doneCount = activeStories.filter(s => ['Closed','Approved for Release','Ready for Deployment','Sprint Completed'].includes(s.state)).length;
                                         const inProgressCount = activeStories.filter(s => ['In Process','QA Testing','Business Sprint Testing'].includes(s.state)).length;
-                                        const pendingCount = activeStories.filter(s => !['Closed','Approved for Release','Ready for Deployment','In Process','QA Testing','Business Sprint Testing'].includes(s.state)).length;
+                                        const pendingCount = activeStories.filter(s => !['Business Refinement', 'Technical Refinement', 'Ready for Development'].includes(s.state)).length;
                                         return (
                                           <div style={{ marginBottom: '10px', fontSize: '12px', fontWeight: 'bold' }}>
                                             Stories & Bugs ({activeStories.length}
