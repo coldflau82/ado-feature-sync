@@ -703,17 +703,10 @@
 
           return (
             <tr style={{ background: 'white' }}>
-              {/* Celdas vacías para expand, priority, ID, Feature */}
-              <td colSpan="4" style={{ padding: '6px 8px', verticalAlign: 'middle' }}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button
-                    style={{ padding: '3px 10px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', lineHeight: 1 }}
-                    onClick={onPrev}
-                  >◄</button>
-                </div>
-              </td>
-              {/* Celda Timeline: labels + botón siguiente */}
-              <td style={{ padding: '4px 6px', verticalAlign: 'middle' }}>
+              {/* Las 4 columnas fijas: sin botón, ya está en el <th> de Feature */}
+              <td colSpan="4" style={{ padding: '0px' }}></td>
+              {/* Celda Timeline: solo labels + botón ► a la derecha */}
+              <td style={{ padding: '4px 6px 4px 6px', verticalAlign: 'middle' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {/* Fila año-trimestre */}
@@ -754,14 +747,14 @@
                     </div>
                   </div>
                   <button
-                    style={{ padding: '3px 10px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', lineHeight: 1, flexShrink: 0 }}
+                    style={{ padding: '2px 8px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px', lineHeight: 1, flexShrink: 0, alignSelf: 'stretch' }}
                     onClick={onNext}
                   >►</button>
                 </div>
               </td>
             </tr>
           );
-        }
+        }                            
 
         // Modo meses
         const timelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
@@ -779,18 +772,11 @@
         }
 
         return (
-          <tr style={{ background: 'white' }}>
-            {/* Celdas vacías para expand, priority, ID, Feature — botón prev al final */}
-            <td colSpan="4" style={{ padding: '6px 8px', verticalAlign: 'middle' }}>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  style={{ padding: '3px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', lineHeight: 1 }}
-                  onClick={onPrev}
-                >◄</button>
-              </div>
-            </td>
-            {/* Celda Timeline */}
-            <td style={{ padding: '4px 6px', verticalAlign: 'middle' }}>
+            <tr style={{ background: 'white' }}>
+              {/* Las 4 columnas fijas: sin botón, ya está en el <th> de Feature */}
+              <td colSpan="4" style={{ padding: '0px' }}></td>
+              {/* Celda Timeline: solo labels + botón ► a la derecha */}
+              <td style={{ padding: '4px 6px 4px 6px', verticalAlign: 'middle' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   {/* Fila años */}
@@ -828,7 +814,7 @@
                   </div>
                 </div>
                 <button
-                  style={{ padding: '3px 10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', lineHeight: 1, flexShrink: 0 }}
+                  style={{ padding: '2px 8px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px', lineHeight: 1, flexShrink: 0, alignSelf: 'stretch' }}
                   onClick={onNext}
                 >►</button>
               </div>
@@ -1154,7 +1140,6 @@
               <div className="table-wrapper" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
                 <table ref={roadmapTableRef} style={{ tableLayout: 'fixed', width: '100%' }}>
                   <thead>
-                    {/* Fila de columnas normales */}
                     <tr>
                       <th style={{ width: '30px' }}></th>
                       <th
@@ -1164,8 +1149,18 @@
                         P {sortColumn === 'priority' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
                       </th>
                       <th style={{ width: '80px' }}>ID</th>
-                      <th style={{ width: '300px' }}>Feature</th>
-                      <th>Timeline</th>
+                      <th style={{ width: '300px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>Feature</span>
+                          {/* Botón ◄ vive aquí, pegado visualmente al borde derecho
+                              de esta columna, que es el borde izquierdo de la timeline */}
+                          <button
+                            style={{ padding: '2px 8px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '12px', lineHeight: 1, marginLeft: '6px' }}
+                            onClick={() => expandedRoadmapFeatureId !== null ? setWeekOffset(weekOffset - 1) : setTimelineOffset(timelineOffset - 1)}
+                          >◄</button>
+                        </div>
+                      </th>
+                      <th style={{ padding: '0px' }}></th>
                     </tr>
                     {/* ── Fila del header de la línea de tiempo ──
                         Vive en <thead> para quedar sticky junto al encabezado de columnas.
