@@ -93,6 +93,36 @@ function hasParentRelation(workItem) {
     );
 }
 
+const UNKNOWN = 'unknown';
+
+function hasMeaningfulValue(value) {
+  if (value === null || value === undefined) {
+    return false;
+  }
+
+  // Descripciones y criterios suelen venir como HTML.
+  // "<p></p>" o "&nbsp;" no deberían contar como contenido.
+  if (typeof value === 'string') {
+    const text = value
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .trim();
+
+    return text.length > 0;
+  }
+
+  // Incluye 0 y false como valores presentes, si el campo los admite.
+  return true;
+}
+
+function fieldCheck(sourceStatus, value) {
+  if (sourceStatus === UNKNOWN) {
+    return UNKNOWN;
+  }
+
+  return hasMeaningfulValue(value);
+}
+
 // ===== Mapeo de un work item crudo -> objeto de salida =====
 function mapFeature(i) {
   return {
@@ -138,6 +168,9 @@ async function fetchIdsForRange(c, range) {
 }
 
 // ===== Trae campos y relaciones de Features en lotes de 200 =====
+// Cada verificación conserva la diferencia entre:
+// - dato consultado correctamente ("ok")
+// - dato que no se pudo obtener ("unknown")
 async function fetchFeatureDetailsBatch(c, ids) {
   const batchSize = 200;
   let allFeatures = [];
@@ -145,42 +178,26 @@ async function fetchFeatureDetailsBatch(c, ids) {
   for (let i = 0; i < ids.length; i += batchSize) {
     const currentIds = ids.slice(i, i + batchSize);
 
-    try {
-      // Se hacen en paralelo para no duplicar el tiempo de espera.
-      // ADO no permite enviar `fields` y `$expand` juntos,
-      // por eso son dos requests independientes.
-      const [fieldsResponse, relationsResponse] = await Promise.all([
-        c.post('/wit/workitemsbatch?api-version=7.0', {
-          ids: currentIds,
-          fields: FEATURE_FIELDS,
-          errorPolicy: 'Omit'
-        }),
+    const [fieldsResult, relationsResult] = await Promise.allSettled([
+      c.post('/wit/workitemsbatch?api-version=7.0', {
+        ids: currentIds,
+        fields: FEATURE_FIELDS,
+        errorPolicy: 'Omit'
+      }),
 
-        c.post('/wit/workitemsbatch?api-version=7.0', {
-          ids: currentIds,
-          $expand: 'Relations',
-          errorPolicy: 'Omit'
-        })
-      ]);
+      c.post('/wit/workitemsbatch?api-version=7.0', {
+        ids: currentIds,
+        $expand: 'Relations',
+        errorPolicy: 'Omit'
+      })
+    ]);
 
-      // Índice: ID de Feature -> lista de relaciones
-      const relationsById = new Map(
-        relationsResponse.data.value.map(workItem => [
-          workItem.id,
-          workItem.relations || []
-        ])
-      );
+    // Si falla la consulta de campos, se registra el problema,
+    // pero no se marca el contenido como "faltante": será "unknown".
+    if (fieldsResult.status === 'rejected') {
+      const error = fieldsResult.reason;
 
-      // Incorporar relaciones al objeto que sí contiene los campos.
-      const mergedFeatures = fieldsResponse.data.value.map(workItem => ({
-        ...workItem,
-        relations: relationsById.get(workItem.id) || []
-      }));
-
-      allFeatures = [...allFeatures, ...mergedFeatures];
-
-    } catch (error) {
-      console.error('ERROR fetching Feature details/relations batch from ADO', {
+      console.error('ERROR fetching Feature fields batch from ADO', {
         batchStart: i,
         batchSize: currentIds.length,
         adoStatus: error.response?.status || null,
@@ -188,9 +205,75 @@ async function fetchFeatureDetailsBatch(c, ids) {
         adoResponse: error.response?.data || null,
         message: error.message
       });
-
-      throw error;
     }
+
+    // Si falla la consulta de relaciones, Parent será "unknown",
+    // no false.
+    if (relationsResult.status === 'rejected') {
+      const error = relationsResult.reason;
+
+      console.error('ERROR fetching Feature relations batch from ADO', {
+        batchStart: i,
+        batchSize: currentIds.length,
+        adoStatus: error.response?.status || null,
+        adoStatusText: error.response?.statusText || null,
+        adoResponse: error.response?.data || null,
+        message: error.message
+      });
+    }
+
+    const fieldsResponse =
+      fieldsResult.status === 'fulfilled'
+        ? fieldsResult.value.data.value || []
+        : [];
+
+    const relationsResponse =
+      relationsResult.status === 'fulfilled'
+        ? relationsResult.value.data.value || []
+        : [];
+
+    // Permite distinguir entre:
+    // - Feature recibida sin relaciones: no tiene Parent => false.
+    // - Feature no recibida en la consulta de relaciones: unknown.
+    const fieldsById = new Map(
+      fieldsResponse.map(workItem => [workItem.id, workItem])
+    );
+
+    const relationsById = new Map(
+      relationsResponse.map(workItem => [workItem.id, workItem])
+    );
+
+    // Conservamos todos los IDs solicitados, incluso si ADO omitió alguno.
+    const mergedFeatures = currentIds.map(id => {
+      const fieldsWorkItem = fieldsById.get(id);
+      const relationsWorkItem = relationsById.get(id);
+
+      return {
+        id,
+
+        // Si no se pudieron obtener los campos, se deja vacío.
+        // mapFeature usará _healthSource para devolver "unknown".
+        fields: fieldsWorkItem?.fields || {},
+
+        // Una lista vacía solo significa "sin Parent" cuando la consulta
+        // de relaciones sí devolvió este work item.
+        relations: relationsWorkItem?.relations || [],
+
+        _healthSource: {
+          fields:
+            fieldsResult.status === 'fulfilled' && fieldsWorkItem
+              ? 'ok'
+              : 'unknown',
+
+          relations:
+            relationsResult.status === 'fulfilled' && relationsWorkItem
+              ? 'ok'
+              : 'unknown'
+        }
+      };
+    });
+
+    allFeatures = [...allFeatures, ...mergedFeatures];
   }
 
   return allFeatures;
