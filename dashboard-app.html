@@ -729,21 +729,17 @@
         setSaveAsDefault(checked);
         if (!checked) localStorage.removeItem(FILTER_STORAGE_KEY);
       };
-
-      const healthCounts = {
-        total: features.length,
-        healthy: features.filter(feature => feature.health === 'Healthy').length,
-        incomplete: features.filter(feature => feature.health === 'Incomplete').length,
-        unknown: features.filter(feature => feature.health === 'Unknown' || !feature.health).length
-      };
       
-      const filtered = features.filter(f => {
-        const areaOk = filterAreaPath.length === 0 || filterAreaPath.includes(f.areaPath);
+      // Applies every dashboard filter except Health.
+      // This collection is used by the Health overview counters.
+      const filteredBeforeHealth = features.filter(f => {
+        const areaOk = filterAreaPath.length === 0 ||filterAreaPath.includes(f.areaPath);
         const iterOk = filterIteration.length === 0 || filterIteration.includes(f.iterationPath);
         const stateOk = filterState.length === 0 || filterState.includes(f.state);
         const assignedOk = filterAssignedTo.length === 0 || filterAssignedTo.includes(f.assignedTo);
+
         let dateOk = filterTargetDate.length === 0;
-        
+      
         if (filterTargetDate.length > 0 && f.targetDate) {
           const d = new Date(f.targetDate);
           const yearMonthKey = d.getFullYear() + '-' + d.getMonth();
@@ -755,10 +751,8 @@
         }
       
         const normalizedSearch = searchTitle.toLowerCase();
-      
         const searchOk = searchTitle === '' || (f.title || '').toLowerCase().includes(normalizedSearch) || (f.tags || '').toLowerCase().includes(normalizedSearch);
         const releaseOk = filterReleaseVersion.length === 0 || filterReleaseVersion.includes(f.releaseFixVersion);
-        const healthOk = healthFilter === 'All' || f.health === healthFilter || (healthFilter === 'Unknown' && !f.health);
       
         return (
           areaOk &&
@@ -767,9 +761,32 @@
           dateOk &&
           searchOk &&
           releaseOk &&
-          assignedOk &&
-          healthOk
+          assignedOk
         );
+      });
+      
+      // The overview always represents the current selection from all
+      // filters other than Health.
+      const healthCounts = {
+        total: filteredBeforeHealth.length,
+        healthy: filteredBeforeHealth.filter(f => f.health === 'Healthy').length,
+        incomplete: filteredBeforeHealth.filter(f => f.health === 'Incomplete').length,
+        unknown: filteredBeforeHealth.filter(
+          f => f.health === 'Unknown' || !f.health
+        ).length
+      };
+      
+      // Applies the Health selection after calculating the overview counters.
+      const filtered = filteredBeforeHealth.filter(f => {
+        if (healthFilter === 'All') {
+          return true;
+        }
+      
+        if (healthFilter === 'Unknown') {
+          return f.health === 'Unknown' || !f.health;
+        }
+      
+        return f.health === healthFilter;
       });
 
       let sortedFiltered = [...filtered];
@@ -1075,14 +1092,30 @@
           <div style={{ background: 'white', padding: '15px', borderRadius: '8px', marginBottom: '12px', display: 'flex', gap: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flex: 1 }}>
               <div style={{ flex: '0 0 auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <label style={{ fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap' }}>Search Feature Title</label>
+                <label style={{ fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap' }}>Search Feature Title or Tag</label>
                 <input
                   type="text"
-                  placeholder="Type feature title..."
+                  placeholder="Type feature title or Tag..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   style={{ width: '300px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' }}
                 />
+              </div>
+              <div style={{ minWidth: '180px' }}>
+                <label className="filter-label">Health</label>
+                <select  className="filter-select health-filter" value={healthFilter} onChange={(e) => {
+                    setHealthFilter(e.target.value);
+                    setFeaturesPage(1);
+                    setRoadmapPage(1);
+                    setExpandedRoadmapFeatureId(null);
+                  }}
+                  title="Filter Features by health status"
+                >
+                  <option value="All">All health statuses</option>
+                  <option value="Healthy">Healthy</option>
+                  <option value="Incomplete">Incomplete</option>
+                  <option value="Unknown">Unable to validate</option>
+                </select>
               </div>
             </div>
             <button style={{ padding: '8px 16px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => loadFeatures(true)} disabled={refreshing}>
@@ -1097,7 +1130,7 @@
           </div>
 
           <div className="filters-card" style={{ background: 'white', padding: '15px 20px 10px 20px', borderRadius: '8px', marginBottom: '12px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '0.7fr 1.7fr 0.8fr 0.5fr 0.8fr 0.6fr 0.8fr', gap: '15px', alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '0.7fr 1.7fr 0.8fr 0.5fr 0.8fr 0.6fr', gap: '15px', alignItems: 'start' }}>
               <div>
                 <label className="filter-label">Area Path</label>
                 <select multiple className="filter-select" value={filterAreaPath} onChange={(e) => setFilterAreaPath([...e.target.selectedOptions].map(o => o.value))}>
@@ -1148,21 +1181,6 @@
                   {releaseVersions.map(rv => <option key={rv} value={rv}>{rv}</option>)}
                 </select>
                 {filterReleaseVersion.length > 0 && <p className="filter-count">{filterReleaseVersion.length} selected</p>}
-              </div>
-              <div>
-                <label className="filter-label">Health</label>
-                <select className="filter-select health-filter" value={healthFilter} onChange={(e) => {
-                    setHealthFilter(e.target.value);
-                    setFeaturesPage(1);
-                    setRoadmapPage(1);
-                    setExpandedRoadmapFeatureId(null);
-                  }}
-                >
-                  <option value="All">All health statuses</option>
-                  <option value="Healthy">✓ Healthy</option>
-                  <option value="Incomplete">! Incomplete</option>
-                  <option value="Unknown">? Unable to validate</option>
-                </select>
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '2px', marginTop: '4px', boxSizing: 'border-box' }}>
