@@ -675,9 +675,9 @@
       }, [expandedRoadmapFeatureId, expandedStoryIds]);
 
       // ── Renderiza el header de la línea de tiempo (meses o semanas) ──
-      // Ahora vive DENTRO de la tabla, en un <thead> secundario,
-      // así la columna Timeline comparte exactamente el mismo ancho.
-              function TimelineSubHeader({ isWeekMode, timelineOffset, weekOffset, onNext }) {
+      // Vive dentro de la tabla para que use exactamente el mismo ancho
+      // que las barras, marcadores y líneas del Timeline.
+      function TimelineSubHeader({ isWeekMode, timelineOffset, weekOffset }) {
         const today = new Date();
 
         if (isWeekMode) {
@@ -702,47 +702,42 @@
           }
 
           return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
-                  {groups.map((g, gi) => (
-                    <div
-                      key={gi}
-                      style={{
-                        gridColumn: 'span ' + g.weeks.length,
-                        background: (() => {
-                          const parts = g.key.split('-Q');
-                          return (parseInt(parts[0]) * 4 + parseInt(parts[1])) % 2 === 0 ? '#1e3a8a' : '#2563eb';
-                        })(),
-                        color: 'white',
-                        textAlign: 'center',
-                        fontSize: '10px',
-                        fontWeight: 'bold',
-                        padding: '3px 0',
-                        borderRadius: '3px'
-                      }}
-                    >
-                      {g.label}
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px' }}>
-                  {groups.map((g, gi) =>
-                    g.weeks.map((week, wi) => (
-                      <div
-                        key={gi + '-' + wi}
-                        style={{ background: '#e2e8f0', textAlign: 'center', fontSize: '9px', fontWeight: 'bold', padding: '3px 0', borderRadius: '3px', color: '#334155' }}
-                      >
-                        {week}
-                      </div>
-                    ))
-                  )}
-                </div>
+            <div style={{ width: '100%', minWidth: 0 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
+                {groups.map((g, gi) => (
+                  <div
+                    key={gi}
+                    style={{
+                      gridColumn: 'span ' + g.weeks.length,
+                      background: (() => {
+                        const parts = g.key.split('-Q');
+                        return (parseInt(parts[0]) * 4 + parseInt(parts[1])) % 2 === 0 ? '#1e3a8a' : '#2563eb';
+                      })(),
+                      color: 'white',
+                      textAlign: 'center',
+                      fontSize: '10px',
+                      fontWeight: 'bold',
+                      padding: '3px 0',
+                      borderRadius: '3px'
+                    }}
+                  >
+                    {g.label}
+                  </div>
+                ))}
               </div>
-              <button
-                style={{ width: '28px', height: '28px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, alignSelf: 'center' }}
-                onClick={onNext}
-              >►</button>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px' }}>
+                {groups.map((g, gi) =>
+                  g.weeks.map((week, wi) => (
+                    <div
+                      key={gi + '-' + wi}
+                      style={{ background: '#e2e8f0', textAlign: 'center', fontSize: '9px', fontWeight: 'bold', padding: '3px 0', borderRadius: '3px', color: '#334155' }}
+                    >
+                      {week}
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           );
         }
@@ -762,45 +757,40 @@
           currentGroup.months.push(monthName);
         }
 
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
-                {groups.map((g, gi) => (
-                  <div
-                    key={gi}
-                    style={{
-                      gridColumn: 'span ' + g.months.length,
-                      background: gi % 2 === 0 ? '#1e3a8a' : '#2563eb',
-                      color: 'white',
-                      textAlign: 'center',
-                      fontSize: '10px',
-                      fontWeight: 'bold',
-                      padding: '3px 0',
-                      borderRadius: '3px'
-                    }}
-                  >
-                    {g.year}
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px' }}>
-                {groups.map((g, gi) =>
-                  g.months.map((month, mi) => (
-                    <div
-                      key={gi + '-' + mi}
-                      style={{ background: '#e2e8f0', textAlign: 'center', fontSize: '10px', fontWeight: 'bold', padding: '3px 0', borderRadius: '3px', color: '#334155' }}
-                    >
-                      {month}
-                    </div>
-                  ))
-                )}
-              </div>
+                return (
+          <div style={{ width: '100%', minWidth: 0 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
+              {groups.map((g, gi) => (
+                <div
+                  key={gi}
+                  style={{
+                    gridColumn: 'span ' + g.months.length,
+                    background: gi % 2 === 0 ? '#1e3a8a' : '#2563eb',
+                    color: 'white',
+                    textAlign: 'center',
+                    fontSize: '10px',
+                    fontWeight: 'bold',
+                    padding: '3px 0',
+                    borderRadius: '3px'
+                  }}
+                >
+                  {g.year}
+                </div>
+              ))}
             </div>
-            <button
-              style={{ width: '28px', height: '28px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, alignSelf: 'center' }}
-              onClick={onNext}
-            >►</button>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px' }}>
+              {groups.map((g, gi) =>
+                g.months.map((month, mi) => (
+                  <div
+                    key={gi + '-' + mi}
+                    style={{ background: '#e2e8f0', textAlign: 'center', fontSize: '10px', fontWeight: 'bold', padding: '3px 0', borderRadius: '3px', color: '#334155' }}
+                  >
+                    {month}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         );
       }
@@ -1130,22 +1120,44 @@
                       >
                         P {sortColumn === 'priority' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
                       </th>
-                      <th style={{ width: '80px' }}>ID</th>
+                                            <th style={{ width: '80px' }}>ID</th>
                       <th style={{ width: '300px', padding: '12px 4px 12px 12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
                           <span>Feature</span>
-                          <button
-                            style={{ width: '28px', height: '28px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                            onClick={() => expandedRoadmapFeatureId !== null ? setWeekOffset(weekOffset - 1) : setTimelineOffset(timelineOffset - 1)}
-                          >◄</button>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                            <button
+                              type="button"
+                              title={expandedRoadmapFeatureId !== null ? 'Previous week' : 'Previous month'}
+                              aria-label={expandedRoadmapFeatureId !== null ? 'Previous week' : 'Previous month'}
+                              style={{ width: '28px', height: '28px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              onClick={() => expandedRoadmapFeatureId !== null
+                                ? setWeekOffset(weekOffset - 1)
+                                : setTimelineOffset(timelineOffset - 1)}
+                            >
+                              ◄
+                            </button>
+
+                            <button
+                              type="button"
+                              title={expandedRoadmapFeatureId !== null ? 'Next week' : 'Next month'}
+                              aria-label={expandedRoadmapFeatureId !== null ? 'Next week' : 'Next month'}
+                              style={{ width: '28px', height: '28px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              onClick={() => expandedRoadmapFeatureId !== null
+                                ? setWeekOffset(weekOffset + 1)
+                                : setTimelineOffset(timelineOffset + 1)}
+                            >
+                              ►
+                            </button>
+                          </div>
                         </div>
                       </th>
-                     <th style={{ padding: '4px 6px', verticalAlign: 'middle', fontWeight: 'normal' }}>
+
+                      <th style={{ padding: '4px 6px', verticalAlign: 'middle', fontWeight: 'normal' }}>
                         <TimelineSubHeader
                           isWeekMode={expandedRoadmapFeatureId !== null}
                           timelineOffset={timelineOffset}
                           weekOffset={weekOffset}
-                          onNext={() => expandedRoadmapFeatureId !== null ? setWeekOffset(weekOffset + 1) : setTimelineOffset(timelineOffset + 1)}
                         />
                       </th>
                     </tr>
