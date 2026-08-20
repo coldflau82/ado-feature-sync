@@ -236,19 +236,13 @@
         </div>
     
           <div className="health-checks-grid">
-            {orderedChecks.map((key) => {
+            { orderedChecks.map((key) => {
               const meta = getCheckMeta(checks[key]);
-    
               return (
-                <div
-                  key={key}
-                  className={`health-check ${meta.className}`}
-                  title={`${healthCheckLabels[key]}: ${meta.label}`}
-                >
+                <div key={key} className={`health-check ${meta.className}`} title={`${healthCheckLabels[key]}: ${meta.label}`}>
                   <span className="health-check__icon">
                     {meta.icon}
                   </span>
-    
                   <span>
                     <strong>{healthCheckLabels[key]}</strong>
                     <span style={{ marginLeft: '5px', opacity: 0.85 }}>
@@ -258,8 +252,7 @@
                 </div>
               );
             })}
-          </div>
-    
+   
           {missingChecks.length > 0 && (
             <div className="health-summary health-summary--missing">
               <strong>Missing:</strong>{' '}
