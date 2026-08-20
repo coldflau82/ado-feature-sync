@@ -31,40 +31,40 @@
     a { color: #007bff; text-decoration: none; }
     a:hover { text-decoration: underline; }
     .expand-btn { cursor: pointer; user-select: none; text-align: center; width: 30px; }
-    .health-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: bold; white-space: nowrap; }
-    .health-badge__icon { width: 15px; height: 15px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 10px; line-height: 1; }
-    .health--healthy { color: #166534; background: #dcfce7; }
-    .health--healthy .health-badge__icon { color: white; background: #16a34a; }
-    .health--incomplete { color: #9a3412; background: #ffedd5; }
-    .health--incomplete .health-badge__icon { color: white; background: #ea580c; }
-    .health--unknown { color: #475569; background: #e2e8f0; }
-    .health--unknown .health-badge__icon { color: white; background: #64748b; }
-    .health-details { margin: 0; padding: 0; background: transparent; border: none; border-radius: 0; }
-    .health-details__header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-    .health-checks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
-    .health-check { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 5px; font-size: 11px; border: 1px solid transparent; }
-    .health-check__icon { width: 17px; height: 17px; display: inline-flex; justify-content: center; align-items: center; border-radius: 50%; color: white; font-size: 10px; font-weight: bold; flex-shrink: 0; }
+    .readiness-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: bold; white-space: nowrap; }
+    .readiness-badge__icon { width: 15px; height: 15px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 10px; line-height: 1; }
+    .readiness--ready { color: #166534; background: #dcfce7; }
+    .readiness--ready .readiness-badge__icon { color: white; background: #16a34a; }
+    .readiness--needs-info { color: #9a3412; background: #ffedd5; }
+    .readiness--needs-info .readiness-badge__icon { color: white; background: #ea580c; }
+    .readiness--unknown { color: #475569; background: #e2e8f0; }
+    .readiness--unknown .readiness-badge__icon { color: white; background: #64748b; }
+    .readiness-details { margin: 0; padding: 0; background: transparent; border: none; border-radius: 0; }
+    .readiness-details__header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .readiness-checks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+    .readiness-check { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 5px; font-size: 11px; border: 1px solid transparent; }
+    .readiness-check__icon { width: 17px; height: 17px; display: inline-flex; justify-content: center; align-items: center; border-radius: 50%; color: white; font-size: 10px; font-weight: bold; flex-shrink: 0; }
     .check--pass { color: #166534; background: #f0fdf4; border-color: #bbf7d0; }
-    .check--pass .health-check__icon { background: #16a34a; }
+    .check--pass .readiness-check__icon { background: #16a34a; }
     .check--fail { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
-    .check--fail .health-check__icon { background: #dc2626; }
+    .check--fail .readiness-check__icon { background: #dc2626; }
     .check--unknown { color: #475569; background: #f8fafc; border-color: #cbd5e1; }
-    .check--unknown .health-check__icon { background: #64748b; }
-    .health-summary { margin-top: 10px; font-size: 11px; line-height: 1.5; }
-    .health-summary--missing { color: #b91c1c; }
-    .health-summary--unknown { color: #475569; }
-    .health-overview { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 8px; margin: 0; } 
-    .health-overview-card { min-width: 118px; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; text-align: left; } 
-    .health-overview-card:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08); } 
-    .health-overview-card--active { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.16); } 
-    .health-overview-card__label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #475569; } 
-    .health-overview-card__count { display: block; margin-top: 4px; font-size: 22px; line-height: 1; font-weight: 700; color: #1e293b; } 
-    .health-overview-card--healthy .health-overview-card__label { color: #166534; } 
-    .health-overview-card--incomplete .health-overview-card__label { color: #9a3412; } 
-    .health-overview-card--unknown .health-overview-card__label { color: #475569; } 
-    .health-filter { min-width: 165px; }
-    .health-badge--icon-only {display: inline-flex; align-items: center; justify-content: center; padding: 0; background: transparent; border: none; }
-    .health-badge--icon-only .health-badge__label { display: none;}
+    .check--unknown .readiness-check__icon { background: #64748b; }
+    .readiness-summary { margin-top: 10px; font-size: 11px; line-height: 1.5; }
+    .readiness-summary--missing { color: #b91c1c; }
+    .readiness-summary--unknown { color: #475569; }
+    .readiness-overview { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 8px; margin: 0; } 
+    .readiness-overview-card { min-width: 118px; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; text-align: left; } 
+    .readiness-overview-card:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08); } 
+    .readiness-overview-card--active { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.16); } 
+    .readiness-overview-card__label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #475569; } 
+    .readiness-overview-card__count { display: block; margin-top: 4px; font-size: 22px; line-height: 1; font-weight: 700; color: #1e293b; } 
+    .readiness-overview-card--healthy .readiness-overview-card__label { color: #166534; } 
+    .readiness-overview-card--incomplete .readiness-overview-card__label { color: #9a3412; } 
+    .readiness-overview-card--unknown .readiness-overview-card__label { color: #475569; } 
+    .readiness-filter { min-width: 165px; }
+    .readiness-badge--icon-only {display: inline-flex; align-items: center; justify-content: center; padding: 0; background: transparent; border: none; }
+    .readiness-badge--icon-only .readiness-badge__label { display: none;}
     .delivery-badge { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: bold; white-space: nowrap; } 
     .delivery-badge__icon { width: 15px; height: 15px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 10px; line-height: 1; }
     .delivery--overdue { color: #991b1b; background: #fee2e2; } 
@@ -73,8 +73,8 @@
     .delivery--needs-info .delivery-badge__icon { background: #ea580c; } 
     .delivery--attention { color: #854d0e; background: #fef9c3; }
     .delivery--attention .delivery-badge__icon { background: #ca8a04; } 
-    .delivery--on-track { color: #166534; background: #dcfce7; } 
-    .delivery--on-track .delivery-badge__icon { background: #16a34a; } 
+    .delivery--healthy { color: #166534; background: #dcfce7; } 
+    .delivery--healthy .delivery-badge__icon { background: #16a34a; } 
     .delivery--not-started { color: #1e40af; background: #dbeafe; } 
     .delivery--not-started .delivery-badge__icon { background: #2563eb; } 
     .delivery--unknown { color: #475569; background: #e2e8f0; } 
@@ -447,7 +447,7 @@
       */
       if (isClosed) {
         return {
-          key: 'on-track',
+          key: 'healthy',
           label: 'Healthy',
           shortLabel: 'Healthy',
           className: 'delivery--on-track',
@@ -463,7 +463,7 @@
       */
       if (!isExecutionState) {
         return {
-          key: 'on-track',
+          key: 'healthy',
           label: 'Healthy',
           shortLabel: 'Healthy',
           className: 'delivery--on-track',
@@ -540,7 +540,7 @@
       }
     
       return {
-        key: 'on-track',
+        key: 'healthy',
         label: 'Healthy',
         shortLabel: 'Healthy',
         className: 'delivery--on-track',
@@ -1033,7 +1033,7 @@
       const [legendExpanded, setLegendExpanded] = useState(false);
       const [refreshing, setRefreshing] = useState(false);
       const [cacheInfo, setCacheInfo] = useState(null);
-      const [healthFilter, setHealthFilter] = useState('All');
+      const [readinessFilter, setReadinessFilter] = useState('All');
 
       // ── Ref a la tabla del Roadmap para medir la columna Timeline ──
       const roadmapTableRef = useRef(null);
@@ -1048,7 +1048,7 @@
         setRoadmapPage(1);
         setFeaturesPage(1);
         setExpandedRoadmapFeatureId(null);
-      }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle, healthFilter]);
+      }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle, readinessFilter]);
 
       async function loadFeatures(forceRefresh = false) {
         if (forceRefresh) { setRefreshing(true); } else { setLoading(true); }
@@ -1101,7 +1101,7 @@
             setFilterTargetDate(parsed.filterTargetDate || []);
             setFilterReleaseVersion(parsed.filterReleaseVersion || []);
             setFilterAssignedTo(parsed.filterAssignedTo || []);
-            setHealthFilter(parsed.healthFilter || 'All');
+            setReadinessFilter(parsed.readinessFilter || 'All');
             setSaveAsDefault(true);
           } catch (e) { console.error('Error loading saved filters:', e); }
         }
@@ -1109,9 +1109,9 @@
 
       useEffect(() => {
         if (!saveAsDefault) return;
-        const filtersToSave = { filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, healthFilter };
+        const filtersToSave = { filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, readinessFilter };
         localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filtersToSave));
-      }, [saveAsDefault, filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, healthFilter]);
+      }, [saveAsDefault, filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, readinessFilter]);
 
       const handleSaveAsDefaultChange = (e) => {
         const checked = e.target.checked;
@@ -1121,7 +1121,7 @@
       
       // Applies every dashboard filter except Health.
       // This collection is used by the Health overview counters.
-      const filteredBeforeHealth = features.filter(f => {
+      const filteredBeforeReadiness = features.filter(f => {
         const areaOk = filterAreaPath.length === 0 ||filterAreaPath.includes(f.areaPath);
         const iterOk = filterIteration.length === 0 || filterIteration.includes(f.iterationPath);
         const stateOk = filterState.length === 0 || filterState.includes(f.state);
@@ -1156,26 +1156,26 @@
       
       // The overview always represents the current selection from all
       // filters other than Health.
-      const healthCounts = {
-        total: filteredBeforeHealth.length,
-        healthy: filteredBeforeHealth.filter(f => f.health === 'Healthy').length,
-        incomplete: filteredBeforeHealth.filter(f => f.health === 'Incomplete').length,
-        unknown: filteredBeforeHealth.filter(
+      const readinessCounts = {
+        total: filteredBeforeReadiness.length,
+        healthy: filteredBeforeReadiness.filter(f => f.health === 'Healthy').length,
+        incomplete: filteredBeforeReadiness.filter(f => f.health === 'Incomplete').length,
+        unknown: filteredBeforeReadiness.filter(
           f => f.health === 'Unknown' || !f.health
         ).length
       };
       
       // Applies the Health selection after calculating the overview counters.
-      const filtered = filteredBeforeHealth.filter(f => {
-        if (healthFilter === 'All') {
+      const filtered = filteredBeforeReadiness.filter(f => {
+        if (readinessFilter === 'All') {
           return true;
         }
       
-        if (healthFilter === 'Unknown') {
+        if (readinessFilter === 'Unknown') {
           return f.health === 'Unknown' || !f.health;
         }
       
-        return f.health === healthFilter;
+        return f.health === readinessFilter;
       });
 
       let sortedFiltered = [...filtered];
@@ -1247,7 +1247,7 @@
               setLoadingStoriesIds(prev => ({ ...prev, [featureId]: false }));
             });
         });
-      }, [featuresPage, sortedFiltered.length, filterAreaPath.join(','), filterIteration.join(','), filterState.join(','), filterTargetDate.join(','), filterReleaseVersion.join(','), filterAssignedTo.join(','), healthFilter, searchTitle]);
+      }, [featuresPage, sortedFiltered.length, filterAreaPath.join(','), filterIteration.join(','), filterState.join(','), filterTargetDate.join(','), filterReleaseVersion.join(','), filterAssignedTo.join(','), readinessFilter, searchTitle]);
 
       const toggleRoadmapFeature = (featureId) => {
         if (expandedRoadmapFeatureId === featureId) { setExpandedRoadmapFeatureId(null); return; }
@@ -1314,7 +1314,7 @@
             setHistoryCache(prev => ({ ...prev, ...(d.results || {}) }));
           })
           .catch(() => {});
-      }, [roadmapPage, currentPage, sortedFiltered.length, filterAreaPath.join(','), filterIteration.join(','), filterState.join(','), filterTargetDate.join(','), filterReleaseVersion.join(','), filterAssignedTo.join(','), healthFilter, searchTitle]);
+      }, [roadmapPage, currentPage, sortedFiltered.length, filterAreaPath.join(','), filterIteration.join(','), filterState.join(','), filterTargetDate.join(','), filterReleaseVersion.join(','), filterAssignedTo.join(','), readinessFilter, searchTitle]);
 
       useEffect(() => {
         if (!expandedRoadmapFeatureId || expandedRoadmapStories.length === 0) return;
@@ -1367,7 +1367,7 @@
         );
       }
 
-      function DeliveryTooltipContent({ feature }) {
+      function DeliveryHealthTooltipContent({ feature }) {
         const delivery = getDeliveryHealth(feature);
         const backendSummary = feature.deliverySummary;
         const loadedStories = storiesCache[feature.id];
@@ -1478,7 +1478,7 @@
         );
       }
 
-      function DeliveryBadge({ feature }) {
+      function DeliveryHealthBadge({ feature }) {
         const delivery = getDeliveryHealth(feature);
 
         return (
@@ -1489,7 +1489,7 @@
             onMouseEnter={(e) =>
               showTooltip(
                 e,
-                <DeliveryTooltipContent feature={feature} />
+                <DeliveryHealthTooltipContent feature={feature} />
               )
             }
             onMouseMove={(e) => moveTooltip(e)}
@@ -1626,8 +1626,8 @@
         <div className="container">
           <div className="header" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '20px', marginBottom: '12px' }}>
             <h1 style={{ margin: 0, justifySelf: 'start' }}>ADO DEC Dashboard</h1>
-            <ReadinessOverview counts={healthCounts} selectedHealth={healthFilter} onSelectHealth={(health) => {
-                setHealthFilter(health);
+            <ReadinessOverview counts={readinessCounts} selectedHealth={readinessFilter} onSelectHealth={(health) => {
+                setReadinessFilter(health);
                 setFeaturesPage(1);
                 setRoadmapPage(1);
                 setExpandedRoadmapFeatureId(null);
@@ -1659,8 +1659,8 @@
               </div>
               <div style={{ flex: '0 0 auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <label className="filter-label" style={{ marginBottom: 0, whiteSpace: 'nowrap' }}>Readiness</label>
-                <select className="filter-select health-filter" value={healthFilter} onChange={(e) => {
-                    setHealthFilter(e.target.value);
+                <select className="filter-select readiness-filter" value={readinessFilter} onChange={(e) => {
+                    setReadinessFilter(e.target.value);
                     setFeaturesPage(1);
                     setRoadmapPage(1);
                     setExpandedRoadmapFeatureId(null);
@@ -1681,7 +1681,7 @@
             {cacheInfo && (
               <span style={{ fontSize: '11px', color: '#888', marginLeft: '8px' }}>Cache updated {cacheInfo.ageMinutes} min ago</span>
             )}
-            <button style={{ padding: '8px 16px', background: '#dc3545', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); setFilterReleaseVersion([]); setFilterAssignedTo([]); setHealthFilter('All'); }}>
+            <button style={{ padding: '8px 16px', background: '#dc3545', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); setFilterReleaseVersion([]); setFilterAssignedTo([]); setReadinessFilter('All'); }}>
               Clear filters
             </button>
           </div>
@@ -1798,7 +1798,7 @@
                                 </span>
                               </td>
                               <td style={{ textAlign: 'center', padding: '8px' }}> <ReadinessBadge health={f.health} /> </td> 
-                              <td style={{ textAlign: 'center', padding: '8px' }}> <DeliveryBadge feature={f} /> </td> 
+                              <td style={{ textAlign: 'center', padding: '8px' }}> <DeliveryHealthBadge feature={f} /> </td> 
                               <td style={{ textAlign: 'center', padding: '8px' }}>
                                 {loadingStoriesIds[f.id] ? (
                                   <span style={{ fontSize: '10px', color: '#aaa', fontStyle: 'italic' }}>Loading...</span>
