@@ -85,6 +85,20 @@
     .feature-list-tooltip__subdetail { padding-left: 24px; }
     .feature-list-tooltip__metric { margin-top: 3px; padding-left: 12px; color: #cbd5e1; font-size: 11px; }
     .feature-list-tooltip__warning { padding-left: 12px; color: #b45309; font-size: 11px; }
+    .feature-expand-control { width: 28px; height: 28px; border: none; border-radius: 4px; background: transparent; color: #334155; cursor: pointer; font-size: 13px; line-height: 1; } 
+    .feature-expand-control:hover, .feature-expand-control:focus-visible { background: #dbeafe; color: #1d4ed8; outline: none; } 
+    .feature-history { margin: 0; } 
+    .feature-history__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; } 
+    .feature-history__title { font-size: 13px; color: #1e293b; } 
+    .feature-history__hint { font-size: 10px; color: #64748b; } 
+    .feature-history__timeline { display: grid; gap: 8px; width: 100%; } 
+    .feature-history__event { min-width: 0; position: relative; } 
+    .feature-history__event:not(:last-child)::after { content: ''; position: absolute; top: 25px; left: calc(50% + 25px); right: calc(-50% + 25px); height: 2px; background: #cbd5e1; z-index: 0; } 
+    .feature-history__box { position: relative; z-index: 1; min-height: 62px; display: flex; flex-direction: column; justify-content: center; padding: 8px; border: 1px solid #cbd5e1; border-top: 4px solid var(--state-color, #94a3b8); border-radius: 6px; background: white; text-align: center; overflow: hidden; } 
+    .feature-history__state { color: #1e293b; font-size: 11px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+    .feature-history__date { margin-top: 5px; color: #64748b; font-size: 10px; white-space: nowrap; } 
+    .feature-stories-panel__divider { height: 1px; background: #dbe4ee; margin: 14px 0 12px; } 
+    .feature-story-card__assigned-to { color: #475569; font-size: 10px; }
     
   </style>
 </head>
@@ -902,19 +916,19 @@
       return timelineWidth;
     }
 
-    // ── Clasificación única de Stories/Bugs para detalle, progreso y tooltip ──
+    /* ── Clasificación única de Features & Stories ── */
     const deliveryDoneStates = [
-      'Closed',
+      'Sprint Complete',
+      'User Acceptance Testing',
       'Approved for Release',
       'Ready for Deployment',
-      'Sprint Complete'
+      'Closed'
     ];
 
     const deliveryInProgressStates = [
       'In Process',
       'QA Testing',
-      'Business Sprint Testing',
-      'User Acceptance Testing'
+      'Business Sprint Testing'
     ];
 
     function hasWorkItemEstimate(workItem) {
@@ -990,11 +1004,320 @@
         }
       });
 
-      summary.openWorkItems =
+        summary.openWorkItems =
         summary.inProgressWorkItems +
         summary.pendingWorkItems;
 
       return summary;
+    }
+
+    function getShortAssignedToName(value) {
+      if (!value) { return 'Unassigned'; }
+
+      /*
+        Ejemplo: "Apellido, Nombre (Operations & Technology)" → "Apellido, Nombre"
+      */
+      return String(value)
+        .replace(/\s*\([^)]*\)\s*$/, '')
+        .trim();
+    }
+
+    function getFeatureHistoryStateColor(state) {
+      const colors = {'New': '#94a3b8', 'In Shaping': '#fbbf24', 'In Planning': '#fb923c', 'Planned': '#34d399', 'In Process': '#60a5fa', 'Closed': '#a78bfa' };
+
+      return colors[state] || '#94a3b8'; }
+
+    function getWorkItemDisplayOrder(workItem) {
+      /*
+        Bugs primero; después las User Stories.
+        Si surgiera otro tipo, quedará después de ambos.
+      */
+      if (workItem?.workItemType === 'Bug') return 0;
+      if (workItem?.workItemType === 'User Story') return 1;
+      return 2;
+    }
+
+    function sortFeatureWorkItems(workItems = []) {
+      return [...workItems]
+        .filter(workItem => workItem.state !== 'Removed')
+        .sort((a, b) => {
+          const typeDifference =
+            getWorkItemDisplayOrder(a) - getWorkItemDisplayOrder(b);
+
+          if (typeDifference !== 0) {
+            return typeDifference;
+          }
+
+          return Number(b.id || 0) - Number(a.id || 0);
+        });
+    }
+
+    function FeatureStateHistory({
+      history,
+      loading,
+      formatDate
+    }) {
+      if (loading) {
+        return (
+          <div style={{ fontSize: '12px', color: '#64748b' }}>
+            Loading feature history...
+          </div>
+        );
+      }
+
+      const sortedHistory = [...(history || [])]
+        .filter(event => event && event.state && event.changedDate)
+        .sort(
+          (a, b) =>
+            new Date(a.changedDate).getTime() -
+            new Date(b.changedDate).getTime()
+        );
+
+      if (sortedHistory.length === 0) {
+        return (
+          <div style={{ fontSize: '12px', color: '#64748b' }}>
+            No state history is available for this Feature.
+          </div>
+        );
+      }
+
+      /*
+        Se reservan al menos seis columnas para representar el happy path:
+        New → In Shaping → In Planning → Planned → In Process → Closed.
+
+        Si hay más transiciones por regresos de estado, por ejemplo:
+        Planned → In Process → In Planning,
+        se generan más columnas y todas se ajustan al ancho disponible.
+      */
+      const columnCount = Math.max(6, sortedHistory.length);
+
+      return (
+        <div className="feature-history">
+          <div className="feature-history__header">
+            <strong className="feature-history__title">
+              Feature state history
+            </strong>
+
+            <span className="feature-history__hint">
+              Oldest to newest
+            </span>
+          </div>
+
+          <div
+            className="feature-history__timeline"
+            style={{
+              gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`
+            }}
+          >
+            {sortedHistory.map((event, index) => (
+              <div
+                key={`${event.state}-${event.changedDate}-${index}`}
+                className="feature-history__event"
+              >
+                <div
+                  className="feature-history__box"
+                  style={{
+                    '--state-color': getFeatureHistoryStateColor(event.state)
+                  }}
+                  title={`${event.state} — ${formatDate(event.changedDate)}`}
+                >
+                  <div className="feature-history__state">
+                    {event.state}
+                  </div>
+
+                  <div className="feature-history__date">
+                    {formatDate(event.changedDate)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function FeatureStoriesCards({
+      stories,
+      adoLink
+    }) {
+      const summary = getWorkItemsDeliverySummary(stories);
+      const visibleStories = sortFeatureWorkItems(stories);
+
+      return (
+        <div>
+          <div
+            style={{
+              marginBottom: '10px',
+              fontSize: '12px',
+              fontWeight: 'bold'
+            }}
+          >
+            Stories & Bugs ({summary.includedWorkItems}
+
+            {summary.removedWorkItems > 0 && (
+              <span style={{ color: '#94a3b8', fontWeight: 'normal' }}>
+                {' '}+{summary.removedWorkItems} removed
+              </span>
+            )}
+
+            {') — '}
+
+            <span style={{ color: '#34d399' }}>
+              {summary.doneWorkItems} done
+            </span>
+
+            {' / '}
+
+            <span style={{ color: '#60a5fa' }}>
+              {summary.inProgressWorkItems} in progress
+            </span>
+
+            {' / '}
+
+            <span style={{ color: '#fbbf24' }}>
+              {summary.pendingWorkItems} pending
+            </span>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+              gap: '8px'
+            }}
+          >
+            {visibleStories.map(story => {
+              const storyDotColor =
+                storyStateColors[story.state] || '#ccc';
+
+              const isBug = story.workItemType === 'Bug';
+
+              const sprintLabel = (() => {
+                const match =
+                  story.iterationPath &&
+                  story.iterationPath.match(/(\d{4})_(S\d+)_/);
+
+                if (match) {
+                  return `${match[1]} ${match[2]}`;
+                }
+
+                return story.iterationPath
+                  ? story.iterationPath.split('\\').pop()
+                  : '—';
+              })();
+
+              return (
+                <div
+                  key={story.id}
+                  style={{
+                    padding: '8px 12px',
+                    background: 'white',
+                    borderLeft: `3px solid ${storyDotColor}`,
+                    borderRadius: '4px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      gap: '8px'
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          marginBottom: '4px'
+                        }}
+                      >
+                        {isBug && (
+                          <span
+                            style={{
+                              fontSize: '9px',
+                              background: '#fee2e2',
+                              color: '#dc2626',
+                              padding: '1px 5px',
+                              borderRadius: '3px',
+                              fontWeight: 'bold',
+                              flexShrink: 0
+                            }}
+                          >
+                            BUG
+                          </span>
+                        )}
+
+                        <a
+                          href={adoLink(story.id)}
+                          target="_blank"
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            color: '#007bff',
+                            flexShrink: 0
+                          }}
+                        >
+                          #{story.id}
+                        </a>
+
+                        <span
+                          title={story.title}
+                          style={{
+                            fontSize: '11px',
+                            color: '#333',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                        >
+                          {story.title}
+                        </span>
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: '8px',
+                          alignItems: 'center',
+                          flexWrap: 'wrap'
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            background: storyDotColor,
+                            color: 'white',
+                            padding: '1px 6px',
+                            borderRadius: '3px',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {story.state}
+                        </span>
+
+                        <span style={{ fontSize: '10px', color: '#666' }}>
+                          📍 {sprintLabel}
+                        </span>
+
+                        <span style={{ fontSize: '10px', color: '#666' }}>
+                          🎯 {story.storyPoints ?? 0} pts
+                        </span>
+
+                        <span className="feature-story-card__assigned-to">
+                          👤 {getShortAssignedToName(story.assignedTo)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
     }
 
     function Dashboard() {
@@ -1005,7 +1328,8 @@
       const [filterAreaPath, setFilterAreaPath] = useState([]);
       const [filterIteration, setFilterIteration] = useState([]);
       const [currentPage, setCurrentPage] = useState('roadmap');
-      const [expandedRows, setExpandedRows] = useState({});
+      /* Un solo panel abierto en Feature List. Ejemplo: { featureId: 123456, panel: 'history' } En los próximos puntos también permitirá readiness y delivery, pero ahora sólo se utiliza el panel "history". */
+      const [expandedFeaturePanel, setExpandedFeaturePanel] = useState(null);
       const [searchTitle, setSearchTitle] = useState('');
       const [searchInput, setSearchInput] = useState('');
       const [sortColumn, setSortColumn] = useState('id');
@@ -1022,6 +1346,7 @@
       const [loadingHistory, setLoadingHistory] = useState(false);
       const [storiesCache, setStoriesCache] = useState({});
       const [loadingStoriesIds, setLoadingStoriesIds] = useState({});
+      const [loadingFeatureHistoryIds, setLoadingFeatureHistoryIds] = useState({});
       const [storyHistoryCache, setStoryHistoryCache] = useState({});
       const [loadingStoryHistory, setLoadingStoryHistory] = useState(false);
       const [featuresPage, setFeaturesPage] = useState(1);
@@ -1044,6 +1369,7 @@
       useEffect(() => {
         setRoadmapPage(1);
         setFeaturesPage(1);
+        setExpandedFeaturePanel(null);
         setExpandedRoadmapFeatureId(null);
       }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle, readinessFilter]);
 
@@ -1066,6 +1392,7 @@
 
       useEffect(() => { loadFeatures(false); }, []);
       useEffect(() => { setExpandedRoadmapFeatureId(null); }, [roadmapPage]);
+      useEffect(() => { setExpandedFeaturePanel(null); }, [featuresPage]);
 
       const areaPaths = [...new Set(features.map(f => f.areaPath).filter(a => a))].sort();
       const iterations = [...new Set(features.map(f => f.iterationPath).filter(a => a))].sort();
@@ -1196,22 +1523,96 @@
         });
       }
 
+      const ensureFeatureHistoryLoaded = (featureId) => {
+        const alreadyLoaded = Object.prototype.hasOwnProperty.call(
+          historyCache,
+          featureId
+        );
+
+        if (alreadyLoaded || loadingFeatureHistoryIds[featureId]) {
+          return;
+        }
+
+        setLoadingFeatureHistoryIds(prev => ({
+          ...prev,
+          [featureId]: true
+        }));
+
+        fetch('/api/features-history-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: [featureId] })
+        })
+          .then(response => response.json())
+          .then(data => {
+            setHistoryCache(prev => ({
+              ...prev,
+              [featureId]: data.results?.[featureId] || []
+            }));
+          })
+          .catch(() => {
+            /*
+              Guardamos un arreglo vacío para no solicitar
+              repetidamente un historial que falló.
+            */
+            setHistoryCache(prev => ({
+              ...prev,
+              [featureId]: []
+            }));
+          })
+          .finally(() => {
+            setLoadingFeatureHistoryIds(prev => ({
+              ...prev,
+              [featureId]: false
+            }));
+          });
+      };
+
       const toggleFeatureExpand = (featureId) => {
-        const isExpanding = !expandedRows[featureId];
-        setExpandedRows({ ...expandedRows, [featureId]: isExpanding });
-        if (isExpanding && !storiesCache[featureId]) {
-          setLoadingStoriesIds(prev => ({ ...prev, [featureId]: true }));
+        const panelIsAlreadyOpen =
+          expandedFeaturePanel?.featureId === featureId &&
+          expandedFeaturePanel?.panel === 'history';
+
+        /* Al hacer clic en el mismo triángulo se cierra. Al abrir otra Feature, React reemplaza el estado anterior: por ello sólo queda un panel abierto a la vez. */
+        if (panelIsAlreadyOpen) { setExpandedFeaturePanel(null);
+          return;
+        }
+
+        setExpandedFeaturePanel({ featureId, panel: 'history' });
+
+        /*
+          Las Stories pueden estar precargadas por la página actual.
+          Si no existen todavía, se solicitan ahora.
+        */
+        if (!storiesCache[featureId] && !loadingStoriesIds[featureId]) {
+          setLoadingStoriesIds(prev => ({
+            ...prev,
+            [featureId]: true
+          }));
+
           fetch('/api/feature-stories/' + featureId)
-            .then(r => r.json())
-            .then(d => {
-              setStoriesCache(prev => ({ ...prev, [featureId]: d.stories || [] }));
-              setLoadingStoriesIds(prev => ({ ...prev, [featureId]: false }));
+            .then(response => response.json())
+            .then(data => {
+              setStoriesCache(prev => ({
+                ...prev,
+                [featureId]: data.stories || []
+              }));
             })
             .catch(() => {
-              setStoriesCache(prev => ({ ...prev, [featureId]: [] }));
-              setLoadingStoriesIds(prev => ({ ...prev, [featureId]: false }));
+              setStoriesCache(prev => ({
+                ...prev,
+                [featureId]: []
+              }));
+            })
+            .finally(() => {
+              setLoadingStoriesIds(prev => ({
+                ...prev,
+                [featureId]: false
+              }));
             });
         }
+
+        ensureFeatureHistoryLoaded(featureId);
       };
 
       const featuresItemsPerPage = 15;
@@ -1768,7 +2169,14 @@
                         return (
                           <React.Fragment key={f.id}>
                             <tr style={{ background: featureRowBg, borderLeft: '3px solid ' + featureStateDot }}>
-                              <td className="expand-btn" onClick={() => toggleFeatureExpand(f.id)}>{expandedRows[f.id] ? '▼' : '►'}</td>
+                              <td className="expand-btn">
+                                <button type="button" className="feature-expand-control" onClick={() => toggleFeatureExpand(f.id)}
+                                  title={ expandedFeaturePanel?.featureId === f.id ? 'Close Feature history and Stories/Bugs' : 'Show Feature history and Stories/Bugs' }
+                                  aria-label={ expandedFeaturePanel?.featureId === f.id ? `Close details for Feature ${f.id}` : `Show details for Feature ${f.id}` }
+                                >
+                                  {expandedFeaturePanel?.featureId === f.id ? '▼' : '►'}
+                                </button>
+                              </td>
                               <td> <a href={adoLink(f.id)} target="_blank"> {f.id} </a> </td> 
                               <td style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '320px' }} > 
                                 <span className="feature-title" style={{ cursor: 'help', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} onMouseEnter={(e) => showTooltip( e, <FeatureTooltipContent feature={f} /> ) } onMouseMove={(e) => moveTooltip(e)} onMouseLeave={() => hideTooltip()} > {f.title} </span> 
@@ -1818,171 +2226,68 @@
                                 })() : <span style={{ fontSize: '10px', color: '#bbb' }}>—</span>}
                               </td>
                             </tr>
-                            {expandedRows[f.id] && (() => {
-                              if (loadingStoriesIds[f.id]) {
-                                return (
-                                  <tr style={{ background: '#f9f9f9' }}>
-                                    <td colSpan="13" style={{ paddingLeft: '40px', paddingTop: '15px', paddingBottom: '15px' }}>Loading stories...</td>
-                                  </tr>
-                                );
-                              }
-                              const fStories = storiesCache[f.id] || [];
-
-                              return (
+                            {expandedFeaturePanel?.featureId === f.id &&
+                              expandedFeaturePanel?.panel === 'history' && (
                                 <tr style={{ background: '#f9f9f9' }}>
-                                  <td colSpan="13" style={{ paddingLeft: '40px', paddingTop: '12px', paddingBottom: '12px', paddingRight: '20px' }}>
-                                    <div style={{
+                                  <td
+                                    colSpan="13"
+                                    style={{
+                                      paddingLeft: '40px',
+                                      paddingTop: '12px',
+                                      paddingBottom: '12px',
+                                      paddingRight: '20px'
+                                    }}
+                                  >
+                                    <div
+                                      style={{
                                         background: '#f8fafc',
                                         border: '1px solid #dbe4ee',
                                         borderRadius: '8px',
                                         padding: '14px 16px',
-                                        boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)'
+                                        boxShadow:
+                                          '0 1px 2px rgba(15, 23, 42, 0.04)'
                                       }}
                                     >
-                                      {/* Se muestra siempre, aunque no existan Stories todavía */}
-                                      <FeatureReadinessDetails feature={f} />
-                                        <div style={{
-                                            height: '1px',
-                                            background: '#dbe4ee',
-                                            margin: '14px 0 12px'
+                                      <FeatureStateHistory
+                                        history={historyCache[f.id] || []}
+                                        loading={Boolean(
+                                          loadingFeatureHistoryIds[f.id]
+                                        )}
+                                        formatDate={formatDate}
+                                      />
+
+                                      <div className="feature-stories-panel__divider" />
+
+                                      {loadingStoriesIds[f.id] ? (
+                                        <div
+                                          style={{
+                                            padding: '10px 0',
+                                            fontSize: '12px',
+                                            color: '#64748b'
                                           }}
-                                        />
-                                      {fStories.length === 0 ? (
-                                        <div style={{ marginTop: '14px', padding: '10px 0', fontSize: '12px', color: '#64748b' }}>
-                                          No stories found for this feature yet.
+                                        >
+                                          Loading Stories and Bugs...
+                                        </div>
+                                      ) : (storiesCache[f.id] || []).length === 0 ? (
+                                        <div
+                                          style={{
+                                            padding: '10px 0',
+                                            fontSize: '12px',
+                                            color: '#64748b'
+                                          }}
+                                        >
+                                          No Stories or Bugs found for this Feature yet.
                                         </div>
                                       ) : (
-                                        <div>
-                                          {(() => {
-                                            const summary =
-                                              getWorkItemsDeliverySummary(fStories);
-
-                                            return (
-                                              <div
-                                                style={{
-                                                  marginBottom: '10px',
-                                                  fontSize: '12px',
-                                                  fontWeight: 'bold'
-                                                }}
-                                              >
-                                                Stories & Bugs ({summary.includedWorkItems}
-
-                                               {summary.removedWorkItems > 0 && (
-                                                  <span style={{ color: '#94a3b8', fontWeight: 'normal' }}>
-                                                    {' '}+{summary.removedWorkItems} removed
-                                                  </span>
-                                                )}
-                                                {') — '}
-
-                                                <span style={{ color: '#34d399' }}>
-                                                  {summary.doneWorkItems} done
-                                                </span>
-
-                                                {' / '}
-
-                                                <span style={{ color: '#60a5fa' }}>
-                                                  {summary.inProgressWorkItems} in progress
-                                                </span>
-
-                                                {' / '}
-
-                                                <span style={{ color: '#fbbf24' }}>
-                                                  {summary.pendingWorkItems} pending
-                                                </span>
-                                              </div>
-                                            );
-                                          })()}
-    
-                                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '8px' }}>
-                                            {fStories
-                                              .filter(s => s.state !== 'Removed')
-                                              .map(story => {
-                                                const storyDotColor = storyStateColors[story.state] || '#ccc';
-                                                const isBug = story.workItemType === 'Bug';
-                                                const sprintLabel = (() => { const m = story.iterationPath && story.iterationPath.match(/(\d{4})_(S\d+)_/);
-                              
-                                                  return m
-                                                    ? m[1] + ' ' + m[2]
-                                                    : story.iterationPath
-                                                      ? story.iterationPath.split('\\').pop()
-                                                      : '—';
-                                                })();
-                              
-                                                return (
-                                                  <div key={story.id} style={{ padding: '8px 12px', background: 'white', borderLeft: '3px solid ' + storyDotColor, borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px'}}>
-                                                      <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                                                          {isBug && (
-                                                            <span style={{ fontSize: '9px', background: '#fee2e2', color: '#dc2626', padding: '1px 5px', borderRadius: '3px', fontWeight: 'bold', flexShrink: 0}}>BUG</span>
-                                                          )}
-                                                          <a href={adoLink(story.id)}
-                                                            target="_blank"
-                                                            style={{
-                                                              fontSize: '11px',
-                                                              fontWeight: 'bold',
-                                                              color: '#007bff',
-                                                              flexShrink: 0
-                                                            }}
-                                                          >
-                                                            #{story.id}
-                                                          </a>
-                              
-                                                          <span
-                                                            style={{
-                                                              fontSize: '11px',
-                                                              color: '#333',
-                                                              whiteSpace: 'nowrap',
-                                                              overflow: 'hidden',
-                                                              textOverflow: 'ellipsis'
-                                                            }}
-                                                          >
-                                                            {story.title}
-                                                          </span>
-                                                        </div>
-                              
-                                                        <div
-                                                          style={{
-                                                            display: 'flex',
-                                                            gap: '8px',
-                                                            alignItems: 'center',
-                                                            flexWrap: 'wrap'
-                                                          }}
-                                                        >
-                                                          <span
-                                                            style={{
-                                                              fontSize: '10px',
-                                                              background: storyDotColor,
-                                                              color: 'white',
-                                                              padding: '1px 6px',
-                                                              borderRadius: '3px',
-                                                              whiteSpace: 'nowrap'
-                                                            }}
-                                                          >
-                                                            {story.state}
-                                                          </span>
-                              
-                                                          <span style={{ fontSize: '10px', color: '#666' }}>
-                                                            📍 {sprintLabel}
-                                                          </span>
-                              
-                                                          <span style={{ fontSize: '10px', color: '#666' }}>
-                                                            🎯 {story.storyPoints || 0} pts
-                                                          </span>
-                                                        </div>
-                                                      </div>
-                                                    </div>
-                                                  </div>
-                                                );
-                                              })}
-                                          </div>
-                                        </div>
+                                        <FeatureStoriesCards
+                                          stories={storiesCache[f.id] || []}
+                                          adoLink={adoLink}
+                                        />
                                       )}
                                     </div>
                                   </td>
                                 </tr>
-                              );
-                            })()}
+                              )}
                           </React.Fragment>
                         );
                       })}
