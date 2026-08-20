@@ -532,7 +532,8 @@ async function fetchDeliveryWorkItemsBatch(c, ids) {
           id: workItem.id,
           workItemType: fields['System.WorkItemType'] || '',
           state: fields['System.State'] || '',
-          storyPoints: fields['Microsoft.VSTS.Scheduling.StoryPoints'] ?? 0
+          storyPoints: fields['Microsoft.VSTS.Scheduling.StoryPoints'] || '',
+          assignedTo: fields['System.AssignedTo']?? 0
         });
       });
 
