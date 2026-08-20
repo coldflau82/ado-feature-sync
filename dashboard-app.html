@@ -1044,10 +1044,7 @@
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px' }}>
                 {groups.map((g, gi) =>
                   g.weeks.map((week, wi) => (
-                    <div
-                      key={gi + '-' + wi}
-                      style={{ background: '#e2e8f0', textAlign: 'center', fontSize: '9px', fontWeight: 'bold', padding: '3px 0', borderRadius: '3px', color: '#334155' }}
-                    >
+                    <div key={gi + '-' + wi} style={{ background: '#e2e8f0', textAlign: 'center', fontSize: '9px', fontWeight: 'bold', padding: '3px 0', borderRadius: '3px', color: '#334155' }}>
                       {week}
                     </div>
                   ))
@@ -1072,13 +1069,11 @@
           currentGroup.months.push(monthName);
         }
 
-                return (
+        return (
           <div style={{ width: '100%', minWidth: 0 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
               {groups.map((g, gi) => (
-                <div
-                  key={gi}
-                  style={{
+                <div key={gi} style={{
                     gridColumn: 'span ' + g.months.length,
                     background: gi % 2 === 0 ? '#1e3a8a' : '#2563eb',
                     color: 'white',
@@ -1373,7 +1368,6 @@
                                               </div>
                                             );
                                           })()}
-                                          </div>
                               
                                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '8px' }}>
                                             {fStories
