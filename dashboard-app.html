@@ -39,8 +39,8 @@
     .health--incomplete .health-badge__icon { color: white; background: #ea580c; }
     .health--unknown { color: #475569; background: #e2e8f0; }
     .health--unknown .health-badge__icon { color: white; background: #64748b; }
-    .health-details { margin-top: 14px; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
-    .health-details__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .health-details { margin-top: 14px; padding: 12px; background: transparent; border: none; border-radius: 6px; }
+    .health-details__header { display: flex; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px }
     .health-checks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
     .health-check { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 5px; font-size: 11px; border: 1px solid transparent; }
     .health-check__icon { width: 17px; height: 17px; display: inline-flex; justify-content: center; align-items: center; border-radius: 50%; color: white; font-size: 10px; font-weight: bold; flex-shrink: 0; }
@@ -176,23 +176,47 @@
       };
     }
 
-    function HealthBadge({ health }) {
+    function HealthBadge({ health, iconOnly = false }) {
       const meta = getHealthMeta(health);
-
+    
+      if (iconOnly) {
+        return (
+          <span
+            title={meta.label}
+            aria-label={`Feature health: ${meta.label}`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '20px',
+              height: '20px',
+              borderRadius: '50%',
+              background: meta.background,
+              color: meta.color,
+              fontSize: '13px',
+              fontWeight: '700',
+              flexShrink: 0
+            }}
+          >
+            {meta.icon}
+          </span>
+        );
+      }
+    
       return (
         <span
-          className={`health-badge ${meta.className}`}
+          className={`health-badge health-badge--${meta.className}`}
           title={meta.label}
         >
-          <span className="health-badge__icon">{meta.icon}</span>
-          {meta.label}
+          <span>{meta.icon}</span>
+          <span>{meta.label}</span>
         </span>
       );
     }
     
     function FeatureHealthDetails({ feature }) {
       const checks = feature.requiredFields || {};
-
+    
       const orderedChecks = [
         'acceptanceCriteria',
         'businessImpact',
@@ -201,32 +225,48 @@
         'targetDate',
         'description'
       ];
-
+    
       const missingChecks = feature.missingChecks || [];
       const unknownChecks = feature.unknownChecks || [];
-
+    
       return (
         <div className="health-details">
           <div className="health-details__header">
-            <strong style={{ fontSize: '12px', color: '#334155' }}>
-              Feature health validation
-            </strong>
-
-            <HealthBadge health={feature.health} />
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              {/* Sólo el icono: el texto Healthy no se repite */}
+              <HealthBadge health={feature.health} iconOnly />
+    
+              <strong
+                style={{
+                  fontSize: '13px',
+                  color: '#1e293b'
+                }}
+              >
+                Feature health validation
+              </strong>
+            </div>
           </div>
-
+    
           <div className="health-checks-grid">
             {orderedChecks.map((key) => {
               const meta = getCheckMeta(checks[key]);
-
+    
               return (
                 <div
                   key={key}
                   className={`health-check ${meta.className}`}
                   title={`${healthCheckLabels[key]}: ${meta.label}`}
                 >
-                  <span className="health-check__icon">{meta.icon}</span>
-
+                  <span className="health-check__icon">
+                    {meta.icon}
+                  </span>
+    
                   <span>
                     <strong>{healthCheckLabels[key]}</strong>
                     <span style={{ marginLeft: '5px', opacity: 0.85 }}>
@@ -237,24 +277,28 @@
               );
             })}
           </div>
-
+    
           {missingChecks.length > 0 && (
             <div className="health-summary health-summary--missing">
               <strong>Missing:</strong>{' '}
-              {missingChecks.map(check => healthCheckLabels[check] || check).join(', ')}
+              {missingChecks
+                .map(check => healthCheckLabels[check] || check)
+                .join(', ')}
             </div>
           )}
-
+    
           {unknownChecks.length > 0 && (
             <div className="health-summary health-summary--unknown">
               <strong>Unable to validate:</strong>{' '}
-              {unknownChecks.map(check => healthCheckLabels[check] || check).join(', ')}
+              {unknownChecks
+                .map(check => healthCheckLabels[check] || check)
+                .join(', ')}
             </div>
           )}
         </div>
       );
     }
-
+    
     function HealthOverview({ counts, selectedHealth, onSelectHealth }) {
       const cards = [
         {
@@ -1277,16 +1321,28 @@
                               return (
                                 <tr style={{ background: '#f9f9f9' }}>
                                   <td colSpan="15" style={{ paddingLeft: '40px', paddingTop: '12px', paddingBottom: '12px', paddingRight: '20px' }}>
-                                    <div>
+                                    <divstyle={{
+                                        background: '#f8fafc',
+                                        border: '1px solid #dbe4ee',
+                                        borderRadius: '8px',
+                                        padding: '14px 16px',
+                                        boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)'
+                                      }}
+                                    >
                                       {/* Se muestra siempre, aunque no existan Stories todavía */}
                                       <FeatureHealthDetails feature={f} />
-                              
+                                        <div style={{
+                                            height: '1px',
+                                            background: '#dbe4ee',
+                                            margin: '14px 0 12px'
+                                          }}
+                                        />
                                       {fStories.length === 0 ? (
                                         <div style={{ marginTop: '14px', padding: '10px 0', fontSize: '12px', color: '#64748b' }}>
                                           No stories found for this feature yet.
                                         </div>
                                       ) : (
-                                        <div style={{ marginTop: '14px' }}>
+                                        <div>
                                           {(() => {
                                             const activeStories = fStories.filter( s => s.state !== 'Removed' );
                                             const removedCount = fStories.length - activeStories.length;
@@ -1317,6 +1373,7 @@
                                               </div>
                                             );
                                           })()}
+                                          </div>
                               
                                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '8px' }}>
                                             {fStories
