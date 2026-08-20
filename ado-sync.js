@@ -1048,16 +1048,25 @@ app.get('/api/features', async (req, res) => {
       features: allFeatures
     });
 
-  } catch (error) {
-    console.error('ERROR /api/features', {
+    } catch (error) {
+    const diagnostic = {
+      errorName: error.name || 'Error',
+      message: error.message || 'Unknown error',
       adoStatus: error.response?.status || null,
       adoStatusText: error.response?.statusText || null,
       adoResponse: error.response?.data || null,
-      message: error.message
-    });
+      errorCode: error.code || null
+    };
 
+    console.error('ERROR /api/features', diagnostic);
+
+    // Diagnóstico temporal para poder identificar el problema cuando
+    // los logs de Vercel no están disponibles.
+    //
+    // No exponer stack, variables de entorno, Authorization ni PAT.
     res.status(500).json({
-      error: 'Unable to fetch Features from ADO.'
+      error: 'Unable to fetch Features from ADO.',
+      diagnostic
     });
   }
 });
