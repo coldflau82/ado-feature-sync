@@ -1240,8 +1240,8 @@
             <strong>
               #{feature.id} — {feature.title || 'Untitled Feature'}
             </strong>
-            <div>Area: {shortArea}</div>
-            <div>Iteration: {shortIteration}</div>
+            <div>Area Path: {shortArea}</div>
+            <div>Iteration Path: {shortIteration}</div>
             <div>Assigned to: {feature.assignedTo || '—'}</div>
           </div>
         );
@@ -1586,7 +1586,6 @@
                         <th style={{ width: '30px' }}></th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('id'); setSortOrder(sortColumn === 'id' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>ID {sortColumn === 'id' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('title'); setSortOrder(sortColumn === 'title' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>Feature {sortColumn === 'title' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
-                        <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('iteration'); setSortOrder(sortColumn === 'iteration' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>Iteration {sortColumn === 'iteration' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('priority'); setSortOrder(sortColumn === 'priority' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>Priority {sortColumn === 'priority' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('targetDate'); setSortOrder(sortColumn === 'targetDate' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>Target Date {sortColumn === 'targetDate' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
                         <th>Planned Month</th>
@@ -1611,7 +1610,6 @@
                               <td style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '320px' }} > 
                                 <span className="feature-title" style={{ cursor: 'help', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} onMouseEnter={(e) => showTooltip( e, <FeatureTooltipContent feature={f} /> ) } onMouseMove={(e) => moveTooltip(e)} onMouseLeave={() => hideTooltip()} > {f.title} </span> 
                               </td> 
-                              <td style={{ fontSize: '11px' }}> {f.iterationPath ? f.iterationPath.split('\\').pop() : '—'} </td> 
                               <td>{f.priority || '-'}</td> 
                               <td style={{ fontSize: '11px' }}> {formatDate(f.targetDate)} </td>
                               <td>{f.plannedMonth || '-'}</td>
@@ -1650,7 +1648,7 @@
                               if (loadingStoriesIds[f.id]) {
                                 return (
                                   <tr style={{ background: '#f9f9f9' }}>
-                                    <td colSpan="14" style={{ paddingLeft: '40px', paddingTop: '15px', paddingBottom: '15px' }}>Loading stories...</td>
+                                    <td colSpan="13" style={{ paddingLeft: '40px', paddingTop: '15px', paddingBottom: '15px' }}>Loading stories...</td>
                                   </tr>
                                 );
                               }
@@ -1658,7 +1656,7 @@
 
                               return (
                                 <tr style={{ background: '#f9f9f9' }}>
-                                  <td colSpan="14" style={{ paddingLeft: '40px', paddingTop: '12px', paddingBottom: '12px', paddingRight: '20px' }}>
+                                  <td colSpan="13" style={{ paddingLeft: '40px', paddingTop: '12px', paddingBottom: '12px', paddingRight: '20px' }}>
                                     <div style={{
                                         background: '#f8fafc',
                                         border: '1px solid #dbe4ee',
