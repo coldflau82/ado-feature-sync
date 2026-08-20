@@ -82,7 +82,9 @@
     .feature-list-tooltip { min-width: 220px; max-width: 340px;font-size: 12px; line-height: 1.45; }
     .feature-list-tooltip strong { display: block; margin-bottom: 3px; font-size: 12px; }
     .feature-list-tooltip__detail { padding-left: 12px; }
-
+    .feature-list-tooltip__subdetail { padding-left: 24px; }
+    .feature-list-tooltip__metric { margin-top: 3px; padding-left: 12px; color: #cbd5e1; font-size: 11px; }
+    .feature-list-tooltip__warning { padding-left: 12px; color: #b45309; font-size: 11px; }
     
   </style>
 </head>
@@ -1250,7 +1252,21 @@
       function DeliveryTooltipContent({ feature }) {
         const delivery = getDeliveryHealth(feature);
         const summary = feature.deliverySummary;
-      
+
+        const totalWorkItems = Number(summary?.totalWorkItems || 0);
+        const completedWorkItems = Number(summary?.completedWorkItems || 0);
+        const pendingWorkItems = Number(summary?.pendingWorkItems || 0);
+        const excludedWorkItems = Number(summary?.excludedWorkItems || 0);
+
+        const calculatedTotal =
+          completedWorkItems +
+          pendingWorkItems +
+          excludedWorkItems;
+
+        const hasCountMismatch =
+          summary?.source === 'ok' &&
+          calculatedTotal !== totalWorkItems;
+
         if (!summary || summary.source !== 'ok') {
           return (
             <div className="feature-list-tooltip">
@@ -1276,10 +1292,12 @@
               Work items: {summary.totalWorkItems || 0} total
             </div>
 
-            <div className="feature-list-tooltip__detail">
-              Completed: {summary.completedWorkItems || 0}
-            </div>
-
+            {hasCountMismatch && (
+              <div className="feature-list-tooltip__warning">
+                Breakdown pending validation.
+              </div>
+            )}
+            
             <div className="feature-list-tooltip__detail">
               Pending: {summary.pendingWorkItems || 0}
             </div>
@@ -1292,6 +1310,10 @@
               Not active: {summary.pendingNonActiveWorkItems || 0}
             </div>
 
+            <div className="feature-list-tooltip__detail">
+              Completed: {summary.completedWorkItems || 0}
+            </div>
+
             {summary.excludedWorkItems > 0 && (
               <div className="feature-list-tooltip__detail">
                 Excluded: {summary.excludedWorkItems}
@@ -1299,8 +1321,8 @@
             )}
 
             {summary.unestimatedWorkItems > 0 && (
-              <div className="feature-list-tooltip__detail">
-                Unestimated: {summary.unestimatedWorkItems}
+              <div className="feature-list-tooltip__metric">
+                Estimate coverage: {summary.unestimatedWorkItems} unestimated
               </div>
             )}
           </div>
