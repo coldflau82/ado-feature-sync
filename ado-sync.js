@@ -77,7 +77,8 @@ const DELIVERY_WORK_ITEM_FIELDS = [
   'System.Id',
   'System.WorkItemType',
   'System.State',
-  'Microsoft.VSTS.Scheduling.StoryPoints'
+  'Microsoft.VSTS.Scheduling.StoryPoints',
+  'System.AssignedTo'
 ];
 
 // ===== Estados de Delivery Health =====
@@ -531,8 +532,7 @@ async function fetchDeliveryWorkItemsBatch(c, ids) {
           id: workItem.id,
           workItemType: fields['System.WorkItemType'] || '',
           state: fields['System.State'] || '',
-          storyPoints:
-            fields['Microsoft.VSTS.Scheduling.StoryPoints'] ?? 0
+          storyPoints: fields['Microsoft.VSTS.Scheduling.StoryPoints'] ?? 0
         });
       });
 
