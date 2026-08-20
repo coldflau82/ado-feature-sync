@@ -1275,28 +1275,32 @@
             <div>
               Work items: {summary.totalWorkItems || 0} total
             </div>
-      
-            <div className="feature-list-tooltip__detail">
-              Pending: {summary.pendingWorkItems || 0}
-            </div>
-      
-            <div className="feature-list-tooltip__detail">
-              Active: {summary.activeWorkItems || 0}
-            </div>
-      
+
             <div className="feature-list-tooltip__detail">
               Completed: {summary.completedWorkItems || 0}
             </div>
-      
-            {summary.unestimatedWorkItems > 0 && (
-              <div className="feature-list-tooltip__detail">
-                Unestimated: {summary.unestimatedWorkItems}
-              </div>
-            )}
-      
+
+            <div className="feature-list-tooltip__detail">
+              Pending: {summary.pendingWorkItems || 0}
+            </div>
+
+            <div className="feature-list-tooltip__subdetail">
+              Active: {summary.activeWorkItems || 0}
+            </div>
+
+            <div className="feature-list-tooltip__subdetail">
+              Not active: {summary.pendingNonActiveWorkItems || 0}
+            </div>
+
             {summary.excludedWorkItems > 0 && (
               <div className="feature-list-tooltip__detail">
                 Excluded: {summary.excludedWorkItems}
+              </div>
+            )}
+
+            {summary.unestimatedWorkItems > 0 && (
+              <div className="feature-list-tooltip__detail">
+                Unestimated: {summary.unestimatedWorkItems}
               </div>
             )}
           </div>
