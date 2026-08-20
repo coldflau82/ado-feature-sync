@@ -1855,18 +1855,12 @@
                                               >
                                                 Stories & Bugs ({summary.includedWorkItems}
 
-                                                {summary.removedWorkItems > 0 && (
-                                                  <span
-                                                    style={{
-                                                      color: '#94a3b8',
-                                                      fontWeight: 'normal'
-                                                    }}
-                                                  >
+                                               {summary.removedWorkItems > 0 && (
+                                                  <span style={{ color: '#94a3b8', fontWeight: 'normal' }}>
                                                     {' '}+{summary.removedWorkItems} removed
                                                   </span>
                                                 )}
-
-                                                )}{' — '}
+                                                {') — '}
 
                                                 <span style={{ color: '#34d399' }}>
                                                   {summary.doneWorkItems} done
