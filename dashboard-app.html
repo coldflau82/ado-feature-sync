@@ -507,9 +507,7 @@
         7. Existe trabajo pendiente, pero ninguno está activo.
       */
       if (
-        state === 'In Process' &&
-        summary.pendingWorkItems > 0 &&
-        summary.activeWorkItems === 0
+        state === 'In Process' && summary.pendingWorkItems > 0 && (summary.inProgressWorkItems ?? summary.activeWorkItems ?? 0) === 0
       ) {
         return {
           key: 'no-active-work',
@@ -561,14 +559,14 @@
           label: 'Ready',
           count: counts.healthy,
           icon: '✓',
-          className: 'readiness-overview-card--healthy'
+          className: 'readiness-overview-card--ready'
         },
         {
           key: 'Incomplete',
           label: 'Needs info',
           count: counts.incomplete,
           icon: '!',
-          className: 'readiness-overview-card--incomplete'
+          className: 'readiness-overview-card--needs-info'
         },
         {
           key: 'Unknown',
@@ -1158,10 +1156,10 @@
         total: filteredBeforeReadiness.length,
         healthy: filteredBeforeReadiness.filter(f => getFeatureReadiness(f) === 'Healthy').length,
         incomplete: filteredBeforeReadiness.filter(f => getFeatureReadiness(f) === 'Incomplete').length,
-        unknown: filteredBeforeReadiness.filter(f => getFeatureReadiness(f) === 'Unknown' || !f.readiness).length
+        unknown: filteredBeforeReadiness.filter(f => getFeatureReadiness(f) === 'Unknown').length
       };
       
-      // Applies the Health selection after calculating the overview counters.
+      // Applies the Readiness selection after calculating the overview counters.
       const filtered = filteredBeforeReadiness.filter(f => {
          const readiness = getFeatureReadiness(f);
           if (readinessFilter === 'All') {
@@ -1192,7 +1190,7 @@
           else if (sortColumn === 'state') { valA = (a.state || '').toLowerCase(); valB = (b.state || '').toLowerCase(); }
           else if (sortColumn === 'targetDate') { valA = (a.targetDate || ''); valB = (b.targetDate || ''); }
           else if (sortColumn === 'assignedTo') { valA = (a.assignedTo || '').toLowerCase(); valB = (b.assignedTo || '').toLowerCase(); }
-          else if (sortColumn === 'Readiness') { const readinessOrder = { 'Incomplete': 1, 'Unknown': 2, 'Healthy': 3 }; valA = readinessOrder[getFeatureReadiness(a)] || 4; valB = readinessOrder[getFeatureReadiness(b)] || 4; }
+          else if (sortColumn === 'readiness') { const readinessOrder = { 'Incomplete': 1, 'Unknown': 2, 'Healthy': 3 }; valA = readinessOrder[getFeatureReadiness(a)] || 4; valB = readinessOrder[getFeatureReadiness(b)] || 4; }
           if (sortOrder === 'asc') return valA < valB ? -1 : valA > valB ? 1 : 0;
           else return valA > valB ? -1 : valA < valB ? 1 : 0;
         });
@@ -1384,23 +1382,21 @@
 
         const removedWorkItems = storySummary
           ? storySummary.removedWorkItems
-          : Number(backendSummary?.excludedWorkItems || 0);
+          : Number(backendSummary?.removedWorkItems ?? backendSummary?.excludedWorkItems ?? 0);
 
         const includedWorkItems = storySummary
           ? storySummary.includedWorkItems
-          : Math.max(0, totalWorkItems - removedWorkItems);
+          : Number(backendSummary?.includedWorkItems ?? Math.max(0, totalWorkItems - removedWorkItems);
 
         const doneWorkItems = storySummary
           ? storySummary.doneWorkItems
-          : Number(backendSummary?.completedWorkItems || 0);
+          : Number(backendSummary?.doneWorkItems ?? backendSummary?.completedWorkItems ?? 0);
 
         const inProgressWorkItems = storySummary
-          ? storySummary.inProgressWorkItems
-          : null;
+          ? storySummary.inProgressWorkItems : backendSummary?.inProgressWorkItems ?? backendSummary?.activeWorkItems ?? null;
 
         const pendingWorkItems = storySummary
-          ? storySummary.pendingWorkItems
-          : null;
+          ? storySummary.pendingWorkItems : backendSummary?.pendingWorkItems ?? backendSummary?.pendingNonActiveWorkItems ?? null;
 
         const unestimatedWorkItems = storySummary
           ? storySummary.unestimatedWorkItems
@@ -1439,7 +1435,7 @@
               Done: {doneWorkItems}
             </div>
 
-            {storySummary ? (
+            {inProgressWorkItems !== null && pendingWorkItems !== null ? (
               <>
                 <div className="feature-list-tooltip__subdetail">
                   In progress: {inProgressWorkItems}
