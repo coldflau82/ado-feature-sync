@@ -646,7 +646,7 @@ async function fetchFeatureDetailsBatch(c, ids) {
     );
 
     // Conservamos todos los IDs solicitados, incluso si ADO omitió alguno.
-    const mergedFeatures = currentIds.map(id => {
+        const mergedFeatures = currentIds.map(id => {
       const fieldsWorkItem = fieldsById.get(id);
       const relationsWorkItem = relationsById.get(id);
 
@@ -675,12 +675,31 @@ async function fetchFeatureDetailsBatch(c, ids) {
       };
     });
 
-    // Construye un deliverySummary por Feature usando los hijos directos.
-    // La operación usa batches de IDs únicos, nunca una consulta por Feature.
-    const enrichedFeatures = await enrichFeaturesWithDeliverySummary(
-      c,
-      mergedFeatures
-    );
+    // Delivery Health no debe impedir que /api/features funcione.
+    // Si falla la consulta masiva de hijos, retornamos el Feature con
+    // deliverySummary: unknown y conservamos Readiness Health operativo.
+    let enrichedFeatures = mergedFeatures.map(feature => ({
+      ...feature,
+      deliverySummary: buildDeliverySummary([], 'unknown')
+    }));
+
+    try {
+      enrichedFeatures = await enrichFeaturesWithDeliverySummary(
+        c,
+        mergedFeatures
+      );
+    } catch (error) {
+      console.error('ERROR enriching Features with Delivery Health summary', {
+        batchStart: i,
+        batchSize: currentIds.length,
+        errorName: error.name || 'Error',
+        message: error.message || 'Unknown error',
+        adoStatus: error.response?.status || null,
+        adoStatusText: error.response?.statusText || null,
+        adoResponse: error.response?.data || null,
+        stack: error.stack || null
+      });
+    }
 
     allFeatures = [...allFeatures, ...enrichedFeatures];
   }
