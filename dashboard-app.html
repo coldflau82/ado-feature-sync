@@ -40,7 +40,7 @@
     .health--unknown { color: #475569; background: #e2e8f0; }
     .health--unknown .health-badge__icon { color: white; background: #64748b; }
     .health-details { margin-top: 14px; padding: 12px; background: transparent; border: none; border-radius: 6px; }
-    .health-details__header { display: flex; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px }
+    .health-details__header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
     .health-checks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
     .health-check { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 5px; font-size: 11px; border: 1px solid transparent; }
     .health-check__icon { width: 17px; height: 17px; display: inline-flex; justify-content: center; align-items: center; border-radius: 50%; color: white; font-size: 10px; font-weight: bold; flex-shrink: 0; }
@@ -63,6 +63,8 @@
     .health-overview-card--incomplete .health-overview-card__label { color: #9a3412; } 
     .health-overview-card--unknown .health-overview-card__label { color: #475569; } 
     .health-filter { min-width: 165px; }
+    .health-badge--icon-only {display: inline-flex; align-items: center; justify-content: center; padding: 0; background: transparent; border: none; }
+    .health-badge--icon-only .health-badge__label { display: none;}
     
   </style>
 </head>
@@ -182,37 +184,31 @@
       if (iconOnly) {
         return (
           <span
+            className={`health-badge health-badge--icon-only ${meta.className}`}
             title={meta.label}
             aria-label={`Feature health: ${meta.label}`}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '20px',
-              height: '20px',
-              borderRadius: '50%',
-              background: meta.background,
-              color: meta.color,
-              fontSize: '13px',
-              fontWeight: '700',
-              flexShrink: 0
-            }}
           >
-            {meta.icon}
+            <span className="health-badge__icon">
+              {meta.icon}
+            </span>
           </span>
         );
       }
     
       return (
         <span
-          className={`health-badge health-badge--${meta.className}`}
+          className={`health-badge ${meta.className}`}
           title={meta.label}
         >
-          <span>{meta.icon}</span>
-          <span>{meta.label}</span>
+          <span className="health-badge__icon">
+            {meta.icon}
+          </span>
+    
+          <span className="health-badge__label">
+            {meta.label}
+          </span>
         </span>
       );
-    }
     
     function FeatureHealthDetails({ feature }) {
       const checks = feature.requiredFields || {};
@@ -232,26 +228,12 @@
       return (
         <div className="health-details">
           <div className="health-details__header">
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              {/* Sólo el icono: el texto Healthy no se repite */}
-              <HealthBadge health={feature.health} iconOnly />
-    
-              <strong
-                style={{
-                  fontSize: '13px',
-                  color: '#1e293b'
-                }}
-              >
-                Feature health validation
-              </strong>
-            </div>
+            <strong style={{ fontSize: '13px', color: '#1e293b' }}>
+              Feature health validation
+            </strong>
+            <HealthBadge health={feature.health} iconOnly />
           </div>
+        </div>
     
           <div className="health-checks-grid">
             {orderedChecks.map((key) => {
