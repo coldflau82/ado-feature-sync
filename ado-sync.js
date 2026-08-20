@@ -314,12 +314,6 @@ function mapFeature(i) {
       fields: fieldsSource,
       relations: relationsSource
     }
-    }
-  };
-}
-
-      relations: relationsSource
-    }
   };
 }
 
@@ -327,7 +321,9 @@ function mapFeature(i) {
 // Ejemplo de relation.url:
 // https://dev.azure.com/{org}/{project}/_apis/wit/workItems/123456
 function getWorkItemIdFromRelation(relation) {
-  const match = String(relation?.url || '').match(/workItems\/(\d+)(?:\?|$)/i);
+  const match = String(relation?.url || '').match(
+    /workItems\/(\d+)(?:\?|$)/i
+  );
 
   return match ? Number(match[1]) : null;
 }
