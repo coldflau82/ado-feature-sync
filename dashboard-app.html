@@ -65,6 +65,20 @@
     .health-filter { min-width: 165px; }
     .health-badge--icon-only {display: inline-flex; align-items: center; justify-content: center; padding: 0; background: transparent; border: none; }
     .health-badge--icon-only .health-badge__label { display: none;}
+    .delivery-badge { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: bold; white-space: nowrap; } 
+    .delivery-badge__icon { width: 15px; height: 15px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 10px; line-height: 1; }
+    .delivery--overdue { color: #991b1b; background: #fee2e2; } 
+    .delivery--overdue .delivery-badge__icon { background: #dc2626; }
+    .delivery--needs-info { color: #9a3412; background: #ffedd5; } 
+    .delivery--needs-info .delivery-badge__icon { background: #ea580c; } 
+    .delivery--attention { color: #854d0e; background: #fef9c3; }
+    .delivery--attention .delivery-badge__icon { background: #ca8a04; } 
+    .delivery--on-track { color: #166534; background: #dcfce7; } 
+    .delivery--on-track .delivery-badge__icon { background: #16a34a; } 
+    .delivery--not-started { color: #1e40af; background: #dbeafe; } 
+    .delivery--not-started .delivery-badge__icon { background: #2563eb; } 
+    .delivery--unknown { color: #475569; background: #e2e8f0; } 
+    .delivery--unknown .delivery-badge__icon { background: #64748b; }
     
   </style>
 </head>
@@ -288,6 +302,224 @@
             </div>
           )}
         </div>
+      );
+    }
+
+    /*
+      Delivery Health se calcula exclusivamente con feature.deliverySummary.
+
+      Esto es intencional:
+      - deliverySummary ya viene precalculado desde el backend.
+      - Evita falsos "No Stories" mientras storiesCache está cargando.
+      - Mantiene la evaluación consistente entre Feature List y Roadmap.
+    */
+
+    const deliveryExecutionStates = ['Planned', 'In Process'];
+    const deliveryClosedStates = ['Closed'];
+
+    function hasFeatureEstimate(feature) {
+      const estimation = feature.estimation || {};
+
+      return [estimation.be, estimation.fe, estimation.qa].some(value => {
+        return value !== undefined &&
+          value !== null &&
+          String(value).trim() !== '';
+      });
+    }
+
+    function isPastTargetDate(targetDate) {
+      if (!targetDate) return false;
+
+      const target = new Date(targetDate);
+      if (Number.isNaN(target.getTime())) return false;
+
+      const today = new Date();
+
+      target.setHours(0, 0, 0, 0);
+      today.setHours(0, 0, 0, 0);
+
+      return target < today;
+    }
+
+    function getDeliveryHealth(feature) {
+      const summary = feature.deliverySummary;
+      const state = feature.state || '';
+      const missingChecks = feature.missingChecks || [];
+      const unknownChecks = feature.unknownChecks || [];
+
+      /*
+        Si backend no pudo construir el resumen, no debemos concluir:
+        "No Stories", "On track" o "Not started".
+      */
+      if (!summary || summary.source !== 'ok') {
+        return {
+          key: 'unable-to-evaluate',
+          label: 'Unable to evaluate',
+          className: 'delivery--unknown',
+          icon: '?',
+          reason: 'Delivery information could not be validated.'
+        };
+      }
+
+      /*
+        Overdue tiene máxima prioridad para Features no cerrados.
+        Un Feature New con fecha vencida continúa siendo Overdue.
+      */
+      if (
+        !deliveryClosedStates.includes(state) &&
+        isPastTargetDate(feature.targetDate) &&
+        summary.workItemsPendingDelivery
+      ) {
+        return {
+          key: 'overdue',
+          label: 'Overdue',
+          className: 'delivery--overdue',
+          icon: '!',
+          reason: 'The Target Date has passed and there is pending delivery work.'
+        };
+      }
+
+      /*
+        Nueva regla solicitada:
+        Sólo aplica exactamente a State = New y sin Stories/Bugs.
+      */
+      if (
+        state === 'New' &&
+        !summary.hasWorkItems &&
+        summary.totalWorkItems === 0
+      ) {
+        return {
+          key: 'not-started',
+          label: 'Not started',
+          className: 'delivery--not-started',
+          icon: '○',
+          reason: 'Feature is New and has no associated Stories or Bugs yet.'
+        };
+      }
+
+      /*
+        Los Features cerrados no deben quedar en amarillo por trabajo
+        pendiente o falta de estimaciones.
+      */
+      if (deliveryClosedStates.includes(state)) {
+        return {
+          key: 'on-track',
+          label: 'On track',
+          className: 'delivery--on-track',
+          icon: '✓',
+          reason: 'Feature is closed.'
+        };
+      }
+
+      /*
+        Las validaciones operativas de Delivery comienzan desde Planned.
+        In Shaping e In Planning no se penalizan por no tener Stories
+        o estimaciones todavía.
+      */
+      if (!deliveryExecutionStates.includes(state)) {
+        return {
+          key: 'on-track',
+          label: 'On track',
+          className: 'delivery--on-track',
+          icon: '✓',
+          reason: 'Delivery execution checks apply from Planned onward.'
+        };
+      }
+
+      /*
+        Unknown es técnico: no afirmamos que falte información
+        si el backend no pudo validar alguno de los campos requeridos.
+      */
+      if (unknownChecks.length > 0) {
+        return {
+          key: 'unable-to-evaluate',
+          label: 'Unable to evaluate',
+          className: 'delivery--unknown',
+          icon: '?',
+          reason: 'Some required Feature fields could not be validated.'
+        };
+      }
+
+      if (missingChecks.length > 0) {
+        return {
+          key: 'missing-information',
+          label: 'Missing information',
+          className: 'delivery--needs-info',
+          icon: '!',
+          reason: `Missing required information: ${missingChecks
+            .map(check => healthCheckLabels[check] || check)
+            .join(', ')}.`
+        };
+      }
+
+      if (!hasFeatureEstimate(feature)) {
+        return {
+          key: 'needs-estimate',
+          label: 'Needs estimate',
+          className: 'delivery--needs-info',
+          icon: '!',
+          reason: 'The Feature has no BE, FE, or QA estimate.'
+        };
+      }
+
+      if (!summary.hasWorkItems || summary.totalWorkItems === 0) {
+        return {
+          key: 'no-stories',
+          label: 'No Stories',
+          className: 'delivery--attention',
+          icon: '!',
+          reason: 'The Feature is Planned/In Process but has no associated Stories or Bugs.'
+        };
+      }
+
+      if (
+        state === 'In Process' &&
+        summary.pendingWorkItems > 0 &&
+        summary.activeWorkItems === 0
+      ) {
+        return {
+          key: 'no-active-work',
+          label: 'No active work',
+          className: 'delivery--attention',
+          icon: '!',
+          reason: 'The Feature is In Process and has pending work, but no active work items.'
+        };
+      }
+
+      if (summary.unestimatedWorkItems > 0) {
+        return {
+          key: 'unestimated-work',
+          label: 'Unestimated work',
+          className: 'delivery--attention',
+          icon: '!',
+          reason: `${summary.unestimatedWorkItems} work item(s) have no estimate.`
+        };
+      }
+
+      return {
+        key: 'on-track',
+        label: 'On track',
+        className: 'delivery--on-track',
+        icon: '✓',
+        reason: 'No delivery risks were detected.'
+      };
+    }
+
+    function DeliveryBadge({ feature }) {
+      const delivery = getDeliveryHealth(feature);
+
+      return (
+        <span
+          className={`delivery-badge ${delivery.className}`}
+          title={delivery.reason}
+          aria-label={`Delivery health: ${delivery.label}`}
+        >
+          <span className="delivery-badge__icon">
+            {delivery.icon}
+          </span>
+
+          <span>{delivery.label}</span>
+        </span>
       );
     }
     
@@ -1246,8 +1478,9 @@
                         <th>QA</th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('state'); setSortOrder(sortColumn === 'state' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>State {sortColumn === 'state' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('assignedTo'); setSortOrder(sortColumn === 'assignedTo' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>Assigned To {sortColumn === 'assignedTo' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
-                        <th style={{ width: '145px', textAlign: 'center', cursor: 'pointer' }} onClick={() => {setSortColumn('health'); setSortOrder(sortColumn === 'health' && sortOrder === 'asc' ? 'desc' : 'asc');}}> Health {sortColumn === 'health' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
-                        <th style={{ width: '120px', textAlign: 'center' }}>Progress</th>
+                        <th style={{ width: '145px', textAlign: 'center', cursor: 'pointer' }} onClick={() => { setSortColumn('health'); setSortOrder( sortColumn === 'health' && sortOrder === 'asc' ? 'desc' : 'asc' ); }} > Health {sortColumn === 'health' ? (sortOrder === 'asc' ? '▲' : '▼') : ''} </th> 
+                        <th style={{ width: '155px', textAlign: 'center' }}> Delivery </th> 
+                        <th style={{ width: '120px', textAlign: 'center' }}> Progress </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1274,7 +1507,9 @@
                                   {f.state}
                                 </span>
                               </td>
-                              <td style={{ fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '130px' }} title={f.assignedTo} > {f.assignedTo || '—'} </td> <td style={{ textAlign: 'center', padding: '8px' }}> <HealthBadge health={f.health} /> </td>
+                              <td style={{ fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '130px' }} title={f.assignedTo} > {f.assignedTo || '—'} </td> 
+                              <td style={{ textAlign: 'center', padding: '8px' }}> <HealthBadge health={f.health} /> </td> 
+                              <td style={{ textAlign: 'center', padding: '8px' }}> <DeliveryBadge feature={f} /> </td> 
                               <td style={{ textAlign: 'center', padding: '8px' }}>
                                 {loadingStoriesIds[f.id] ? (
                                   <span style={{ fontSize: '10px', color: '#aaa', fontStyle: 'italic' }}>Loading...</span>
@@ -1299,7 +1534,7 @@
                               if (loadingStoriesIds[f.id]) {
                                 return (
                                   <tr style={{ background: '#f9f9f9' }}>
-                                    <td colSpan="15" style={{ paddingLeft: '40px', paddingTop: '15px', paddingBottom: '15px' }}>Loading stories...</td>
+                                    <td colSpan="16" style={{ paddingLeft: '40px', paddingTop: '15px', paddingBottom: '15px' }}>Loading stories...</td>
                                   </tr>
                                 );
                               }
@@ -1307,7 +1542,7 @@
 
                               return (
                                 <tr style={{ background: '#f9f9f9' }}>
-                                  <td colSpan="15" style={{ paddingLeft: '40px', paddingTop: '12px', paddingBottom: '12px', paddingRight: '20px' }}>
+                                  <td colSpan="16" style={{ paddingLeft: '40px', paddingTop: '12px', paddingBottom: '12px', paddingRight: '20px' }}>
                                     <div style={{
                                         background: '#f8fafc',
                                         border: '1px solid #dbe4ee',
