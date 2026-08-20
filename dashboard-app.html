@@ -1343,18 +1343,6 @@
         );
       }
 
-        return (
-          <div className="feature-list-tooltip">
-            <strong>
-              #{feature.id} — {feature.title || 'Untitled Feature'}
-            </strong>
-            <div>Area Path: {shortArea}</div>
-            <div>Iteration Path: {shortIteration}</div>
-            <div>Assigned to: {feature.assignedTo || '—'}</div>
-          </div>
-        );
-      }
-
       function DeliveryTooltipContent({ feature }) {
         const delivery = getDeliveryHealth(feature);
         const backendSummary = feature.deliverySummary;
