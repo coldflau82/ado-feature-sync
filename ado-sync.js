@@ -69,6 +69,66 @@ const FEATURE_FIELDS = [
   'Custom.PI_CustomerBenefit',
 ];
 
+// ===== Campos mínimos de Stories/Bugs para Delivery Health =====
+// Solo se consultan para construir conteos y banderas.
+// No se devuelven títulos, descripciones ni contenido sensible dentro
+// del deliverySummary de /api/features.
+const DELIVERY_WORK_ITEM_FIELDS = [
+  'System.Id',
+  'System.WorkItemType',
+  'System.State',
+  'Microsoft.VSTS.Scheduling.StoryPoints'
+];
+
+// ===== Estados de Delivery Health =====
+// Los elementos Removed no participan en ningún cálculo de salud.
+const EXCLUDED_WORK_STATES = [
+  'Removed'
+];
+
+// Se consideran completados por el equipo.
+// La liberación a producción puede ser un proceso posterior, pero no debe
+// mantener el trabajo como pendiente para este indicador.
+const COMPLETED_WORK_STATES = [
+  'Sprint Complete',
+  'Approved for Release',
+  'Ready for Deployment',
+  'Closed'
+];
+
+// Trabajo que está en ejecución activa.
+const ACTIVE_WORK_STATES = [
+  'In Process',
+  'QA Testing',
+  'Business Sprint Testing',
+  'User Acceptance Testing'
+];
+
+// Trabajo pendiente, pero todavía no activo.
+// Ready for Development se mantiene aquí porque representa trabajo futuro
+// preparado para iniciar, no trabajo terminado.
+const PENDING_NON_ACTIVE_WORK_STATES = [
+  'New',
+  'Business Refinement',
+  'Technical Refinement',
+  'Planned',
+  'Ready for Development'
+];
+
+// Estados donde una Story o Bug debe contar con Story Points.
+// Sprint Complete y Closed se excluyen: no deben generar un riesgo actual
+// de estimación si ya se completaron.
+const ESTIMABLE_WORK_STATES = [
+  'Planned',
+  'Ready for Development',
+  'In Process',
+  'QA Testing',
+  'Business Sprint Testing',
+  'User Acceptance Testing',
+  'Approved for Release',
+  'Ready for Deployment'
+];
+
 // ===== Evalúa si un campo simple o HTML tiene contenido visible =====
 // No devuelve el texto; únicamente se usa para producir true / false.
 function hasMeaningfulValue(value) {
@@ -226,7 +286,24 @@ function mapFeature(i) {
       qa: fields['Custom.QASizing'] || ''
     },
 
-    // ===== Indicador de salud =====
+    // ===== Resumen objetivo para Delivery Health =====
+    // El frontend aplicará las reglas visuales y la prioridad final.
+    // Si el navegador tiene storiesCache para este Feature, podrá recalcular
+    // este resumen con el detalle más reciente disponible localmente.
+    deliverySummary: i.deliverySummary || {
+      source: 'unknown',
+      hasWorkItems: null,
+      totalWorkItems: null,
+      excludedWorkItems: null,
+      completedWorkItems: null,
+      pendingWorkItems: null,
+      activeWorkItems: null,
+      pendingNonActiveWorkItems: null,
+      unestimatedWorkItems: null,
+      workItemsPendingDelivery: null
+    },
+
+    // ===== Indicador de Readiness Health existente =====
     requiredFields,
     health,
     missingChecks,
@@ -237,7 +314,251 @@ function mapFeature(i) {
       fields: fieldsSource,
       relations: relationsSource
     }
+    }
   };
+}
+
+      relations: relationsSource
+    }
+  };
+}
+
+// ===== Obtiene el ID de un work item desde la URL de una relación ADO =====
+// Ejemplo de relation.url:
+// https://dev.azure.com/{org}/{project}/_apis/wit/workItems/123456
+function getWorkItemIdFromRelation(relation) {
+  const match = String(relation?.url || '').match(/workItems\/(\d+)(?:\?|$)/i);
+
+  return match ? Number(match[1]) : null;
+}
+
+// ===== Extrae IDs de hijos directos de un Feature =====
+// Solo toma vínculos Feature -> Child. No incluye descendientes de segundo
+// o tercer nivel, como Tasks bajo una User Story.
+function getDirectChildWorkItemIds(feature) {
+  if (!Array.isArray(feature.relations)) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      feature.relations
+        .filter(
+          relation =>
+            relation.rel === 'System.LinkTypes.Hierarchy-Forward'
+        )
+        .map(getWorkItemIdFromRelation)
+        .filter(Number.isFinite)
+    )
+  ];
+}
+
+// ===== Crea un resumen neutral de Stories/Bugs para Delivery Health =====
+// Esta función no decide el badge principal; solo produce datos objetivos.
+// El frontend aplicará las reglas de prioridad y utilizará releaseDates
+// para evaluar RFV + 7 días en Features Closed.
+function buildDeliverySummary(workItems, source = 'ok') {
+  if (source !== 'ok') {
+    return {
+      source: 'unknown',
+      hasWorkItems: null,
+      totalWorkItems: null,
+      excludedWorkItems: null,
+      completedWorkItems: null,
+      pendingWorkItems: null,
+      activeWorkItems: null,
+      pendingNonActiveWorkItems: null,
+      unestimatedWorkItems: null,
+      workItemsPendingDelivery: null
+    };
+  }
+
+  // Delivery Health considera exclusivamente User Stories y Bugs.
+  const relevantWorkItems = workItems.filter(
+    item =>
+      item.workItemType === 'User Story' ||
+      item.workItemType === 'Bug'
+  );
+
+  const activeWorkItems = relevantWorkItems.filter(
+    item => !EXCLUDED_WORK_STATES.includes(item.state)
+  );
+
+  const excludedWorkItems =
+    relevantWorkItems.length - activeWorkItems.length;
+
+  const completedWorkItems = activeWorkItems.filter(
+    item => COMPLETED_WORK_STATES.includes(item.state)
+  );
+
+  const pendingWorkItems = activeWorkItems.filter(
+    item => !COMPLETED_WORK_STATES.includes(item.state)
+  );
+
+  const workItemsInActiveState = activeWorkItems.filter(
+    item => ACTIVE_WORK_STATES.includes(item.state)
+  );
+
+  const pendingNonActiveWorkItems = activeWorkItems.filter(
+    item => PENDING_NON_ACTIVE_WORK_STATES.includes(item.state)
+  );
+
+  const unestimatedWorkItems = activeWorkItems.filter(item => {
+    const storyPoints = Number(item.storyPoints) || 0;
+
+    return (
+      ESTIMABLE_WORK_STATES.includes(item.state) &&
+      storyPoints <= 0
+    );
+  });
+
+  return {
+    source: 'ok',
+
+    // Un elemento Removed no cuenta como Story/Bug disponible para entrega.
+    hasWorkItems: activeWorkItems.length > 0,
+
+    // Total de Stories/Bugs incluyendo Removed, útil para diagnóstico.
+    totalWorkItems: relevantWorkItems.length,
+    excludedWorkItems,
+
+    completedWorkItems: completedWorkItems.length,
+    pendingWorkItems: pendingWorkItems.length,
+    activeWorkItems: workItemsInActiveState.length,
+    pendingNonActiveWorkItems: pendingNonActiveWorkItems.length,
+    unestimatedWorkItems: unestimatedWorkItems.length,
+
+    // Bandera reutilizable para Overdue.
+    workItemsPendingDelivery: pendingWorkItems.length > 0
+  };
+}
+
+// ===== Consulta campos de Stories/Bugs relacionados en lotes de 200 =====
+// Evita el patrón de una consulta por Feature.
+async function fetchDeliveryWorkItemsBatch(c, ids) {
+  const batchSize = 200;
+  const workItemsById = new Map();
+  const unavailableIds = new Set();
+
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const currentIds = ids.slice(i, i + batchSize);
+
+    try {
+      const response = await c.post('/wit/workitemsbatch?api-version=7.0', {
+        ids: currentIds,
+        fields: DELIVERY_WORK_ITEM_FIELDS,
+        errorPolicy: 'Omit'
+      });
+
+      const returnedWorkItems = response.data.value || [];
+      const returnedIds = new Set(
+        returnedWorkItems.map(workItem => workItem.id)
+      );
+
+      returnedWorkItems.forEach(workItem => {
+        const fields = workItem.fields || {};
+
+        workItemsById.set(workItem.id, {
+          id: workItem.id,
+          workItemType: fields['System.WorkItemType'] || '',
+          state: fields['System.State'] || '',
+          storyPoints:
+            fields['Microsoft.VSTS.Scheduling.StoryPoints'] ?? 0
+        });
+      });
+
+      // Si ADO omitió un ID solicitado, no se debe interpretar como
+      // "sin Stories"; el resultado del Feature será unknown.
+      currentIds.forEach(id => {
+        if (!returnedIds.has(id)) {
+          unavailableIds.add(id);
+        }
+      });
+    } catch (error) {
+      console.error('ERROR fetching Delivery Health work items batch from ADO', {
+        batchStart: i,
+        batchSize: currentIds.length,
+        adoStatus: error.response?.status || null,
+        adoStatusText: error.response?.statusText || null,
+        adoResponse: error.response?.data || null,
+        message: error.message
+      });
+
+      currentIds.forEach(id => unavailableIds.add(id));
+    }
+  }
+
+  return {
+    workItemsById,
+    unavailableIds
+  };
+}
+
+// ===== Adjunta deliverySummary a Features ya obtenidos en un batch =====
+// Reutiliza las relaciones directas que fetchFeatureDetailsBatch ya pidió.
+// Solo añade una consulta masiva de campos mínimos para los hijos únicos.
+async function enrichFeaturesWithDeliverySummary(c, features) {
+  const childIdsByFeature = new Map();
+  const allChildIds = new Set();
+
+  features.forEach(feature => {
+    const relationsSource = feature._healthSource?.relations || 'unknown';
+
+    if (relationsSource !== 'ok') {
+      childIdsByFeature.set(feature.id, null);
+      return;
+    }
+
+    const childIds = getDirectChildWorkItemIds(feature);
+
+    childIdsByFeature.set(feature.id, childIds);
+
+    childIds.forEach(id => allChildIds.add(id));
+  });
+
+  const {
+    workItemsById,
+    unavailableIds
+  } = allChildIds.size > 0
+    ? await fetchDeliveryWorkItemsBatch(c, [...allChildIds])
+    : {
+        workItemsById: new Map(),
+        unavailableIds: new Set()
+      };
+
+  return features.map(feature => {
+    const childIds = childIdsByFeature.get(feature.id);
+
+    // La consulta de relaciones del Feature falló u omitió el Feature.
+    if (childIds === null) {
+      return {
+        ...feature,
+        deliverySummary: buildDeliverySummary([], 'unknown')
+      };
+    }
+
+    // Si ADO omitió uno o varios elementos hijos, no es seguro concluir
+    // que el Feature no tiene trabajo pendiente.
+    const hasUnavailableChild = childIds.some(
+      childId => unavailableIds.has(childId)
+    );
+
+    if (hasUnavailableChild) {
+      return {
+        ...feature,
+        deliverySummary: buildDeliverySummary([], 'unknown')
+      };
+    }
+
+    const deliveryWorkItems = childIds
+      .map(childId => workItemsById.get(childId))
+      .filter(Boolean);
+
+    return {
+      ...feature,
+      deliverySummary: buildDeliverySummary(deliveryWorkItems, 'ok')
+    };
+  });
 }
 
 // ===== Trae IDs para un rango de fechas específico =====
@@ -354,7 +675,14 @@ async function fetchFeatureDetailsBatch(c, ids) {
       };
     });
 
-    allFeatures = [...allFeatures, ...mergedFeatures];
+    // Construye un deliverySummary por Feature usando los hijos directos.
+    // La operación usa batches de IDs únicos, nunca una consulta por Feature.
+    const enrichedFeatures = await enrichFeaturesWithDeliverySummary(
+      c,
+      mergedFeatures
+    );
+
+    allFeatures = [...allFeatures, ...enrichedFeatures];
   }
 
   return allFeatures;
@@ -596,21 +924,32 @@ app.get('/api/feature-stories/:id', async (req, res) => {
 
     const featureId = req.params.id;
 
-    const query = `SELECT [System.Id] FROM workitems
-      WHERE [System.TeamProject] = 'Commercial Engineering'
-      AND ([System.WorkItemType] = 'User Story' OR [System.WorkItemType] = 'Bug')
-      AND [System.Parent] = ${featureId}`;
-
-    // WIQL no soporta System.Parent en WHERE, usamos WorkItemLinks
+    // Delivery Health trabaja con hijos directos del Feature:
+    // Feature -> User Story / Bug.
+    //
+    // MODE (MustContain) evita traer descendientes recursivos, como Tasks
+    // relacionados bajo una Story, y mantiene storiesCache alineado con
+    // deliverySummary dentro de /api/features.
     const linksQuery = `SELECT [System.Id] FROM WorkItemLinks
       WHERE [Source].[System.Id] = ${featureId}
       AND [System.Links.LinkType] = 'System.LinkTypes.Hierarchy-Forward'
-      MODE (Recursive)`;
+      AND (
+        [Target].[System.WorkItemType] = 'User Story'
+        OR [Target].[System.WorkItemType] = 'Bug'
+      )
+      MODE (MustContain)`;
 
-    const linksResponse = await c.post('/wit/wiql?api-version=7.0', { query: linksQuery });
-    const storyIds = linksResponse.data.workItemRelations
-      .filter(r => r.target && r.target.id !== parseInt(featureId))
-      .map(r => r.target.id);
+    const linksResponse = await c.post('/wit/wiql?api-version=7.0', {
+      query: linksQuery
+    });
+
+    const storyIds = [
+      ...new Set(
+        (linksResponse.data.workItemRelations || [])
+          .filter(r => r.target && r.target.id !== parseInt(featureId))
+          .map(r => r.target.id)
+      )
+    ];
 
     if (storyIds.length === 0) {
       return res.json({ stories: [] });
