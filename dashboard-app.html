@@ -134,12 +134,12 @@
     };
 
     const healthCheckLabels = {
+      description: 'Description',
       acceptanceCriteria: 'Acceptance Criteria',
       businessImpact: 'Business Impact',
       parent: 'Parent',
       priority: 'Priority',
-      targetDate: 'Target Date',
-      description: 'Description'
+      targetDate: 'Target Date'      
     };
 
     function getHealthMeta(health) {
@@ -243,12 +243,12 @@
       const checks = feature.requiredFields || {};
 
       const orderedChecks = [
+        'description',
         'acceptanceCriteria',
         'businessImpact',
         'parent',
         'priority',
-        'targetDate',
-        'description'
+        'targetDate'        
       ];
 
       const missingChecks = feature.missingChecks || [];
