@@ -79,6 +79,10 @@
     .delivery--not-started .delivery-badge__icon { background: #2563eb; } 
     .delivery--unknown { color: #475569; background: #e2e8f0; } 
     .delivery--unknown .delivery-badge__icon { background: #64748b; }
+    .feature-list-tooltip { min-width: 220px; max-width: 340px;font-size: 12px; line-height: 1.45; }
+    .feature-list-tooltip strong { display: block; margin-bottom: 3px; font-size: 12px; }
+    .feature-list-tooltip__detail { padding-left: 12px; }
+
     
   </style>
 </head>
@@ -316,72 +320,86 @@
 
     const deliveryExecutionStates = ['Planned', 'In Process'];
     const deliveryClosedStates = ['Closed'];
-
+    
     function hasFeatureEstimate(feature) {
       const estimation = feature.estimation || {};
-
+    
       return [estimation.be, estimation.fe, estimation.qa].some(value => {
-        return value !== undefined &&
+        return (
+          value !== undefined &&
           value !== null &&
-          String(value).trim() !== '';
+          String(value).trim() !== ''
+        );
       });
     }
-
+    
     function isPastTargetDate(targetDate) {
       if (!targetDate) return false;
-
+    
       const target = new Date(targetDate);
-      if (Number.isNaN(target.getTime())) return false;
-
+    
+      if (Number.isNaN(target.getTime())) {
+        return false;
+      }
+    
       const today = new Date();
-
+    
       target.setHours(0, 0, 0, 0);
       today.setHours(0, 0, 0, 0);
-
+    
       return target < today;
     }
-
+    
     function getDeliveryHealth(feature) {
       const summary = feature.deliverySummary;
       const state = feature.state || '';
-      const missingChecks = feature.missingChecks || [];
-      const unknownChecks = feature.unknownChecks || [];
-
+      const isClosed = deliveryClosedStates.includes(state);
+      const isExecutionState = deliveryExecutionStates.includes(state);
+    
       /*
-        Si backend no pudo construir el resumen, no debemos concluir:
-        "No Stories", "On track" o "Not started".
+        Estado técnico:
+        No significa que no existan Stories ni que esté On track;
+        simplemente no fue posible recuperar/resumir el trabajo.
       */
       if (!summary || summary.source !== 'ok') {
         return {
           key: 'unable-to-evaluate',
           label: 'Unable to evaluate',
+          shortLabel: 'Unavailable',
           className: 'delivery--unknown',
           icon: '?',
-          reason: 'Delivery information could not be validated.'
+          reason: 'Delivery work information could not be retrieved.'
         };
       }
-
+    
       /*
-        Overdue tiene máxima prioridad para Features no cerrados.
-        Un Feature New con fecha vencida continúa siendo Overdue.
+        1. Máxima prioridad:
+        Target Date vencido y aún existe trabajo pendiente.
+    
+        Ejemplo:
+        Target Date: 18 November 2025
+        Fecha actual: 20 August 2026
+        Pending work items > 0
+        Resultado: Overdue
       */
       if (
-        !deliveryClosedStates.includes(state) &&
+        !isClosed &&
         isPastTargetDate(feature.targetDate) &&
         summary.workItemsPendingDelivery
       ) {
         return {
           key: 'overdue',
           label: 'Overdue',
+          shortLabel: 'Overdue',
           className: 'delivery--overdue',
           icon: '!',
-          reason: 'The Target Date has passed and there is pending delivery work.'
+          reason: 'The Target Date has passed and delivery work remains pending.'
         };
       }
-
+    
       /*
-        Nueva regla solicitada:
-        Sólo aplica exactamente a State = New y sin Stories/Bugs.
+        2. Regla exclusiva para New:
+        No se usa para In Planning ni In Shaping.
       */
       if (
         state === 'New' &&
@@ -391,87 +409,79 @@
         return {
           key: 'not-started',
           label: 'Not started',
+          shortLabel: 'Not started',
           className: 'delivery--not-started',
           icon: '○',
-          reason: 'Feature is New and has no associated Stories or Bugs yet.'
+          reason: 'This Feature is New and does not have associated Stories or Bugs yet.'
         };
       }
-
+    
       /*
-        Los Features cerrados no deben quedar en amarillo por trabajo
-        pendiente o falta de estimaciones.
+        3. Un Feature Closed no debe mostrar alertas de trabajo
+        pendiente histórico ni de estimación.
       */
-      if (deliveryClosedStates.includes(state)) {
+      if (isClosed) {
         return {
           key: 'on-track',
           label: 'On track',
+          shortLabel: 'On track',
           className: 'delivery--on-track',
           icon: '✓',
-          reason: 'Feature is closed.'
+          reason: 'This Feature is Closed.'
         };
       }
-
+    
       /*
-        Las validaciones operativas de Delivery comienzan desde Planned.
-        In Shaping e In Planning no se penalizan por no tener Stories
-        o estimaciones todavía.
+        4. Estados tempranos:
+        No se penalizan todavía por no tener Stories o estimaciones.
+        New ya fue tratado arriba.
       */
-      if (!deliveryExecutionStates.includes(state)) {
+      if (!isExecutionState) {
         return {
           key: 'on-track',
           label: 'On track',
+          shortLabel: 'On track',
           className: 'delivery--on-track',
           icon: '✓',
           reason: 'Delivery execution checks apply from Planned onward.'
         };
       }
-
+    
       /*
-        Unknown es técnico: no afirmamos que falte información
-        si el backend no pudo validar alguno de los campos requeridos.
+        5. Needs estimate se conserva.
+    
+        Aplica desde Planned e In Process:
+        todo Feature debe tener al menos una estimación
+        BE, FE o QA antes/durante la ejecución.
       */
-      if (unknownChecks.length > 0) {
-        return {
-          key: 'unable-to-evaluate',
-          label: 'Unable to evaluate',
-          className: 'delivery--unknown',
-          icon: '?',
-          reason: 'Some required Feature fields could not be validated.'
-        };
-      }
-
-      if (missingChecks.length > 0) {
-        return {
-          key: 'missing-information',
-          label: 'Missing information',
-          className: 'delivery--needs-info',
-          icon: '!',
-          reason: `Missing required information: ${missingChecks
-            .map(check => healthCheckLabels[check] || check)
-            .join(', ')}.`
-        };
-      }
-
       if (!hasFeatureEstimate(feature)) {
         return {
           key: 'needs-estimate',
           label: 'Needs estimate',
+          shortLabel: 'Needs estimate',
           className: 'delivery--needs-info',
           icon: '!',
-          reason: 'The Feature has no BE, FE, or QA estimate.'
+          reason: 'The Feature does not have a BE, FE, or QA estimate.'
         };
       }
-
+    
+      /*
+        6. Planned o In Process sin Stories/Bugs.
+      */
       if (!summary.hasWorkItems || summary.totalWorkItems === 0) {
         return {
           key: 'no-stories',
           label: 'No Stories',
+          shortLabel: 'No Stories',
           className: 'delivery--attention',
           icon: '!',
-          reason: 'The Feature is Planned/In Process but has no associated Stories or Bugs.'
+          reason: 'This Feature is in delivery execution but has no associated Stories or Bugs.'
         };
       }
-
+    
+      /*
+        7. Existe trabajo pendiente, pero ninguno está activo.
+      */
       if (
         state === 'In Process' &&
         summary.pendingWorkItems > 0 &&
@@ -480,49 +490,40 @@
         return {
           key: 'no-active-work',
           label: 'No active work',
+          shortLabel: 'No active work',
           className: 'delivery--attention',
           icon: '!',
-          reason: 'The Feature is In Process and has pending work, but no active work items.'
+          reason: 'There is pending delivery work, but no Story or Bug is currently active.'
         };
       }
-
+    
+      /*
+        8. Las Stories/Bugs asociadas tienen trabajo sin estimar.
+        Esto es distinto de Needs estimate:
+        - Needs estimate: el Feature no tiene BE/FE/QA.
+        - Unestimated work: existen Stories/Bugs sin estimación.
+      */
       if (summary.unestimatedWorkItems > 0) {
         return {
           key: 'unestimated-work',
           label: 'Unestimated work',
+          shortLabel: 'Unestimated',
           className: 'delivery--attention',
           icon: '!',
-          reason: `${summary.unestimatedWorkItems} work item(s) have no estimate.`
+          reason: `${summary.unestimatedWorkItems} associated work item(s) do not have an estimate.`
         };
       }
-
+    
       return {
         key: 'on-track',
         label: 'On track',
+        shortLabel: 'On track',
         className: 'delivery--on-track',
         icon: '✓',
-        reason: 'No delivery risks were detected.'
+        reason: 'No delivery execution risks were detected.'
       };
     }
 
-    function DeliveryBadge({ feature }) {
-      const delivery = getDeliveryHealth(feature);
-
-      return (
-        <span
-          className={`delivery-badge ${delivery.className}`}
-          title={delivery.reason}
-          aria-label={`Delivery health: ${delivery.label}`}
-        >
-          <span className="delivery-badge__icon">
-            {delivery.icon}
-          </span>
-
-          <span>{delivery.label}</span>
-        </span>
-      );
-    }
-    
     function HealthOverview({ counts, selectedHealth, onSelectHealth }) {
       const cards = [
         {
@@ -1213,6 +1214,123 @@
           .catch(() => { setLoadingStoryHistory(false); });
       }, [expandedRoadmapFeatureId, expandedStoryIds]);
 
+        function FeatureTooltipContent({ feature }) {
+        /*
+          Reutilizamos exactamente la lógica de display ya utilizada
+          en la columna Iteration: tomar el último segmento del path.
+
+          Area:
+          Commercial Engineering\Digital\Acquisition\Global Product 1
+          → Global Product 1
+
+          Iteration:
+          Commercial Engineering\2026\Q4
+          → Q4
+        */
+        const shortArea = feature.areaPath
+          ? feature.areaPath.split('\\').pop()
+          : '—';
+
+        const shortIteration = feature.iterationPath
+          ? feature.iterationPath.split('\\').pop()
+          : '—';
+
+        return (
+          <div className="feature-list-tooltip">
+            <strong>
+              #{feature.id} — {feature.title || 'Untitled Feature'}
+            </strong>
+            <div>Area: {shortArea}</div>
+            <div>Iteration: {shortIteration}</div>
+            <div>Assigned to: {feature.assignedTo || '—'}</div>
+          </div>
+        );
+      }
+
+      function DeliveryTooltipContent({ feature }) {
+        const delivery = getDeliveryHealth(feature);
+        const summary = feature.deliverySummary;
+      
+        if (!summary || summary.source !== 'ok') {
+          return (
+            <div className="feature-list-tooltip">
+              <strong>Delivery: {delivery.label}</strong>
+              <div>{delivery.reason}</div>
+            </div>
+          );
+        }
+      
+        return (
+          <div className="feature-list-tooltip">
+            <strong>Delivery: {delivery.label}</strong>
+      
+            <div>{delivery.reason}</div>
+      
+            {feature.targetDate && (
+              <div>
+                Target Date: {formatDate(feature.targetDate)}
+              </div>
+            )}
+      
+            <div>
+              Work items: {summary.totalWorkItems || 0} total
+            </div>
+      
+            <div className="feature-list-tooltip__detail">
+              Pending: {summary.pendingWorkItems || 0}
+            </div>
+      
+            <div className="feature-list-tooltip__detail">
+              Active: {summary.activeWorkItems || 0}
+            </div>
+      
+            <div className="feature-list-tooltip__detail">
+              Completed: {summary.completedWorkItems || 0}
+            </div>
+      
+            {summary.unestimatedWorkItems > 0 && (
+              <div className="feature-list-tooltip__detail">
+                Unestimated: {summary.unestimatedWorkItems}
+              </div>
+            )}
+      
+            {summary.excludedWorkItems > 0 && (
+              <div className="feature-list-tooltip__detail">
+                Excluded: {summary.excludedWorkItems}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      function DeliveryBadge({ feature }) {
+        const delivery = getDeliveryHealth(feature);
+
+        return (
+          <span
+            className={`delivery-badge ${delivery.className}`}
+            style={{ cursor: 'help' }}
+            aria-label={`Delivery health: ${delivery.label}`}
+            onMouseEnter={(e) =>
+              showTooltip(
+                e,
+                <DeliveryTooltipContent feature={feature} />
+              )
+            }
+            onMouseMove={(e) => moveTooltip(e)}
+            onMouseLeave={() => hideTooltip()}
+          >
+            <span className="delivery-badge__icon">
+              {delivery.icon}
+            </span>
+
+            <span className="delivery-badge__label">
+              {delivery.shortLabel}
+            </span>
+          </span>
+        );
+      }
+      
       // ── Renderiza el header de la línea de tiempo (meses o semanas) ──
       // Vive dentro de la tabla para que use exactamente el mismo ancho
       // que las barras, marcadores y líneas del Timeline.
@@ -1468,7 +1586,6 @@
                         <th style={{ width: '30px' }}></th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('id'); setSortOrder(sortColumn === 'id' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>ID {sortColumn === 'id' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('title'); setSortOrder(sortColumn === 'title' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>Feature {sortColumn === 'title' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
-                        <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('areaPath'); setSortOrder(sortColumn === 'areaPath' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>Area Path {sortColumn === 'areaPath' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('iteration'); setSortOrder(sortColumn === 'iteration' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>Iteration {sortColumn === 'iteration' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('priority'); setSortOrder(sortColumn === 'priority' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>Priority {sortColumn === 'priority' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('targetDate'); setSortOrder(sortColumn === 'targetDate' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>Target Date {sortColumn === 'targetDate' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
@@ -1477,7 +1594,6 @@
                         <th>FE</th>
                         <th>QA</th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('state'); setSortOrder(sortColumn === 'state' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>State {sortColumn === 'state' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
-                        <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('assignedTo'); setSortOrder(sortColumn === 'assignedTo' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>Assigned To {sortColumn === 'assignedTo' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
                         <th style={{ width: '145px', textAlign: 'center', cursor: 'pointer' }} onClick={() => { setSortColumn('health'); setSortOrder( sortColumn === 'health' && sortOrder === 'asc' ? 'desc' : 'asc' ); }} > Health {sortColumn === 'health' ? (sortOrder === 'asc' ? '▲' : '▼') : ''} </th> 
                         <th style={{ width: '155px', textAlign: 'center' }}> Delivery </th> 
                         <th style={{ width: '120px', textAlign: 'center' }}> Progress </th>
@@ -1491,12 +1607,13 @@
                           <React.Fragment key={f.id}>
                             <tr style={{ background: featureRowBg, borderLeft: '3px solid ' + featureStateDot }}>
                               <td className="expand-btn" onClick={() => toggleFeatureExpand(f.id)}>{expandedRows[f.id] ? '▼' : '►'}</td>
-                              <td><a href={adoLink(f.id)} target="_blank">{f.id}</a></td>
-                              <td title={f.title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>{f.title}</td>
-                              <td style={{ fontSize: '11px' }}>{f.areaPath.split('\\').pop()}</td>
-                              <td style={{ fontSize: '11px' }}>{f.iterationPath.split('\\').pop()}</td>
-                              <td>{f.priority || '-'}</td>
-                              <td style={{ fontSize: '11px' }}>{formatDate(f.targetDate)}</td>
+                              <td> <a href={adoLink(f.id)} target="_blank"> {f.id} </a> </td> 
+                              <td style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '320px' }} > 
+                                <span className="feature-title" style={{ cursor: 'help', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} onMouseEnter={(e) => showTooltip( e, <FeatureTooltipContent feature={f} /> ) } onMouseMove={(e) => moveTooltip(e)} onMouseLeave={() => hideTooltip()} > {f.title} </span> 
+                              </td> 
+                              <td style={{ fontSize: '11px' }}> {f.iterationPath ? f.iterationPath.split('\\').pop() : '—'} </td> 
+                              <td>{f.priority || '-'}</td> 
+                              <td style={{ fontSize: '11px' }}> {formatDate(f.targetDate)} </td>
                               <td>{f.plannedMonth || '-'}</td>
                               <td>{f.estimation.be || '-'}</td>
                               <td>{f.estimation.fe || '-'}</td>
@@ -1507,7 +1624,6 @@
                                   {f.state}
                                 </span>
                               </td>
-                              <td style={{ fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '130px' }} title={f.assignedTo} > {f.assignedTo || '—'} </td> 
                               <td style={{ textAlign: 'center', padding: '8px' }}> <HealthBadge health={f.health} /> </td> 
                               <td style={{ textAlign: 'center', padding: '8px' }}> <DeliveryBadge feature={f} /> </td> 
                               <td style={{ textAlign: 'center', padding: '8px' }}>
@@ -1534,7 +1650,7 @@
                               if (loadingStoriesIds[f.id]) {
                                 return (
                                   <tr style={{ background: '#f9f9f9' }}>
-                                    <td colSpan="16" style={{ paddingLeft: '40px', paddingTop: '15px', paddingBottom: '15px' }}>Loading stories...</td>
+                                    <td colSpan="14" style={{ paddingLeft: '40px', paddingTop: '15px', paddingBottom: '15px' }}>Loading stories...</td>
                                   </tr>
                                 );
                               }
@@ -1542,7 +1658,7 @@
 
                               return (
                                 <tr style={{ background: '#f9f9f9' }}>
-                                  <td colSpan="16" style={{ paddingLeft: '40px', paddingTop: '12px', paddingBottom: '12px', paddingRight: '20px' }}>
+                                  <td colSpan="14" style={{ paddingLeft: '40px', paddingTop: '12px', paddingBottom: '12px', paddingRight: '20px' }}>
                                     <div style={{
                                         background: '#f8fafc',
                                         border: '1px solid #dbe4ee',
