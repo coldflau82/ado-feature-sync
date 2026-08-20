@@ -309,7 +309,16 @@ function mapFeature(i) {
       pendingNonActiveWorkItems: null
     },
 
-    // ===== Indicador de Readiness Health existente =====
+     // ===== Readiness: nuevo contrato de la API =====
+    // Estos son los nombres que utilizará el frontend nuevo.
+    readiness: health,
+    readinessChecks: requiredFields,
+    readinessMissingChecks: missingChecks,
+    readinessUnknownChecks: unknownChecks,
+
+    // ===== Compatibilidad temporal =====
+    // Se mantienen los nombres antiguos hasta que el frontend y cualquier
+    // dato cacheado hayan migrado completamente a readiness.
     requiredFields,
     health,
     missingChecks,
