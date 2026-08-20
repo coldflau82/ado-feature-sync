@@ -81,38 +81,32 @@ const DELIVERY_WORK_ITEM_FIELDS = [
 ];
 
 // ===== Estados de Delivery Health =====
-// Los elementos Removed no participan en ningún cálculo de salud.
-const EXCLUDED_WORK_STATES = [
+//
+// Las categorías deben ser mutuamente excluyentes:
+//
+// Included in delivery = Done + In progress + Pending
+// Total work items = Included in delivery + Removed
+//
+// Cualquier Story/Bug que no sea Removed, Done o In progress se
+// clasifica automáticamente como Pending. Esto evita elementos vigentes
+// sin categoría cuando aparezcan nuevos estados en Azure DevOps.
+
+const REMOVED_WORK_STATES = [
   'Removed'
 ];
 
-// Se consideran completados por el equipo.
-// La liberación a producción puede ser un proceso posterior, pero no debe
-// mantener el trabajo como pendiente para este indicador.
-const COMPLETED_WORK_STATES = [
+const DONE_WORK_STATES = [
   'Sprint Complete',
   'Approved for Release',
   'Ready for Deployment',
   'Closed'
 ];
 
-// Trabajo que está en ejecución activa.
-const ACTIVE_WORK_STATES = [
+const IN_PROGRESS_WORK_STATES = [
   'In Process',
   'QA Testing',
   'Business Sprint Testing',
   'User Acceptance Testing'
-];
-
-// Trabajo pendiente, pero todavía no activo.
-// Ready for Development se mantiene aquí porque representa trabajo futuro
-// preparado para iniciar, no trabajo terminado.
-const PENDING_NON_ACTIVE_WORK_STATES = [
-  'New',
-  'Business Refinement',
-  'Technical Refinement',
-  'Planned',
-  'Ready for Development'
 ];
 
 // Estados donde una Story o Bug debe contar con Story Points.
@@ -287,20 +281,32 @@ function mapFeature(i) {
     },
 
     // ===== Resumen objetivo para Delivery Health =====
-    // El frontend aplicará las reglas visuales y la prioridad final.
-    // Si el navegador tiene storiesCache para este Feature, podrá recalcular
-    // este resumen con el detalle más reciente disponible localmente.
+    // El backend entrega el mismo desglose que debe mostrar el frontend.
+    // Las categorías Done, In progress y Pending son excluyentes.
     deliverySummary: i.deliverySummary || {
       source: 'unknown',
       hasWorkItems: null,
+
       totalWorkItems: null,
+      includedWorkItems: null,
+      removedWorkItems: null,
+
+      doneWorkItems: null,
+      inProgressWorkItems: null,
+      pendingWorkItems: null,
+      openWorkItems: null,
+
+      unestimatedWorkItems: null,
+      workItemsPendingDelivery: null,
+
+      /*
+        Alias de compatibilidad temporal para cualquier consumidor
+        existente que aún use los nombres anteriores.
+      */
       excludedWorkItems: null,
       completedWorkItems: null,
-      pendingWorkItems: null,
       activeWorkItems: null,
-      pendingNonActiveWorkItems: null,
-      unestimatedWorkItems: null,
-      workItemsPendingDelivery: null
+      pendingNonActiveWorkItems: null
     },
 
     // ===== Indicador de Readiness Health existente =====
@@ -349,83 +355,141 @@ function getDirectChildWorkItemIds(feature) {
   ];
 }
 
-// ===== Crea un resumen neutral de Stories/Bugs para Delivery Health =====
-// Esta función no decide el badge principal; solo produce datos objetivos.
-// El frontend aplicará las reglas de prioridad y utilizará releaseDates
-// para evaluar RFV + 7 días en Features Closed.
+// ===== Crea un resumen unificado de Stories/Bugs para Delivery Health =====
+//
+// Reglas:
+//
+// totalWorkItems = includedWorkItems + removedWorkItems
+// includedWorkItems = doneWorkItems + inProgressWorkItems + pendingWorkItems
+// openWorkItems = inProgressWorkItems + pendingWorkItems
+//
+// Removed no participa en delivery, progreso ni cobertura de estimación.
 function buildDeliverySummary(workItems, source = 'ok') {
+  const unknownSummary = {
+    source: 'unknown',
+    hasWorkItems: null,
+
+    totalWorkItems: null,
+    includedWorkItems: null,
+    removedWorkItems: null,
+
+    doneWorkItems: null,
+    inProgressWorkItems: null,
+    pendingWorkItems: null,
+    openWorkItems: null,
+
+    unestimatedWorkItems: null,
+    workItemsPendingDelivery: null,
+
+    // Alias de compatibilidad temporal.
+    excludedWorkItems: null,
+    completedWorkItems: null,
+    activeWorkItems: null,
+    pendingNonActiveWorkItems: null
+  };
+
   if (source !== 'ok') {
-    return {
-      source: 'unknown',
-      hasWorkItems: null,
-      totalWorkItems: null,
-      excludedWorkItems: null,
-      completedWorkItems: null,
-      pendingWorkItems: null,
-      activeWorkItems: null,
-      pendingNonActiveWorkItems: null,
-      unestimatedWorkItems: null,
-      workItemsPendingDelivery: null
-    };
+    return unknownSummary;
   }
 
-  // Delivery Health considera exclusivamente User Stories y Bugs.
+  // Delivery Health considera exclusivamente hijos directos de tipo
+  // User Story o Bug.
   const relevantWorkItems = workItems.filter(
     item =>
       item.workItemType === 'User Story' ||
       item.workItemType === 'Bug'
   );
 
-  const activeWorkItems = relevantWorkItems.filter(
-    item => !EXCLUDED_WORK_STATES.includes(item.state)
-  );
+  let removedWorkItems = 0;
+  let doneWorkItems = 0;
+  let inProgressWorkItems = 0;
+  let pendingWorkItems = 0;
+  let unestimatedWorkItems = 0;
 
-  const excludedWorkItems =
-    relevantWorkItems.length - activeWorkItems.length;
+  relevantWorkItems.forEach(item => {
+    const state = item.state || '';
 
-  const completedWorkItems = activeWorkItems.filter(
-    item => COMPLETED_WORK_STATES.includes(item.state)
-  );
+    // Removed aparece por separado y nunca entra en las categorías
+    // de delivery ni en el cálculo de elementos no estimados.
+    if (REMOVED_WORK_STATES.includes(state)) {
+      removedWorkItems += 1;
+      return;
+    }
 
-  const pendingWorkItems = activeWorkItems.filter(
-    item => !COMPLETED_WORK_STATES.includes(item.state)
-  );
+    if (DONE_WORK_STATES.includes(state)) {
+      doneWorkItems += 1;
+    } else if (IN_PROGRESS_WORK_STATES.includes(state)) {
+      inProgressWorkItems += 1;
+    } else {
+      /*
+        Cualquier estado vigente no reconocido explícitamente como Done
+        o In progress se considera Pending.
+        
+        Ejemplos actuales:
+        New, Business Refinement, Technical Refinement, Planned,
+        Ready for Development, o cualquier nuevo estado futuro.
+      */
+      pendingWorkItems += 1;
+    }
 
-  const workItemsInActiveState = activeWorkItems.filter(
-    item => ACTIVE_WORK_STATES.includes(item.state)
-  );
+    /*
+      Se conserva la política existente de estimación:
+      sólo los estados incluidos en ESTIMABLE_WORK_STATES requieren
+      Story Points para contar como "unestimated".
 
-  const pendingNonActiveWorkItems = activeWorkItems.filter(
-    item => PENDING_NON_ACTIVE_WORK_STATES.includes(item.state)
-  );
-
-  const unestimatedWorkItems = activeWorkItems.filter(item => {
+      Importante: Removed ya salió del flujo antes de este punto.
+    */
     const storyPoints = Number(item.storyPoints) || 0;
 
-    return (
-      ESTIMABLE_WORK_STATES.includes(item.state) &&
+    if (
+      ESTIMABLE_WORK_STATES.includes(state) &&
       storyPoints <= 0
-    );
+    ) {
+      unestimatedWorkItems += 1;
+    }
   });
+
+  const includedWorkItems =
+    doneWorkItems +
+    inProgressWorkItems +
+    pendingWorkItems;
+
+  const totalWorkItems = relevantWorkItems.length;
+
+  const openWorkItems =
+    inProgressWorkItems +
+    pendingWorkItems;
 
   return {
     source: 'ok',
 
-    // Un elemento Removed no cuenta como Story/Bug disponible para entrega.
-    hasWorkItems: activeWorkItems.length > 0,
+    hasWorkItems: includedWorkItems > 0,
 
-    // Total de Stories/Bugs incluyendo Removed, útil para diagnóstico.
-    totalWorkItems: relevantWorkItems.length,
-    excludedWorkItems,
+    // Nuevo modelo unificado.
+    totalWorkItems,
+    includedWorkItems,
+    removedWorkItems,
 
-    completedWorkItems: completedWorkItems.length,
-    pendingWorkItems: pendingWorkItems.length,
-    activeWorkItems: workItemsInActiveState.length,
-    pendingNonActiveWorkItems: pendingNonActiveWorkItems.length,
-    unestimatedWorkItems: unestimatedWorkItems.length,
+    doneWorkItems,
+    inProgressWorkItems,
+    pendingWorkItems,
+    openWorkItems,
 
-    // Bandera reutilizable para Overdue.
-    workItemsPendingDelivery: pendingWorkItems.length > 0
+    unestimatedWorkItems,
+
+    // Overdue debe depender de trabajo vigente no terminado.
+    workItemsPendingDelivery: openWorkItems > 0,
+
+    /*
+      Alias de compatibilidad temporal.
+
+      Pueden eliminarse cuando confirmemos que ningún consumidor usa
+      los nombres antiguos.
+    */
+    excludedWorkItems: removedWorkItems,
+    completedWorkItems: doneWorkItems,
+    activeWorkItems: inProgressWorkItems,
+    pendingNonActiveWorkItems: pendingWorkItems
   };
 }
 
