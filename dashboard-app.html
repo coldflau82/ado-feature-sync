@@ -146,14 +146,14 @@
       switch (health) {
         case 'Healthy':
           return {
-            label: 'Healthy',
+            label: 'Ready',
             className: 'health--healthy',
             icon: '✓'
           };
 
         case 'Incomplete':
           return {
-            label: 'Incomplete',
+            label: 'Needs info',
             className: 'health--incomplete',
             icon: '!'
           };
@@ -167,7 +167,7 @@
 
         default:
           return {
-            label: 'Not evaluated',
+            label: 'Readiness unavailable',
             className: 'health--unknown',
             icon: '?'
           };
@@ -210,7 +210,7 @@
           <span
             className={`health-badge health-badge--icon-only ${meta.className}`}
             title={meta.label}
-            aria-label={`Feature health: ${meta.label}`}
+            aria-label={`Feature readiness: ${meta.label}`}
           >
             <span className="health-badge__icon">
               {meta.icon}
@@ -258,7 +258,7 @@
         <div className="health-details">
           <div className="health-details__header">
             <strong style={{ fontSize: '13px', color: '#1e293b' }}>
-              Feature health validation
+              Feature readiness
             </strong>
 
             {/* El icono se muestra después del título y sin repetir el texto */}
@@ -425,8 +425,8 @@
       if (isClosed) {
         return {
           key: 'on-track',
-          label: 'On track',
-          shortLabel: 'On track',
+          label: 'Healthy',
+          shortLabel: 'Healthy',
           className: 'delivery--on-track',
           icon: '✓',
           reason: 'This Feature is Closed.'
@@ -441,8 +441,8 @@
       if (!isExecutionState) {
         return {
           key: 'on-track',
-          label: 'On track',
-          shortLabel: 'On track',
+          label: 'Healthy',
+          shortLabel: 'Healthy',
           className: 'delivery--on-track',
           icon: '✓',
           reason: 'Delivery execution checks apply from Planned onward.'
@@ -518,8 +518,8 @@
     
       return {
         key: 'on-track',
-        label: 'On track',
-        shortLabel: 'On track',
+        label: 'Healthy',
+        shortLabel: 'Healthy',
         className: 'delivery--on-track',
         icon: '✓',
         reason: 'No delivery execution risks were detected.'
@@ -530,20 +530,20 @@
       const cards = [
         {
           key: 'All',
-          label: 'Total Features',
+          label: 'All Features',
           count: counts.total,
           className: ''
         },
         {
           key: 'Healthy',
-          label: 'Healthy',
+          label: 'Ready',
           count: counts.healthy,
           icon: '✓',
           className: 'health-overview-card--healthy'
         },
         {
           key: 'Incomplete',
-          label: 'Incomplete',
+          label: 'Needs info',
           count: counts.incomplete,
           icon: '!',
           className: 'health-overview-card--incomplete'
@@ -565,7 +565,7 @@
               type="button"
               className={['health-overview-card', card.className, selectedHealth === card.key ? 'health-overview-card--active' : '' ].filter(Boolean).join(' ')}
                 onClick={() => onSelectHealth(card.key)}
-              title={ card.key === 'All' ? 'Show all Features' : `Filter Features with health status: ${card.label}` }
+              title={ card.key === 'All' ? 'Show all Features' : `Filter Features by readiness: ${card.label}` }
             >
               <span className="health-overview-card__label">{card.icon && <span>{card.icon}</span>}{card.label}</span>
               <span className="health-overview-card__count">{card.count}</span>
@@ -1394,7 +1394,7 @@
         if (!backendSummary || backendSummary.source !== 'ok') {
           return (
             <div className="feature-list-tooltip">
-              <strong>Delivery: {delivery.label}</strong>
+              <strong>Delivery health: {delivery.label}</strong>
               <div>{delivery.reason}</div>
             </div>
           );
@@ -1402,7 +1402,7 @@
 
         return (
           <div className="feature-list-tooltip">
-            <strong>Delivery: {delivery.label}</strong>
+            <strong>Delivery health: {delivery.label}</strong>
 
             <div>{delivery.reason}</div>
 
@@ -1635,19 +1635,19 @@
                 />
               </div>
               <div style={{ flex: '0 0 auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <label className="filter-label" style={{ marginBottom: 0, whiteSpace: 'nowrap' }}>Health</label>
+                <label className="filter-label" style={{ marginBottom: 0, whiteSpace: 'nowrap' }}>Readiness</label>
                 <select className="filter-select health-filter" value={healthFilter} onChange={(e) => {
                     setHealthFilter(e.target.value);
                     setFeaturesPage(1);
                     setRoadmapPage(1);
                     setExpandedRoadmapFeatureId(null);
                   }}
-                  title="Filter Features by health status"
+                  title="Filter Features by readiness status"
                   style={{ width: '180px' }}
                 >
-                  <option value="All">All health statuses</option>
-                  <option value="Healthy">Healthy</option>
-                  <option value="Incomplete">Incomplete</option>
+                  <option value="All">All readiness statuses</option>
+                  <option value="Healthy">Ready</option>
+                  <option value="Incomplete">Needs info</option>
                   <option value="Unknown">Unable to validate</option>
                 </select>
               </div>
@@ -1745,7 +1745,7 @@
                         <th>FE</th>
                         <th>QA</th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('state'); setSortOrder(sortColumn === 'state' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>State {sortColumn === 'state' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
-                        <th style={{ width: '145px', textAlign: 'center', cursor: 'pointer' }} onClick={() => { setSortColumn('health'); setSortOrder( sortColumn === 'health' && sortOrder === 'asc' ? 'desc' : 'asc' ); }} > Health {sortColumn === 'health' ? (sortOrder === 'asc' ? '▲' : '▼') : ''} </th> 
+                        <th style={{ width: '145px', textAlign: 'center', cursor: 'pointer' }} onClick={() => { setSortColumn('health'); setSortOrder( sortColumn === 'health' && sortOrder === 'asc' ? 'desc' : 'asc' ); }} >Readiness {sortColumn === 'health' ? (sortOrder === 'asc' ? '▲' : '▼') : ''} </th> 
                         <th style={{ width: '155px', textAlign: 'center' }}> Delivery </th> 
                         <th style={{ width: '120px', textAlign: 'center' }}> Progress </th>
                       </tr>
