@@ -142,7 +142,7 @@
       targetDate: 'Target Date'      
     };
 
-    function getReadinessMeta(health) {
+    function getReadinessMeta(readiness) {
       switch (readiness) {
         case 'Healthy':
           return {
@@ -263,8 +263,10 @@
     }
 
     function FeatureReadinessDetails({ feature }) {
-      const checks = feature.requiredFields || {};
-
+      const checks = getFeatureReadinessChecks(feature);
+      const missingChecks = getFeatureReadinessMissingChecks(feature);
+      const unknownChecks = getFeatureReadinessUnknownChecks(feature);
+      
       const orderedChecks = [
         'description',
         'acceptanceCriteria',
@@ -274,9 +276,6 @@
         'targetDate'        
       ];
 
-      const missingChecks = feature.missingChecks || [];
-      const unknownChecks = feature.unknownChecks || [];
-
       return (
         <div className="health-details">
           <div className="health-details__header">
@@ -285,7 +284,7 @@
             </strong>
 
             {/* El icono se muestra después del título y sin repetir el texto */}
-            <ReadinessBadge health={feature.health} iconOnly />
+            <ReadinessBadge readiness={getFeatureReadiness(feature)} iconOnly />
           </div>
 
           <div className="health-checks-grid">
@@ -1797,7 +1796,7 @@
                                   {f.state}
                                 </span>
                               </td>
-                              <td style={{ textAlign: 'center', padding: '8px' }}> <ReadinessBadge health={f.health} /> </td> 
+                              <td style={{ textAlign: 'center', padding: '8px' }}> <ReadinessBadge readiness={getFeatureReadiness(feature)} /> </td> 
                               <td style={{ textAlign: 'center', padding: '8px' }}> <DeliveryHealthBadge feature={f} /> </td> 
                               <td style={{ textAlign: 'center', padding: '8px' }}>
                                 {loadingStoriesIds[f.id] ? (
