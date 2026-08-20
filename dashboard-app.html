@@ -181,19 +181,19 @@
       El fallback permite seguir leyendo respuestas cacheadas o versiones
       antiguas del backend que aún entreguen health.
     */
-    function getFeatureReadiness(f) {
+    function getFeatureReadiness(feature) {
       return feature.readiness ?? feature.health ?? 'Unknown';
     }
 
-    function getFeatureReadinessChecks(f) {
+    function getFeatureReadinessChecks(feature) {
       return feature.readinessChecks ?? feature.requiredFields ?? {};
     }
 
-    function getFeatureReadinessMissingChecks(f) {
+    function getFeatureReadinessMissingChecks(feature) {
       return feature.readinessMissingChecks ?? feature.missingChecks ?? [];
     }
 
-    function getFeatureReadinessUnknownChecks(f) {
+    function getFeatureReadinessUnknownChecks(feature) {
       return feature.readinessUnknownChecks ?? feature.unknownChecks ?? [];
     }
     
