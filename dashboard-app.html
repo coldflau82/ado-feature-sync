@@ -1754,6 +1754,7 @@
       const [refreshing, setRefreshing] = useState(false);
       const [cacheInfo, setCacheInfo] = useState(null);
       const [readinessFilter, setReadinessFilter] = useState('All');
+      const [healthGroupFilter, setHealthGroupFilter] = useState('All');
 
       useEffect(() => {
         const timer = setTimeout(() => { setSearchTitle(searchInput); }, 300);
