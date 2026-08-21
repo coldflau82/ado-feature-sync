@@ -28,6 +28,106 @@ const redis = Redis.fromEnv();
 // Si tus variables tienen otro nombre, usa:
 // const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN });
 
+// ===== Historiales ADO: protección contra throttling =====
+// Máximo de consultas simultáneas a /revisions dentro de una solicitud batch.
+// Empieza con 5; puede subirse gradualmente si ADO no devuelve 429.
+const HISTORY_BATCH_CONCURRENCY = 5;
+
+// Protección adicional para evitar solicitudes batch accidentalmente enormes.
+// El dashboard actual manda como máximo 15 IDs por página.
+const MAX_HISTORY_BATCH_IDS = 500;
+
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+/* Ejecuta asyncFn sobre cada elemento, con un máximo de "limit" operaciones simultáneas.
+  Conserva el orden de resultados, aunque en nuestros endpoints de historial escribiremos directamente en un objeto results por ID. */
+
+async function mapWithConcurrency(items, limit, asyncFn) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (true) {
+      const currentIndex = nextIndex++;
+      if (currentIndex >= items.length) {
+        return;
+      }
+      results[currentIndex] = await asyncFn(
+        items[currentIndex],
+        currentIndex
+      );
+    }
+  }
+  const workerCount = Math.min(limit, items.length);
+  await Promise.all(
+    Array.from({ length: workerCount }, () => worker())
+  );
+  return results;
+}
+
+/* Reintenta únicamente errores temporales de Azure DevOps:
+  - 429: throttling
+  - 502, 503, 504: errores temporales de gateway/servicio
+  Si ADO incluye Retry-After, se respeta. Si no, usa backoff exponencial:
+  1 s, 2 s y 4 s. */
+async function withAdoRetry(operation, maxRetries = 3) {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      const status = error.response?.status;
+      const retryable = [429, 502, 503, 504].includes(status);
+      if (!retryable || attempt === maxRetries) {
+        throw error;
+      }
+      const retryAfterHeader = error.response?.headers?.['retry-after'];
+      const retryAfterSeconds = Number(retryAfterHeader);
+      const waitMs =
+        Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+          ? retryAfterSeconds * 1000
+          : 1000 * (2 ** attempt);
+      console.warn('Retrying Azure DevOps request', {
+        status,
+        attempt: attempt + 1,
+        maxRetries,
+        waitMs
+      });
+      await delay(waitMs);
+    }
+  }
+  throw lastError;
+}
+
+/*
+  Centraliza la lógica repetida de extraer cambios de estado
+  desde las revisiones de Azure DevOps.
+*/
+function getStateChangesFromRevisions(revisions) {
+  const stateChanges = [];
+  let previousState = null;
+
+  (revisions || []).forEach(revision => {
+    const currentState = revision.fields?.['System.State'];
+
+    if (currentState && currentState !== previousState) {
+      stateChanges.push({
+        rev: revision.rev,
+        state: currentState,
+        changedDate: revision.fields?.['System.ChangedDate'],
+        changedBy:
+          revision.fields?.['System.ChangedBy']?.displayName ||
+          revision.changedBy?.displayName ||
+          'System'
+      });
+
+      previousState = currentState;
+    }
+  });
+
+  return stateChanges;
+}
+
 const OLD_FEATURES_CACHE_TTL_SECONDS = 12 * 60 * 60;
 const RECENT_DAYS_THRESHOLD = 10;
 const CACHE_KEY = 'oldFeaturesCache';
@@ -850,44 +950,61 @@ app.get('/api/feature-history/:id', async (req, res) => {
 
 app.post('/api/features-history-batch', async (req, res) => {
   try {
-    const ids = req.body.ids || [];
-    const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
-    const c = axios.create({
-      baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 
-        'Authorization': `Basic ${authHeader}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
+    if (!Array.isArray(req.body?.ids)) {
+      return res.status(400).json({
+        error: 'The request body must contain an "ids" array.'
+      });
+    }
+    /* Normaliza, elimina IDs inválidos y evita consultar dos veces el mismo Feature si llega duplicado en la petición. */
+    const ids = [
+      ...new Set(
+        req.body.ids
+          .map(Number)
+          .filter(id => Number.isInteger(id) && id > 0)
+      )
+    ];
+    if (ids.length > MAX_HISTORY_BATCH_IDS) {
+      return res.status(400).json({
+        error: `A maximum of ${MAX_HISTORY_BATCH_IDS} IDs is allowed per history batch request.`
+      });
+    }
+    const c = getAdoClient();
     const results = {};
-
-    await Promise.all(ids.map(async (id) => {
-      try {
-        const revisionsResponse = await c.get(`/wit/workitems/${id}/revisions?api-version=7.0`);
-        const stateChanges = [];
-        let previousState = null;
-        revisionsResponse.data.value.forEach(revision => {
-          const currentState = revision.fields['System.State'];
-          if (currentState && currentState !== previousState) {
-            stateChanges.push({
-              rev: revision.rev,
-              state: currentState,
-              changedDate: revision.fields['System.ChangedDate'],
-              changedBy: revision.fields['System.ChangedBy']?.displayName || 'System'
-            });
-            previousState = currentState;
-          }
-        });
-        results[id] = stateChanges;
-      } catch (e) {
-        results[id] = [];
+    await mapWithConcurrency(
+      ids,
+      HISTORY_BATCH_CONCURRENCY,
+      async id => {
+        try {
+          const revisionsResponse = await withAdoRetry(() =>
+            c.get(`/wit/workitems/${id}/revisions?api-version=7.0`)
+          );
+          results[id] = getStateChangesFromRevisions(
+            revisionsResponse.data?.value || []
+          );
+        } catch (error) {
+          /* Un Feature fallido no debe impedir que el dashboard reciba el historial de los otros Features. */
+          console.error('ERROR fetching Feature history from ADO', {
+            featureId: id,
+            adoStatus: error.response?.status || null,
+            adoStatusText: error.response?.statusText || null,
+            adoResponse: error.response?.data || null,
+            message: error.message
+          });
+          // Conserva el contrato actual con el frontend.
+          results[id] = [];
+        }
       }
-    }));
+    );
 
-    res.json({ results: results });
+    return res.json({ results });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('ERROR /api/features-history-batch', {
+      message: error.message,
+      stack: error.stack || null
+    });
+    return res.status(500).json({
+      error: 'Unable to fetch Feature histories from ADO.'
+    });
   }
 });
 
@@ -940,44 +1057,73 @@ app.get('/api/story-history/:id', async (req, res) => {
 
 app.post('/api/stories-history-batch', async (req, res) => {
   try {
-    const ids = req.body.ids || [];
-    const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
-    const c = axios.create({
-      baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 
-        'Authorization': `Basic ${authHeader}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    if (!Array.isArray(req.body?.ids)) {
+      return res.status(400).json({
+        error: 'The request body must contain an "ids" array.'
+      });
+    }
 
+    /*
+      Normaliza, elimina IDs inválidos y evita llamadas repetidas
+      si el mismo Story/Bug aparece más de una vez.
+    */
+    const ids = [
+      ...new Set(
+        req.body.ids
+          .map(Number)
+          .filter(id => Number.isInteger(id) && id > 0)
+      )
+    ];
+
+    if (ids.length > MAX_HISTORY_BATCH_IDS) {
+      return res.status(400).json({
+        error: `A maximum of ${MAX_HISTORY_BATCH_IDS} IDs is allowed per history batch request.`
+      });
+    }
+
+    const c = getAdoClient();
     const results = {};
 
-    await Promise.all(ids.map(async (id) => {
-      try {
-        const revisionsResponse = await c.get(`/wit/workitems/${id}/revisions?api-version=7.0`);
-        const stateChanges = [];
-        let previousState = null;
-        revisionsResponse.data.value.forEach(revision => {
-          const currentState = revision.fields['System.State'];
-          if (currentState && currentState !== previousState) {
-            stateChanges.push({
-              rev: revision.rev,
-              state: currentState,
-              changedDate: revision.fields['System.ChangedDate'],
-              changedBy: revision.fields['System.ChangedBy']?.displayName || 'System'
-            });
-            previousState = currentState;
-          }
-        });
-        results[id] = stateChanges;
-      } catch (e) {
-        results[id] = [];
-      }
-    }));
+    await mapWithConcurrency(
+      ids,
+      HISTORY_BATCH_CONCURRENCY,
+      async id => {
+        try {
+          const revisionsResponse = await withAdoRetry(() =>
+            c.get(`/wit/workitems/${id}/revisions?api-version=7.0`)
+          );
 
-    res.json({ results: results });
+          results[id] = getStateChangesFromRevisions(
+            revisionsResponse.data?.value || []
+          );
+        } catch (error) {
+          /*
+            Se degrada solo este Story/Bug; el resto de la respuesta
+            batch continúa disponible.
+          */
+          console.error('ERROR fetching Story history from ADO', {
+            storyId: id,
+            adoStatus: error.response?.status || null,
+            adoStatusText: error.response?.statusText || null,
+            adoResponse: error.response?.data || null,
+            message: error.message
+          });
+
+          results[id] = [];
+        }
+      }
+    );
+
+    return res.json({ results });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('ERROR /api/stories-history-batch', {
+      message: error.message,
+      stack: error.stack || null
+    });
+
+    return res.status(500).json({
+      error: 'Unable to fetch Story histories from ADO.'
+    });
   }
 });
 
@@ -992,13 +1138,10 @@ app.get('/api/feature-stories/:id', async (req, res) => {
       });
     }
 
-    /*
-      Obtenemos el Feature con sus relaciones directas.
-
+    /* Obtenemos el Feature con sus relaciones directas. 
       Esto evita depender de una consulta WIQL de WorkItemLinks y usa
       exactamente la misma interpretación de hijos directos que Delivery
-      Health: Feature -> User Story / Bug.
-    */
+      Health: Feature -> User Story / Bug. */
     const featureResponse = await c.get(
       `/wit/workitems/${featureId}?$expand=Relations&api-version=7.0`
     );
