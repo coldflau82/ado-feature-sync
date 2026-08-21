@@ -63,6 +63,13 @@
     .readiness-overview-card--ready .readiness-overview-card__label { color: #166534; } 
     .readiness-overview-card--needs-info .readiness-overview-card__label { color: #9a3412; } 
     .readiness-overview-card--unknown .readiness-overview-card__label { color: #475569; } 
+    .health-overview { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 8px; margin: 0; }
+    .health-overview-card { min-width: 130px; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); text-align: left; }
+    .health-overview-card__label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; }
+    .health-overview-card__count { display: block; margin-top: 4px; font-size: 22px; line-height: 1; font-weight: 700; color: #1e293b; }
+    .health-overview-card--action .health-overview-card__label { color: #991b1b; }
+    .health-overview-card--attention .health-overview-card__label { color: #854d0e; }
+    .health-overview-card--healthy .health-overview-card__label { color: #166534; }
     .readiness-filter { min-width: 165px; }
     .readiness-badge--icon-only {display: inline-flex; align-items: center; justify-content: center; padding: 0; background: transparent; border: none; }
     .readiness-badge--icon-only .readiness-badge__label { display: none;}
@@ -794,6 +801,53 @@
               <span className="readiness-overview-card__label">{card.icon && <span>{card.icon}</span>}{card.label}</span>
               <span className="readiness-overview-card__count">{card.count}</span>
             </button>
+          ))}
+        </div>
+      );
+    }
+
+    function DeliveryHealthOverview({ counts }) {
+      const cards = [
+        {
+          key: 'requires-action',
+          label: 'Requires Action',
+          count: counts.requiresAction,
+          icon: '!',
+          className: 'health-overview-card--action'
+        },
+        {
+          key: 'requires-attention',
+          label: 'Requires Attention',
+          count: counts.requiresAttention,
+          icon: '!',
+          className: 'health-overview-card--attention'
+        },
+        {
+          key: 'healthy',
+          label: 'Healthy',
+          count: counts.healthy,
+          icon: '✓',
+          className: 'health-overview-card--healthy'
+        }
+      ];
+
+      return (
+        <div className="health-overview">
+          {cards.map(card => (
+            <div
+              key={card.key}
+              className={['health-overview-card', card.className].join(' ')}
+              title={`${card.label}: ${card.count} Feature(s)`}
+            >
+              <span className="health-overview-card__label">
+                <span>{card.icon}</span>
+                {card.label}
+              </span>
+
+              <span className="health-overview-card__count">
+                {card.count}
+              </span>
+            </div>
           ))}
         </div>
       );
@@ -1832,6 +1886,23 @@
         incomplete: filteredBeforeReadiness.filter(f => getFeatureReadiness(f) === 'Incomplete').length,
         unknown: filteredBeforeReadiness.filter(f => getFeatureReadiness(f) === 'Unknown').length
       };
+
+      const deliveryHealthCounts = {
+        requiresAction: filteredBeforeReadiness.filter(
+          f => getDeliveryHealth(f).key === 'overdue'
+        ).length,
+        requiresAttention: filteredBeforeReadiness.filter(f => (
+          [
+            'needs-estimate',
+            'no-stories',
+            'no-active-work',
+            'unestimated-work'
+          ].includes(getDeliveryHealth(f).key)
+        )).length,
+        healthy: filteredBeforeReadiness.filter(
+          f => getDeliveryHealth(f).key === 'healthy'
+        ).length
+      };
       
       // Applies the Readiness selection after calculating the overview counters.
       const filtered = filteredBeforeReadiness.filter(f => {
@@ -2348,13 +2419,19 @@
         <div className="container">
           <div className="header" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '20px', marginBottom: '12px' }}>
             <h1 style={{ margin: 0, justifySelf: 'start' }}>ADO DEC Dashboard</h1>
-            <ReadinessOverview counts={readinessCounts} SelectedReadiness={readinessFilter} onSelectReadiness={(readiness) => {
-                setReadinessFilter(readiness);
-                setFeaturesPage(1);
-                setRoadmapPage(1);
-                setExpandedRoadmapFeatureId(null);
-              }}
-            />
+
+            <div style={{ display: 'grid', gap: '8px' }}>
+              <ReadinessOverview counts={readinessCounts} SelectedReadiness={readinessFilter} onSelectReadiness={(readiness) => {
+                  setReadinessFilter(readiness);
+                  setFeaturesPage(1);
+                  setRoadmapPage(1);
+                  setExpandedRoadmapFeatureId(null);
+                }}
+              />
+
+              <DeliveryHealthOverview counts={deliveryHealthCounts} />
+            </div>
+
             <div style={{ display: 'flex', gap: '10px', justifySelf: 'end' }}>
               <button style={{ padding: '8px 16px', background: currentPage === 'features' ? '#007bff' : 'white', color: currentPage === 'features' ? 'white' : 'black', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '13px' }} onClick={() => setCurrentPage('features')}>Feature List</button>
               <button style={{ padding: '8px 16px', background: currentPage === 'roadmap' ? '#007bff' : 'white', color: currentPage === 'roadmap' ? 'white' : 'black', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '13px' }} onClick={() => setCurrentPage('roadmap')}>Roadmap</button>
