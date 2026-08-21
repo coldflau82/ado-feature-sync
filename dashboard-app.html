@@ -620,8 +620,8 @@
       if (summary.unestimatedWorkItems > 0) {
         return {
           key: 'unestimated-work',
-          label: 'Unestimated work',
-          shortLabel: 'Unestimated',
+          label: 'No estimated work',
+          shortLabel: 'No estimated',
           className: 'delivery--attention',
           icon: '!',
           reason: `${summary.unestimatedWorkItems} associated work item(s) do not have an estimate.`
@@ -741,7 +741,7 @@
       if (unestimatedWorkItems > 0) {
         alerts.push({
           key: 'unestimated-work',
-          label: 'Unestimated work',
+          label: 'No estimated work',
           className: 'delivery-alert--attention',
           reason: `${unestimatedWorkItems} associated work item(s) do not have an estimate.`
         });
@@ -1691,7 +1691,7 @@
 
             {summary.unestimatedWorkItems > 0 && (
               <span className="delivery-details__metric">
-                {summary.unestimatedWorkItems} unestimated
+                {summary.unestimatedWorkItems} no estimated
               </span>
             )}
           </div>
@@ -2551,7 +2551,7 @@
                         <th>QA</th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('state'); setSortOrder(sortColumn === 'state' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>State {sortColumn === 'state' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
                         <th style={{ width: '145px', textAlign: 'center', cursor: 'pointer' }} onClick={() => { setSortColumn('readiness'); setSortOrder( sortColumn === 'readiness' && sortOrder === 'asc' ? 'desc' : 'asc' ); }} >Readiness {sortColumn === 'readiness' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th> 
-                        <th style={{ width: '155px', textAlign: 'center' }}> Delivery </th> 
+                        <th style={{ width: '155px', textAlign: 'center' }}> Health </th> 
                         <th style={{ width: '120px', textAlign: 'center' }}> Progress </th>
                       </tr>
                     </thead>
