@@ -84,7 +84,27 @@
     .readiness--needs-info { color: #9a3412; background: #ffedd5; }
     .readiness--needs-info .readiness-badge__icon { color: white; background: #ea580c; }
     .readiness--unknown { color: #475569; background: #e2e8f0; }
-    .readiness--unknown .readiness-badge__icon { color: white; background: #64748b; }.delivery--overdue { color: #991b1b; background: #fee2e2; } 
+    .readiness--unknown .readiness-badge__icon { color: white; background: #64748b; }
+    /* Delivery Health usa el mismo concepto visual que Readiness: el óvalo completo es un botón. */ 
+    .delivery-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: bold; white-space: nowrap; } 
+    .delivery-badge__icon { width: 15px; height: 15px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 10px; line-height: 1; } 
+    .delivery-badge--button { border: 1px solid transparent; cursor: pointer; font: inherit; text-align: left; transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; } 
+    .delivery-badge--button:hover { transform: translateY(-1px); } 
+    .delivery-badge--button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+     /* Estado activo/presionado. El color del badge se invierte al abrir el panel Delivery Health. */ 
+    .delivery-badge--active.delivery--overdue { color: white; background: #dc2626; border-color: #b91c1c; } 
+    .delivery-badge--active.delivery--overdue .delivery-badge__icon { color: #991b1b; background: white; } 
+    .delivery-badge--active.delivery--needs-info { color: white; background: #ea580c; border-color: #c2410c; } 
+    .delivery-badge--active.delivery--needs-info .delivery-badge__icon { color: #9a3412; background: white; } 
+    .delivery-badge--active.delivery--attention { color: white; background: #ca8a04; border-color: #a16207; } 
+    .delivery-badge--active.delivery--attention .delivery-badge__icon { color: #854d0e; background: white; } 
+    .delivery-badge--active.delivery--healthy { color: white; background: #16a34a; border-color: #15803d; } 
+    .delivery-badge--active.delivery--healthy .delivery-badge__icon { color: #166534; background: white; } 
+    .delivery-badge--active.delivery--not-started { color: white; background: #2563eb; border-color: #1d4ed8; } 
+    .delivery-badge--active.delivery--not-started .delivery-badge__icon { color: #1e40af; background: white; } 
+    .delivery-badge--active.delivery--unknown { color: white; background: #64748b; border-color: #475569; } 
+    .delivery-badge--active.delivery--unknown .delivery-badge__icon { color: #475569; background: white; } 
+    .delivery--overdue { color: #991b1b; background: #fee2e2; } 
     .delivery--overdue .delivery-badge__icon { background: #dc2626; }
     .delivery--needs-info { color: #9a3412; background: #ffedd5; } 
     .delivery--needs-info .delivery-badge__icon { background: #ea580c; } 
@@ -116,7 +136,24 @@
     .feature-history__date { margin-top: 5px; color: #64748b; font-size: 10px; white-space: nowrap; } 
     .feature-stories-panel__divider { height: 1px; background: #dbe4ee; margin: 14px 0 12px; } 
     .feature-story-card__assigned-to { color: #475569; font-size: 10px; }
-    
+    .delivery-details { margin: 0; } 
+    .delivery-details__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 12px; } 
+    .delivery-details__title { color: #1e293b; font-size: 13px; } 
+    .delivery-details__reason { margin-top: 4px; color: #64748b; font-size: 11px; line-height: 1.4; } 
+    .delivery-details__summary { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 12px; }
+    .delivery-details__metric { padding: 4px 7px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 10px; font-weight: 700; } 
+    .delivery-alerts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; margin-bottom: 14px; } 
+    .delivery-alert { padding: 9px 10px; border-radius: 6px; border: 1px solid transparent; font-size: 11px; line-height: 1.4; } 
+    .delivery-alert__title { display: block; margin-bottom: 3px; font-weight: 700; } 
+    .delivery-alert--overdue { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
+    .delivery-alert--needs-info { color: #9a3412; background: #fff7ed; border-color: #fed7aa; } 
+    .delivery-alert--attention { color: #854d0e; background: #fefce8; border-color: #fde68a; } 
+    .delivery-alert--healthy { color: #166534; background: #f0fdf4; border-color: #bbf7d0; } 
+    .delivery-alert--unknown { color: #475569; background: #f8fafc; border-color: #cbd5e1; } 
+    .delivery-work-group { margin-top: 14px; } 
+    .delivery-work-group__title { margin-bottom: 8px; color: #334155; font-size: 12px; } 
+    .delivery-work-group__empty { padding: 8px 10px; border: 1px dashed #cbd5e1; border-radius: 5px; color: #64748b; font-size: 11px; }
+    .delivery-work-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
     
   </style>
 </head>
@@ -429,6 +466,17 @@
       const state = feature.state || '';
       const isClosed = deliveryClosedStates.includes(state);
       const isExecutionState = deliveryExecutionStates.includes(state);
+      
+      /* Algunos contratos del backend usan workItemsPendingDelivery; otros pueden entregar openWorkItems o el desglose Pending/In progress.
+        Conservamos compatibilidad con los campos ya usados en el frontend sin asumir que todos estén presentes al mismo tiempo. */
+      const openWorkItems = Number(
+        summary?.openWorkItems ??
+        summary?.workItemsPendingDelivery ??
+        (
+          Number(summary?.pendingWorkItems ?? 0) +
+          Number(summary?.inProgressWorkItems ?? summary?.activeWorkItems ?? 0)
+        )
+      );
     
       /*
         Estado técnico:
@@ -457,9 +505,8 @@
         Resultado: Overdue
       */
       if (
-        !isClosed &&
         isPastTargetDate(feature.targetDate) &&
-        summary.workItemsPendingDelivery
+        openWorkItems > 0
       ) {
         return {
           key: 'overdue',
@@ -490,10 +537,20 @@
         };
       }
     
-      /*
-        3. Un Feature Closed no debe mostrar alertas de trabajo
-        pendiente histórico ni de estimación.
-      */
+     /* 3. Closed no fuerza Healthy por sí solo. Si aún existen Stories/Bugs Pending o In Progress, el Feature
+        debe conservar una alerta de Delivery Health. */
+      if (isClosed && openWorkItems > 0) {
+        return {
+          key: 'closed-with-open-work',
+          label: 'Open work',
+          shortLabel: 'Open work',
+          className: 'delivery--attention',
+          icon: '!',
+          reason: 'This Feature is Closed, but associated delivery work is still pending or in progress.'
+        };
+      }
+
+      /* Si está Closed y no queda trabajo abierto, sí puede mostrarse Healthy; ya no depende solamente del estado Closed. */
       if (isClosed) {
         return {
           key: 'healthy',
@@ -501,15 +558,12 @@
           shortLabel: 'Healthy',
           className: 'delivery--healthy',
           icon: '✓',
-          reason: 'This Feature is Closed.'
+          reason: 'This Feature is Closed and has no pending or in-progress delivery work.'
         };
       }
     
-      /*
-        4. Estados tempranos:
-        No se penalizan todavía por no tener Stories o estimaciones.
-        New ya fue tratado arriba.
-      */
+      /* 4. Estados tempranos: No se penalizan todavía por no tener Stories o estimaciones.
+        New ya fue tratado arriba. */
       if (!isExecutionState) {
         return {
           key: 'healthy',
@@ -521,13 +575,8 @@
         };
       }
     
-      /*
-        5. Needs estimate se conserva.
-    
-        Aplica desde Planned e In Process:
-        todo Feature debe tener al menos una estimación
-        BE, FE o QA antes/durante la ejecución.
-      */
+      /*  5. Needs estimate se conserva. Aplica desde Planned e In Process: todo Feature debe tener al menos una estimación
+        BE, FE o QA antes/durante la ejecución. */
       if (!hasFeatureEstimate(feature)) {
         return {
           key: 'needs-estimate',
@@ -539,9 +588,7 @@
         };
       }
     
-      /*
-        6. Planned o In Process sin Stories/Bugs.
-      */
+      /* 6. Planned o In Process sin Stories/Bugs. */
       if (!summary.hasWorkItems || summary.totalWorkItems === 0) {
         return {
           key: 'no-stories',
@@ -553,9 +600,7 @@
         };
       }
     
-      /*
-        7. Existe trabajo pendiente, pero ninguno está activo.
-      */
+      /* 7. Existe trabajo pendiente, pero ninguno está activo. */
       if (
         state === 'In Process' && summary.pendingWorkItems > 0 && (summary.inProgressWorkItems ?? summary.activeWorkItems ?? 0) === 0
       ) {
@@ -569,12 +614,9 @@
         };
       }
     
-      /*
-        8. Las Stories/Bugs asociadas tienen trabajo sin estimar.
-        Esto es distinto de Needs estimate:
+      /* 8. Las Stories/Bugs asociadas tienen trabajo sin estimar. Esto es distinto de Needs estimate:
         - Needs estimate: el Feature no tiene BE/FE/QA.
-        - Unestimated work: existen Stories/Bugs sin estimación.
-      */
+        - Unestimated work: existen Stories/Bugs sin estimación. */
       if (summary.unestimatedWorkItems > 0) {
         return {
           key: 'unestimated-work',
@@ -594,6 +636,127 @@
         icon: '✓',
         reason: 'No delivery execution risks were detected.'
       };
+    }
+
+    /* El badge muestra la alerta principal según la precedencia de getDeliveryHealth(). Este arreglo permite que el panel muestre
+      todas las alertas aplicables para seguimiento. */
+    function getDeliveryHealthAlerts(feature) {
+      const summary = feature.deliverySummary;
+      const state = feature.state || '';
+
+      if (!summary || summary.source !== 'ok') {
+        return [{
+          key: 'unable-to-evaluate',
+          label: 'Unable to evaluate',
+          className: 'delivery-alert--unknown',
+          reason: 'Delivery work information could not be retrieved.'
+        }];
+      }
+
+      const totalWorkItems = Number(summary.totalWorkItems || 0);
+
+      const hasWorkItems =
+        summary.hasWorkItems !== undefined
+          ? Boolean(summary.hasWorkItems)
+          : totalWorkItems > 0;
+
+      const inProgressWorkItems = Number(
+        summary.inProgressWorkItems ??
+        summary.activeWorkItems ??
+        0
+      );
+
+      const pendingWorkItems = Number(
+        summary.pendingWorkItems ??
+        summary.pendingNonActiveWorkItems ??
+        0
+      );
+
+      const openWorkItems = Number(
+        summary.openWorkItems ??
+        summary.workItemsPendingDelivery ??
+        (pendingWorkItems + inProgressWorkItems)
+      );
+
+      const unestimatedWorkItems = Number(
+        summary.unestimatedWorkItems || 0
+      );
+
+      const isClosed = deliveryClosedStates.includes(state);
+      const isExecutionState = deliveryExecutionStates.includes(state);
+      const alerts = [];
+
+      if (isPastTargetDate(feature.targetDate) && openWorkItems > 0) {
+        alerts.push({
+          key: 'overdue',
+          label: 'Overdue',
+          className: 'delivery-alert--overdue',
+          reason: 'The Target Date has passed and delivery work remains pending.'
+        });
+      }
+
+      if (isClosed && openWorkItems > 0) {
+        alerts.push({
+          key: 'closed-with-open-work',
+          label: 'Open work on Closed Feature',
+          className: 'delivery-alert--attention',
+          reason: 'The Feature is Closed, but associated delivery work is still pending or in progress.'
+        });
+      }
+
+      if (isExecutionState && !hasFeatureEstimate(feature)) {
+        alerts.push({
+          key: 'needs-estimate',
+          label: 'Needs estimate',
+          className: 'delivery-alert--needs-info',
+          reason: 'The Feature does not have a BE, FE, or QA estimate.'
+        });
+      }
+
+      if (
+        isExecutionState &&
+        (!hasWorkItems || totalWorkItems === 0)
+      ) {
+        alerts.push({
+          key: 'no-stories',
+          label: 'No Stories',
+          className: 'delivery-alert--attention',
+          reason: 'This Feature is in delivery execution but has no associated Stories or Bugs.'
+        });
+      }
+
+      if (
+        state === 'In Process' &&
+        pendingWorkItems > 0 &&
+        inProgressWorkItems === 0
+      ) {
+        alerts.push({
+          key: 'no-active-work',
+          label: 'No active work',
+          className: 'delivery-alert--attention',
+          reason: 'There is pending delivery work, but no Story or Bug is currently active.'
+        });
+      }
+
+      if (unestimatedWorkItems > 0) {
+        alerts.push({
+          key: 'unestimated-work',
+          label: 'Unestimated work',
+          className: 'delivery-alert--attention',
+          reason: `${unestimatedWorkItems} associated work item(s) do not have an estimate.`
+        });
+      }
+
+      if (alerts.length === 0) {
+        alerts.push({
+          key: 'healthy',
+          label: 'Healthy',
+          className: 'delivery-alert--healthy',
+          reason: 'No delivery execution risks were detected.'
+        });
+      }
+
+      return alerts;
     }
 
     function ReadinessOverview({ counts, SelectedReadiness, onSelectReadiness }) {
@@ -1356,6 +1519,219 @@
       );
     }
 
+    function sortDeliveryWorkItemsByTypeAndId(workItems = []) {
+      return [...workItems].sort((a, b) => {
+        const typeDifference =
+          getWorkItemDisplayOrder(a) - getWorkItemDisplayOrder(b);
+
+        if (typeDifference !== 0) {
+          return typeDifference;
+        }
+
+        return Number(b.id || 0) - Number(a.id || 0);
+      });
+    }
+
+    function DeliveryWorkItemCard({ story, adoLink }) {
+      const storyDotColor = storyStateColors[story.state] || '#94a3b8';
+      const isBug = story.workItemType === 'Bug';
+      const sprintLabel = (() => {
+        const match = story.iterationPath && story.iterationPath.match(/(\d{4})_(S\d+)_/);
+
+        if (match) {
+          return `${match[1]} ${match[2]}`;
+        }
+
+        return story.iterationPath
+          ? story.iterationPath.split('\\').pop()
+          : '—';
+      })();
+
+      return (
+        <div style={{ padding: '8px 12px', background: 'white', borderLeft: `3px solid ${storyDotColor}`, borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+            {isBug && (
+              <span style={{ fontSize: '9px', background: '#fee2e2', color: '#dc2626', padding: '1px 5px', borderRadius: '3px', fontWeight: 'bold', flexShrink: 0 }}>
+                BUG
+              </span>
+            )}
+            <a href={adoLink(story.id)} target="_blank" style={{ fontSize: '11px', fontWeight: 'bold', color: '#007bff', flexShrink: 0 }}>
+              #{story.id}
+            </a>
+            <span title={story.title} style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#333', fontSize: '11px' }}>
+              {story.title}
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '7px'}}>
+            <span style={{ fontSize: '10px', background: storyDotColor, color: 'white', padding: '1px 6px', borderRadius: '3px', whiteSpace: 'nowrap' }}>
+              {story.state}
+            </span>
+            <span style={{ fontSize: '10px', color: '#666' }}>
+              📍 {sprintLabel}
+            </span>
+
+            <span style={{ fontSize: '10px', color: '#666' }}>
+              🎯 {story.storyPoints ?? 0} pts
+            </span>
+
+            <span className="feature-story-card__assigned-to">
+              👤 {getShortAssignedToName(story.assignedTo)}
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    function DeliveryWorkItemGroup({
+      title,
+      stories,
+      adoLink
+    }) {
+      return (
+        <section className="delivery-work-group">
+          <strong className="delivery-work-group__title">
+            {title} ({stories.length})
+          </strong>
+
+          {stories.length === 0 ? (
+            <div className="delivery-work-group__empty">
+              No Stories or Bugs in this group.
+            </div>
+          ) : (
+            <div className="delivery-work-grid">
+              {stories.map(story => (
+                <DeliveryWorkItemCard
+                  key={story.id}
+                  story={story}
+                  adoLink={adoLink}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      );
+    }
+
+    function FeatureDeliveryDetails({ feature, stories, adoLink }) {
+      const delivery = getDeliveryHealth(feature);
+      const alerts = getDeliveryHealthAlerts(feature);
+      const summary = getWorkItemsDeliverySummary(stories);
+
+      /*
+        Removed queda incluido en el resumen, pero no se incluye
+        en ninguno de los tres grupos de cards.
+      */
+      const pendingStories = sortDeliveryWorkItemsByTypeAndId(
+        stories.filter(
+          story => getWorkItemDeliveryCategory(story) === 'pending'
+        )
+      );
+
+      const inProgressStories = sortDeliveryWorkItemsByTypeAndId(
+        stories.filter(
+          story => getWorkItemDeliveryCategory(story) === 'inProgress'
+        )
+      );
+
+      const doneStories = sortDeliveryWorkItemsByTypeAndId(
+        stories.filter(
+          story => getWorkItemDeliveryCategory(story) === 'done'
+        )
+      );
+
+      return (
+        <div className="delivery-details">
+          <div className="delivery-details__header">
+            <div>
+              <strong className="delivery-details__title">
+                Delivery Health
+              </strong>
+
+              <div className="delivery-details__reason">
+                {delivery.reason}
+              </div>
+            </div>
+
+            <span
+              className={`delivery-badge ${delivery.className}`}
+              aria-label={`Delivery health: ${delivery.label}`}
+            >
+              <span className="delivery-badge__icon">
+                {delivery.icon}
+              </span>
+
+              <span className="delivery-badge__label">
+                {delivery.label}
+              </span>
+            </span>
+          </div>
+
+          <div className="delivery-details__summary">
+            <span className="delivery-details__metric">
+              {summary.includedWorkItems} included
+            </span>
+
+            <span className="delivery-details__metric">
+              {summary.pendingWorkItems} pending
+            </span>
+
+            <span className="delivery-details__metric">
+              {summary.inProgressWorkItems} in progress
+            </span>
+
+            <span className="delivery-details__metric">
+              {summary.doneWorkItems} done
+            </span>
+
+            {summary.removedWorkItems > 0 && (
+              <span className="delivery-details__metric">
+                {summary.removedWorkItems} removed
+              </span>
+            )}
+
+            {summary.unestimatedWorkItems > 0 && (
+              <span className="delivery-details__metric">
+                {summary.unestimatedWorkItems} unestimated
+              </span>
+            )}
+          </div>
+
+          <div className="delivery-alerts-grid">
+            {alerts.map(alert => (
+              <div
+                key={alert.key}
+                className={`delivery-alert ${alert.className}`}
+              >
+                <strong className="delivery-alert__title">
+                  {alert.label}
+                </strong>
+
+                <span>{alert.reason}</span>
+              </div>
+            ))}
+          </div>
+
+          <DeliveryWorkItemGroup
+            title="Pending"
+            stories={pendingStories}
+            adoLink={adoLink}
+          />
+
+          <DeliveryWorkItemGroup
+            title="In Progress"
+            stories={inProgressStories}
+            adoLink={adoLink}
+          />
+
+          <DeliveryWorkItemGroup
+            title="Done"
+            stories={doneStories}
+            adoLink={adoLink}
+          />
+        </div>
+      );
+    }
+
     function Dashboard() {
       const { tooltip, showTooltip, moveTooltip, hideTooltip } = useTooltip();
       const [features, setFeatures] = useState([]);
@@ -1666,8 +2042,8 @@
 
         /*
           Clic en el mismo badge: cerrar.
-          Si estaba abierto History —o un futuro Delivery—, el estado se
-          reemplaza y queda abierto solamente Readiness.
+          Si estaba abierto History o Delivery, el estado se reemplaza
+          y queda abierto solamente Readiness.
         */
         if (panelIsAlreadyOpen) {
           setExpandedFeaturePanel(null);
@@ -1678,6 +2054,59 @@
           featureId,
           panel: 'readiness'
         });
+      };
+
+      const toggleFeatureDelivery = (featureId) => {
+        const panelIsAlreadyOpen =
+          expandedFeaturePanel?.featureId === featureId &&
+          expandedFeaturePanel?.panel === 'delivery';
+
+        /*
+          Clic en el mismo badge: cerrar.
+          Al abrir Delivery se reemplaza History o Readiness para que
+          siempre exista un único panel abierto globalmente.
+        */
+        if (panelIsAlreadyOpen) {
+          setExpandedFeaturePanel(null);
+          return;
+        }
+
+        setExpandedFeaturePanel({
+          featureId,
+          panel: 'delivery'
+        });
+
+        /*
+          Normalmente las Stories/Bugs ya están precargadas para la página
+          actual. Esta carga es un fallback seguro si aún no existen.
+        */
+        if (!storiesCache[featureId] && !loadingStoriesIds[featureId]) {
+          setLoadingStoriesIds(prev => ({
+            ...prev,
+            [featureId]: true
+          }));
+
+          fetch('/api/feature-stories/' + featureId)
+            .then(response => response.json())
+            .then(data => {
+              setStoriesCache(prev => ({
+                ...prev,
+                [featureId]: data.stories || []
+              }));
+            })
+            .catch(() => {
+              setStoriesCache(prev => ({
+                ...prev,
+                [featureId]: []
+              }));
+            })
+            .finally(() => {
+              setLoadingStoriesIds(prev => ({
+                ...prev,
+                [featureId]: false
+              }));
+            });
+        }
       };
 
       const featuresItemsPerPage = 15;
@@ -1823,131 +2252,30 @@
         );
       }
 
-      function DeliveryHealthTooltipContent({ feature }) {
-        const delivery = getDeliveryHealth(feature);
-        const backendSummary = feature.deliverySummary;
-        const loadedStories = storiesCache[feature.id];
-
-        /*
-          Cuando las Stories/Bugs ya fueron cargadas, esta es la fuente
-          de verdad para el tooltip y para el detalle expandido.
-        */
-        const storySummary = Array.isArray(loadedStories)
-          ? getWorkItemsDeliverySummary(loadedStories)
-          : null;
-
-        /*
-          Fallback temporal mientras las Stories/Bugs todavía cargan.
-          Este fallback conserva los campos actuales del backend, pero
-          no puede separar de forma fiable In progress vs Pending si
-          el backend no los entrega por separado.
-        */
-        const totalWorkItems = storySummary
-          ? storySummary.totalWorkItems
-          : Number(backendSummary?.totalWorkItems || 0);
-
-        const removedWorkItems = storySummary
-          ? storySummary.removedWorkItems
-          : Number(backendSummary?.removedWorkItems ?? backendSummary?.excludedWorkItems ?? 0);
-
-        const includedWorkItems = storySummary
-          ? storySummary.includedWorkItems
-          : Number(backendSummary?.includedWorkItems ?? Math.max(0, totalWorkItems - removedWorkItems));
-
-        const doneWorkItems = storySummary
-          ? storySummary.doneWorkItems
-          : Number(backendSummary?.doneWorkItems ?? backendSummary?.completedWorkItems ?? 0);
-
-        const inProgressWorkItems = storySummary
-          ? storySummary.inProgressWorkItems : backendSummary?.inProgressWorkItems ?? backendSummary?.activeWorkItems ?? null;
-
-        const pendingWorkItems = storySummary
-          ? storySummary.pendingWorkItems : backendSummary?.pendingWorkItems ?? backendSummary?.pendingNonActiveWorkItems ?? null;
-
-        const unestimatedWorkItems = storySummary
-          ? storySummary.unestimatedWorkItems
-          : Number(backendSummary?.unestimatedWorkItems || 0);
-
-        if (!backendSummary || backendSummary.source !== 'ok') {
-          return (
-            <div className="feature-list-tooltip">
-              <strong>Delivery health: {delivery.label}</strong>
-              <div>{delivery.reason}</div>
-            </div>
-          );
-        }
-
-        return (
-          <div className="feature-list-tooltip">
-            <strong>Delivery health: {delivery.label}</strong>
-
-            <div>{delivery.reason}</div>
-
-            {feature.targetDate && (
-              <div>
-                Target Date: {formatDate(feature.targetDate)}
-              </div>
-            )}
-
-            <div style={{ marginTop: '4px' }}>
-              Work items: {totalWorkItems} total
-            </div>
-
-            <div className="feature-list-tooltip__detail">
-              Included in delivery: {includedWorkItems}
-            </div>
-
-            <div className="feature-list-tooltip__subdetail">
-              Done: {doneWorkItems}
-            </div>
-
-            {inProgressWorkItems !== null && pendingWorkItems !== null ? (
-              <>
-                <div className="feature-list-tooltip__subdetail">
-                  In progress: {inProgressWorkItems}
-                </div>
-
-                <div className="feature-list-tooltip__subdetail">
-                  Pending: {pendingWorkItems}
-                </div>
-              </>
-            ) : (
-              <div className="feature-list-tooltip__subdetail">
-                Loading detailed state breakdown…
-              </div>
-            )}
-
-            {removedWorkItems > 0 && (
-              <div className="feature-list-tooltip__detail">
-                Removed: {removedWorkItems}
-              </div>
-            )}
-
-            {unestimatedWorkItems > 0 && (
-              <div className="feature-list-tooltip__metric">
-                Unestimated work items: {unestimatedWorkItems}
-              </div>
-            )}
-          </div>
-        );
-      }
-
-      function DeliveryHealthBadge({ feature }) {
+      function DeliveryHealthBadge({
+        feature,
+        isActive,
+        onClick
+      }) {
         const delivery = getDeliveryHealth(feature);
 
         return (
-          <span
-            className={`delivery-badge ${delivery.className}`}
-            style={{ cursor: 'help' }}
-            aria-label={`Delivery health: ${delivery.label}`}
-            onMouseEnter={(e) =>
-              showTooltip(
-                e,
-                <DeliveryHealthTooltipContent feature={feature} />
-              )
+          <button
+            type="button"
+            className={[
+              'delivery-badge',
+              'delivery-badge--button',
+              delivery.className,
+              isActive ? 'delivery-badge--active' : ''
+            ].filter(Boolean).join(' ')}
+            onClick={onClick}
+            aria-label={
+              isActive
+                ? `Close Delivery Health details for Feature ${feature.id}`
+                : `Show Delivery Health details for Feature ${feature.id}`
             }
-            onMouseMove={(e) => moveTooltip(e)}
-            onMouseLeave={() => hideTooltip()}
+            aria-expanded={isActive}
+            aria-controls={`feature-delivery-panel-${feature.id}`}
           >
             <span className="delivery-badge__icon">
               {delivery.icon}
@@ -1956,10 +2284,10 @@
             <span className="delivery-badge__label">
               {delivery.shortLabel}
             </span>
-          </span>
+          </button>
         );
       }
-      
+
       // ── Renderiza el header de la línea de tiempo (meses o semanas) ──
       // Vive dentro de la tabla para que use exactamente el mismo ancho
       // que las barras, marcadores y líneas del Timeline.
@@ -2233,7 +2561,8 @@
                         const featureStateDot = { 'New': '#94a3b8', 'In Shaping': '#fbbf24', 'In Planning': '#fb923c', 'Planned': '#34d399', 'In Process': '#60a5fa', 'Closed': '#a78bfa' }[f.state] || '#ccc';
                         const isHistoryPanelOpen = expandedFeaturePanel?.featureId === f.id && expandedFeaturePanel?.panel === 'history';
                         const isReadinessPanelOpen = expandedFeaturePanel?.featureId === f.id && expandedFeaturePanel?.panel === 'readiness';
-
+                        const isDeliveryPanelOpen = expandedFeaturePanel?.featureId === f.id && expandedFeaturePanel?.panel === 'delivery';
+                  
                         return (
                           <React.Fragment key={f.id}>
                             <tr style={{ background: featureRowBg, borderLeft: '3px solid ' + featureStateDot }}>
@@ -2269,7 +2598,7 @@
                                   onClick={() => toggleFeatureReadiness(f.id)}
                                 />
                               </td>
-                              <td style={{ textAlign: 'center', padding: '8px' }}> <DeliveryHealthBadge feature={f} /> </td> 
+                              <td style={{ textAlign: 'center', padding: '8px' }}> <DeliveryHealthBadge feature={f} isActive={isDeliveryPanelOpen} onClick={() => toggleFeatureDelivery(f.id)} /> </td> 
                               <td style={{ textAlign: 'center', padding: '8px' }}>
                                 {loadingStoriesIds[f.id] ? (
                                   <span style={{ fontSize: '10px', color: '#aaa', fontStyle: 'italic' }}>Loading...</span>
@@ -2334,23 +2663,11 @@
                                       <div className="feature-stories-panel__divider" />
 
                                       {loadingStoriesIds[f.id] ? (
-                                        <div
-                                          style={{
-                                            padding: '10px 0',
-                                            fontSize: '12px',
-                                            color: '#64748b'
-                                          }}
-                                        >
+                                        <div style={{ padding: '10px 0', fontSize: '12px', color: '#64748b' }}>
                                           Loading Stories and Bugs...
                                         </div>
                                       ) : (storiesCache[f.id] || []).length === 0 ? (
-                                        <div
-                                          style={{
-                                            padding: '10px 0',
-                                            fontSize: '12px',
-                                            color: '#64748b'
-                                          }}
-                                        >
+                                        <div style={{ padding: '10px 0', fontSize: '12px', color: '#64748b' }}>
                                           No Stories or Bugs found for this Feature yet.
                                         </div>
                                       ) : (
@@ -2368,24 +2685,28 @@
                                 <td
                                   id={`feature-panel-${f.id}`}
                                   colSpan="13"
-                                  style={{
-                                    paddingLeft: '40px',
-                                    paddingTop: '12px',
-                                    paddingBottom: '12px',
-                                    paddingRight: '20px'
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      background: '#f8fafc',
-                                      border: '1px solid #dbe4ee',
-                                      borderRadius: '8px',
-                                      padding: '14px 16px',
-                                      boxShadow:
-                                        '0 1px 2px rgba(15, 23, 42, 0.04)'
-                                    }}
-                                  >
+                                  style={{ paddingLeft: '40px', paddingTop: '12px', paddingBottom: '12px', paddingRight: '20px' }}>
+                                  <div style={{ background: '#f8fafc', border: '1px solid #dbe4ee', borderRadius: '8px', padding: '14px 16px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' }}>
                                     <FeatureReadinessDetails feature={f} />
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                            {isDeliveryPanelOpen && (
+                              <tr style={{ background: '#f9f9f9' }}>
+                                <td id={`feature-delivery-panel-${f.id}`} colSpan="13" style={{ paddingLeft: '40px', paddingTop: '12px',  paddingBottom: '12px', paddingRight: '20px' }}>
+                                  <div style={{ background: '#f8fafc', border: '1px solid #dbe4ee', borderRadius: '8px', padding: '14px 16px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' }}>
+                                    {loadingStoriesIds[f.id] ? (
+                                      <div style={{ padding: '10px 0', fontSize: '12px', color: '#64748b' }}>
+                                        Loading Stories and Bugs...
+                                      </div>
+                                    ) : (
+                                      <FeatureDeliveryDetails
+                                        feature={f}
+                                        stories={storiesCache[f.id] || []}
+                                        adoLink={adoLink}
+                                      />
+                                    )}
                                   </div>
                                 </td>
                               </tr>
