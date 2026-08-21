@@ -1117,8 +1117,6 @@
 
     /* ── Clasificación única de Features & Stories ── */
     const deliveryDoneStates = [
-      'Sprint Complete',
-      'User Acceptance Testing',
       'Approved for Release',
       'Ready for Deployment',
       'Closed'
@@ -1127,7 +1125,9 @@
     const deliveryInProgressStates = [
       'In Process',
       'QA Testing',
-      'Business Sprint Testing'
+      'Business Sprint Testing',
+      'Sprint Complete',
+      'User Acceptance Testing'
     ];
 
     function hasWorkItemEstimate(workItem) {
