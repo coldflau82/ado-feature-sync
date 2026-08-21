@@ -56,20 +56,23 @@
     .readiness-summary--unknown { color: #475569; }
     .readiness-overview { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 8px; margin: 0; } 
     .readiness-overview-card { min-width: 118px; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; text-align: left; } 
-    .readiness-overview-card:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08); } 
+    .readiness-overview-card:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08); }
     .readiness-overview-card--active { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.16); } 
     .readiness-overview-card__label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #475569; } 
     .readiness-overview-card__count { display: block; margin-top: 4px; font-size: 22px; line-height: 1; font-weight: 700; color: #1e293b; } 
     .readiness-overview-card--ready .readiness-overview-card__label { color: #166534; } 
     .readiness-overview-card--needs-info .readiness-overview-card__label { color: #9a3412; } 
     .readiness-overview-card--unknown .readiness-overview-card__label { color: #475569; } 
-    .health-overview { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 8px; margin: 0; }
     .health-overview-card { min-width: 130px; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); text-align: left; }
     .health-overview-card__label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; }
     .health-overview-card__count { display: block; margin-top: 4px; font-size: 22px; line-height: 1; font-weight: 700; color: #1e293b; }
     .health-overview-card--action .health-overview-card__label { color: #991b1b; }
     .health-overview-card--attention .health-overview-card__label { color: #854d0e; }
     .health-overview-card--healthy .health-overview-card__label { color: #166534; }
+    .health-overview-card { cursor: pointer; font-family: inherit; transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; }
+    .health-overview-card:hover { border-color: #94a3b8; transform: translateY(-1px); }
+    .health-overview-card--selected { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18); }
+    .health-overview-card:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
     .readiness-filter { min-width: 165px; }
     .readiness-badge--icon-only {display: inline-flex; align-items: center; justify-content: center; padding: 0; background: transparent; border: none; }
     .readiness-badge--icon-only .readiness-badge__label { display: none;}
@@ -806,7 +809,11 @@
       );
     }
 
-    function DeliveryHealthOverview({ counts }) {
+    function DeliveryHealthOverview({
+      counts,
+      selectedHealthGroup,
+      onSelectHealthGroup
+    }) {
       const cards = [
         {
           key: 'requires-action',
@@ -833,22 +840,32 @@
 
       return (
         <div className="health-overview">
-          {cards.map(card => (
-            <div
-              key={card.key}
-              className={['health-overview-card', card.className].join(' ')}
-              title={`${card.label}: ${card.count} Feature(s)`}
-            >
-              <span className="health-overview-card__label">
-                <span>{card.icon}</span>
-                {card.label}
-              </span>
+          {cards.map(card => {
+            const isSelected = selectedHealthGroup === card.key;
 
-              <span className="health-overview-card__count">
-                {card.count}
-              </span>
-            </div>
-          ))}
+            return (
+              <button
+                key={card.key}
+                type="button"
+                className={[
+                  'health-overview-card',
+                  card.className,
+                  isSelected ? 'health-overview-card--selected' : ''
+                ].filter(Boolean).join(' ')}
+                title={`${card.label}: ${card.count} Feature(s)`}
+                onClick={() => onSelectHealthGroup(card.key)}
+              >
+                <span className="health-overview-card__label">
+                  <span>{card.icon}</span>
+                  {card.label}
+                </span>
+
+                <span className="health-overview-card__count">
+                  {card.count}
+                </span>
+              </button>
+            );
+          })}
         </div>
       );
     }
@@ -1766,7 +1783,7 @@
         setFeaturesPage(1);
         setExpandedFeaturePanel(null);
         setExpandedRoadmapFeatureId(null);
-      }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle, readinessFilter]);
+      }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle, readinessFilter, healthGroupFilter ]);
 
       async function loadFeatures(forceRefresh = false) {
         if (forceRefresh) { 
@@ -1905,14 +1922,50 @@
         ).length
       };
       
-      // Applies the Readiness selection after calculating the overview counters.
-      const filtered = filteredBeforeReadiness.filter(f => {
-         const readiness = getFeatureReadiness(f);
-          if (readinessFilter === 'All') {
-            return true;
-          }
-          return readiness === readinessFilter;
-        });
+            // Aplica el filtro de Readiness después de calcular los contadores.
+      const filteredByReadiness = filteredBeforeReadiness.filter(f => {
+        const readiness = getFeatureReadiness(f);
+
+        if (readinessFilter === 'All') {
+          return true;
+        }
+
+        return readiness === readinessFilter;
+      });
+
+      /*
+        Las tarjetas de Health usan las alertas individuales, no solamente
+        la alerta principal mostrada por el badge.
+
+        Esto permite que, si un Feature tiene más de una alarma, aparezca
+        dentro de cada grupo que le corresponda.
+      */
+      const filtered = filteredByReadiness.filter(f => {
+        if (healthGroupFilter === 'All') {
+          return true;
+        }
+
+        const healthAlertKeys = getDeliveryHealthAlerts(f).map(alert => alert.key);
+
+        if (healthGroupFilter === 'requires-action') {
+          return healthAlertKeys.includes('overdue');
+        }
+
+        if (healthGroupFilter === 'requires-attention') {
+          return [
+            'needs-estimate',
+            'no-stories',
+            'no-active-work',
+            'unestimated-work'
+          ].some(key => healthAlertKeys.includes(key));
+        }
+
+        if (healthGroupFilter === 'healthy') {
+          return healthAlertKeys.includes('healthy');
+        }
+
+        return true;
+      });
 
       let sortedFiltered = [...filtered];
       if (sortColumn) {
@@ -2421,16 +2474,28 @@
           <div className="header" style={{ display: 'grid', gridTemplateColumns: 'auto 1px minmax(0, 1fr) 1px auto', alignItems: 'center', columnGap: '16px', marginBottom: '12px' }}>
             <h1 style={{ margin: 0, justifySelf: 'start', whiteSpace: 'nowrap', fontSize: '22px', lineHeight: '1.05', letterSpacing: '0.5px' }}>ADO DEC <br /> Dashboard</h1>
               <div aria-hidden="true" style={{ width: '1px', alignSelf: 'stretch', background: '#e2e8f0' }} />
-            <div style={{ display: 'flex', alignments: 'stretch', justifyContent: 'center', gap: '8px', flexWrap: 'nowrap', minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'center', gap: '8px', flexWrap: 'nowrap', minWidth: 0 }}>
               <ReadinessOverview counts={readinessCounts} SelectedReadiness={readinessFilter} onSelectReadiness={(readiness) => {
-                  setReadinessFilter(readiness);
+                  /* All Features limpia los filtros provenientes de las tarjetas KPI: Readiness y Delivery Health. */
+                  if (readiness === 'All') {
+                    setReadinessFilter('All');
+                    setHealthGroupFilter('All');
+                  } else {
+                    setReadinessFilter(readiness);
+                  }
                   setFeaturesPage(1);
                   setRoadmapPage(1);
                   setExpandedRoadmapFeatureId(null);
                 }}
               />
-
-              <DeliveryHealthOverview counts={deliveryHealthCounts} />
+              <DeliveryHealthOverview counts={deliveryHealthCounts} selectedHealthGroup={healthGroupFilter} onSelectHealthGroup={(healthGroup) => {
+                  setHealthGroupFilter(currentFilter => currentFilter === healthGroup ? 'All' : healthGroup
+                  );
+                  setFeaturesPage(1);
+                  setRoadmapPage(1);
+                  setExpandedRoadmapFeatureId(null);
+                }}
+              />
             </div>
               <div aria-hidden="true" style={{ width: '1px', alignSelf: 'stretch', background: '#e2e8f0' }} />
             <div style={{ display: 'flex', gap: '10px', justifySelf: 'end', whiteSpace: 'nowrap' }}>
@@ -2481,7 +2546,16 @@
             {cacheInfo && (
               <span style={{ fontSize: '11px', color: '#888', marginLeft: '8px' }}>Cache updated {cacheInfo.ageMinutes} min ago</span>
             )}
-            <button style={{ padding: '8px 16px', background: '#dc3545', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => { setFilterAreaPath([]); setFilterIteration([]); setFilterState([]); setFilterTargetDate([]); setFilterReleaseVersion([]); setFilterAssignedTo([]); setReadinessFilter('All'); }}>
+                        <button style={{ padding: '8px 16px', background: '#dc3545', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => {
+              setFilterAreaPath([]);
+              setFilterIteration([]);
+              setFilterState([]);
+              setFilterTargetDate([]);
+              setFilterReleaseVersion([]);
+              setFilterAssignedTo([]);
+              setReadinessFilter('All');
+              setHealthGroupFilter('All');
+            }}>
               Clear filters
             </button>
           </div>
