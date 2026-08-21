@@ -54,7 +54,7 @@
     .readiness-summary { margin-top: 10px; font-size: 11px; line-height: 1.5; }
     .readiness-summary--missing { color: #b91c1c; }
     .readiness-summary--unknown { color: #475569; }
-    .readiness-overview { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 8px; margin: 0; } 
+    .readiness-overview { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 10px; margin: 0; } 
     .readiness-overview-card { min-width: 118px; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; text-align: left; } 
     .readiness-overview-card:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08); }
     .readiness-overview-card--active { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.16); } 
@@ -2474,7 +2474,7 @@
           <div className="header" style={{ display: 'grid', gridTemplateColumns: 'auto 1px minmax(0, 1fr) 1px auto', alignItems: 'center', columnGap: '16px', marginBottom: '12px' }}>
             <h1 style={{ margin: 0, justifySelf: 'start', whiteSpace: 'nowrap', fontSize: '22px', lineHeight: '1.05', letterSpacing: '0.5px' }}>ADO DEC <br /> Dashboard</h1>
               <div aria-hidden="true" style={{ width: '1px', alignSelf: 'stretch', background: '#e2e8f0' }} />
-                        <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'center', gap: '8px', flexWrap: 'nowrap', minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'center', gap: '10px', flexWrap: 'nowrap', minWidth: 0 }}>
               <ReadinessOverview counts={readinessCounts} SelectedReadiness={readinessFilter} onSelectReadiness={(readiness) => {
                   /* All Features limpia los filtros provenientes de las tarjetas KPI: Readiness y Delivery Health. */
                   if (readiness === 'All') {
