@@ -776,7 +776,10 @@
           icon: '?',
           className: 'readiness-overview-card--unknown'
         }
-      ];
+      ].filter(card => {
+        // La tarjeta Unknown sólo aporta valor cuando existen Features cuyo Readiness no pudo ser validado.
+        return card.key !== 'Unknown' || card.count > 0;
+      });
     
       return (
         <div className="readiness-overview">
