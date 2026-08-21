@@ -992,7 +992,16 @@
           <td style={{ maxWidth: '300px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '0 1 auto', minWidth: '0' }}>{title}</span>
-              <span style={{ color: '#696969', flexShrink: 0, fontSize: '11px' }}>({storyPoints} pts)</span>
+              <span
+                style={{
+                  color: storyPoints === null || storyPoints === undefined ? '#dc2626' : '#696969',
+                  flexShrink: 0,
+                  fontSize: '11px',
+                  fontWeight: storyPoints === null || storyPoints === undefined ? 'bold' : 'normal'
+                }}
+              >
+                ({storyPoints ?? 'Missing'}{storyPoints !== null && storyPoints !== undefined ? ' pts' : ''})
+              </span>
             </div>
           </td>
           <td style={{ padding: '6px 8px' }}>
@@ -1175,14 +1184,32 @@
 
     function hasWorkItemEstimate(workItem) {
       const value = workItem?.storyPoints;
+      const workItemType = workItem?.workItemType;
 
-      // 0 se considera un valor informado; sólo null, undefined o vacío
-      // representan un Work Item sin estimación.
-      return (
-        value !== null &&
-        value !== undefined &&
-        String(value).trim() !== ''
-      );
+      // NULL, undefined o vacío siempre representan información faltante.
+      if (
+        value === null ||
+        value === undefined ||
+        String(value).trim() === ''
+      ) {
+        return false;
+      }
+
+      /*
+        Regla de estimación:
+        - Bug: 0 Story Points es válido.
+        - User Story: debe tener Story Points mayores que 0.
+      */
+      if (workItemType === 'Bug') {
+        return Number(value) >= 0;
+      }
+
+      if (workItemType === 'User Story') {
+        return Number(value) > 0;
+      }
+
+      // Para otros tipos, se conserva la validación de campo informado.
+      return true;
     }
 
     function getWorkItemDeliveryCategory(workItem) {
@@ -1511,8 +1538,8 @@
                         <span style={{ fontSize: '10px', color: '#666' }}>
                           📍 {sprintLabel}
                         </span>
-                        <span style={{ fontSize: '10px', color: '#666' }}>
-                          🎯 {story.storyPoints ?? 0} pts
+                        <span style={{ fontSize: '10px', color: hasWorkItemEstimate(story) ? '#666' : '#dc2626', fontWeight: hasWorkItemEstimate(story) ? 'normal' : 'bold' }}>
+                          🎯 {story.storyPoints ?? 'Missing'}{story.storyPoints !== null && story.storyPoints !== undefined ? ' pts' : ''}
                         </span>
                         <span className="feature-story-card__assigned-to">
                           👤 {getShortAssignedToName(story.assignedTo)}
