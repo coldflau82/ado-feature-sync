@@ -459,6 +459,24 @@
       });
     }
 
+    function parseDashboardDate(value) {
+      if (!value) {
+        return null;
+      }
+    
+      const normalizedValue = String(value);
+    
+      /* Una fecha pura YYYY-MM-DD se interpreta como fecha local. Así se evita que JavaScript la trate como UTC y la desplace
+        al día anterior en determinadas zonas horarias. */
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)
+        ? new Date(`${normalizedValue}T00:00:00`)
+        : new Date(normalizedValue);
+    
+      return Number.isNaN(date.getTime())
+        ? null
+        : date;
+    }
+    
     function isPastTargetDate(targetDate) {
       if (!targetDate) { return false; }
       const target = parseDashboardDate(targetDate);
