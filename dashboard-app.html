@@ -65,9 +65,25 @@
     .readiness-filter { min-width: 165px; }
     .readiness-badge--icon-only {display: inline-flex; align-items: center; justify-content: center; padding: 0; background: transparent; border: none; }
     .readiness-badge--icon-only .readiness-badge__label { display: none;}
-    .delivery-badge { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: bold; white-space: nowrap; } 
-    .delivery-badge__icon { width: 15px; height: 15px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 10px; line-height: 1; }
-    .delivery--overdue { color: #991b1b; background: #fee2e2; } 
+    .readiness-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: bold; white-space: nowrap; }
+    .readiness-badge__icon { width: 15px; height: 15px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 10px; line-height: 1; }
+    /*  El badge normal ahora se usa como botón en la Feature List. Reset mínimo para conservar su apariencia de óvalo/badge. */
+    .readiness-badge--button { border: 1px solid transparent; cursor: pointer; font: inherit; text-align: left; transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; }
+    .readiness-badge--button:hover { transform: translateY(-1px); }
+    .readiness-badge--button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+    /* Estado presionado: se invierten los colores para indicar visualmente que el panel de Readiness de esa Feature está abierto. */
+    .readiness-badge--active.readiness--ready { color: white; background: #16a34a; border-color: #15803d; }
+    .readiness-badge--active.readiness--ready .readiness-badge__icon { color: #166534; background: white; }
+    .readiness-badge--active.readiness--needs-info { color: white; background: #ea580c; border-color: #c2410c; }
+    .readiness-badge--active.readiness--needs-info .readiness-badge__icon { color: #9a3412; background: white; }
+    .readiness-badge--active.readiness--unknown { color: white; background: #64748b; border-color: #475569; }
+    .readiness-badge--active.readiness--unknown .readiness-badge__icon { color: #475569; background: white; }
+    .readiness--ready { color: #166534; background: #dcfce7; }
+    .readiness--ready .readiness-badge__icon { color: white; background: #16a34a; }
+    .readiness--needs-info { color: #9a3412; background: #ffedd5; }
+    .readiness--needs-info .readiness-badge__icon { color: white; background: #ea580c; }
+    .readiness--unknown { color: #475569; background: #e2e8f0; }
+    .readiness--unknown .readiness-badge__icon { color: white; background: #64748b; }.delivery--overdue { color: #991b1b; background: #fee2e2; } 
     .delivery--overdue .delivery-badge__icon { background: #dc2626; }
     .delivery--needs-info { color: #9a3412; background: #ffedd5; } 
     .delivery--needs-info .delivery-badge__icon { background: #ea580c; } 
@@ -99,6 +115,7 @@
     .feature-history__date { margin-top: 5px; color: #64748b; font-size: 10px; white-space: nowrap; } 
     .feature-stories-panel__divider { height: 1px; background: #dbe4ee; margin: 14px 0 12px; } 
     .feature-story-card__assigned-to { color: #475569; font-size: 10px; }
+    
     
   </style>
 </head>
@@ -235,12 +252,20 @@
       };
     }
 
-    function ReadinessBadge({ readiness, iconOnly = false }) {
+    function ReadinessBadge({
+      readiness,
+      iconOnly = false,
+      onClick,
+      isActive = false,
+      featureId
+    }) {
       const meta = getReadinessMeta(readiness);
 
       /*
         Modo compacto para FeatureReadinessDetails:
         muestra sólo el círculo de color y el icono.
+        No es un control interactivo porque el botón principal
+        ya está en la columna Readiness de la tabla.
       */
       if (iconOnly) {
         return (
@@ -255,6 +280,44 @@
           </span>
         );
       }
+
+      /*
+        Modo normal para Feature List:
+        el óvalo completo es un botón y controla el panel Readiness.
+      */
+      return (
+        <button
+          type="button"
+          className={[
+            'readiness-badge',
+            'readiness-badge--button',
+            meta.className,
+            isActive ? 'readiness-badge--active' : ''
+          ].filter(Boolean).join(' ')}
+          onClick={onClick}
+          title={
+            isActive
+              ? `Close Readiness details — ${meta.label}`
+              : `Show Readiness details — ${meta.label}`
+          }
+          aria-label={
+            isActive
+              ? `Close Readiness details for Feature ${featureId}`
+              : `Show Readiness details for Feature ${featureId}`
+          }
+          aria-expanded={isActive}
+          aria-controls={featureId ? `feature-panel-${featureId}` : undefined}
+        >
+          <span className="readiness-badge__icon">
+            {meta.icon}
+          </span>
+
+          <span className="readiness-badge__label">
+            {meta.label}
+          </span>
+        </button>
+      );
+    }
 
       /*
         Modo normal para la columna Health de la tabla:
@@ -1568,27 +1631,25 @@
           });
       };
 
-      const toggleFeatureExpand = (featureId) => {
+      const toggleFeatureReadiness = (featureId) => {
         const panelIsAlreadyOpen =
           expandedFeaturePanel?.featureId === featureId &&
-          expandedFeaturePanel?.panel === 'history';
+          expandedFeaturePanel?.panel === 'readiness';
 
-        /* Al hacer clic en el mismo triángulo se cierra. Al abrir otra Feature, React reemplaza el estado anterior: por ello sólo queda un panel abierto a la vez. */
+        /*
+          Mismo botón + mismo panel: cerrar.
+          Otra Feature, History o futuro Delivery: reemplazar el estado.
+          Esto garantiza que sólo exista un panel abierto globalmente.
+        */
         if (panelIsAlreadyOpen) { setExpandedFeaturePanel(null);
           return;
         }
 
-        setExpandedFeaturePanel({ featureId, panel: 'history' });
+        setExpandedFeaturePanel({ featureId, panel: 'readiness' });
+      };
 
-        /*
-          Las Stories pueden estar precargadas por la página actual.
-          Si no existen todavía, se solicitan ahora.
-        */
-        if (!storiesCache[featureId] && !loadingStoriesIds[featureId]) {
-          setLoadingStoriesIds(prev => ({
-            ...prev,
-            [featureId]: true
-          }));
+        /* Las Stories pueden estar precargadas por la página actual. Si no existen todavía, se solicitan ahora. */
+        if (!storiesCache[featureId] && !loadingStoriesIds[featureId]) { setLoadingStoriesIds(prev => ({ ...prev, [featureId]: true }));
 
           fetch('/api/feature-stories/' + featureId)
             .then(response => response.json())
@@ -2166,15 +2227,20 @@
                       {featuresPageItems.map(f => {
                         const featureRowBg = { 'New': '#f8fafc', 'In Shaping': '#fffbeb', 'In Planning': '#fff7ed', 'Planned': '#f0fdf4', 'In Process': '#eff6ff', 'Closed': '#f5f3ff' }[f.state] || 'white';
                         const featureStateDot = { 'New': '#94a3b8', 'In Shaping': '#fbbf24', 'In Planning': '#fb923c', 'Planned': '#34d399', 'In Process': '#60a5fa', 'Closed': '#a78bfa' }[f.state] || '#ccc';
+                        const isHistoryPanelOpen = expandedFeaturePanel?.featureId === f.id && expandedFeaturePanel?.panel === 'history';
+                        const isReadinessPanelOpen = expandedFeaturePanel?.featureId === f.id && expandedFeaturePanel?.panel === 'readiness';
+
                         return (
                           <React.Fragment key={f.id}>
                             <tr style={{ background: featureRowBg, borderLeft: '3px solid ' + featureStateDot }}>
                               <td className="expand-btn">
                                 <button type="button" className="feature-expand-control" onClick={() => toggleFeatureExpand(f.id)}
-                                  title={ expandedFeaturePanel?.featureId === f.id ? 'Close Feature history and Stories/Bugs' : 'Show Feature history and Stories/Bugs' }
-                                  aria-label={ expandedFeaturePanel?.featureId === f.id ? `Close details for Feature ${f.id}` : `Show details for Feature ${f.id}` }
+                                  title={ isHistoryPanelOpen ? 'Close Feature history and Stories/Bugs' : 'Show Feature history and Stories/Bugs' }
+                                  aria-label={ isHistoryPanelOpen ? `Close history and Stories/Bugs for Feature ${f.id}` : `Show history and Stories/Bugs for Feature ${f.id}`}
+                                  aria-expanded={isHistoryPanelOpen}
+                                  aria-controls={`feature-panel-${f.id}`}
                                 >
-                                  {expandedFeaturePanel?.featureId === f.id ? '▼' : '►'}
+                                  {isHistoryPanelOpen ? '▼' : '►'}
                                 </button>
                               </td>
                               <td> <a href={adoLink(f.id)} target="_blank"> {f.id} </a> </td> 
@@ -2193,7 +2259,12 @@
                                   {f.state}
                                 </span>
                               </td>
-                              <td style={{ textAlign: 'center', padding: '8px' }}> <ReadinessBadge readiness={getFeatureReadiness(f)} /> </td> 
+                              <td style={{ textAlign: 'center', padding: '8px' }}> <ReadinessBadge readiness={getFeatureReadiness(f)} 
+                                  featureId={f.id}
+                                  isActive={isReadinessPanelOpen}
+                                  onClick={() => toggleFeatureReadiness(f.id)}
+                                />
+                              </td>
                               <td style={{ textAlign: 'center', padding: '8px' }}> <DeliveryHealthBadge feature={f} /> </td> 
                               <td style={{ textAlign: 'center', padding: '8px' }}>
                                 {loadingStoriesIds[f.id] ? (
@@ -2288,6 +2359,33 @@
                                   </td>
                                 </tr>
                               )}
+                            {isReadinessPanelOpen && (
+                              <tr style={{ background: '#f9f9f9' }}>
+                                <td
+                                  id={`feature-panel-${f.id}`}
+                                  colSpan="13"
+                                  style={{
+                                    paddingLeft: '40px',
+                                    paddingTop: '12px',
+                                    paddingBottom: '12px',
+                                    paddingRight: '20px'
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      background: '#f8fafc',
+                                      border: '1px solid #dbe4ee',
+                                      borderRadius: '8px',
+                                      padding: '14px 16px',
+                                      boxShadow:
+                                        '0 1px 2px rgba(15, 23, 42, 0.04)'
+                                    }}
+                                  >
+                                    <FeatureReadinessDetails feature={f} />
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
                           </React.Fragment>
                         );
                       })}
