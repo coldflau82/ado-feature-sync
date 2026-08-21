@@ -478,12 +478,17 @@
     }
     
     function isPastTargetDate(targetDate) {
-      if (!targetDate) { return false; }
       const target = parseDashboardDate(targetDate);
-      if (!targetDate) { return false; }
+    
+      if (!target) {
+        return false;
+      }
+    
       const today = new Date();
+    
       target.setHours(0, 0, 0, 0);
       today.setHours(0, 0, 0, 0);
+    
       return target < today;
     }
        
