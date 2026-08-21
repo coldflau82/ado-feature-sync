@@ -97,7 +97,6 @@ const REMOVED_WORK_STATES = [
 ];
 
 const DONE_WORK_STATES = [
-  'Sprint Complete',
   'Approved for Release',
   'Ready for Deployment',
   'Closed'
@@ -107,7 +106,8 @@ const IN_PROGRESS_WORK_STATES = [
   'In Process',
   'QA Testing',
   'Business Sprint Testing',
-  'User Acceptance Testing'
+  'Sprint Complete',
+  'User Acceptance Testing'  
 ];
 
 // Estados donde una Story o Bug debe contar con Story Points.
