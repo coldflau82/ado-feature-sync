@@ -501,7 +501,7 @@
       /* openWorkItems representa las Stories y Bugs que continúan abiertos: Discovery + In Progress.*/
       const openWorkItems = Number(summary?.openWorkItems || 0);
     
-      /* Estado técnico: No significa que no existan Stories ni que esté On track; simplemente no fue posible recuperar/resumir el trabajo. */
+      /* Estado técnico: no fue posible recuperar o resumir el trabajo. Requiere revisión, pero no representa un riesgo crítico; por eso se muestra como Requires Attention (amarillo) */
       if (!summary || summary.source !== 'ok') {
         return {
           key: 'unable-to-evaluate',
@@ -663,6 +663,7 @@
       const summary = feature.deliverySummary;
       const state = feature.state || '';
 
+      /* No se pudo evaluar Delivery Health. Es una alerta que requiere seguimiento, pero no es crítica; se presenta en amarillo. */
       if (!summary || summary.source !== 'ok') {
         return [{
           key: 'unable-to-evaluate',
@@ -1938,12 +1939,17 @@
         unknown: filteredBeforeReadiness.filter(f => getFeatureReadiness(f) === 'Unknown').length
       };
 
+      /* Los contadores usan todas las alertas aplicables de cada Feature, no solamente el estado principal del badge.
+        not-started queda fuera de los KPI: es un estado informativo que podrá revisarse posteriormente mediante un filtro específico.*/
+      
       const deliveryHealthCounts = {
         requiresAction: filteredBeforeReadiness.filter(
           f => getDeliveryHealth(f).key === 'overdue'
         ).length,
         requiresAttention: filteredBeforeReadiness.filter(f => (
           [
+            'closed-with-open-work',
+            'unable-to-evaluate',
             'needs-estimate',
             'no-stories',
             'no-active-work',
@@ -1953,6 +1959,46 @@
         healthy: filteredBeforeReadiness.filter(
           f => getDeliveryHealth(f).key === 'healthy'
         ).length
+      };
+
+      const requiresActionHealthKeys = [
+        'overdue'
+      ];
+
+      const requiresAttentionHealthKeys = [
+        'closed-with-open-work',
+        'unable-to-evaluate',
+        'needs-estimate',
+        'no-stories',
+        'no-active-work',
+        'unestimated-work'
+      ];
+
+      const deliveryHealthCounts = {
+        requiresAction: filteredBeforeReadiness.filter(f => {
+          const healthAlertKeys = getDeliveryHealthAlerts(f)
+            .map(alert => alert.key);
+
+          return requiresActionHealthKeys.some(
+            key => healthAlertKeys.includes(key)
+          );
+        }).length,
+
+        requiresAttention: filteredBeforeReadiness.filter(f => {
+          const healthAlertKeys = getDeliveryHealthAlerts(f)
+            .map(alert => alert.key);
+
+          return requiresAttentionHealthKeys.some(
+            key => healthAlertKeys.includes(key)
+          );
+        }).length,
+
+        healthy: filteredBeforeReadiness.filter(f => {
+          const healthAlertKeys = getDeliveryHealthAlerts(f)
+            .map(alert => alert.key);
+
+          return healthAlertKeys.includes('healthy');
+        }).length
       };
       
             // Aplica el filtro de Readiness después de calcular los contadores.
@@ -1981,16 +2027,11 @@
         const healthAlertKeys = getDeliveryHealthAlerts(f).map(alert => alert.key);
 
         if (healthGroupFilter === 'requires-action') {
-          return healthAlertKeys.includes('overdue');
+          return requiresActionHealthKeys.some( key => healthAlertKeys.includes(key) );
         }
 
         if (healthGroupFilter === 'requires-attention') {
-          return [
-            'needs-estimate',
-            'no-stories',
-            'no-active-work',
-            'unestimated-work'
-          ].some(key => healthAlertKeys.includes(key));
+          return requiresAttentionHealthKeys.some( key => healthAlertKeys.includes(key) );
         }
 
         if (healthGroupFilter === 'healthy') {
