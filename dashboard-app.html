@@ -161,7 +161,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useRef, useCallback } = React;
+    const { useState, useEffect, } = React;
 
     const releaseDates = {
       'CE-2026-FEB': '2026-02-09',
@@ -211,6 +211,16 @@
       targetDate: 'Target Date'      
     };
 
+    const ensureFeatureStoriesLoaded = (featureId) => {
+      if (storiesCache[featureId] || loadingStoriesIds[featureId]) { return; }
+      setLoadingStoriesIds(prev => ({...prev, [featureId]: true }));
+      fetch('/api/feature-stories/' + featureId)
+        .then(response => response.json())
+        .then(data => { setStoriesCache(prev => ({...prev, [featureId]: data.stories || [] })); })
+        .catch(() => { setStoriesCache(prev => ({...prev, [featureId]: [] })); })
+        .finally(() => { setLoadingStoriesIds(prev => ({...prev, [featureId]: false }));});
+    };
+    
     function getReadinessMeta(readiness) {
       switch (readiness) {
         case 'Healthy':
@@ -244,26 +254,24 @@
     }
 
     /*
-      Compatibilidad durante la migración del contrato API.
-
       El frontend nuevo prefiere los campos readiness.
       El fallback permite seguir leyendo respuestas cacheadas o versiones
       antiguas del backend que aún entreguen health.
     */
     function getFeatureReadiness(feature) {
-      return feature.readiness ?? feature.health ?? 'Unknown';
+      return feature.readiness || 'Unknown';
     }
-
+    
     function getFeatureReadinessChecks(feature) {
-      return feature.readinessChecks ?? feature.requiredFields ?? {};
+      return feature.readinessChecks || {};
     }
-
+    
     function getFeatureReadinessMissingChecks(feature) {
-      return feature.readinessMissingChecks ?? feature.missingChecks ?? [];
+      return feature.readinessMissingChecks || [];
     }
-
+    
     function getFeatureReadinessUnknownChecks(feature) {
-      return feature.readinessUnknownChecks ?? feature.unknownChecks ?? [];
+      return feature.readinessUnknownChecks || [];
     }
     
     function getCheckMeta(value) {
@@ -443,11 +451,23 @@
         );
       });
     }
+
+    function parseDashboardDate(value) {
+      if (!value) {
+        return null;
+      }
+      /* Las fechas puras YYYY-MM-DD se interpretan como fecha local, evitando que JavaScript las convierta desde UTC al huso horario
+        del navegador y las mueva al día anterior. */
+      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return new Date(`${value}T00:00:00`);
+      }
+      return new Date(value);
+    }
     
     function isPastTargetDate(targetDate) {
       if (!targetDate) return false;
     
-      const target = new Date(targetDate);
+      const target = parseDashboardDate(targetDate);
     
       if (Number.isNaN(target.getTime())) {
         return false;
@@ -469,14 +489,7 @@
       
       /* Algunos contratos del backend usan workItemsPendingDelivery; otros pueden entregar openWorkItems o el desglose Pending/In progress.
         Conservamos compatibilidad con los campos ya usados en el frontend sin asumir que todos estén presentes al mismo tiempo. */
-      const openWorkItems = Number(
-        summary?.openWorkItems ??
-        summary?.workItemsPendingDelivery ??
-        (
-          Number(summary?.pendingWorkItems ?? 0) +
-          Number(summary?.inProgressWorkItems ?? summary?.activeWorkItems ?? 0)
-        )
-      );
+      const openWorkItems = = Number(summary?.openWorkItems || 0);
     
       /*
         Estado técnico:
@@ -546,7 +559,7 @@
           shortLabel: 'Open work',
           className: 'delivery--attention',
           icon: '!',
-          reason: 'This Feature is Closed, but associated delivery work is still pending or in progress.'
+          reason: 'This Feature is Closed, but associated delivery work is still open or in progress.'
         };
       }
 
@@ -558,7 +571,7 @@
           shortLabel: 'Healthy',
           className: 'delivery--healthy',
           icon: '✓',
-          reason: 'This Feature is Closed and has no pending or in-progress delivery work.'
+          reason: 'This Feature is Closed and has no open or in-progress delivery work.'
         };
       }
     
@@ -654,34 +667,14 @@
       }
 
       const totalWorkItems = Number(summary.totalWorkItems || 0);
-
       const hasWorkItems =
         summary.hasWorkItems !== undefined
           ? Boolean(summary.hasWorkItems)
           : totalWorkItems > 0;
-
-      const inProgressWorkItems = Number(
-        summary.inProgressWorkItems ??
-        summary.activeWorkItems ??
-        0
-      );
-
-      const pendingWorkItems = Number(
-        summary.pendingWorkItems ??
-        summary.pendingNonActiveWorkItems ??
-        0
-      );
-
-      const openWorkItems = Number(
-        summary.openWorkItems ??
-        summary.workItemsPendingDelivery ??
-        (pendingWorkItems + inProgressWorkItems)
-      );
-
-      const unestimatedWorkItems = Number(
-        summary.unestimatedWorkItems || 0
-      );
-
+      const inProgressWorkItems = Number( summary.inProgressWorkItems || 0 );
+      const pendingWorkItems = Number( summary.pendingWorkItems || 0 );
+      const openWorkItems = Number( summary.openWorkItems || 0 );
+      const unestimatedWorkItems = Number( summary.unestimatedWorkItems || 0 );
       const isClosed = deliveryClosedStates.includes(state);
       const isExecutionState = deliveryExecutionStates.includes(state);
       const alerts = [];
@@ -920,7 +913,7 @@
         <tr style={{ borderBottom: '1px solid #eee', background: '#f2f2f2' }}>
           <td></td>
           <td></td>
-          <td><a href={adoLink(storyId)} target="_blank">{storyId}</a></td>
+          <td><a href={adoLink(storyId)} target="_blank" rel="noopener noreferrer">{storyId}</a></td>
           <td style={{ maxWidth: '300px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '0 1 auto', minWidth: '0' }}>{title}</span>
@@ -1019,7 +1012,7 @@
           <td style={{ width: '36px', textAlign: 'center', fontSize: '12px', fontWeight: 'bold', color: priority ? '#1e3a8a' : '#ccc' }}>
             {priority || '—'}
           </td>
-          <td><a href={adoLink(featureId)} target="_blank">{featureId}</a></td>
+          <td><a href={adoLink(featureId)} target="_blank" rel="noopener noreferrer">{featureId}</a></td>
           <td
             style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px', cursor: 'default' }}
             onMouseEnter={(e) => showTooltip && showTooltip(e, (
@@ -1090,31 +1083,6 @@
       );
     }
 
-    // ── Hook: mide el ancho real de la celda Timeline en la tabla ──
-    function useTimelineWidth(tableRef) {
-      const [timelineWidth, setTimelineWidth] = useState(null);
-
-      useEffect(() => {
-        function measure() {
-          if (!tableRef.current) return;
-          // La última columna (Timeline) es la 5ta <th> (índice 4)
-          const ths = tableRef.current.querySelectorAll('thead th');
-          if (ths.length >= 5) {
-            const lastTh = ths[ths.length - 1];
-            const rect = lastTh.getBoundingClientRect();
-            // Descontamos el padding horizontal de la celda (6px cada lado según td padding: '4px 6px')
-            setTimelineWidth(rect.width - 12);
-          }
-        }
-        measure();
-        const ro = new ResizeObserver(measure);
-        if (tableRef.current) ro.observe(tableRef.current);
-        return () => ro.disconnect();
-      }, [tableRef]);
-
-      return timelineWidth;
-    }
-
     /* ── Clasificación única de Features & Stories ── */
     const deliveryDoneStates = [
       'Approved for Release',
@@ -1157,9 +1125,11 @@
 
       /*
         Cualquier Story/Bug vigente que no esté Done ni In progress
-        debe entrar aquí. Esto incluye, por ejemplo:
-        New, Business Refinement, Technical Refinement,
-        Ready for Development, UAT, etc.
+        debe entrar en Discovery. Esto incluye, por ejemplo:
+        - New
+        - Business Refinement
+        - Technical Refinement
+        - Ready for Development
       */
       return 'pending';
     }
@@ -1449,62 +1419,26 @@
                           </span>
                         )}
 
-                        <a
-                          href={adoLink(story.id)}
-                          target="_blank"
-                          style={{
-                            fontSize: '11px',
-                            fontWeight: 'bold',
-                            color: '#007bff',
-                            flexShrink: 0
-                          }}
-                        >
+                        <a href={adoLink(story.id)} 
+                          target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: '11px', fontWeight: 'bold', color: '#007bff', flexShrink: 0 }}>
                           #{story.id}
                         </a>
-
-                        <span
-                          title={story.title}
-                          style={{
-                            fontSize: '11px',
-                            color: '#333',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}
-                        >
+                        <span title={story.title}
+                          style={{ fontSize: '11px', color: '#333', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {story.title}
                         </span>
                       </div>
-
-                      <div
-                        style={{
-                          display: 'flex',
-                          gap: '8px',
-                          alignItems: 'center',
-                          flexWrap: 'wrap'
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: '10px',
-                            background: storyDotColor,
-                            color: 'white',
-                            padding: '1px 6px',
-                            borderRadius: '3px',
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '10px', background: storyDotColor, color: 'white', padding: '1px 6px', borderRadius: '3px', whiteSpace: 'nowrap' }}>
                           {story.state}
                         </span>
-
                         <span style={{ fontSize: '10px', color: '#666' }}>
                           📍 {sprintLabel}
                         </span>
-
                         <span style={{ fontSize: '10px', color: '#666' }}>
                           🎯 {story.storyPoints ?? 0} pts
                         </span>
-
                         <span className="feature-story-card__assigned-to">
                           👤 {getShortAssignedToName(story.assignedTo)}
                         </span>
@@ -1555,7 +1489,7 @@
                 BUG
               </span>
             )}
-            <a href={adoLink(story.id)} target="_blank" style={{ fontSize: '11px', fontWeight: 'bold', color: '#007bff', flexShrink: 0 }}>
+            <a href={adoLink(story.id)} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', fontWeight: 'bold', color: '#007bff', flexShrink: 0 }}>
               #{story.id}
             </a>
             <span title={story.title} style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#333', fontSize: '11px' }}>
@@ -1769,10 +1703,6 @@
       const [cacheInfo, setCacheInfo] = useState(null);
       const [readinessFilter, setReadinessFilter] = useState('All');
 
-      // ── Ref a la tabla del Roadmap para medir la columna Timeline ──
-      const roadmapTableRef = useRef(null);
-      const timelineWidth = useTimelineWidth(roadmapTableRef);
-
       useEffect(() => {
         const timer = setTimeout(() => { setSearchTitle(searchInput); }, 300);
         return () => clearTimeout(timer);
@@ -1786,12 +1716,19 @@
       }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle, readinessFilter]);
 
       async function loadFeatures(forceRefresh = false) {
-        if (forceRefresh) { setRefreshing(true); } else { setLoading(true); }
+        if (forceRefresh) { 
+          setRefreshing(true); 
+          setStoriesCache({});
+          setHistoryCache({});
+          setStoryHistoryCache({});
+          setLoadingStoriesIds({});
+          setLoadingFeatureHistoryIds({});} 
+        else { setLoading(true); }
         try {
           const url = forceRefresh ? '/api/features?refresh=1' : '/api/features';
           const res = await fetch(url);
           const json = await res.json();
-          setFeatures(json.features);
+          setFeatures(json.features || []);
           setCacheInfo(json.cacheInfo);
           setWarnings(json.warnings || []);
         } catch (err) {
@@ -1837,7 +1774,7 @@
             setFilterTargetDate(parsed.filterTargetDate || []);
             setFilterReleaseVersion(parsed.filterReleaseVersion || []);
             setFilterAssignedTo(parsed.filterAssignedTo || []);
-            setReadinessFilter(parsed.readinessFilter ?? parsed.healthFilter ?? 'All' );
+            setReadinessFilter(parsed.readinessFilter || 'All');
             setSaveAsDefault(true);
           } catch (e) { console.error('Error loading saved filters:', e); }
         }
@@ -2110,7 +2047,7 @@
       };
 
       const featuresItemsPerPage = 15;
-      const featuresTotalPages = Math.ceil(sortedFiltered.length / featuresItemsPerPage);
+      const featuresTotalPages =  Math.max( 1, Math.ceil(sortedFiltered.length / featuresItemsPerPage));
       const featuresStartIdx = (featuresPage - 1) * featuresItemsPerPage;
       const featuresPageItems = sortedFiltered.slice(featuresStartIdx, featuresStartIdx + featuresItemsPerPage);
 
@@ -2153,10 +2090,15 @@
       };
 
       const adoLink = (id) => `https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/${id}`;
-      const formatDate = (date) => { if (!date) return '-'; return new Date(date).toLocaleDateString('es-CO'); };
+      const formatDate = (date) => { const parsedDate = parseDashboardDate(date);
+        if (!parsedDate || Number.isNaN(parsedDate.getTime())) {
+          return '-';
+        }
+        return parsedDate.toLocaleDateString('es-CO');
+      };
 
       const itemsPerPage = 15;
-      const totalPages = Math.ceil(sortedFiltered.length / itemsPerPage);
+      const totalPages = Math.max( 1, Math.ceil(sortedFiltered.length / itemsPerPage));
       const startIdx = (roadmapPage - 1) * itemsPerPage;
       const pageItems = sortedFiltered.slice(startIdx, startIdx + itemsPerPage);
       const pageItemIds = pageItems.map(item => item.id).join(',');
@@ -2551,7 +2493,7 @@
                         <th>QA</th>
                         <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('state'); setSortOrder(sortColumn === 'state' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>State {sortColumn === 'state' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
                         <th style={{ width: '145px', textAlign: 'center', cursor: 'pointer' }} onClick={() => { setSortColumn('readiness'); setSortOrder( sortColumn === 'readiness' && sortOrder === 'asc' ? 'desc' : 'asc' ); }} >Readiness {sortColumn === 'readiness' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th> 
-                        <th style={{ width: '155px', textAlign: 'center' }}> Health </th> 
+                        <th style={{ width: '155px', textAlign: 'center' }}> Delivery Health </th> 
                         <th style={{ width: '120px', textAlign: 'center' }}> Progress </th>
                       </tr>
                     </thead>
@@ -2576,7 +2518,7 @@
                                   {isHistoryPanelOpen ? '▼' : '►'}
                                 </button>
                               </td>
-                              <td> <a href={adoLink(f.id)} target="_blank"> {f.id} </a> </td> 
+                              <td> <a href={adoLink(f.id)} target="_blank" rel="noopener noreferrer"> {f.id} </a> </td> 
                               <td style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '320px' }} > 
                                 <span className="feature-title" style={{ cursor: 'help', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} onMouseEnter={(e) => showTooltip( e, <FeatureTooltipContent feature={f} /> ) } onMouseMove={(e) => moveTooltip(e)} onMouseLeave={() => hideTooltip()} > {f.title} </span> 
                               </td> 
@@ -2780,7 +2722,7 @@
               {/* El header de la línea de tiempo ahora vive DENTRO de la tabla
                   como una fila especial, garantizando alineación perfecta */}
               <div className="table-wrapper" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                <table ref={roadmapTableRef} style={{ tableLayout: 'fixed', width: '100%' }}>
+                <table style={{ tableLayout: 'fixed', width: '100%' }}>
                   <thead style={{ position: 'sticky', top: 0, zIndex: 100, background: '#f9f9f9', boxShadow: '0 2px 4px rgba(0,0,0,0.08)' }}>
                     <tr>
                       <th style={{ width: '30px' }}></th>
