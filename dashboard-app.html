@@ -758,7 +758,7 @@
       return alerts;
     }
 
-    function ReadinessOverview({ counts, SelectedReadiness, onSelectReadiness }) {
+    function ReadinessOverview({ counts, SelectedReadiness, isAllFeaturesSelected, onSelectReadiness }) {
       const cards = [
         {
           key: 'All',
@@ -794,18 +794,23 @@
     
       return (
         <div className="readiness-overview">
-          {cards.map(card => (
-            <button
-              key={card.key}
-              type="button"
-              className={['readiness-overview-card', card.className, SelectedReadiness === card.key ? 'readiness-overview-card--active' : '' ].filter(Boolean).join(' ')}
+          {cards.map(card => { 
+            const isSelected = card.key === 'All' ? isAllFeaturesSelected : SelectedReadiness === card.key;
+          
+            return (
+              <button key={card.key} type="button" className={[ 'readiness-overview-card', card.className, isSelected ? 'readiness-overview-card--active' : '' ].filter(Boolean).join(' ')}
                 onClick={() => onSelectReadiness(card.key)}
-              title={ card.key === 'All' ? 'Show all Features' : `Filter Features by readiness: ${card.label}` }
-            >
-              <span className="readiness-overview-card__label">{card.icon && <span>{card.icon}</span>}{card.label}</span>
-              <span className="readiness-overview-card__count">{card.count}</span>
-            </button>
-          ))}
+                title={ card.key === 'All' ? 'Clear KPI filters and show all Features' : `Filter Features by readiness: ${card.label}`} >
+                <span className="readiness-overview-card__label">
+                  {card.icon && <span>{card.icon}</span>}
+                  {card.label}
+                </span>
+                <span className="readiness-overview-card__count">
+                  {card.count}
+                </span>
+              </button>
+            );
+          })}
         </div>
       );
     }
@@ -2476,7 +2481,11 @@
             <h1 style={{ margin: 0, justifySelf: 'start', whiteSpace: 'nowrap', fontSize: '22px', lineHeight: '1.05', letterSpacing: '0.5px' }}>ADO DEC <br /> Dashboard</h1>
               <div aria-hidden="true" style={{ width: '1px', alignSelf: 'stretch', background: '#e2e8f0' }} />
                 <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'center', gap: '10px', flexWrap: 'nowrap', minWidth: 0 }}>
-              <ReadinessOverview counts={readinessCounts} SelectedReadiness={readinessFilter} onSelectReadiness={(readiness) => {
+              <ReadinessOverview 
+                counts={readinessCounts}
+                SelectedReadiness={readinessFilter} 
+                isAllFeaturesSelected={ readinessFilter === 'All' && healthGroupFilter === 'All' }
+                onSelectReadiness={(readiness) => {
                   /* All Features limpia los filtros provenientes de las tarjetas KPI: Readiness y Delivery Health. */
                   if (readiness === 'All') {
                     setReadinessFilter('All');
