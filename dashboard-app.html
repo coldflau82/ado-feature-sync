@@ -2417,9 +2417,9 @@
 
       return (
         <div className="container">
-          <div className="header" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '20px', marginBottom: '12px' }}>
-            <h1 style={{ margin: 0, justifySelf: 'start' }}>ADO DEC Dashboard</h1>
-
+          <div className="header" style={{ display: 'grid', gridTemplateColumns: 'auto 1px minmax(0, 1fr) 1px auto', alignItems: 'center', columnGap: '16px', marginBottom: '12px' }}>
+            <h1 style={{ margin: 0, justifySelf: 'start', whiteSpace: 'nowrap', fontSize: '22px', lineHeight: '1.05', letterSpacing: '0.5px' }}>ADO DEC <br /> Dashboard</h1>
+              <div aria-hidden="true" style={{ width: '1px', alignSelf: 'stretch', background: '#e2e8f0' }} />
             <div style={{ display: 'flex', alignments: 'stretch', justifyContent: 'center', gap: '8px', flexWrap: 'nowrap', minWidth: 0 }}>
               <ReadinessOverview counts={readinessCounts} SelectedReadiness={readinessFilter} onSelectReadiness={(readiness) => {
                   setReadinessFilter(readiness);
@@ -2431,7 +2431,7 @@
 
               <DeliveryHealthOverview counts={deliveryHealthCounts} />
             </div>
-
+              <div aria-hidden="true" style={{ width: '1px', alignSelf: 'stretch', background: '#e2e8f0' }} />
             <div style={{ display: 'flex', gap: '10px', justifySelf: 'end', whiteSpace: 'nowrap' }}>
               <button style={{ padding: '8px 16px', background: currentPage === 'features' ? '#007bff' : 'white', color: currentPage === 'features' ? 'white' : 'black', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '13px' }} onClick={() => setCurrentPage('features')}>Feature List</button>
               <button style={{ padding: '8px 16px', background: currentPage === 'roadmap' ? '#007bff' : 'white', color: currentPage === 'roadmap' ? 'white' : 'black', border: 'none', cursor: 'pointer', borderRadius: '4px', fontSize: '13px' }} onClick={() => setCurrentPage('roadmap')}>Roadmap</button>
