@@ -111,8 +111,7 @@ const IN_PROGRESS_WORK_STATES = [
 ];
 
 // Estados donde una Story o Bug debe contar con Story Points.
-// Sprint Complete y Closed se excluyen: no deben generar un riesgo actual
-// de estimación si ya se completaron.
+// Closed y Removed se excluye: no deben generar un riesgo actual de estimación si ya se completaron.
 const ESTIMABLE_WORK_STATES = [
   'Planned',
   'Ready for Development',
@@ -121,23 +120,9 @@ const ESTIMABLE_WORK_STATES = [
   'Business Sprint Testing',
   'User Acceptance Testing',
   'Approved for Release',
-  'Ready for Deployment'
+  'Ready for Deployment',
+  'Sprint Complete'
 ];
-
-// ===== Evalúa si un campo simple o HTML tiene contenido visible =====
-// No devuelve el texto; únicamente se usa para producir true / false.
-function hasMeaningfulValue(value) {
-  if (value === null || value === undefined) {
-    return false;
-  }
-
-  const plainText = String(value)
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .trim();
-
-  return plainText.length > 0;
-}
 
 // ===== Determina si el Feature tiene un Parent jerárquico =====
 // Solo devuelve true / false. No expone información del elemento padre.
@@ -147,7 +132,6 @@ function hasParentRelation(workItem) {
       relation => relation.rel === 'System.LinkTypes.Hierarchy-Reverse'
     );
 }
-
 const UNKNOWN = 'unknown';
 
 // ===== Evalúa si un campo simple o HTML tiene contenido visible =====
@@ -156,7 +140,6 @@ function hasMeaningfulValue(value) {
   if (value === null || value === undefined) {
     return false;
   }
-
   // Para campos HTML como Description y Acceptance Criteria,
   // evita considerar "<p></p>" o "&nbsp;" como contenido válido.
   if (typeof value === 'string') {
@@ -164,20 +147,11 @@ function hasMeaningfulValue(value) {
       .replace(/<[^>]*>/g, ' ')
       .replace(/&nbsp;/gi, ' ')
       .trim();
-
     return plainText.length > 0;
   }
 
   // Valores como 0 o false siguen siendo valores existentes.
   return true;
-}
-
-// ===== Determina si el Feature tiene un Parent jerárquico =====
-function hasParentRelation(workItem) {
-  return Array.isArray(workItem.relations) &&
-    workItem.relations.some(
-      relation => relation.rel === 'System.LinkTypes.Hierarchy-Reverse'
-    );
 }
 
 // ===== Resultado de validación para campos obtenidos desde ADO =====
