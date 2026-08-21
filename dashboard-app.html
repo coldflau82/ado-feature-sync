@@ -252,13 +252,8 @@
       };
     }
 
-    function ReadinessBadge({
-      readiness,
-      iconOnly = false,
-      onClick,
-      isActive = false,
-      featureId
-    }) {
+    function ReadinessBadge({ readiness, iconOnly = false, onClick, isActive = false, featureId }) 
+    {
       const meta = getReadinessMeta(readiness);
 
       /*
@@ -281,10 +276,7 @@
         );
       }
 
-      /*
-        Modo normal para Feature List:
-        el óvalo completo es un botón y controla el panel Readiness.
-      */
+      /* Modo normal para Feature List: el óvalo completo es un botón y controla el panel Readiness. */
       return (
         <button
           type="button"
@@ -318,27 +310,7 @@
         </button>
       );
     }
-
-      /*
-        Modo normal para la columna Health de la tabla:
-        conserva icono circular coloreado + texto.
-      */
-      return (
-        <span
-          className={`readiness-badge ${meta.className}`}
-          title={meta.label}
-        >
-          <span className="readiness-badge__icon">
-            {meta.icon}
-          </span>
-
-          <span className="readiness-badge__label">
-            {meta.label}
-          </span>
-        </span>
-      );
-    }
-
+    
     function FeatureReadinessDetails({ feature }) {
       const checks = getFeatureReadinessChecks(feature);
       const missingChecks = getFeatureReadinessMissingChecks(feature);
