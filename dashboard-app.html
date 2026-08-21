@@ -514,7 +514,7 @@
           shortLabel: 'Overdue',
           className: 'delivery--overdue',
           icon: '!',
-          reason: 'The Target Date has passed and delivery work remains pending.'
+          reason: 'The Target Date has passed and delivery work remains open.'
         };
       }
     
@@ -610,7 +610,7 @@
           shortLabel: 'No active work',
           className: 'delivery--attention',
           icon: '!',
-          reason: 'There is pending delivery work, but no Story or Bug is currently active.'
+          reason: 'There is open delivery work, but no Story or Bug is currently active.'
         };
       }
     
@@ -691,7 +691,7 @@
           key: 'overdue',
           label: 'Overdue',
           className: 'delivery-alert--overdue',
-          reason: 'The Target Date has passed and delivery work remains pending.'
+          reason: 'The Target Date has passed and delivery work remains open.'
         });
       }
 
@@ -700,7 +700,7 @@
           key: 'closed-with-open-work',
           label: 'Open work on Closed Feature',
           className: 'delivery-alert--attention',
-          reason: 'The Feature is Closed, but associated delivery work is still pending or in progress.'
+          reason: 'The Feature is Closed, but associated delivery work is still open or in progress.'
         });
       }
 
@@ -734,7 +734,7 @@
           key: 'no-active-work',
           label: 'No active work',
           className: 'delivery-alert--attention',
-          reason: 'There is pending delivery work, but no Story or Bug is currently active.'
+          reason: 'There is open delivery work, but no Story or Bug is currently active.'
         });
       }
 
@@ -1374,7 +1374,7 @@
             {' / '}
 
             <span style={{ color: '#fbbf24' }}>
-              {summary.pendingWorkItems} pending
+              {summary.pendingWorkItems} discovery
             </span>
           </div>
 
@@ -1672,7 +1672,7 @@
             </span>
 
             <span className="delivery-details__metric">
-              {summary.pendingWorkItems} pending
+              {summary.pendingWorkItems} discovery
             </span>
 
             <span className="delivery-details__metric">
@@ -1712,7 +1712,7 @@
           </div>
 
           <DeliveryWorkItemGroup
-            title="Pending"
+            title="Discovery"
             stories={pendingStories}
             adoLink={adoLink}
           />
