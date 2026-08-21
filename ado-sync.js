@@ -532,8 +532,14 @@ async function fetchDeliveryWorkItemsBatch(c, ids) {
           id: workItem.id,
           workItemType: fields['System.WorkItemType'] || '',
           state: fields['System.State'] || '',
-          storyPoints: fields['Microsoft.VSTS.Scheduling.StoryPoints'] || '',
-          assignedTo: fields['System.AssignedTo']?? 0
+          storyPoints:
+            fields['Microsoft.VSTS.Scheduling.StoryPoints'] || '',
+          assignedTo:
+            typeof fields['System.AssignedTo'] === 'string'
+              ? fields['System.AssignedTo']
+              : fields['System.AssignedTo']?.displayName ||
+                fields['System.AssignedTo']?.uniqueName ||
+                ''
         });
       });
 
@@ -1003,66 +1009,121 @@ app.post('/api/stories-history-batch', async (req, res) => {
 
 app.get('/api/feature-stories/:id', async (req, res) => {
   try {
-    const c = axios.create({
-      baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 
-        Authorization: `Basic ${Buffer.from(`:${process.env.ADO_PAT}`).toString('base64')}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    const c = getAdoClient();
+    const featureId = Number(req.params.id);
 
-    const featureId = req.params.id;
-
-    // Delivery Health trabaja con hijos directos del Feature:
-    // Feature -> User Story / Bug.
-    //
-    // MODE (MustContain) evita traer descendientes recursivos, como Tasks
-    // relacionados bajo una Story, y mantiene storiesCache alineado con
-    // deliverySummary dentro de /api/features.
-    const linksQuery = `SELECT [System.Id] FROM WorkItemLinks
-      WHERE [Source].[System.Id] = ${featureId}
-      AND [System.Links.LinkType] = 'System.LinkTypes.Hierarchy-Forward'
-      AND (
-        [Target].[System.WorkItemType] = 'User Story'
-        OR [Target].[System.WorkItemType] = 'Bug'
-      )
-      MODE (MustContain)`;
-
-    const linksResponse = await c.post('/wit/wiql?api-version=7.0', {
-      query: linksQuery
-    });
-
-    const storyIds = [
-      ...new Set(
-        (linksResponse.data.workItemRelations || [])
-          .filter(r => r.target && r.target.id !== parseInt(featureId))
-          .map(r => r.target.id)
-      )
-    ];
-
-    if (storyIds.length === 0) {
-      return res.json({ stories: [] });
+    if (!Number.isFinite(featureId)) {
+      return res.status(400).json({
+        error: 'Invalid Feature ID.'
+      });
     }
 
-    const batch = await c.post('/wit/workitemsbatch?api-version=7.0', {
-      ids: storyIds,
-      fields: ['System.Id', 'System.Title', 'Microsoft.VSTS.Scheduling.StoryPoints', 'System.State', 'System.WorkItemType', 'System.IterationPath',]
+    /*
+      Obtenemos el Feature con sus relaciones directas.
+
+      Esto evita depender de una consulta WIQL de WorkItemLinks y usa
+      exactamente la misma interpretación de hijos directos que Delivery
+      Health: Feature -> User Story / Bug.
+    */
+    const featureResponse = await c.get(
+      `/wit/workitems/${featureId}?$expand=Relations&api-version=7.0`
+    );
+
+    const feature = featureResponse.data || {};
+
+    const childIds = getDirectChildWorkItemIds(feature);
+
+    if (childIds.length === 0) {
+      return res.json({
+        stories: []
+      });
+    }
+
+    /*
+      Azure DevOps workitemsbatch admite hasta 200 IDs por consulta.
+      Aunque normalmente un Feature tendrá menos, este código protege
+      el endpoint cuando haya una cantidad mayor.
+    */
+    const batchSize = 200;
+    const allWorkItems = [];
+
+    for (let index = 0; index < childIds.length; index += batchSize) {
+      const currentIds = childIds.slice(index, index + batchSize);
+
+      const batchResponse = await c.post(
+        '/wit/workitemsbatch?api-version=7.0',
+        {
+          ids: currentIds,
+          fields: [
+            'System.Id',
+            'System.Title',
+            'System.State',
+            'System.WorkItemType',
+            'System.IterationPath',
+            'System.AssignedTo',
+            'Microsoft.VSTS.Scheduling.StoryPoints'
+          ],
+          errorPolicy: 'Omit'
+        }
+      );
+
+      allWorkItems.push(...(batchResponse.data.value || []));
+    }
+
+    const stories = allWorkItems
+      .filter(workItem => {
+        const workItemType =
+          workItem.fields?.['System.WorkItemType'] || '';
+
+        return (
+          workItemType === 'User Story' ||
+          workItemType === 'Bug'
+        );
+      })
+      .map(workItem => {
+        const fields = workItem.fields || {};
+        const assignedToField = fields['System.AssignedTo'];
+
+        /*
+          Normaliza Assigned To porque ADO puede devolver:
+          - un objeto IdentityRef con displayName;
+          - un texto, según la respuesta o integración.
+        */
+        const assignedTo =
+          typeof assignedToField === 'string'
+            ? assignedToField
+            : assignedToField?.displayName ||
+              assignedToField?.uniqueName ||
+              '';
+
+        return {
+          id: workItem.id,
+          title: fields['System.Title'] || '',
+          storyPoints:
+            fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
+          state: fields['System.State'] || '',
+          workItemType: fields['System.WorkItemType'] || '',
+          iterationPath: fields['System.IterationPath'] || '',
+          assignedTo
+        };
+      });
+
+    return res.json({
+      stories
+    });
+  } catch (error) {
+    console.error('ERROR /api/feature-stories/:id', {
+      featureId: req.params.id,
+      adoStatus: error.response?.status || null,
+      adoStatusText: error.response?.statusText || null,
+      adoResponse: error.response?.data || null,
+      message: error.message
     });
 
-    const stories = batch.data.value
-      .filter(s => s.fields['System.WorkItemType'] === 'User Story' || s.fields['System.WorkItemType'] === 'Bug')
-      .map(s => ({
-        id: s.id,
-        title: s.fields['System.Title'] || '',
-        storyPoints: s.fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
-        state: s.fields['System.State'] || '',
-        workItemType: s.fields['System.WorkItemType'] || '',
-        iterationPath: s.fields['System.IterationPath'] || ''
-      }));
-
-    res.json({ stories: stories });
-  } catch (error) {
-    res.status(500).json({ error: error.message, details: error.response?.data });
+    return res.status(500).json({
+      error: 'Unable to fetch Feature Stories/Bugs from ADO.',
+      details: error.response?.data || null
+    });
   }
 });
 
