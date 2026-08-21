@@ -487,15 +487,10 @@
       const isClosed = deliveryClosedStates.includes(state);
       const isExecutionState = deliveryExecutionStates.includes(state);
       
-      /* Algunos contratos del backend usan workItemsPendingDelivery; otros pueden entregar openWorkItems o el desglose Pending/In progress.
-        Conservamos compatibilidad con los campos ya usados en el frontend sin asumir que todos estén presentes al mismo tiempo. */
+      /* openWorkItems representa las Stories y Bugs que continúan abiertos: Discovery + In Progress.*/
       const openWorkItems = Number(summary?.openWorkItems || 0);
     
-      /*
-        Estado técnico:
-        No significa que no existan Stories ni que esté On track;
-        simplemente no fue posible recuperar/resumir el trabajo.
-      */
+      /* Estado técnico: No significa que no existan Stories ni que esté On track; simplemente no fue posible recuperar/resumir el trabajo. */
       if (!summary || summary.source !== 'ok') {
         return {
           key: 'unable-to-evaluate',
