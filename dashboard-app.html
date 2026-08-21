@@ -1603,25 +1603,35 @@
           });
       };
 
-      const toggleFeatureReadiness = (featureId) => {
+      const toggleFeatureExpand = (featureId) => {
         const panelIsAlreadyOpen =
           expandedFeaturePanel?.featureId === featureId &&
-          expandedFeaturePanel?.panel === 'readiness';
+          expandedFeaturePanel?.panel === 'history';
 
         /*
-          Mismo botón + mismo panel: cerrar.
-          Otra Feature, History o futuro Delivery: reemplazar el estado.
-          Esto garantiza que sólo exista un panel abierto globalmente.
+          Clic en el mismo triángulo: cerrar el panel History.
+          Clic desde otra Feature o desde Readiness: reemplazar el
+          estado para que sólo exista un panel abierto globalmente.
         */
-        if (panelIsAlreadyOpen) { setExpandedFeaturePanel(null);
+        if (panelIsAlreadyOpen) {
+          setExpandedFeaturePanel(null);
           return;
         }
 
-        setExpandedFeaturePanel({ featureId, panel: 'readiness' });
-      };
+        setExpandedFeaturePanel({
+          featureId,
+          panel: 'history'
+        });
 
-        /* Las Stories pueden estar precargadas por la página actual. Si no existen todavía, se solicitan ahora. */
-        if (!storiesCache[featureId] && !loadingStoriesIds[featureId]) { setLoadingStoriesIds(prev => ({ ...prev, [featureId]: true }));
+        /*
+          Las Stories/Bugs pueden estar precargadas por la página actual.
+          Si no están disponibles, se solicitan al abrir History.
+        */
+        if (!storiesCache[featureId] && !loadingStoriesIds[featureId]) {
+          setLoadingStoriesIds(prev => ({
+            ...prev,
+            [featureId]: true
+          }));
 
           fetch('/api/feature-stories/' + featureId)
             .then(response => response.json())
@@ -1646,6 +1656,27 @@
         }
 
         ensureFeatureHistoryLoaded(featureId);
+      };
+
+      const toggleFeatureReadiness = (featureId) => {
+        const panelIsAlreadyOpen =
+          expandedFeaturePanel?.featureId === featureId &&
+          expandedFeaturePanel?.panel === 'readiness';
+
+        /*
+          Clic en el mismo badge: cerrar.
+          Si estaba abierto History —o un futuro Delivery—, el estado se
+          reemplaza y queda abierto solamente Readiness.
+        */
+        if (panelIsAlreadyOpen) {
+          setExpandedFeaturePanel(null);
+          return;
+        }
+
+        setExpandedFeaturePanel({
+          featureId,
+          panel: 'readiness'
+        });
       };
 
       const featuresItemsPerPage = 15;
