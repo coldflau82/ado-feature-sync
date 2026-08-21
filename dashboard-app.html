@@ -1942,25 +1942,6 @@
       /* Los contadores usan todas las alertas aplicables de cada Feature, no solamente el estado principal del badge.
         not-started queda fuera de los KPI: es un estado informativo que podrá revisarse posteriormente mediante un filtro específico.*/
       
-      const deliveryHealthCounts = {
-        requiresAction: filteredBeforeReadiness.filter(
-          f => getDeliveryHealth(f).key === 'overdue'
-        ).length,
-        requiresAttention: filteredBeforeReadiness.filter(f => (
-          [
-            'closed-with-open-work',
-            'unable-to-evaluate',
-            'needs-estimate',
-            'no-stories',
-            'no-active-work',
-            'unestimated-work'
-          ].includes(getDeliveryHealth(f).key)
-        )).length,
-        healthy: filteredBeforeReadiness.filter(
-          f => getDeliveryHealth(f).key === 'healthy'
-        ).length
-      };
-
       const requiresActionHealthKeys = [
         'overdue'
       ];
