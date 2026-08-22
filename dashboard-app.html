@@ -68,7 +68,7 @@
     .readiness-overview-card--unknown .readiness-overview-card__label { color: #475569; } 
     .health-overview { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 9px; margin: 0;}
     .health-overview-card { min-width: 130px; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); text-align: left; }
-    .health-overview-card__label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; }
+    .health-overview-card__label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; white-space: nowrap; }
     .health-overview-card__count { display: block; margin-top: 4px; font-size: 22px; line-height: 1; font-weight: 700; color: #1e293b; }
     .health-overview-card--action { background: #fef2f2; border-color: #fca5a5; }
     .health-overview-card--action .health-overview-card__label { color: #991b1b; }
@@ -953,14 +953,14 @@
       const cards = [
         {
           key: 'requires-action',
-          label: 'Requires Action',
+          label: 'Action needed',
           count: counts.requiresAction,
           icon: '!',
           className: 'health-overview-card--action'
         },
         {
           key: 'requires-attention',
-          label: 'Requires Attention',
+          label: 'At risk',
           count: counts.requiresAttention,
           icon: '!',
           className: 'health-overview-card--attention'
