@@ -158,7 +158,10 @@
     .delivery-details__title { color: #1e293b; font-size: 13px; } 
     .delivery-details__reason { margin-top: 4px; color: #64748b; font-size: 11px; line-height: 1.4; } 
     .delivery-details__summary { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 12px; }
-    .delivery-details__metric { padding: 4px 7px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 10px; font-weight: 700; } 
+    .delivery-details__metric { appearance: none; padding: 4px 7px; border: 1px solid transparent; border-radius: 999px; background: #f1f5f9; color: #475569; cursor: pointer; font-family: inherit; font-size: 10px; font-weight: 700; line-height: 1.2; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+    .delivery-details__metric:hover { background: #e2e8f0; border-color: #cbd5e1; }
+    .delivery-details__metric--active { background: #dbeafe; border-color: #60a5fa; color: #1d4ed8; }
+    .delivery-details__metric:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
     .delivery-alerts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; margin-bottom: 14px; } 
     .delivery-alert { padding: 9px 10px; border-radius: 6px; border: 1px solid transparent; font-size: 11px; line-height: 1.4; } 
     .delivery-alert__title { display: block; margin-bottom: 3px; font-weight: 700; } 
@@ -1745,8 +1748,9 @@
               📍 {sprintLabel}
             </span>
 
-            <span style={{ fontSize: '10px', color: '#666' }}>
-              🎯 {story.storyPoints ?? 0} pts
+            <span style={{ fontSize: '10px', color: isWorkItemUnestimated(story) ? '#b45309' : '#666', fontWeight: isWorkItemUnestimated(story) ? 'bold' : 'normal' }}>
+              🎯 {story.storyPoints ?? 'Missing'}
+              {story.storyPoints !== null && story.storyPoints !== undefined ? ' pts' : ''}
             </span>
 
             <span className="feature-story-card__assigned-to">
@@ -1788,28 +1792,65 @@
     }
 
     function FeatureDeliveryDetails({ feature, stories, adoLink }) {
+      const [workItemSubfilter, setWorkItemSubfilter] = React.useState('all');
+    
       const delivery = getDeliveryHealth(feature);
       const alerts = getDeliveryHealthAlerts(feature);
       const summary = getWorkItemsDeliverySummary(stories);
+    
+      /* Si el usuario abre Delivery Health en otra Feature, el detalle vuelve a mostrar todos sus Stories y Bugs. */
+      React.useEffect(() => { setWorkItemSubfilter('all');}, [feature.id]);
 
-      /*
-        Removed queda incluido en el resumen, pero no se incluye
-        en ninguno de los tres grupos de cards.
-      */
+      /* Removed queda incluido en el resumen, pero no se incluye en ninguno de los tres grupos de cards. */
+      const visibleStories = stories.filter(story => {
+        if (workItemSubfilter === 'all') {
+          return getWorkItemDeliveryCategory(story) !== 'removed';
+        }
+      
+        if (workItemSubfilter === 'pending') {
+          return getWorkItemDeliveryCategory(story) === 'pending';
+        }
+      
+        if (workItemSubfilter === 'inProgress') {
+          return getWorkItemDeliveryCategory(story) === 'inProgress';
+        }
+      
+        if (workItemSubfilter === 'done') {
+          return getWorkItemDeliveryCategory(story) === 'done';
+        }
+      
+        if (workItemSubfilter === 'unestimated') {
+          return isWorkItemUnestimated(story);
+        }
+      
+        if (workItemSubfilter === 'discoveryWithoutSprint') {
+          const hasIterationPath =
+            typeof story.iterationPath === 'string' &&
+            story.iterationPath.trim() !== '';
+      
+          return (
+            getWorkItemDeliveryCategory(story) === 'pending' &&
+            !hasIterationPath
+          );
+        }
+      
+        return true;
+      });
+      
       const pendingStories = sortDeliveryWorkItemsByTypeAndId(
-        stories.filter(
+        visibleStories.filter(
           story => getWorkItemDeliveryCategory(story) === 'pending'
         )
       );
-
+      
       const inProgressStories = sortDeliveryWorkItemsByTypeAndId(
-        stories.filter(
+        visibleStories.filter(
           story => getWorkItemDeliveryCategory(story) === 'inProgress'
         )
       );
-
+      
       const doneStories = sortDeliveryWorkItemsByTypeAndId(
-        stories.filter(
+        visibleStories.filter(
           story => getWorkItemDeliveryCategory(story) === 'done'
         )
       );
@@ -1838,38 +1879,82 @@
           </div>
 
           <div className="delivery-details__summary">
-            <span className="delivery-details__metric">
+            <button type="button" className={[
+                'delivery-details__metric',
+                workItemSubfilter === 'all'
+                  ? 'delivery-details__metric--active'
+                  : ''
+              ].filter(Boolean).join(' ')}
+              onClick={() => setWorkItemSubfilter('all')}
+              title="Show all included Stories and Bugs"
+            >
               {summary.includedWorkItems} included
-            </span>
-
-            <span className="delivery-details__metric">
+            </button>
+          
+            <button type="button" className={[
+                'delivery-details__metric',
+                workItemSubfilter === 'pending'
+                  ? 'delivery-details__metric--active'
+                  : ''
+              ].filter(Boolean).join(' ')}
+              onClick={() => setWorkItemSubfilter('pending')}
+              title="Show Discovery Stories and Bugs"
+            >
               {summary.pendingWorkItems} discovery
-            </span>
-
-            <span className="delivery-details__metric">
+            </button>
+          
+            <button type="button" className={[
+                'delivery-details__metric',
+                workItemSubfilter === 'inProgress'
+                  ? 'delivery-details__metric--active'
+                  : ''
+              ].filter(Boolean).join(' ')}
+              onClick={() => setWorkItemSubfilter('inProgress')}
+              title="Show Stories and Bugs currently in progress"
+            >
               {summary.inProgressWorkItems} in progress
-            </span>
-
-            <span className="delivery-details__metric">
+            </button>
+          
+            <button type="button" className={[
+                'delivery-details__metric',
+                workItemSubfilter === 'done'
+                  ? 'delivery-details__metric--active'
+                  : ''
+              ].filter(Boolean).join(' ')}
+              onClick={() => setWorkItemSubfilter('done')}
+              title="Show completed Stories and Bugs"
+            >
               {summary.doneWorkItems} done
-            </span>
-
-            {summary.removedWorkItems > 0 && (
-              <span className="delivery-details__metric">
-                {summary.removedWorkItems} removed
-              </span>
-            )}
-
+            </button>
+          
             {summary.unestimatedWorkItems > 0 && (
-              <span className="delivery-details__metric">
+              <button type="button" className={[
+                  'delivery-details__metric',
+                  workItemSubfilter === 'unestimated'
+                    ? 'delivery-details__metric--active'
+                    : ''
+                ].filter(Boolean).join(' ')}
+                onClick={() => setWorkItemSubfilter('unestimated')}
+                title="Show work items that currently need an estimate"
+              >
                 {summary.unestimatedWorkItems} need estimate
-              </span>
+              </button>
             )}
-
+          
             {summary.discoveryWithoutSprintWorkItems > 0 && (
-              <span className="delivery-details__metric">
+              <button
+                type="button"
+                className={[
+                  'delivery-details__metric',
+                  workItemSubfilter === 'discoveryWithoutSprint'
+                    ? 'delivery-details__metric--active'
+                    : ''
+                ].filter(Boolean).join(' ')}
+                onClick={() => setWorkItemSubfilter('discoveryWithoutSprint')}
+                title="Show Discovery work items without a Sprint"
+              >
                 {summary.discoveryWithoutSprintWorkItems} Discovery without Sprint
-              </span>
+              </button>
             )}
           </div>
 
@@ -1888,23 +1973,35 @@
             ))}
           </div>
 
-          <DeliveryWorkItemGroup
-            title="Discovery"
-            stories={pendingStories}
-            adoLink={adoLink}
-          />
-
-          <DeliveryWorkItemGroup
-            title="In Progress"
-            stories={inProgressStories}
-            adoLink={adoLink}
-          />
-
-          <DeliveryWorkItemGroup
-            title="Done"
-            stories={doneStories}
-            adoLink={adoLink}
-          />
+          {pendingStories.length > 0 && (
+            <DeliveryWorkItemGroup
+              title="Discovery"
+              stories={pendingStories}
+              adoLink={adoLink}
+            />
+          )}
+          
+          {inProgressStories.length > 0 && (
+            <DeliveryWorkItemGroup
+              title="In Progress"
+              stories={inProgressStories}
+              adoLink={adoLink}
+            />
+          )}
+          
+          {doneStories.length > 0 && (
+            <DeliveryWorkItemGroup
+              title="Done"
+              stories={doneStories}
+              adoLink={adoLink}
+            />
+          )}
+          
+          {visibleStories.length === 0 && (
+            <div className="delivery-work-group__empty">
+              No Stories or Bugs match the selected subfilter.
+            </div>
+          )}
         </div>
       );
     }
