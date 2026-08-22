@@ -1810,6 +1810,7 @@
       const [cacheInfo, setCacheInfo] = useState(null);
       const [readinessFilter, setReadinessFilter] = useState('All');
       const [healthGroupFilter, setHealthGroupFilter] = useState('All');
+      const [healthRuleFilter, setHealthRuleFilter] = useState('All');
 
       useEffect(() => {
         const timer = setTimeout(() => { setSearchTitle(searchInput); }, 300);
@@ -1821,7 +1822,7 @@
         setFeaturesPage(1);
         setExpandedFeaturePanel(null);
         setExpandedRoadmapFeatureId(null);
-      }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle, readinessFilter, healthGroupFilter ]);
+      }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle, readinessFilter, healthGroupFilter, healthRuleFilter ]);
 
       async function loadFeatures(forceRefresh = false) {
         if (forceRefresh) { 
@@ -1882,6 +1883,7 @@
             setFilterReleaseVersion(parsed.filterReleaseVersion || []);
             setFilterAssignedTo(parsed.filterAssignedTo || []);
             setReadinessFilter(parsed.readinessFilter || 'All');
+            setHealthRuleFilter(parsed.healthRuleFilter || 'All');
             setSaveAsDefault(true);
           } catch (e) { console.error('Error loading saved filters:', e); }
         }
@@ -1889,9 +1891,9 @@
 
       useEffect(() => {
         if (!saveAsDefault) return;
-        const filtersToSave = { filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, readinessFilter };
+        const filtersToSave = { filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, readinessFilter, healthRuleFilter };
         localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filtersToSave));
-      }, [saveAsDefault, filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, readinessFilter]);
+      }, [saveAsDefault, filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, readinessFilter, healthRuleFilter]);
 
       const handleSaveAsDefaultChange = (e) => {
         const checked = e.target.checked;
@@ -2007,25 +2009,38 @@
         dentro de cada grupo que le corresponda.
       */
       const filtered = filteredByReadiness.filter(f => {
-        if (healthGroupFilter === 'All') {
+        const healthAlertKeys = getDeliveryHealthAlerts(f)
+          .map(alert => alert.key);
+      
+        const matchesHealthGroup = (() => {
+          if (healthGroupFilter === 'All') {
+            return true;
+          }
+      
+          if (healthGroupFilter === 'requires-action') {
+            return requiresActionHealthKeys.some(
+              key => healthAlertKeys.includes(key)
+            );
+          }
+      
+          if (healthGroupFilter === 'requires-attention') {
+            return requiresAttentionHealthKeys.some(
+              key => healthAlertKeys.includes(key)
+            );
+          }
+      
+          if (healthGroupFilter === 'healthy') {
+            return healthAlertKeys.includes('healthy');
+          }
+      
           return true;
-        }
-
-        const healthAlertKeys = getDeliveryHealthAlerts(f).map(alert => alert.key);
-
-        if (healthGroupFilter === 'requires-action') {
-          return requiresActionHealthKeys.some( key => healthAlertKeys.includes(key) );
-        }
-
-        if (healthGroupFilter === 'requires-attention') {
-          return requiresAttentionHealthKeys.some( key => healthAlertKeys.includes(key) );
-        }
-
-        if (healthGroupFilter === 'healthy') {
-          return healthAlertKeys.includes('healthy');
-        }
-
-        return true;
+        })();
+      
+        const matchesHealthRule =
+          healthRuleFilter === 'All' ||
+          healthAlertKeys.includes(healthRuleFilter);
+      
+        return matchesHealthGroup && matchesHealthRule;
       });
 
       let sortedFiltered = [...filtered];
@@ -2229,6 +2244,19 @@
             });
         }
       };
+
+      const deliveryHealthRuleOptions = [
+        { key: 'healthy', label: 'Healthy'},
+        { key: 'overdue', label: 'Overdue' },
+        { key: 'target-date-near-unscheduled-discovery', label: 'Target date near' },
+        { key: 'target-next-month-without-release', label: 'Target date near w/o RFV' },
+        { key: 'closed-with-open-work', label: 'Closed w/open work' },
+        { key: 'unable-to-evaluate', label: 'Unable to evaluate' },
+        { key: 'needs-estimate', label: 'Needs estimate' },
+        { key: 'no-stories', label: 'No Stories' },
+        { key: 'no-active-work', label: 'No active work' },
+        { key: 'unestimated-work', label: 'No estimated work' }
+      ];
 
       const featuresItemsPerPage = 15;
       const featuresTotalPages =  Math.max( 1, Math.ceil(sortedFiltered.length / featuresItemsPerPage));
@@ -2578,11 +2606,8 @@
           <div style={{ background: 'white', padding: '15px', borderRadius: '8px', marginBottom: '12px', display: 'flex', gap: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flex: 1 }}>
               <div style={{ flex: '0 0 auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <label className="filter-label">Search Feature Title or Tag</label>
-                <input
-                  type="text"
-                  placeholder="Type feature title or Tag..."
-                  value={searchInput}
+                <label className="filter-label">Search:</label>
+                <input type="text" placeholder="Type feature title or Tag..." value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   style={{ width: '300px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' }}
                 />
@@ -2604,6 +2629,21 @@
                   <option value="Unknown">Unable to validate</option>
                 </select>
               </div>
+              <div style={{ flex: '0 0 auto', display: 'flex', gap: '8px', alignItems: 'center'}}>
+                <label className="filter-label" style={{ marginBottom: 0, whiteSpace: 'nowrap'}}>Delivery Health</label>
+                <select className="filter-select" value={healthRuleFilter} onChange={(e) => {
+                    setHealthRuleFilter(e.target.value);
+                    setFeaturesPage(1);
+                    setRoadmapPage(1);
+                    setExpandedRoadmapFeatureId(null);
+                  }}
+                  title="Filter Features by a specific Delivery Health rule" style={{ width: '260px' }}>
+                    <option value="All">All delivery health rules</option>
+                      {deliveryHealthRuleOptions.map(rule => (<option key={rule.key} value={rule.key}>{rule.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <button style={{ padding: '8px 16px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px', whiteSpace: 'nowrap', flex: '0 0 auto' }} onClick={() => loadFeatures(true)} disabled={refreshing}>
               {refreshing ? 'Refreshing...' : 'Refresh results'}
@@ -2620,6 +2660,7 @@
               setFilterAssignedTo([]);
               setReadinessFilter('All');
               setHealthGroupFilter('All');
+              setHealthRuleFilter('All');
             }}>
               Clear filters
             </button>
