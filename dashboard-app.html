@@ -500,6 +500,8 @@
       
       /* openWorkItems representa las Stories y Bugs que continúan abiertos: Discovery + In Progress.*/
       const openWorkItems = Number(summary?.openWorkItems || 0);
+
+      const discoveryWithoutSprintWorkItems = Number( summary?.discoveryWithoutSprintWorkItems || 0 );
     
       /* Estado técnico: no fue posible recuperar o resumir el trabajo. Requiere revisión, pero no representa un riesgo crítico; por eso se muestra como Requires Attention (amarillo) */
       if (!summary || summary.source !== 'ok') {
@@ -512,9 +514,21 @@
           reason: 'Delivery work information could not be retrieved.'
         };
       }
-    
+
+      /*  1. Regla exclusiva para New: No se usa para In Planning ni In Shaping. */
+      if ( state === 'New' && !summary.hasWorkItems && summary.totalWorkItems === 0 )
+      {
+        return {
+          key: 'not-started',
+          label: 'Not started',
+          shortLabel: 'Not started',
+          className: 'delivery--not-started',
+          icon: '○',
+          reason: 'This Feature is New and does not have associated Stories or Bugs yet.'
+        };
+      }
       /*
-        1. Máxima prioridad:
+        2. Máxima prioridad:
         Target Date vencido y aún existe trabajo pendiente.
     
         Ejemplo:
@@ -523,10 +537,8 @@
         Pending work items > 0
         Resultado: Overdue
       */
-      if (
-        isPastTargetDate(feature.targetDate) &&
-        openWorkItems > 0
-      ) {
+      if ( isPastTargetDate(feature.targetDate) && openWorkItems > 0 )
+      {
         return {
           key: 'overdue',
           label: 'Overdue',
@@ -536,23 +548,33 @@
           reason: 'The Target Date has passed and delivery work remains open.'
         };
       }
-    
-      /*
-        2. Regla exclusiva para New:
-        No se usa para In Planning ni In Shaping.
-      */
-      if (
-        state === 'New' &&
-        !summary.hasWorkItems &&
-        summary.totalWorkItems === 0
-      ) {
+
+      /* 2.1 Target Date cercana y trabajo de Discovery sin Sprint.
+        Esta condición depende de deliverySummary, calculado por el backend,
+        para que funcione aunque el usuario nunca abra las Stories del Feature. */
+      if ( isTargetDateWithinNextTwoWeeks(feature.targetDate) && discoveryWithoutSprintWorkItems > 0 )
+      {
         return {
-          key: 'not-started',
-          label: 'Not started',
-          shortLabel: 'Not started',
-          className: 'delivery--not-started',
-          icon: '○',
-          reason: 'This Feature is New and does not have associated Stories or Bugs yet.'
+          key: 'target-date-near-unscheduled-discovery',
+          label: 'At risk',
+          shortLabel: 'At risk',
+          className: 'delivery--overdue',
+          icon: '!',
+          reason: `${discoveryWithoutSprintWorkItems} Discovery work item(s) are not assigned to a Sprint, and the Target Date is within the next two weeks.`
+        };
+      }
+      
+      /* 2.2 Target Date en el próximo mes calendario y sin Release Fix Version. */
+       if ( isTargetDateInNextCalendarMonth(feature.targetDate) && !String(feature.releaseFixVersion || '').trim() )
+      {
+        return {
+          key: 'target-next-month-without-release',
+          label: 'At risk',
+          shortLabel: 'At risk',
+          className: 'delivery--overdue',
+          icon: '!',
+          reason:
+            'The Target Date is in the next calendar month, but no Release Fix Version is defined.'
         };
       }
     
@@ -569,7 +591,7 @@
         };
       }
 
-      /* Si está Closed y no queda trabajo abierto, sí puede mostrarse Healthy; ya no depende solamente del estado Closed. */
+      /* 3.1 Si está Closed y no queda trabajo abierto, sí puede mostrarse Healthy; ya no depende solamente del estado Closed. */
       if (isClosed) {
         return {
           key: 'healthy',
@@ -620,9 +642,8 @@
       }
     
       /* 7. Existe trabajo pendiente, pero ninguno está activo. */
-      if (
-        state === 'In Process' && summary.pendingWorkItems > 0 && (summary.inProgressWorkItems ?? summary.activeWorkItems ?? 0) === 0
-      ) {
+      if ( state === 'In Process' && summary.pendingWorkItems > 0 && (summary.inProgressWorkItems ?? summary.activeWorkItems ?? 0) === 0 )
+      {
         return {
           key: 'no-active-work',
           label: 'No active work',
@@ -657,6 +678,53 @@
       };
     }
 
+    function isTargetDateWithinNextTwoWeeks(targetDate) {
+      const target = parseDashboardDate(targetDate);
+    
+      if (!target) {
+        return false;
+      }
+    
+      const today = new Date();
+      const twoWeeksFromToday = new Date(today);
+    
+      today.setHours(0, 0, 0, 0);
+      twoWeeksFromToday.setHours(0, 0, 0, 0);
+      twoWeeksFromToday.setDate(twoWeeksFromToday.getDate() + 14);
+    
+      target.setHours(0, 0, 0, 0);
+    
+      return target >= today && target <= twoWeeksFromToday;
+    }
+    
+    function isTargetDateInNextCalendarMonth(targetDate) {
+      const target = parseDashboardDate(targetDate);
+    
+      if (!target) {
+        return false;
+      }
+    
+      const today = new Date();
+    
+      const nextMonthStart = new Date(
+        today.getFullYear(),
+        today.getMonth() + 1,
+        1
+      );
+    
+      const nextMonthEnd = new Date(
+        today.getFullYear(),
+        today.getMonth() + 2,
+        0
+      );
+    
+      target.setHours(0, 0, 0, 0);
+      nextMonthStart.setHours(0, 0, 0, 0);
+      nextMonthEnd.setHours(23, 59, 59, 999);
+    
+      return target >= nextMonthStart && target <= nextMonthEnd;
+    }
+    
     /* El badge muestra la alerta principal según la precedencia de getDeliveryHealth(). Este arreglo permite que el panel muestre
       todas las alertas aplicables para seguimiento. */
     function getDeliveryHealthAlerts(feature) {
@@ -682,6 +750,7 @@
       const pendingWorkItems = Number( summary.pendingWorkItems || 0 );
       const openWorkItems = Number( summary.openWorkItems || 0 );
       const unestimatedWorkItems = Number( summary.unestimatedWorkItems || 0 );
+      const discoveryWithoutSprintWorkItems = Number( summary.discoveryWithoutSprintWorkItems || 0 );
       const isClosed = deliveryClosedStates.includes(state);
       const isExecutionState = deliveryExecutionStates.includes(state);
       const alerts = [];
@@ -695,6 +764,28 @@
         });
       }
 
+      if ( isTargetDateWithinNextTwoWeeks(feature.targetDate) && discoveryWithoutSprintWorkItems > 0 )
+      {
+        alerts.push({
+          key: 'target-date-near-unscheduled-discovery',
+          label: 'Target date near',
+          className: 'delivery-alert--overdue',
+          reason:
+            `${discoveryWithoutSprintWorkItems} Discovery work item(s) are not assigned to a Sprint, and the Target Date is within the next two weeks.`
+        });
+      }
+      
+      if ( isTargetDateInNextCalendarMonth(feature.targetDate) && !String(feature.releaseFixVersion || '').trim() )
+      {
+        alerts.push({
+          key: 'target-next-month-without-release',
+          label: 'Target date next month — no Release Fix Version',
+          className: 'delivery-alert--overdue',
+          reason:
+            'The Target Date falls in the next calendar month, but no Release Fix Version is defined.'
+        });
+      }
+      
       if (isClosed && openWorkItems > 0) {
         alerts.push({
           key: 'closed-with-open-work',
@@ -1250,7 +1341,8 @@
         inProgressWorkItems: 0,
         pendingWorkItems: 0,
         openWorkItems: 0,
-        unestimatedWorkItems: 0
+        unestimatedWorkItems: 0,
+        discoveryWithoutSprintWorkItems: 0
       };
 
       workItems.forEach(workItem => {
@@ -1278,6 +1370,12 @@
         if (!hasWorkItemEstimate(workItem)) {
           summary.unestimatedWorkItems += 1;
         }
+
+        const hasIterationPath = typeof workItem.iterationPath === 'string' && workItem.iterationPath.trim() !== '';
+        
+        if (category === 'pending' && !hasIterationPath) {
+          summary.discoveryWithoutSprintWorkItems += 1;
+        }      
       });
 
         summary.openWorkItems =
@@ -1735,6 +1833,12 @@
                 {summary.unestimatedWorkItems} no estimated
               </span>
             )}
+
+            {summary.discoveryWithoutSprintWorkItems > 0 && (
+              <span className="delivery-details__metric">
+                {summary.discoveryWithoutSprintWorkItems} Discovery without Sprint
+              </span>
+            )}
           </div>
 
           <div className="delivery-alerts-grid">
@@ -1952,6 +2056,8 @@
       
       const requiresActionHealthKeys = [
         'overdue'
+        'target-date-near-unscheduled-discovery',
+        'target-next-month-without-release'
       ];
 
       const requiresAttentionHealthKeys = [
@@ -2567,12 +2673,13 @@
               <ReadinessOverview 
                 counts={readinessCounts}
                 SelectedReadiness={readinessFilter} 
-                isAllFeaturesSelected={ readinessFilter === 'All' && healthGroupFilter === 'All' }
+                isAllFeaturesSelected={ readinessFilter === 'All' && healthGroupFilter === 'All' && healthRuleFilter === 'All' }
                 onSelectReadiness={(readiness) => {
                   /* All Features limpia los filtros provenientes de las tarjetas KPI: Readiness y Delivery Health. */
                   if (readiness === 'All') {
                     setReadinessFilter('All');
                     setHealthGroupFilter('All');
+                    setHealthRuleFilter('All');
                   } else {
                     setReadinessFilter(readiness);
                   }
@@ -2755,7 +2862,6 @@
                     </thead>
                     <tbody>
                       {featuresPageItems.map(f => {
-                        const featureRowBg = { 'New': '#f8fafc', 'In Shaping': '#fffbeb', 'In Planning': '#fff7ed', 'Planned': '#f0fdf4', 'In Process': '#eff6ff', 'Closed': '#f5f3ff' }[f.state] || 'white';
                         const featureStateDot = { 'New': '#94a3b8', 'In Shaping': '#fbbf24', 'In Planning': '#fb923c', 'Planned': '#34d399', 'In Process': '#60a5fa', 'Closed': '#a78bfa' }[f.state] || '#ccc';
                         const isHistoryPanelOpen = expandedFeaturePanel?.featureId === f.id && expandedFeaturePanel?.panel === 'history';
                         const isReadinessPanelOpen = expandedFeaturePanel?.featureId === f.id && expandedFeaturePanel?.panel === 'readiness';
