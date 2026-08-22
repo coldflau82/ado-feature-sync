@@ -177,6 +177,7 @@ const DELIVERY_WORK_ITEM_FIELDS = [
   'System.Id',
   'System.WorkItemType',
   'System.State',
+  'System.IterationPath',
   'Microsoft.VSTS.Scheduling.StoryPoints',
   'System.AssignedTo'
 ];
@@ -372,6 +373,7 @@ function mapFeature(i) {
       openWorkItems: null,
 
       unestimatedWorkItems: null,
+      discoveryWithoutSprintWorkItems: null,
       workItemsPendingDelivery: null,
 
       /*
@@ -463,8 +465,9 @@ function buildDeliverySummary(workItems, source = 'ok') {
     openWorkItems: null,
 
     unestimatedWorkItems: null,
+    discoveryWithoutSprintWorkItems: null,
     workItemsPendingDelivery: null,
-
+    
     // Alias de compatibilidad temporal.
     excludedWorkItems: null,
     completedWorkItems: null,
@@ -489,6 +492,7 @@ function buildDeliverySummary(workItems, source = 'ok') {
   let inProgressWorkItems = 0;
   let pendingWorkItems = 0;
   let unestimatedWorkItems = 0;
+  let discoveryWithoutSprintWorkItems = 0;
 
   relevantWorkItems.forEach(item => {
     const state = item.state || '';
@@ -500,28 +504,31 @@ function buildDeliverySummary(workItems, source = 'ok') {
       return;
     }
 
+    let isDiscoveryWork = false;
+
     if (DONE_WORK_STATES.includes(state)) {
       doneWorkItems += 1;
     } else if (IN_PROGRESS_WORK_STATES.includes(state)) {
       inProgressWorkItems += 1;
     } else {
-      /*
-        Cualquier estado vigente no reconocido explícitamente como Done
-        o In progress se considera Pending.
-        
-        Ejemplos actuales:
-        New, Business Refinement, Technical Refinement, Planned,
-        Ready for Development, o cualquier nuevo estado futuro.
-      */
+      /* Cualquier estado vigente que no sea Done ni In progress se considera trabajo en Discovery / pendiente. */
       pendingWorkItems += 1;
+      isDiscoveryWork = true;
     }
-
+    
+    /* Para esta regla, "sin Sprint" significa que el Work Item no tiene Iteration Path informado. Los elementos Removed ya salieron antes. */
+      const hasIterationPath =
+      typeof item.iterationPath === 'string' &&
+      item.iterationPath.trim().length > 0;
+    
+    if (isDiscoveryWork && !hasIterationPath) {
+      discoveryWithoutSprintWorkItems += 1;
+    }
+    
     /*
       Se conserva la política existente de estimación:
       sólo los estados incluidos en ESTIMABLE_WORK_STATES requieren
       Story Points para contar como "unestimated".
-
-      Importante: Removed ya salió del flujo antes de este punto.
     */
     const storyPoints = Number(item.storyPoints) || 0;
 
@@ -560,6 +567,7 @@ function buildDeliverySummary(workItems, source = 'ok') {
     openWorkItems,
 
     unestimatedWorkItems,
+    discoveryWithoutSprintWorkItems,
 
     // Overdue debe depender de trabajo vigente no terminado.
     workItemsPendingDelivery: openWorkItems > 0,
@@ -606,6 +614,7 @@ async function fetchDeliveryWorkItemsBatch(c, ids) {
           id: workItem.id,
           workItemType: fields['System.WorkItemType'] || '',
           state: fields['System.State'] || '',
+          iterationPath: fields['System.IterationPath'] || '',
           storyPoints:
             fields['Microsoft.VSTS.Scheduling.StoryPoints'] || '',
           assignedTo:
