@@ -55,30 +55,28 @@
     .readiness-summary--missing { color: #b91c1c; }
     .readiness-summary--unknown { color: #475569; }
     .readiness-overview { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 9px; margin: 0; } 
-    /*.readiness-overview-card,.health-overview-card { min-width: 100px; width: 100px; flex: 0 0 100px; }*/
+    .readiness-overview-card { min-width: 118px; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; text-align: left; } 
     .readiness-overview-card:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08); }
     .readiness-overview-card--active { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.16); } 
+    .readiness-overview-card__label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #475569; } 
+    .readiness-overview-card__count { display: block; margin-top: 4px; font-size: 22px; line-height: 1; font-weight: 700; color: #1e293b; } 
     .readiness-overview-card--ready { background: #f0fdf4; border-color: #86efac; }
     .readiness-overview-card--ready .readiness-overview-card__label { color: #166534; }
     .readiness-overview-card--needs-info { background: #fff7ed; border-color: #fb923c; }
     .readiness-overview-card--needs-info .readiness-overview-card__label { color: #9a3412; }
     .readiness-overview-card--unknown { background: #f8fafc; border-color: #cbd5e1; }
-    .readiness-overview-card--unknown .readiness-overview-card__label { color: #475569; }
-    .readiness-overview-card__content, .health-overview-card__content { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; }
-    .readiness-overview-card__label,.health-overview-card__label { display: flex; align-items: center; gap: 5px; min-width: 0; text-align: left; }
-    .readiness-overview-card__label { font-size: 11px; font-weight: 700; color: #475569; }
-    .readiness-overview-card__label-text,.health-overview-card__label-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.1; white-space: nowrap; }
-    .health-overview-card__label { font-size: 11px; font-weight: 700; }
-    .readiness-overview-card__count,.health-overview-card__count { flex-shrink: 0; margin: 0; font-size: 32px; line-height: 1; font-weight: 700; color: #1e293b; text-align: right; }
+    .readiness-overview-card--unknown .readiness-overview-card__label { color: #475569; } 
     .health-overview { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 9px; margin: 0;}
-    .health-overview-card, readiness-overview-card { min-width: 120px; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); text-align: left; }
+    .health-overview-card { min-width: 130px; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); text-align: left; }
+    .health-overview-card__label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; }
+    .health-overview-card__count { display: block; margin-top: 4px; font-size: 22px; line-height: 1; font-weight: 700; color: #1e293b; }
     .health-overview-card--action { background: #fef2f2; border-color: #fca5a5; }
     .health-overview-card--action .health-overview-card__label { color: #991b1b; }
     .health-overview-card--attention { background: #fef3c7; border-color: #fbbf24; }
     .health-overview-card--attention .health-overview-card__label { color: #854d0e; }
     .health-overview-card--healthy { background: #f0fdf4; border-color: #86efac; }
     .health-overview-card--healthy .health-overview-card__label { color: #166534; }
-  /*  .health-overview-card { cursor: pointer; font-family: inherit; transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; }*/
+    .health-overview-card { cursor: pointer; font-family: inherit; transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; }
     .health-overview-card:hover { border-color: #94a3b8; transform: translateY(-1px); }
     .health-overview-card--selected { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18); }
     .health-overview-card:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
@@ -894,31 +892,27 @@
       const cards = [
         {
           key: 'All',
-          label1: 'All',
-          label2: 'Features',
+          label: 'All Features',
           count: counts.total,
           className: ''
         },
         {
           key: 'Healthy',
-          label1: 'Ready',
-          label2: '',
+          label: 'Ready',
           count: counts.healthy,
           icon: '✓',
           className: 'readiness-overview-card--ready'
         },
         {
           key: 'Incomplete',
-          label1: 'Needs',
-          label2: 'info',
+          label: 'Needs info',
           count: counts.incomplete,
           icon: '!',
           className: 'readiness-overview-card--needs-info'
         },
         {
           key: 'Unknown',
-          label1: 'Unable to',
-          label2: 'validate',
+          label: 'Unable to validate',
           count: counts.unknown,
           icon: '?',
           className: 'readiness-overview-card--unknown'
@@ -932,42 +926,19 @@
         <div className="readiness-overview">
           {cards.map(card => { 
             const isSelected = card.key === 'All' ? isAllFeaturesSelected : SelectedReadiness === card.key;
-
-            const cardLabel = [card.label1, card.label2]
-              .filter(Boolean)
-              .join(' ');
           
             return (
               <button key={card.key} type="button" className={[ 'readiness-overview-card', card.className, isSelected ? 'readiness-overview-card--active' : '' ].filter(Boolean).join(' ')}
                 onClick={() => onSelectReadiness(card.key)}
-                title={
-                  card.key === 'All'
-                    ? 'Clear KPI filters and show all Features'
-                    : `Filter Features by readiness: ${cardLabel}`
-                }
-                >
-                  <span className="readiness-overview-card__content">
-                    <span className="readiness-overview-card__label">
-                      {card.icon && (
-                        <span className="readiness-overview-card__icon">
-                          {card.icon}
-                        </span>
-                      )}
-                
-                      <span className="readiness-overview-card__label-text">
-                        <span>{card.label1}</span>
-                
-                        {card.label2 && (
-                          <span>{card.label2}</span>
-                        )}
-                      </span>
-                    </span>
-                
-                    <span className="readiness-overview-card__count">
-                      {card.count}
-                    </span>
-                  </span>
-                </button>
+                title={ card.key === 'All' ? 'Clear KPI filters and show all Features' : `Filter Features by readiness: ${card.label}`} >
+                <span className="readiness-overview-card__label">
+                  {card.icon && <span>{card.icon}</span>}
+                  {card.label}
+                </span>
+                <span className="readiness-overview-card__count">
+                  {card.count}
+                </span>
+              </button>
             );
           })}
         </div>
@@ -980,41 +951,34 @@
       onSelectHealthGroup
     }) {
       const cards = [
-      {
-        key: 'requires-action',
-        label1: 'Action',
-        label2: 'needed',
-        count: counts.requiresAction,
-        icon: '!',
-        className: 'health-overview-card--action'
-      },
-      {
-        key: 'requires-attention',
-        label1: 'Needs',
-        label2: 'review',
-        count: counts.requiresAttention,
-        icon: '!',
-        className: 'health-overview-card--attention'
-      },
-      {
-        key: 'healthy',
-        label1: 'Healthy',
-        label2: '',
-        count: counts.healthy,
-        icon: '✓',
-        className: 'health-overview-card--healthy'
-      }
-    ];
+        {
+          key: 'requires-action',
+          label: 'Requires Action',
+          count: counts.requiresAction,
+          icon: '!',
+          className: 'health-overview-card--action'
+        },
+        {
+          key: 'requires-attention',
+          label: 'Requires Attention',
+          count: counts.requiresAttention,
+          icon: '!',
+          className: 'health-overview-card--attention'
+        },
+        {
+          key: 'healthy',
+          label: 'Healthy',
+          count: counts.healthy,
+          icon: '✓',
+          className: 'health-overview-card--healthy'
+        }
+      ];
 
       return (
         <div className="health-overview">
           {cards.map(card => {
             const isSelected = selectedHealthGroup === card.key;
 
-            const cardLabel = [card.label1, card.label2]
-              .filter(Boolean)
-              .join(' ');
-          
             return (
               <button
                 key={card.key}
@@ -1024,29 +988,18 @@
                   card.className,
                   isSelected ? 'health-overview-card--selected' : ''
                 ].filter(Boolean).join(' ')}
-                title={`${cardLabel}: ${card.count} Feature(s)`}
+                title={`${card.label}: ${card.count} Feature(s)`}
                 onClick={() => onSelectHealthGroup(card.key)}
-                >
-                  <span className="health-overview-card__content">
-                    <span className="health-overview-card__label">
-                      <span className="health-overview-card__icon">
-                        {card.icon}
-                      </span>
-                
-                      <span className="health-overview-card__label-text">
-                        <span>{card.label1}</span>
-                
-                        {card.label2 && (
-                          <span>{card.label2}</span>
-                        )}
-                      </span>
-                    </span>
-                
-                    <span className="health-overview-card__count">
-                      {card.count}
-                    </span>
-                  </span>
-                </button>
+              >
+                <span className="health-overview-card__label">
+                  <span>{card.icon}</span>
+                  {card.label}
+                </span>
+
+                <span className="health-overview-card__count">
+                  {card.count}
+                </span>
+              </button>
             );
           })}
         </div>
