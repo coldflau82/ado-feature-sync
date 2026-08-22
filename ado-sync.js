@@ -561,6 +561,7 @@ function buildDeliverySummary(workItems, source = 'ok') {
     if (isWorkItemUnestimated(item)) {
       unestimatedWorkItems += 1;
     }
+  });
 
   const includedWorkItems =
     doneWorkItems +
