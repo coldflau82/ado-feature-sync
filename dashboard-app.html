@@ -55,21 +55,26 @@
     .readiness-summary--missing { color: #b91c1c; }
     .readiness-summary--unknown { color: #475569; }
     .readiness-overview { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 9px; margin: 0; } 
-    .readiness-overview-card { min-width: 118px; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; text-align: left; } 
+    .readiness-overview-card { min-width: 130px; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; text-align: left; } 
     .readiness-overview-card:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08); }
     .readiness-overview-card--active { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.16); } 
-    .readiness-overview-card__label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #475569; } 
-    .readiness-overview-card__count { display: block; margin-top: 4px; font-size: 22px; line-height: 1; font-weight: 700; color: #1e293b; } 
+/*  .readiness-overview-card__label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #475569; } 
+    .readiness-overview-card__count { display: block; margin-top: 4px; font-size: 22px; line-height: 1; font-weight: 700; color: #1e293b; } */
     .readiness-overview-card--ready { background: #f0fdf4; border-color: #86efac; }
     .readiness-overview-card--ready .readiness-overview-card__label { color: #166534; }
     .readiness-overview-card--needs-info { background: #fff7ed; border-color: #fb923c; }
     .readiness-overview-card--needs-info .readiness-overview-card__label { color: #9a3412; }
     .readiness-overview-card--unknown { background: #f8fafc; border-color: #cbd5e1; }
-    .readiness-overview-card--unknown .readiness-overview-card__label { color: #475569; } 
+    .readiness-overview-card--unknown .readiness-overview-card__label { color: #475569; }
+    .readiness-overview-card__content, .health-overview-card__content { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; }
+    .readiness-overview-card__label,.health-overview-card__label { display: flex; align-items: flex-start; gap: 6px; min-width: 0; white-space: normal; text-align: left; line-height: 1.15; }
+    .readiness-overview-card__label { font-size: 11px; font-weight: 700; color: #475569; }
+    .health-overview-card__label { font-size: 11px; font-weight: 700; }
+    .readiness-overview-card__count,.health-overview-card__count { display: block; margin: 0; font-size: 26px; line-height: 1; font-weight: 700; color: #1e293b; text-align: right; }
     .health-overview { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 9px; margin: 0;}
-    .health-overview-card { min-width: 130px; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); text-align: left; }
-    .health-overview-card__label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; white-space: nowrap; }
-    .health-overview-card__count { display: block; margin-top: 4px; font-size: 22px; line-height: 1; font-weight: 700; color: #1e293b; }
+    .health-overview-card { min-width: 145px; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); text-align: left; }
+ /* .health-overview-card__label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .health-overview-card__count { display: block; margin-top: 4px; } */
     .health-overview-card--action { background: #fef2f2; border-color: #fca5a5; }
     .health-overview-card--action .health-overview-card__label { color: #991b1b; }
     .health-overview-card--attention { background: #fef3c7; border-color: #fbbf24; }
@@ -931,12 +936,14 @@
               <button key={card.key} type="button" className={[ 'readiness-overview-card', card.className, isSelected ? 'readiness-overview-card--active' : '' ].filter(Boolean).join(' ')}
                 onClick={() => onSelectReadiness(card.key)}
                 title={ card.key === 'All' ? 'Clear KPI filters and show all Features' : `Filter Features by readiness: ${card.label}`} >
-                <span className="readiness-overview-card__label">
-                  {card.icon && <span>{card.icon}</span>}
-                  {card.label}
-                </span>
-                <span className="readiness-overview-card__count">
-                  {card.count}
+                <span className="readiness-overview-card__content">
+                  <span className="readiness-overview-card__label">
+                    {card.icon && <span>{card.icon}</span>}
+                    {card.label}
+                  </span>
+                  <span className="readiness-overview-card__count">
+                    {card.count}
+                  </span>
                 </span>
               </button>
             );
@@ -960,7 +967,7 @@
         },
         {
           key: 'requires-attention',
-          label: 'At risk',
+          label: 'Needs Review',
           count: counts.requiresAttention,
           icon: '!',
           className: 'health-overview-card--attention'
@@ -991,13 +998,15 @@
                 title={`${card.label}: ${card.count} Feature(s)`}
                 onClick={() => onSelectHealthGroup(card.key)}
               >
-                <span className="health-overview-card__label">
-                  <span>{card.icon}</span>
-                  {card.label}
-                </span>
-
-                <span className="health-overview-card__count">
-                  {card.count}
+               <span className="health-overview-card__content">
+                  <span className="health-overview-card__label">
+                    <span>{card.icon}</span>
+                    {card.label}
+                  </span>
+                
+                  <span className="health-overview-card__count">
+                    {card.count}
+                  </span>
                 </span>
               </button>
             );
