@@ -1303,34 +1303,45 @@
       'User Acceptance Testing'
     ];
 
-    function hasWorkItemEstimate(workItem) {
+    /* Debe coincidir con ESTIMABLE_WORK_STATES del backend. Sólo estos estados requieren que el work item tenga estimación.
+      Los elementos Closed, Removed u otros estados tempranos no generan la alerta actual "No estimated work". */
+    const estimateRequiredStates = [
+      'Planned',
+      'Ready for Development',
+      'In Process',
+      'QA Testing',
+      'Business Sprint Testing',
+      'User Acceptance Testing',
+      'Approved for Release',
+      'Ready for Deployment',
+      'Sprint Complete'
+    ];
+    
+    /*
+      La fuente de verdad preferida es el backend. Cuando el backend entregue isUnestimated, el frontend no debe
+      reinterpretar Story Points ni Work Item Type. El fallback conserva la misma regla mientras exista una respuesta cacheada antigua. */
+    function isWorkItemUnestimated(workItem) {
+      if (typeof workItem?.isUnestimated === 'boolean') {
+        return workItem.isUnestimated;
+      }
+    
       const value = workItem?.storyPoints;
-      const workItemType = workItem?.workItemType;
-
-      // NULL, undefined o vacío siempre representan información faltante.
-      if (
+      const state = String(workItem?.state || '').trim();
+    
+      const hasMissingOrZeroEstimate =
         value === null ||
         value === undefined ||
-        String(value).trim() === ''
-      ) {
-        return false;
-      }
-
-      /*
-        Regla de estimación:
-        - Bug: 0 Story Points es válido.
-        - User Story: debe tener Story Points mayores que 0.
-      */
-      if (workItemType === 'Bug') {
-        return Number(value) >= 0;
-      }
-
-      if (workItemType === 'User Story') {
-        return Number(value) > 0;
-      }
-
-      // Para otros tipos, se conserva la validación de campo informado.
-      return true;
+        String(value).trim() === '' ||
+        Number(value) <= 0;
+    
+      return (
+        estimateRequiredStates.includes(state) &&
+        hasMissingOrZeroEstimate
+      );
+    }
+    
+    function hasWorkItemEstimate(workItem) {
+      return !isWorkItemUnestimated(workItem);
     }
 
     function getWorkItemDeliveryCategory(workItem) {
@@ -1810,10 +1821,6 @@
               <strong className="delivery-details__title">
                 Delivery Health
               </strong>
-
-              <div className="delivery-details__reason">
-                {delivery.reason}
-              </div>
             </div>
 
             <span
@@ -1855,7 +1862,7 @@
 
             {summary.unestimatedWorkItems > 0 && (
               <span className="delivery-details__metric">
-                {summary.unestimatedWorkItems} no estimated
+                {summary.unestimatedWorkItems} need estimate
               </span>
             )}
 
