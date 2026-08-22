@@ -2954,7 +2954,7 @@
                 {filterState.length > 0 && <p className="filter-count">{filterState.length} selected</p>}
               </div>
               <div>
-                <label className="filter-label">Target Date (year/month)</label>
+                <label className="filter-label">Target Date</label>
                 <select multiple className="filter-select" value={filterTargetDate} onChange={(e) => setFilterTargetDate([...e.target.selectedOptions].map(o => o.value))}>
                   {targetYears.map(year => (
                     <React.Fragment key={year}>
