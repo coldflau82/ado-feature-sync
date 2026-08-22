@@ -225,6 +225,35 @@ const ESTIMABLE_WORK_STATES = [
   'Sprint Complete'
 ];
 
+/*
+  Preserva la diferencia entre:
+  - null: ADO no tiene Story Points informados;
+  - 0: el work item tiene una estimación de cero.
+  La política actual considera ambos casos como no estimados cuando el estado requiere estimación.
+*/
+function normalizeStoryPoints(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function workItemRequiresEstimate(state) {
+  return ESTIMABLE_WORK_STATES.includes(String(state || '').trim());
+}
+
+function isWorkItemUnestimated(workItem) {
+  const storyPoints = normalizeStoryPoints(workItem.storyPoints);
+
+  return (
+    workItemRequiresEstimate(workItem.state) &&
+    (storyPoints === null || storyPoints <= 0)
+  );
+}
+
 // ===== Determina si el Feature tiene un Parent jerárquico =====
 // Solo devuelve true / false. No expone información del elemento padre.
 function hasParentRelation(workItem) {
@@ -525,20 +554,13 @@ function buildDeliverySummary(workItems, source = 'ok') {
       discoveryWithoutSprintWorkItems += 1;
     }
     
-    /*
-      Se conserva la política existente de estimación:
-      sólo los estados incluidos en ESTIMABLE_WORK_STATES requieren
-      Story Points para contar como "unestimated".
-    */
-    const storyPoints = Number(item.storyPoints) || 0;
-
-    if (
-      ESTIMABLE_WORK_STATES.includes(state) &&
-      storyPoints <= 0
-    ) {
+    /* Un work item cuenta como "unestimated" únicamente si su estado
+      requiere estimación y no tiene puntos válidos o tiene 0 puntos.    
+      La misma función se expondrá al frontend mediante isUnestimated,
+      para que el detalle gris y Delivery Health siempre coincidan. */
+    if (isWorkItemUnestimated(item)) {
       unestimatedWorkItems += 1;
     }
-  });
 
   const includedWorkItems =
     doneWorkItems +
@@ -615,8 +637,9 @@ async function fetchDeliveryWorkItemsBatch(c, ids) {
           workItemType: fields['System.WorkItemType'] || '',
           state: fields['System.State'] || '',
           iterationPath: fields['System.IterationPath'] || '',
-          storyPoints:
-            fields['Microsoft.VSTS.Scheduling.StoryPoints'] || '',
+          storyPoints: normalizeStoryPoints(
+            fields['Microsoft.VSTS.Scheduling.StoryPoints']
+          ),
           assignedTo:
             typeof fields['System.AssignedTo'] === 'string'
               ? fields['System.AssignedTo']
@@ -1215,22 +1238,22 @@ app.get('/api/feature-stories/:id', async (req, res) => {
           - un objeto IdentityRef con displayName;
           - un texto, según la respuesta o integración.
         */
-        const assignedTo =
-          typeof assignedToField === 'string'
-            ? assignedToField
-            : assignedToField?.displayName ||
-              assignedToField?.uniqueName ||
-              '';
-
+        const assignedTo = typeof assignedToField === 'string' ? assignedToField : assignedToField?.displayName || assignedToField?.uniqueName || '';
+        const state = fields['System.State'] || '';
+        const storyPoints = normalizeStoryPoints( fields['Microsoft.VSTS.Scheduling.StoryPoints'] );
+        const deliveryWorkItem = { id: workItem.id, state, storyPoints };
+        
         return {
           id: workItem.id,
           title: fields['System.Title'] || '',
-          storyPoints:
-            fields['Microsoft.VSTS.Scheduling.StoryPoints'] || 0,
-          state: fields['System.State'] || '',
+          storyPoints,
+          state,
           workItemType: fields['System.WorkItemType'] || '',
           iterationPath: fields['System.IterationPath'] || '',
-          assignedTo
+          assignedTo,
+          /* Estas banderas permiten que el frontend no replique ni contradiga las reglas de Delivery Health del backend. */
+          requiresEstimate: workItemRequiresEstimate(state),
+          isUnestimated: isWorkItemUnestimated(deliveryWorkItem)
         };
       });
 
