@@ -54,7 +54,7 @@
     .readiness-summary { margin-top: 10px; font-size: 11px; line-height: 1.5; }
     .readiness-summary--missing { color: #b91c1c; }
     .readiness-summary--unknown { color: #475569; }
-    .readiness-overview { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 10px; margin: 0; } 
+    .readiness-overview { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 9px; margin: 0; } 
     .readiness-overview-card { min-width: 118px; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; text-align: left; } 
     .readiness-overview-card:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08); }
     .readiness-overview-card--active { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.16); } 
@@ -66,7 +66,7 @@
     .readiness-overview-card--needs-info .readiness-overview-card__label { color: #9a3412; }
     .readiness-overview-card--unknown { background: #f8fafc; border-color: #cbd5e1; }
     .readiness-overview-card--unknown .readiness-overview-card__label { color: #475569; } 
-    .health-overview { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 10px; margin: 0;}
+    .health-overview { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 9px; margin: 0;}
     .health-overview-card { min-width: 130px; padding: 8px 11px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); text-align: left; }
     .health-overview-card__label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; }
     .health-overview-card__count { display: block; margin-top: 4px; font-size: 22px; line-height: 1; font-weight: 700; color: #1e293b; }
@@ -151,7 +151,7 @@
     .feature-history__box { position: relative; z-index: 1; min-height: 62px; display: flex; flex-direction: column; justify-content: center; padding: 8px; border: 1px solid #cbd5e1; border-top: 4px solid var(--state-color, #94a3b8); border-radius: 6px; background: white; text-align: center; overflow: hidden; } 
     .feature-history__state { color: #1e293b; font-size: 11px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
     .feature-history__date { margin-top: 5px; color: #64748b; font-size: 10px; white-space: nowrap; } 
-    .feature-stories-panel__divider { height: 1px; background: #dbe4ee; margin: 14px 0 12px; } 
+   /* .feature-stories-panel__divider { height: 1px; background: #dbe4ee; margin: 14px 0 12px; } */
     .feature-story-card__assigned-to { color: #475569; font-size: 10px; }
     .delivery-details { margin: 0; } 
     .delivery-details__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 12px; } 
@@ -2805,16 +2805,20 @@
 
       return (
         <div className="container">
-          <div className="header" style={{ display: 'grid', gridTemplateColumns: 'auto 1px minmax(0, 1fr) 1px auto', alignItems: 'center', columnGap: '16px', marginBottom: '12px' }}>
-            <h1 style={{ margin: 0, justifySelf: 'start', whiteSpace: 'nowrap', fontSize: '22px', lineHeight: '1.05', letterSpacing: '0.5px' }}>ADO DEC <br /> Dashboard</h1>
-              <div aria-hidden="true" style={{ width: '1px', alignSelf: 'stretch', background: '#e2e8f0' }} />
-                <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'center', gap: '10px', flexWrap: 'nowrap', minWidth: 0 }}>
-              <ReadinessOverview 
+          <div className="header" style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', alignItems: 'center', columnGap: '16px', marginBottom: '12px' }}>
+            <h1 style={{ margin: 0, justifySelf: 'start', whiteSpace: 'nowrap', fontSize: '22px', lineHeight: '1.05', letterSpacing: '0.5px' }}>
+              ADO DEC <br /> Dashboard
+            </h1>
+            <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'center', gap: '9px', flexWrap: 'nowrap', minWidth: 0}}>
+              <ReadinessOverview
                 counts={readinessCounts}
-                SelectedReadiness={readinessFilter} 
-                isAllFeaturesSelected={ readinessFilter === 'All' && healthGroupFilter === 'All' && healthRuleFilter === 'All' }
+                SelectedReadiness={readinessFilter}
+                isAllFeaturesSelected={
+                  readinessFilter === 'All' &&
+                  healthGroupFilter === 'All' &&
+                  healthRuleFilter === 'All'
+                }
                 onSelectReadiness={(readiness) => {
-                  /* All Features limpia los filtros provenientes de las tarjetas KPI: Readiness y Delivery Health. */
                   if (readiness === 'All') {
                     setReadinessFilter('All');
                     setHealthGroupFilter('All');
@@ -2822,30 +2826,31 @@
                   } else {
                     setReadinessFilter(readiness);
                   }
+          
                   setFeaturesPage(1);
                   setRoadmapPage(1);
                   setExpandedRoadmapFeatureId(null);
                 }}
               />
-              <DeliveryHealthOverview counts={deliveryHealthCounts} selectedHealthGroup={healthGroupFilter} onSelectHealthGroup={(healthGroup) => {
-                  setHealthGroupFilter(currentFilter => currentFilter === healthGroup ? 'All' : healthGroup
+          
+              <DeliveryHealthOverview
+                counts={deliveryHealthCounts}
+                selectedHealthGroup={healthGroupFilter}
+                onSelectHealthGroup={(healthGroup) => {
+                  setHealthGroupFilter(currentFilter =>
+                    currentFilter === healthGroup ? 'All' : healthGroup
                   );
+          
                   setFeaturesPage(1);
                   setRoadmapPage(1);
                   setExpandedRoadmapFeatureId(null);
                 }}
               />
             </div>
-              <div aria-hidden="true" style={{ width: '1px', alignSelf: 'stretch', background: '#e2e8f0' }} />
-            <div style={{ display: 'flex', gap: '10px', justifySelf: 'end', whiteSpace: 'nowrap' }}>
-              <nav
-                className="view-switcher"
-                aria-label="Dashboard navigation"
-                style={{ justifySelf: 'end' }}
-              >
-                <button
-                  type="button"
-                  className={[
+          
+            <div style={{ display: 'flex', justifySelf: 'end', whiteSpace: 'nowrap' }}>
+              <nav className="view-switcher" aria-label="Dashboard navigation">
+                <button type="button" className={[
                     'view-switcher__button',
                     currentPage === 'features'
                       ? 'view-switcher__button--active'
@@ -2873,15 +2878,13 @@
                       <path d="M4 18h.01" />
                     </svg>
                   </span>
-              
+          
                   <span className="view-switcher__label">
                     Feature List
                   </span>
                 </button>
-              
-                <button
-                  type="button"
-                  className={[
+          
+                <button type="button" className={[
                     'view-switcher__button',
                     currentPage === 'roadmap'
                       ? 'view-switcher__button--active'
@@ -2908,14 +2911,14 @@
                       <path d="M17 7h2v2" />
                     </svg>
                   </span>
-              
+          
                   <span className="view-switcher__label">
                     Roadmap
                   </span>
                 </button>
               </nav>
             </div>
-          </div >
+          </div>
           {warnings.length > 0 && (
             <div className="warnings">
               <strong>⚠️ Data Warnings:</strong>
