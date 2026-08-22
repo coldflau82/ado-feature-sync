@@ -2924,7 +2924,7 @@
           </div>
 
           <div className="filters-card" style={{ background: 'white', padding: '15px 20px 10px 20px', borderRadius: '8px', marginBottom: '12px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '0.7fr 1.7fr 0.8fr 0.5fr 0.8fr 0.6fr', gap: '15px', alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '0.7fr 1.8fr 0.8fr 0.5fr 0.6fr 0.8fr', gap: '15px', alignItems: 'start' }}>
               <div>
                 <label className="filter-label">Area Path</label>
                 <select multiple className="filter-select" value={filterAreaPath} onChange={(e) => setFilterAreaPath([...e.target.selectedOptions].map(o => o.value))}>
@@ -2942,8 +2942,9 @@
               <div>
                 <label className="filter-label">Assigned To</label>
                 <select multiple className="filter-select" value={filterAssignedTo} onChange={(e) => setFilterAssignedTo([...e.target.selectedOptions].map(o => o.value))}>
-                  {assignedTos.map(person => <option key={person} value={person}>{person}</option>)}
-                </select>
+                  {[...assignedTos].sort((a, b) => getShortAssignedToName(a).localeCompare( getShortAssignedToName(b), undefined,{ sensitivity: 'base' } ))
+                      .map(person => ( <option key={person} value={person}> {getShortAssignedToName(person)} </option> ))}
+                  </select>
                 {filterAssignedTo.length > 0 && <p className="filter-count">{filterAssignedTo.length} selected</p>}
               </div>
               <div>
