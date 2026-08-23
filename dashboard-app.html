@@ -1699,27 +1699,22 @@
             )}
           </div>
 
-          <div className="delivery-alerts-grid">
-            {alerts.map(alert => (
-              <div
-                key={alert.key}
-                className={`delivery-alert ${alert.className}`}
-              >
-                <strong className="delivery-alert__title">
-                  {alert.label}
-                </strong>
-
-                <span>{alert.reason}</span>
-              </div>
-           /* ))} */
+          {alerts.length > 0 ? (
+            <div className="delivery-alerts-grid">
+              {alerts.map(alert => (
+                <div key={alert.key} className={`delivery-alert ${alert.className}`}>
+                  <strong className="delivery-alert__title">
+                    {alert.label}
+                  </strong>
+                  <span>{alert.reason}</span>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="delivery-work-group__empty">
               No delivery alerts apply to this Feature.
             </div>
           )}
-          </div>
-
           {pendingStories.length > 0 && (
             <DeliveryWorkItemGroup
               title="Discovery"
@@ -1727,29 +1722,6 @@
               adoLink={adoLink}
             />
           )}
-          
-          {inProgressStories.length > 0 && (
-            <DeliveryWorkItemGroup
-              title="In Progress"
-              stories={inProgressStories}
-              adoLink={adoLink}
-            />
-          )}
-          
-          {doneStories.length > 0 && (
-            <DeliveryWorkItemGroup
-              title="Done"
-              stories={doneStories}
-              adoLink={adoLink}
-            />
-          )}
-          
-          {visibleStories.length === 0 && (
-            <div className="delivery-work-group__empty">
-              No Stories or Bugs match the selected subfilter.
-            </div>
-          )}
-        </div>
       );
     }
 
@@ -1956,45 +1928,7 @@
 
         return groups;
       }
-      function getDeliveryHealthGroups(feature) {
-        const backendAlerts = feature.deliveryHealth?.alerts;
-
-        if (Array.isArray(backendAlerts)) {
-          return new Set(
-            backendAlerts
-              .map(alert => alert.group)
-              .filter(Boolean)
-          );
-        }
-
-        const alertKeys = getDeliveryHealthAlerts(feature)
-          .map(alert => alert.key);
-
-        const groups = new Set();
-
-        if (
-          requiresActionHealthKeys.some(
-            key => alertKeys.includes(key)
-          )
-        ) {
-          groups.add('requires-action');
-        }
-
-        if (
-          requiresAttentionHealthKeys.some(
-            key => alertKeys.includes(key)
-          )
-        ) {
-          groups.add('requires-attention');
-        }
-
-        if (alertKeys.includes('healthy')) {
-          groups.add('healthy');
-        }
-
-        return groups;
-      }
-
+          
       const deliveryHealthCounts = {
         requiresAction: filteredBeforeReadiness.filter(feature =>
           getDeliveryHealthGroups(feature).has('requires-action')
