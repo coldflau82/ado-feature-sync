@@ -225,6 +225,19 @@ const ESTIMABLE_WORK_STATES = [
   'Sprint Complete'
 ];
 
+// ===== Estados del Feature usados por Delivery Health =====
+// Estas reglas antes vivían únicamente en el frontend.
+// Ahora el backend será la fuente de verdad.
+
+const FEATURE_DELIVERY_EXECUTION_STATES = [
+  'Planned',
+  'In Process'
+];
+
+const FEATURE_CLOSED_STATES = [
+  'Closed'
+];
+
 /*
   Preserva la diferencia entre:
   - null: ADO no tiene Story Points informados;
@@ -251,6 +264,125 @@ function isWorkItemUnestimated(workItem) {
   return (
     workItemRequiresEstimate(workItem.state) &&
     (storyPoints === null || storyPoints <= 0)
+  );
+}
+
+// ===== Utilidades para Delivery Health del Feature =====
+
+function hasFeatureEstimate(feature) {
+  const estimation = feature.estimation || {};
+
+  return [
+    estimation.be,
+    estimation.fe,
+    estimation.qa
+  ].some(value => {
+    return (
+      value !== undefined &&
+      value !== null &&
+      String(value).trim() !== ''
+    );
+  });
+}
+
+/*
+  Convierte una fecha de ADO a YYYY-MM-DD.
+
+  Para valores como "2026-08-22", conserva exactamente la fecha indicada
+  y evita que JavaScript la desplace por diferencias de zona horaria.
+*/
+function getDateKey(value) {
+  if (!value) {
+    return null;
+  }
+
+  const rawValue = String(value).trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
+    return rawValue;
+  }
+
+  const parsedDate = new Date(rawValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  return parsedDate.toISOString().slice(0, 10);
+}
+
+function getTodayDateKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDaysToDateKey(dateKey, days) {
+  const date = new Date(`${dateKey}T00:00:00.000Z`);
+
+  date.setUTCDate(date.getUTCDate() + days);
+
+  return date.toISOString().slice(0, 10);
+}
+
+function isPastTargetDate(targetDate) {
+  const targetDateKey = getDateKey(targetDate);
+
+  return Boolean(
+    targetDateKey &&
+    targetDateKey < getTodayDateKey()
+  );
+}
+
+function isTargetDateWithinNextTwoWeeks(targetDate) {
+  const targetDateKey = getDateKey(targetDate);
+
+  if (!targetDateKey) {
+    return false;
+  }
+
+  const todayDateKey = getTodayDateKey();
+  const twoWeeksDateKey = addDaysToDateKey(todayDateKey, 14);
+
+  return (
+    targetDateKey >= todayDateKey &&
+    targetDateKey <= twoWeeksDateKey
+  );
+}
+
+function isTargetDateInNextCalendarMonth(targetDate) {
+  const targetDateKey = getDateKey(targetDate);
+
+  if (!targetDateKey) {
+    return false;
+  }
+
+  const today = new Date();
+  const nextMonthStart = new Date(
+    Date.UTC(
+      today.getUTCFullYear(),
+      today.getUTCMonth() + 1,
+      1
+    )
+  );
+
+  const nextMonthEnd = new Date(
+    Date.UTC(
+      today.getUTCFullYear(),
+      today.getUTCMonth() + 2,
+      0
+    )
+  );
+
+  const nextMonthStartKey = nextMonthStart
+    .toISOString()
+    .slice(0, 10);
+
+  const nextMonthEndKey = nextMonthEnd
+    .toISOString()
+    .slice(0, 10);
+
+  return (
+    targetDateKey >= nextMonthStartKey &&
+    targetDateKey <= nextMonthEndKey
   );
 }
 
@@ -365,7 +497,7 @@ function mapFeature(i) {
         ? 'Unknown'
         : 'Healthy';
 
-  return {
+  const mappedFeature = {
     // ===== Datos existentes para el dashboard: se conservan =====
     id: i.id,
     title: fields['System.Title'] || '',
@@ -436,7 +568,13 @@ function mapFeature(i) {
       relations: relationsSource
     }
   };
+
+  return {
+    ...mappedFeature,
+    deliveryHealth: buildDeliveryHealth(mappedFeature)
+  };
 }
+
 
 // ===== Obtiene el ID de un work item desde la URL de una relación ADO =====
 // Ejemplo de relation.url:
@@ -608,6 +746,214 @@ function buildDeliverySummary(workItems, source = 'ok') {
   };
 }
 
+// ===== Fuente de verdad de Delivery Health =====
+//
+// El frontend debe mostrar esta información y no volver a calcular
+// las reglas de negocio. Los alertas son acumulables: un Feature puede
+// tener más de una condición que requiera seguimiento.
+
+function buildDeliveryHealth(feature) {
+  const summary = feature.deliverySummary;
+  const state = String(feature.state || '').trim();
+
+  const unknownResult = {
+    primary: {
+      key: 'unable-to-evaluate',
+      label: 'Unable to evaluate',
+      shortLabel: 'Unavailable',
+      group: 'requires-attention',
+      reason: 'Delivery work information could not be retrieved.'
+    },
+    alerts: [
+      {
+        key: 'unable-to-evaluate',
+        label: 'Unable to evaluate',
+        group: 'requires-attention',
+        reason: 'Delivery work information could not be retrieved.'
+      }
+    ]
+  };
+
+  if (!summary || summary.source !== 'ok') {
+    return unknownResult;
+  }
+
+  const totalWorkItems = Number(summary.totalWorkItems || 0);
+  const openWorkItems = Number(summary.openWorkItems || 0);
+  const pendingWorkItems = Number(summary.pendingWorkItems || 0);
+  const inProgressWorkItems = Number(
+    summary.inProgressWorkItems || 0
+  );
+  const unestimatedWorkItems = Number(
+    summary.unestimatedWorkItems || 0
+  );
+  const discoveryWithoutSprintWorkItems = Number(
+    summary.discoveryWithoutSprintWorkItems || 0
+  );
+
+  const isClosed = FEATURE_CLOSED_STATES.includes(state);
+  const isExecutionState =
+    FEATURE_DELIVERY_EXECUTION_STATES.includes(state);
+
+  /*
+    Not started es informativo: no entra en Requires Action,
+    Requires Attention ni Healthy. No representa una alerta.
+  */
+  if (
+    state === 'New' &&
+    !summary.hasWorkItems &&
+    totalWorkItems === 0
+  ) {
+    return {
+      primary: {
+        key: 'not-started',
+        label: 'Not started',
+        shortLabel: 'Not started',
+        group: 'not-started',
+        reason:
+          'This Feature is New and does not have associated Stories or Bugs yet.'
+      },
+      alerts: []
+    };
+  }
+
+  const alerts = [];
+
+  // Prioridad 1: Target Date vencido con trabajo aún abierto.
+  if (isPastTargetDate(feature.targetDate) && openWorkItems > 0) {
+    alerts.push({
+      key: 'overdue',
+      label: 'Overdue',
+      group: 'requires-action',
+      reason:
+        'The Target Date has passed and delivery work remains open.'
+    });
+  }
+
+  // Prioridad 2: Target Date muy cercana con trabajo Discovery sin Sprint.
+  if (
+    isTargetDateWithinNextTwoWeeks(feature.targetDate) &&
+    discoveryWithoutSprintWorkItems > 0
+  ) {
+    alerts.push({
+      key: 'target-date-near-unscheduled-discovery',
+      label: 'Target date near',
+      group: 'requires-action',
+      reason:
+        `${discoveryWithoutSprintWorkItems} Discovery work item(s) are not assigned to a Sprint, and the Target Date is within the next two weeks.`
+    });
+  }
+
+  // Prioridad 3: Fecha en el siguiente mes y sin Release Fix Version.
+  if (
+    isTargetDateInNextCalendarMonth(feature.targetDate) &&
+    !String(feature.releaseFixVersion || '').trim()
+  ) {
+    alerts.push({
+      key: 'target-next-month-without-release',
+      label: 'Target date next month — no Release Fix Version',
+      group: 'requires-action',
+      reason:
+        'The Target Date falls in the next calendar month, but no Release Fix Version is defined.'
+    });
+  }
+
+  if (isClosed && openWorkItems > 0) {
+    alerts.push({
+      key: 'closed-with-open-work',
+      label: 'Open work on Closed Feature',
+      group: 'requires-attention',
+      reason:
+        'The Feature is Closed, but associated delivery work is still open or in progress.'
+    });
+  }
+
+  /*
+    Los controles de estimación y ejecución se aplican únicamente
+    desde Planned e In Process. Esto evita marcar Features tempranos
+    como riesgosos cuando todavía están en Shaping o Planning.
+  */
+  if (isExecutionState && !hasFeatureEstimate(feature)) {
+    alerts.push({
+      key: 'needs-estimate',
+      label: 'Needs estimate',
+      group: 'requires-attention',
+      reason:
+        'The Feature is Planned or In Process and does not have BE, FE, or QA estimates.'
+    });
+  }
+
+  if (
+    isExecutionState &&
+    (!summary.hasWorkItems || totalWorkItems === 0)
+  ) {
+    alerts.push({
+      key: 'no-stories',
+      label: 'No Stories',
+      group: 'requires-attention',
+      reason:
+        'This Feature is in delivery execution but has no associated Stories or Bugs.'
+    });
+  }
+
+  if (
+    state === 'In Process' &&
+    pendingWorkItems > 0 &&
+    inProgressWorkItems === 0
+  ) {
+    alerts.push({
+      key: 'no-active-work',
+      label: 'No active work',
+      group: 'requires-attention',
+      reason:
+        'There is open delivery work, but no Story or Bug is currently active.'
+    });
+  }
+
+  if (isExecutionState && unestimatedWorkItems > 0) {
+    alerts.push({
+      key: 'unestimated-work',
+      label: 'No estimated work',
+      group: 'requires-attention',
+      reason:
+        `${unestimatedWorkItems} associated work item(s) do not have an estimate.`
+    });
+  }
+
+  /*
+    Si no hay alertas, el Feature está saludable. Esto incluye:
+    - Closed sin trabajo abierto.
+    - Estados anteriores a Planned.
+    - Features en ejecución sin riesgos detectados.
+  */
+  if (alerts.length === 0) {
+    return {
+      primary: {
+        key: 'healthy',
+        label: 'Healthy',
+        shortLabel: 'Healthy',
+        group: 'healthy',
+        reason: 'No delivery execution risks were detected.'
+      },
+      alerts: []
+    };
+  }
+
+  const primaryAlert = alerts[0];
+
+  return {
+    primary: {
+      ...primaryAlert,
+      shortLabel:
+        primaryAlert.key === 'target-date-near-unscheduled-discovery' ||
+        primaryAlert.key === 'target-next-month-without-release'
+          ? 'At risk'
+          : primaryAlert.label
+    },
+    alerts
+  };
+}
+
 // ===== Consulta campos de Stories/Bugs relacionados en lotes de 200 =====
 // Evita el patrón de una consulta por Feature.
 async function fetchDeliveryWorkItemsBatch(c, ids) {
@@ -619,11 +965,13 @@ async function fetchDeliveryWorkItemsBatch(c, ids) {
     const currentIds = ids.slice(i, i + batchSize);
 
     try {
-      const response = await c.post('/wit/workitemsbatch?api-version=7.0', {
-        ids: currentIds,
-        fields: DELIVERY_WORK_ITEM_FIELDS,
-        errorPolicy: 'Omit'
-      });
+      const response = await withAdoRetry(() =>
+        c.post('/wit/workitemsbatch?api-version=7.0', {
+          ids: currentIds,
+          fields: DELIVERY_WORK_ITEM_FIELDS,
+          errorPolicy: 'Omit'
+        })
+      );
 
       const returnedWorkItems = response.data.value || [];
       const returnedIds = new Set(
@@ -746,10 +1094,13 @@ async function enrichFeaturesWithDeliverySummary(c, features) {
 
 // ===== Trae IDs para un rango de fechas específico =====
 async function fetchIdsForRange(c, range) {
-  const r = await c.post('/wit/wiql?api-version=7.0', {
-    query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${BASE_FILTER}`
-  });
-  return r.data.workItems.map(i => i.id);
+  const response = await withAdoRetry(() =>
+    c.post('/wit/wiql?api-version=7.0', {
+      query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${BASE_FILTER}`
+    })
+  );
+
+  return response.data.workItems.map(item => item.id);
 }
 
 // ===== Trae campos y relaciones de Features en lotes de 200 =====
