@@ -527,21 +527,6 @@
       }
     }
 
-    const deliveryExecutionStates = ['Planned', 'In Process'];
-    const deliveryClosedStates = ['Closed'];
-    
-    function hasFeatureEstimate(feature) {
-      const estimation = feature.estimation || {};
-    
-      return [estimation.be, estimation.fe, estimation.qa].some(value => {
-        return (
-          value !== undefined &&
-          value !== null &&
-          String(value).trim() !== ''
-        );
-      });
-    }
-
     function parseDashboardDate(value) {
       if (!value) {
         return null;
@@ -559,427 +544,82 @@
         ? null
         : date;
     }
-    
-    function isPastTargetDate(targetDate) {
-      const target = parseDashboardDate(targetDate);
-    
-      if (!target) {
-        return false;
-      }
-    
-      const today = new Date();
-    
-      target.setHours(0, 0, 0, 0);
-      today.setHours(0, 0, 0, 0);
-    
-      return target < today;
-    }
-       
+
+    /* Delivery Health es calculado exclusivamente por el backend.
+      El frontend solo:
+      - asigna estilos, iconos y clases CSS;
+      - renderiza primary y alerts;
+      - usa group para KPI y filtros. */
+
     function getDeliveryHealth(feature) {
-      /*
-        Contrato nuevo: el backend calcula la prioridad, regla, grupo
-        y razón de Delivery Health.
-      */
-      const backendPrimary = feature.deliveryHealth?.primary;
-
-      if (backendPrimary) {
-        const visual = getDeliveryVisualMeta(backendPrimary.key);
-
-        return {
-          key: backendPrimary.key,
-          label: backendPrimary.label,
-          shortLabel:
-            backendPrimary.shortLabel ||
-            backendPrimary.label,
-          className: visual.className,
-          icon: visual.icon,
-          group: backendPrimary.group,
-          reason: backendPrimary.reason
-        };
-      }
+      const primary = feature.deliveryHealth?.primary;
 
       /*
-        Fallback temporal para objetos antiguos almacenados en Redis
-        que todavía no contienen feature.deliveryHealth.
+        Este caso no es un fallback de negocio: es una protección visual
+        para una respuesta incompleta o inválida.
       */
-      const summary = feature.deliverySummary;
-      const state = feature.state || '';
-      const isClosed = deliveryClosedStates.includes(state);
-      const isExecutionState = deliveryExecutionStates.includes(state);
+      if (!primary || typeof primary !== 'object') {
+        const visual = getDeliveryVisualMeta('unable-to-evaluate');
 
-      /* openWorkItems representa las Stories y Bugs que continúan abiertos: Discovery + In Progress. */
-      const openWorkItems = Number(summary?.openWorkItems || 0);
-
-      const discoveryWithoutSprintWorkItems = Number(
-        summary?.discoveryWithoutSprintWorkItems || 0
-      );
-    
-      /* Estado técnico: no fue posible recuperar o resumir el trabajo. Requiere revisión, pero no representa un riesgo crítico; por eso se muestra como Requires Attention (amarillo) */
-      if (!summary || summary.source !== 'ok') {
         return {
           key: 'unable-to-evaluate',
           label: 'Unable to evaluate',
           shortLabel: 'Unavailable',
-          className: 'delivery--unknown',
-          icon: '?',
-          reason: 'Delivery work information could not be retrieved.'
-        };
-      }
-
-      /*  1. Regla exclusiva para New: No se usa para In Planning ni In Shaping. */
-      if ( state === 'New' && !summary.hasWorkItems && summary.totalWorkItems === 0 )
-      {
-        return {
-          key: 'not-started',
-          label: 'Not started',
-          shortLabel: 'Not started',
-          className: 'delivery--not-started',
-          icon: '○',
-          reason: 'This Feature is New and does not have associated Stories or Bugs yet.'
-        };
-      }
-      /*
-        2. Máxima prioridad:
-        Target Date vencido y aún existe trabajo pendiente.
-    
-        Ejemplo:
-        Target Date: 18 November 2025
-        Fecha actual: 20 August 2026
-        Pending work items > 0
-        Resultado: Overdue
-      */
-      if ( isPastTargetDate(feature.targetDate) && openWorkItems > 0 )
-      {
-        return {
-          key: 'overdue',
-          label: 'Overdue',
-          shortLabel: 'Overdue',
-          className: 'delivery--overdue',
-          icon: '!',
-          reason: 'The Target Date has passed and delivery work remains open.'
-        };
-      }
-
-      /* 2.1 Target Date cercana y trabajo de Discovery sin Sprint.
-        Esta condición depende de deliverySummary, calculado por el backend,
-        para que funcione aunque el usuario nunca abra las Stories del Feature. */
-      if ( isTargetDateWithinNextTwoWeeks(feature.targetDate) && discoveryWithoutSprintWorkItems > 0 )
-      {
-        return {
-          key: 'target-date-near-unscheduled-discovery',
-          label: 'At risk',
-          shortLabel: 'At risk',
-          className: 'delivery--overdue',
-          icon: '!',
-          reason: `${discoveryWithoutSprintWorkItems} Discovery work item(s) are not assigned to a Sprint, and the Target Date is within the next two weeks.`
-        };
-      }
-      
-      /* 2.2 Target Date en el próximo mes calendario y sin Release Fix Version. */
-       if ( isTargetDateInNextCalendarMonth(feature.targetDate) && !String(feature.releaseFixVersion || '').trim() )
-      {
-        return {
-          key: 'target-next-month-without-release',
-          label: 'At risk',
-          shortLabel: 'At risk',
-          className: 'delivery--overdue',
-          icon: '!',
+          group: 'requires-attention',
+          className: visual.className,
+          icon: visual.icon,
           reason:
-            'The Target Date is in the next calendar month, but no Release Fix Version is defined.'
-        };
-      }
-    
-     /* 3. Closed no fuerza Healthy por sí solo. Si aún existen Stories/Bugs Pending o In Progress, el Feature
-        debe conservar una alerta de Delivery Health. */
-      if (isClosed && openWorkItems > 0) {
-        return {
-          key: 'closed-with-open-work',
-          label: 'Open work',
-          shortLabel: 'Open work',
-          className: 'delivery--attention',
-          icon: '!',
-          reason: 'This Feature is Closed, but associated delivery work is still open or in progress.'
+            'Delivery Health information was not returned by the server.'
         };
       }
 
-      /* 3.1 Si está Closed y no queda trabajo abierto, sí puede mostrarse Healthy; ya no depende solamente del estado Closed. */
-      if (isClosed) {
-        return {
-          key: 'healthy',
-          label: 'Healthy',
-          shortLabel: 'Healthy',
-          className: 'delivery--healthy',
-          icon: '✓',
-          reason: 'This Feature is Closed and has no open or in-progress delivery work.'
-        };
-      }
-    
-      /* 4. Estados tempranos: No se penalizan todavía por no tener Stories o estimaciones.
-        New ya fue tratado arriba. */
-      if (!isExecutionState) {
-        return {
-          key: 'healthy',
-          label: 'Healthy',
-          shortLabel: 'Healthy',
-          className: 'delivery--healthy',
-          icon: '✓',
-          reason: 'Delivery execution checks apply from Planned onward.'
-        };
-      }
-    
-      /*  5. Needs estimate se conserva. Aplica desde Planned e In Process: todo Feature debe tener al menos una estimación
-        BE, FE o QA antes/durante la ejecución. */
-      if (!hasFeatureEstimate(feature)) {
-        return {
-          key: 'needs-estimate',
-          label: 'Needs estimate',
-          shortLabel: 'Needs estimate',
-          className: 'delivery--needs-info',
-          icon: '!',
-          reason: 'The Feature is Planned or In Process and does not have BE, FE, or QA estimates.'
-        };
-      }
-    
-      /* 6. Planned o In Process sin Stories/Bugs. */
-      if (!summary.hasWorkItems || summary.totalWorkItems === 0) {
-        return {
-          key: 'no-stories',
-          label: 'No Stories',
-          shortLabel: 'No Stories',
-          className: 'delivery--attention',
-          icon: '!',
-          reason: 'This Feature is in delivery execution but has no associated Stories or Bugs.'
-        };
-      }
-    
-      /* 7. Existe trabajo pendiente, pero ninguno está activo. */
-      if ( state === 'In Process' && summary.pendingWorkItems > 0 && (summary.inProgressWorkItems ?? summary.activeWorkItems ?? 0) === 0 )
-      {
-        return {
-          key: 'no-active-work',
-          label: 'No active work',
-          shortLabel: 'No active work',
-          className: 'delivery--attention',
-          icon: '!',
-          reason: 'There is open delivery work, but no Story or Bug is currently active.'
-        };
-      }
-    
-      /* 8. Las Stories/Bugs asociadas tienen trabajo sin estimar. Esto es distinto de Needs estimate:
-        - Needs estimate: el Feature no tiene BE/FE/QA.
-        - Unestimated work: existen Stories/Bugs sin estimación. */
-      if (summary.unestimatedWorkItems > 0) {
-        return {
-          key: 'unestimated-work',
-          label: 'No estimated work',
-          shortLabel: 'No estimated',
-          className: 'delivery--attention',
-          icon: '!',
-          reason: `${summary.unestimatedWorkItems} associated work item(s) do not have an estimate.`
-        };
-      }
-    
+      const visual = getDeliveryVisualMeta(primary.key);
+
       return {
-        key: 'healthy',
-        label: 'Healthy',
-        shortLabel: 'Healthy',
-        className: 'delivery--healthy',
-        icon: '✓',
-        reason: 'No delivery execution risks were detected.'
+        key: primary.key,
+        label: primary.label,
+        shortLabel: primary.shortLabel || primary.label,
+        group: primary.group,
+        className: visual.className,
+        icon: visual.icon,
+        reason: primary.reason
       };
     }
 
-    function isTargetDateWithinNextTwoWeeks(targetDate) {
-      const target = parseDashboardDate(targetDate);
-    
-      if (!target) {
-        return false;
-      }
-    
-      const today = new Date();
-      const twoWeeksFromToday = new Date(today);
-    
-      today.setHours(0, 0, 0, 0);
-      twoWeeksFromToday.setHours(0, 0, 0, 0);
-      twoWeeksFromToday.setDate(twoWeeksFromToday.getDate() + 14);
-    
-      target.setHours(0, 0, 0, 0);
-    
-      return target >= today && target <= twoWeeksFromToday;
-    }
-    
-    function isTargetDateInNextCalendarMonth(targetDate) {
-      const target = parseDashboardDate(targetDate);
-    
-      if (!target) {
-        return false;
-      }
-    
-      const today = new Date();
-    
-      const nextMonthStart = new Date(
-        today.getFullYear(),
-        today.getMonth() + 1,
-        1
-      );
-    
-      const nextMonthEnd = new Date(
-        today.getFullYear(),
-        today.getMonth() + 2,
-        0
-      );
-    
-      target.setHours(0, 0, 0, 0);
-      nextMonthStart.setHours(0, 0, 0, 0);
-      nextMonthEnd.setHours(23, 59, 59, 999);
-    
-      return target >= nextMonthStart && target <= nextMonthEnd;
-    }
-    
     function getDeliveryHealthAlerts(feature) {
-      /* Contrato nuevo: todos los alertas aplicables vienen del backend. Un Feature puede pertenecer a Requires Action y Requires Attention
-        al mismo tiempo si tiene alertas de ambos grupos. */
-      
-      if (Array.isArray(feature.deliveryHealth?.alerts)) {
-        return feature.deliveryHealth.alerts.map(alert => {
-          const visual = getDeliveryVisualMeta(alert.key);
-
-          return {
-            key: alert.key,
-            label: alert.label,
-            group: alert.group,
-            className: visual.alertClassName,
-            reason: alert.reason
-          };
-        });
-      }
+      const backendAlerts = feature.deliveryHealth?.alerts;
 
       /*
-        Fallback temporal para Features cacheados con el contrato anterior.
+        El backend envía [] cuando no existen alertas aplicables,
+        por ejemplo para un Feature Healthy o Not started.
       */
-      const summary = feature.deliverySummary;
-      const state = feature.state || '';
+      if (!Array.isArray(backendAlerts)) {
+        const visual = getDeliveryVisualMeta('unable-to-evaluate');
 
-      /* No se pudo evaluar Delivery Health. Es una alerta que requiere seguimiento, pero no es crítica; se presenta en amarillo. */
-      if (!summary || summary.source !== 'ok') {
         return [{
           key: 'unable-to-evaluate',
           label: 'Unable to evaluate',
-          className: 'delivery-alert--unknown',
-          reason: 'Delivery work information could not be retrieved.'
+          group: 'requires-attention',
+          className: visual.alertClassName,
+          reason:
+            'Delivery Health alert information was not returned by the server.'
         }];
       }
 
-      const totalWorkItems = Number(summary.totalWorkItems || 0);
-      const hasWorkItems =
-        summary.hasWorkItems !== undefined
-          ? Boolean(summary.hasWorkItems)
-          : totalWorkItems > 0;
-      const inProgressWorkItems = Number( summary.inProgressWorkItems || 0 );
-      const pendingWorkItems = Number( summary.pendingWorkItems || 0 );
-      const openWorkItems = Number( summary.openWorkItems || 0 );
-      const unestimatedWorkItems = Number( summary.unestimatedWorkItems || 0 );
-      const discoveryWithoutSprintWorkItems = Number( summary.discoveryWithoutSprintWorkItems || 0 );
-      const isClosed = deliveryClosedStates.includes(state);
-      const isExecutionState = deliveryExecutionStates.includes(state);
-      const alerts = [];
+      return backendAlerts.map(alert => {
+        const visual = getDeliveryVisualMeta(alert.key);
 
-      if (isPastTargetDate(feature.targetDate) && openWorkItems > 0) {
-        alerts.push({
-          key: 'overdue',
-          label: 'Overdue',
-          className: 'delivery-alert--overdue',
-          reason: 'The Target Date has passed and delivery work remains open.'
-        });
-      }
-
-      if ( isTargetDateWithinNextTwoWeeks(feature.targetDate) && discoveryWithoutSprintWorkItems > 0 )
-      {
-        alerts.push({
-          key: 'target-date-near-unscheduled-discovery',
-          label: 'Target date near',
-          className: 'delivery-alert--overdue',
-          reason:
-            `${discoveryWithoutSprintWorkItems} Discovery work item(s) are not assigned to a Sprint, and the Target Date is within the next two weeks.`
-        });
-      }
-      
-      if ( isTargetDateInNextCalendarMonth(feature.targetDate) && !String(feature.releaseFixVersion || '').trim() )
-      {
-        alerts.push({
-          key: 'target-next-month-without-release',
-          label: 'Target date next month — no Release Fix Version',
-          className: 'delivery-alert--overdue',
-          reason:
-            'The Target Date falls in the next calendar month, but no Release Fix Version is defined.'
-        });
-      }
-      
-      if (isClosed && openWorkItems > 0) {
-        alerts.push({
-          key: 'closed-with-open-work',
-          label: 'Open work on Closed Feature',
-          className: 'delivery-alert--attention',
-          reason: 'The Feature is Closed, but associated delivery work is still open or in progress.'
-        });
-      }
-
-      if (isExecutionState && !hasFeatureEstimate(feature)) {
-        alerts.push({
-          key: 'needs-estimate',
-          label: 'Needs estimate',
-          className: 'delivery-alert--needs-info',
-          reason: 'The Feature is Planned or In Process and does not have BE, FE, or QA estimates.'
-        });
-      }
-
-      if (
-        isExecutionState &&
-        (!hasWorkItems || totalWorkItems === 0)
-      ) {
-        alerts.push({
-          key: 'no-stories',
-          label: 'No Stories',
-          className: 'delivery-alert--attention',
-          reason: 'This Feature is in delivery execution but has no associated Stories or Bugs.'
-        });
-      }
-
-      if (
-        state === 'In Process' &&
-        pendingWorkItems > 0 &&
-        inProgressWorkItems === 0
-      ) {
-        alerts.push({
-          key: 'no-active-work',
-          label: 'No active work',
-          className: 'delivery-alert--attention',
-          reason: 'There is open delivery work, but no Story or Bug is currently active.'
-        });
-      }
-
-      if (unestimatedWorkItems > 0) {
-        alerts.push({
-          key: 'unestimated-work',
-          label: 'No estimated work',
-          className: 'delivery-alert--attention',
-          reason: `${unestimatedWorkItems} associated work item(s) do not have an estimate.`
-        });
-      }
-
-      if (alerts.length === 0) {
-        alerts.push({
-          key: 'healthy',
-          label: 'Healthy',
-          className: 'delivery-alert--healthy',
-          reason: 'No delivery execution risks were detected.'
-        });
-      }
-
-      return alerts;
+        return {
+          key: alert.key,
+          label: alert.label,
+          group: alert.group,
+          className: visual.alertClassName,
+          reason: alert.reason
+        };
+      });
     }
-
-    function ReadinessOverview({ counts, SelectedReadiness, isAllFeaturesSelected, onSelectReadiness }) {
+    
+     function ReadinessOverview({ counts, SelectedReadiness, isAllFeaturesSelected, onSelectReadiness }) {
       const cards = [
         {
           key: 'All',
@@ -2072,6 +1712,12 @@
                 <span>{alert.reason}</span>
               </div>
             ))}
+            </div>
+          ) : (
+            <div className="delivery-work-group__empty">
+              No delivery alerts apply to this Feature.
+            </div>
+          )}
           </div>
 
           {pendingStories.length > 0 && (
@@ -2284,25 +1930,32 @@
       /* Los contadores usan todas las alertas aplicables de cada Feature, no solamente el estado principal del badge.
         not-started queda fuera de los KPI: es un estado informativo que podrá revisarse posteriormente mediante un filtro específico.*/
       
-            /*
-        Fallback temporal para Features obtenidos antes de que el backend
-        enviara deliveryHealth.alerts con el campo group.
-      */
-      const requiresActionHealthKeys = [
-        'overdue',
-        'target-date-near-unscheduled-discovery',
-        'target-next-month-without-release'
-      ];
+      /* Los grupos vienen directamente desde el backend.
+        - alertas: Requires Action / Requires Attention;
+        - primary: permite identificar Healthy, porque los Features sanos
+          tienen alerts: [] y primary.group === 'healthy';
+        - Not started conserva group: 'not-started' y queda fuera de KPI. */
+      
+      function getDeliveryHealthGroups(feature) {
+        const groups = new Set();
 
-      const requiresAttentionHealthKeys = [
-        'closed-with-open-work',
-        'unable-to-evaluate',
-        'needs-estimate',
-        'no-stories',
-        'no-active-work',
-        'unestimated-work'
-      ];
+        const primary = feature.deliveryHealth?.primary;
+        if (primary?.group) {
+          groups.add(primary.group);
+        }
 
+        const alerts = feature.deliveryHealth?.alerts;
+
+        if (Array.isArray(alerts)) {
+          alerts.forEach(alert => {
+            if (alert?.group) {
+              groups.add(alert.group);
+            }
+          });
+        }
+
+        return groups;
+      }
       function getDeliveryHealthGroups(feature) {
         const backendAlerts = feature.deliveryHealth?.alerts;
 
@@ -2343,11 +1996,17 @@
       }
 
       const deliveryHealthCounts = {
-        requiresAction: filteredBeforeReadiness.filter(feature => getDeliveryHealthGroups(feature).has('requires-action')).length,
+        requiresAction: filteredBeforeReadiness.filter(feature =>
+          getDeliveryHealthGroups(feature).has('requires-action')
+        ).length,
 
-        requiresAttention: filteredBeforeReadiness.filter(feature => getDeliveryHealthGroups(feature).has('requires-attention')).length,
+        requiresAttention: filteredBeforeReadiness.filter(feature =>
+          getDeliveryHealthGroups(feature).has('requires-attention')
+        ).length,
 
-        healthy: filteredBeforeReadiness.filter(feature => getDeliveryHealthGroups(feature).has('healthy')).length
+        healthy: filteredBeforeReadiness.filter(feature =>
+          getDeliveryHealthGroups(feature).has('healthy')
+        ).length
       };
       
       // Aplica el filtro de Readiness después de calcular los contadores.
@@ -2369,8 +2028,12 @@
         dentro de cada grupo que le corresponda.
       */
       const filtered = filteredByReadiness.filter(f => {
-        const healthAlertKeys = getDeliveryHealthAlerts(f)
-          .map(alert => alert.key);
+        const delivery = getDeliveryHealth(f);
+
+        const healthRuleKeys = new Set([
+          delivery.key,
+          ...getDeliveryHealthAlerts(f).map(alert => alert.key)
+        ]);
 
         const healthGroups = getDeliveryHealthGroups(f);
       
@@ -2396,7 +2059,7 @@
       
         const matchesHealthRule =
           healthRuleFilter === 'All' ||
-          healthAlertKeys.includes(healthRuleFilter);
+          healthRuleKeys.has(healthRuleFilter);
       
         return matchesHealthGroup && matchesHealthRule;
       });
