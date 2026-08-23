@@ -135,9 +135,13 @@ const CACHE_KEY = 'oldFeaturesCache';
 // ===== Cliente ADO reutilizable =====
 function getAdoClient() {
   return axios.create({
-    baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
+    baseURL:
+      `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
+    timeout: 30000,
     headers: {
-      Authorization: `Basic ${Buffer.from(`:${process.env.ADO_PAT}`).toString('base64')}`,
+      Authorization: `Basic ${Buffer.from(
+        `:${process.env.ADO_PAT}`
+      ).toString('base64')}`,
       'Content-Type': 'application/json'
     }
   });
@@ -1115,19 +1119,23 @@ async function fetchFeatureDetailsBatch(c, ids) {
     const currentIds = ids.slice(i, i + batchSize);
 
     const [fieldsResult, relationsResult] = await Promise.allSettled([
-      c.post('/wit/workitemsbatch?api-version=7.0', {
-        ids: currentIds,
-        fields: FEATURE_FIELDS,
-        errorPolicy: 'Omit'
-      }),
+      withAdoRetry(() =>
+        c.post('/wit/workitemsbatch?api-version=7.0', {
+          ids: currentIds,
+          fields: FEATURE_FIELDS,
+          errorPolicy: 'Omit'
+        })
+      ),
 
-      c.post('/wit/workitemsbatch?api-version=7.0', {
-        ids: currentIds,
-        $expand: 'Relations',
-        errorPolicy: 'Omit'
-      })
+      withAdoRetry(() =>
+        c.post('/wit/workitemsbatch?api-version=7.0', {
+          ids: currentIds,
+          $expand: 'Relations',
+          errorPolicy: 'Omit'
+        })
+      )
     ]);
-
+    
     // Si falla la consulta de campos, se registra el problema,
     // pero no se marca el contenido como "faltante": será "unknown".
     if (fieldsResult.status === 'rejected') {
@@ -1287,48 +1295,43 @@ app.get('/api/health', (req, res) => res.json({ ok: 1 }));
 
 app.get('/api/feature-history/:id', async (req, res) => {
   try {
-    const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
-    
-    const c = axios.create({
-      baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 
-        'Authorization': `Basic ${authHeader}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    const featureId = Number(req.params.id);
 
-    const featureId = req.params.id;
+    if (!Number.isInteger(featureId) || featureId <= 0) {
+      return res.status(400).json({
+        error: 'Invalid Feature ID.'
+      });
+    }
+
+    const c = getAdoClient();
+
     console.log('Fetching history for feature:', featureId);
-    
-    const revisionsResponse = await c.get(`/wit/workitems/${featureId}/revisions?api-version=7.0`);
 
-    const stateChanges = [];
-    let previousState = null;
+    const revisionsResponse = await withAdoRetry(() =>
+      c.get(`/wit/workitems/${featureId}/revisions?api-version=7.0`)
+    );
 
-    
-    revisionsResponse.data.value.forEach(revision => {
-      const currentState = revision.fields['System.State'];
-  
-      // Solo agregar si el estado cambió o es la primera revisión
-      if (currentState && currentState !== previousState) {
-        stateChanges.push({
-          rev: revision.rev,
-          state: currentState,
-          changedDate: revision.fields['System.ChangedDate'],
-          changedBy: revision.changedBy?.displayName || 'System'
-        });
-        previousState = currentState;
-      }
-    });
+    const revisions = revisionsResponse.data?.value || [];
+    const stateChanges = getStateChangesFromRevisions(revisions);
 
-    res.json({
+    return res.json({
       id: featureId,
-      stateChanges: stateChanges,
-      totalRevisions: revisionsResponse.data.value.length
+      stateChanges,
+      totalRevisions: revisions.length
     });
   } catch (error) {
-    console.error('Error fetching history:', error.message);
-    res.status(500).json({ error: error.message, details: error.response?.data });
+    console.error('ERROR /api/feature-history/:id', {
+      featureId: req.params.id,
+      adoStatus: error.response?.status || null,
+      adoStatusText: error.response?.statusText || null,
+      adoResponse: error.response?.data || null,
+      message: error.message
+    });
+
+    return res.status(500).json({
+      error: 'Unable to fetch Feature history from ADO.',
+      details: error.response?.data || null
+    });
   }
 });
 
@@ -1394,48 +1397,50 @@ app.post('/api/features-history-batch', async (req, res) => {
 
 app.get('/api/story-history/:id', async (req, res) => {
   try {
-    const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
-    
-    const c = axios.create({
-      baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 
-        'Authorization': `Basic ${authHeader}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    const storyId = Number(req.params.id);
 
-    const storyId = req.params.id;
-    const revisionsResponse = await c.get(`/wit/workitems/${storyId}/revisions?api-version=7.0`);
+    if (!Number.isInteger(storyId) || storyId <= 0) {
+      return res.status(400).json({
+        error: 'Invalid Story/Bug ID.'
+      });
+    }
 
-    const stateChanges = [];
-    let previousState = null;
+    const c = getAdoClient();
 
-    revisionsResponse.data.value.forEach(revision => {
-      const currentState = revision.fields['System.State'];
-      if (currentState && currentState !== previousState) {
-        stateChanges.push({
-          rev: revision.rev,
-          state: currentState,
-          changedDate: revision.fields['System.ChangedDate'],
-          changedBy: revision.fields['System.ChangedBy']?.displayName || 'System'
-        });
-        previousState = currentState;
-      }
-    });
+    const revisionsResponse = await withAdoRetry(() =>
+      c.get(`/wit/workitems/${storyId}/revisions?api-version=7.0`)
+    );
 
-    // 👇 Tomamos el IterationPath de la última revisión (el estado actual)
-    const revisions = revisionsResponse.data.value;
+    const revisions = revisionsResponse.data?.value || [];
+    const stateChanges = getStateChangesFromRevisions(revisions);
+
+    /*
+      Se conserva Iteration Path para no romper consumidores existentes
+      de este endpoint individual.
+    */
     const lastRevision = revisions[revisions.length - 1];
-    const iterationPath = lastRevision?.fields['System.IterationPath'] || null;
+    const iterationPath =
+      lastRevision?.fields?.['System.IterationPath'] || null;
 
-    res.json({
+    return res.json({
       id: storyId,
-      iterationPath: iterationPath,   // 👈 nuevo campo agregado
-      stateChanges: stateChanges,
+      iterationPath,
+      stateChanges,
       totalRevisions: revisions.length
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('ERROR /api/story-history/:id', {
+      storyId: req.params.id,
+      adoStatus: error.response?.status || null,
+      adoStatusText: error.response?.statusText || null,
+      adoResponse: error.response?.data || null,
+      message: error.message
+    });
+
+    return res.status(500).json({
+      error: 'Unable to fetch Story history from ADO.',
+      details: error.response?.data || null
+    });
   }
 });
 
@@ -1526,8 +1531,10 @@ app.get('/api/feature-stories/:id', async (req, res) => {
       Esto evita depender de una consulta WIQL de WorkItemLinks y usa
       exactamente la misma interpretación de hijos directos que Delivery
       Health: Feature -> User Story / Bug. */
-    const featureResponse = await c.get(
-      `/wit/workitems/${featureId}?$expand=Relations&api-version=7.0`
+    const featureResponse = await withAdoRetry(() =>
+      c.get(
+        `/wit/workitems/${featureId}?$expand=Relations&api-version=7.0`
+      )
     );
 
     const feature = featureResponse.data || {};
@@ -1551,21 +1558,23 @@ app.get('/api/feature-stories/:id', async (req, res) => {
     for (let index = 0; index < childIds.length; index += batchSize) {
       const currentIds = childIds.slice(index, index + batchSize);
 
-      const batchResponse = await c.post(
-        '/wit/workitemsbatch?api-version=7.0',
-        {
-          ids: currentIds,
-          fields: [
-            'System.Id',
-            'System.Title',
-            'System.State',
-            'System.WorkItemType',
-            'System.IterationPath',
-            'System.AssignedTo',
-            'Microsoft.VSTS.Scheduling.StoryPoints'
-          ],
-          errorPolicy: 'Omit'
-        }
+      const batchResponse = await withAdoRetry(() =>
+        c.post(
+          '/wit/workitemsbatch?api-version=7.0',
+          {
+            ids: currentIds,
+            fields: [
+              'System.Id',
+              'System.Title',
+              'System.State',
+              'System.WorkItemType',
+              'System.IterationPath',
+              'System.AssignedTo',
+              'Microsoft.VSTS.Scheduling.StoryPoints'
+            ],
+            errorPolicy: 'Omit'
+          }
+        )
       );
 
       allWorkItems.push(...(batchResponse.data.value || []));
