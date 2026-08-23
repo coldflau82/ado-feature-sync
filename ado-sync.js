@@ -104,7 +104,7 @@ async function withAdoRetry(operation, maxRetries = 3) {
   desde las revisiones de Azure DevOps.
 */
 function getStateChangesFromRevisions(revisions) {
-  const stateChanges = [];
+  const stateChanges = getStateChangesFromRevisions(revisions);
   let previousState = null;
 
   (revisions || []).forEach(revision => {
@@ -136,8 +136,11 @@ const CACHE_KEY = 'oldFeaturesCache';
 function getAdoClient() {
   return axios.create({
     baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
+    timeout: 30000,
     headers: {
-      Authorization: `Basic ${Buffer.from(`:${process.env.ADO_PAT}`).toString('base64')}`,
+      Authorization: `Basic ${Buffer.from(
+        `:${process.env.ADO_PAT}`
+      ).toString('base64')}`,
       'Content-Type': 'application/json'
     }
   });
@@ -1115,17 +1118,21 @@ async function fetchFeatureDetailsBatch(c, ids) {
     const currentIds = ids.slice(i, i + batchSize);
 
     const [fieldsResult, relationsResult] = await Promise.allSettled([
-      c.post('/wit/workitemsbatch?api-version=7.0', {
-        ids: currentIds,
-        fields: FEATURE_FIELDS,
-        errorPolicy: 'Omit'
-      }),
+      withAdoRetry(() =>
+        c.post('/wit/workitemsbatch?api-version=7.0', {
+          ids: currentIds,
+          fields: FEATURE_FIELDS,
+          errorPolicy: 'Omit'
+        })
+      ),
 
-      c.post('/wit/workitemsbatch?api-version=7.0', {
-        ids: currentIds,
-        $expand: 'Relations',
-        errorPolicy: 'Omit'
-      })
+      withAdoRetry(() =>
+        c.post('/wit/workitemsbatch?api-version=7.0', {
+          ids: currentIds,
+          $expand: 'Relations',
+          errorPolicy: 'Omit'
+        })
+      )
     ]);
 
     // Si falla la consulta de campos, se registra el problema,
@@ -1287,22 +1294,15 @@ app.get('/api/health', (req, res) => res.json({ ok: 1 }));
 
 app.get('/api/feature-history/:id', async (req, res) => {
   try {
-    const authHeader = Buffer.from(`:${process.env.ADO_PAT}`).toString('base64');
+       
+    const c = getAdoClient();
     
-    const c = axios.create({
-      baseURL: `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-      headers: { 
-        'Authorization': `Basic ${authHeader}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
     const featureId = req.params.id;
     console.log('Fetching history for feature:', featureId);
     
-    const revisionsResponse = await c.get(`/wit/workitems/${featureId}/revisions?api-version=7.0`);
+    const revisionsResponse = await withAdoRetry(() => c.get(`/wit/workitems/${featureId}/revisions?api-version=7.0`) );
 
-    const stateChanges = [];
+    const stateChanges = getStateChangesFromRevisions(revisions);
     let previousState = null;
 
     
@@ -1407,7 +1407,7 @@ app.get('/api/story-history/:id', async (req, res) => {
     const storyId = req.params.id;
     const revisionsResponse = await c.get(`/wit/workitems/${storyId}/revisions?api-version=7.0`);
 
-    const stateChanges = [];
+    const stateChanges = getStateChangesFromRevisions(revisions);
     let previousState = null;
 
     revisionsResponse.data.value.forEach(revision => {
@@ -1424,7 +1424,7 @@ app.get('/api/story-history/:id', async (req, res) => {
     });
 
     // 👇 Tomamos el IterationPath de la última revisión (el estado actual)
-    const revisions = revisionsResponse.data.value;
+    const revisions = revisionsResponse.data?.value || [];
     const lastRevision = revisions[revisions.length - 1];
     const iterationPath = lastRevision?.fields['System.IterationPath'] || null;
 
