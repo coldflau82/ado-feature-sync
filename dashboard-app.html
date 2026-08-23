@@ -473,14 +473,59 @@
       );
     }
 
-    /*
-      Delivery Health se calcula exclusivamente con feature.deliverySummary.
+   /* Delivery Health:
+      La fuente de verdad preferida es feature.deliveryHealth, calculada por el backend. El frontend solamente asigna color, icono y clases
+      CSS para renderizarla.
 
-      Esto es intencional:
-      - deliverySummary ya viene precalculado desde el backend.
-      - Evita falsos "No Stories" mientras storiesCache está cargando.
-      - Mantiene la evaluación consistente entre Feature List y Roadmap.
-    */
+      La lógica antigua basada en deliverySummary se conserva por ahora como fallback temporal para respuestas cacheadas antiguas. */
+
+    function getDeliveryVisualMeta(key) {
+      switch (key) {
+        case 'overdue':
+        case 'target-date-near-unscheduled-discovery':
+        case 'target-next-month-without-release':
+          return {
+            className: 'delivery--overdue',
+            alertClassName: 'delivery-alert--overdue',
+            icon: '!'
+          };
+
+        case 'needs-estimate':
+          return {
+            className: 'delivery--needs-info',
+            alertClassName: 'delivery-alert--needs-info',
+            icon: '!'
+          };
+
+        case 'healthy':
+          return {
+            className: 'delivery--healthy',
+            alertClassName: 'delivery-alert--healthy',
+            icon: '✓'
+          };
+
+        case 'not-started':
+          return {
+            className: 'delivery--not-started',
+            alertClassName: 'delivery-alert--attention',
+            icon: '○'
+          };
+
+        case 'unable-to-evaluate':
+          return {
+            className: 'delivery--unknown',
+            alertClassName: 'delivery-alert--unknown',
+            icon: '?'
+          };
+
+        default:
+          return {
+            className: 'delivery--attention',
+            alertClassName: 'delivery-alert--attention',
+            icon: '!'
+          };
+      }
+    }
 
     const deliveryExecutionStates = ['Planned', 'In Process'];
     const deliveryClosedStates = ['Closed'];
@@ -531,15 +576,43 @@
     }
        
     function getDeliveryHealth(feature) {
+      /*
+        Contrato nuevo: el backend calcula la prioridad, regla, grupo
+        y razón de Delivery Health.
+      */
+      const backendPrimary = feature.deliveryHealth?.primary;
+
+      if (backendPrimary) {
+        const visual = getDeliveryVisualMeta(backendPrimary.key);
+
+        return {
+          key: backendPrimary.key,
+          label: backendPrimary.label,
+          shortLabel:
+            backendPrimary.shortLabel ||
+            backendPrimary.label,
+          className: visual.className,
+          icon: visual.icon,
+          group: backendPrimary.group,
+          reason: backendPrimary.reason
+        };
+      }
+
+      /*
+        Fallback temporal para objetos antiguos almacenados en Redis
+        que todavía no contienen feature.deliveryHealth.
+      */
       const summary = feature.deliverySummary;
       const state = feature.state || '';
       const isClosed = deliveryClosedStates.includes(state);
       const isExecutionState = deliveryExecutionStates.includes(state);
-      
-      /* openWorkItems representa las Stories y Bugs que continúan abiertos: Discovery + In Progress.*/
+
+      /* openWorkItems representa las Stories y Bugs que continúan abiertos: Discovery + In Progress. */
       const openWorkItems = Number(summary?.openWorkItems || 0);
 
-      const discoveryWithoutSprintWorkItems = Number( summary?.discoveryWithoutSprintWorkItems || 0 );
+      const discoveryWithoutSprintWorkItems = Number(
+        summary?.discoveryWithoutSprintWorkItems || 0
+      );
     
       /* Estado técnico: no fue posible recuperar o resumir el trabajo. Requiere revisión, pero no representa un riesgo crítico; por eso se muestra como Requires Attention (amarillo) */
       if (!summary || summary.source !== 'ok') {
@@ -763,9 +836,27 @@
       return target >= nextMonthStart && target <= nextMonthEnd;
     }
     
-    /* El badge muestra la alerta principal según la precedencia de getDeliveryHealth(). Este arreglo permite que el panel muestre
-      todas las alertas aplicables para seguimiento. */
     function getDeliveryHealthAlerts(feature) {
+      /* Contrato nuevo: todos los alertas aplicables vienen del backend. Un Feature puede pertenecer a Requires Action y Requires Attention
+        al mismo tiempo si tiene alertas de ambos grupos. */
+      
+      if (Array.isArray(feature.deliveryHealth?.alerts)) {
+        return feature.deliveryHealth.alerts.map(alert => {
+          const visual = getDeliveryVisualMeta(alert.key);
+
+          return {
+            key: alert.key,
+            label: alert.label,
+            group: alert.group,
+            className: visual.alertClassName,
+            reason: alert.reason
+          };
+        });
+      }
+
+      /*
+        Fallback temporal para Features cacheados con el contrato anterior.
+      */
       const summary = feature.deliverySummary;
       const state = feature.state || '';
 
@@ -2193,6 +2284,10 @@
       /* Los contadores usan todas las alertas aplicables de cada Feature, no solamente el estado principal del badge.
         not-started queda fuera de los KPI: es un estado informativo que podrá revisarse posteriormente mediante un filtro específico.*/
       
+            /*
+        Fallback temporal para Features obtenidos antes de que el backend
+        enviara deliveryHealth.alerts con el campo group.
+      */
       const requiresActionHealthKeys = [
         'overdue',
         'target-date-near-unscheduled-discovery',
@@ -2208,34 +2303,54 @@
         'unestimated-work'
       ];
 
+      function getDeliveryHealthGroups(feature) {
+        const backendAlerts = feature.deliveryHealth?.alerts;
+
+        if (Array.isArray(backendAlerts)) {
+          return new Set(
+            backendAlerts
+              .map(alert => alert.group)
+              .filter(Boolean)
+          );
+        }
+
+        const alertKeys = getDeliveryHealthAlerts(feature)
+          .map(alert => alert.key);
+
+        const groups = new Set();
+
+        if (
+          requiresActionHealthKeys.some(
+            key => alertKeys.includes(key)
+          )
+        ) {
+          groups.add('requires-action');
+        }
+
+        if (
+          requiresAttentionHealthKeys.some(
+            key => alertKeys.includes(key)
+          )
+        ) {
+          groups.add('requires-attention');
+        }
+
+        if (alertKeys.includes('healthy')) {
+          groups.add('healthy');
+        }
+
+        return groups;
+      }
+
       const deliveryHealthCounts = {
-        requiresAction: filteredBeforeReadiness.filter(f => {
-          const healthAlertKeys = getDeliveryHealthAlerts(f)
-            .map(alert => alert.key);
+        requiresAction: filteredBeforeReadiness.filter(feature => getDeliveryHealthGroups(feature).has('requires-action')).length,
 
-          return requiresActionHealthKeys.some(
-            key => healthAlertKeys.includes(key)
-          );
-        }).length,
+        requiresAttention: filteredBeforeReadiness.filter(feature => getDeliveryHealthGroups(feature).has('requires-attention')).length,
 
-        requiresAttention: filteredBeforeReadiness.filter(f => {
-          const healthAlertKeys = getDeliveryHealthAlerts(f)
-            .map(alert => alert.key);
-
-          return requiresAttentionHealthKeys.some(
-            key => healthAlertKeys.includes(key)
-          );
-        }).length,
-
-        healthy: filteredBeforeReadiness.filter(f => {
-          const healthAlertKeys = getDeliveryHealthAlerts(f)
-            .map(alert => alert.key);
-
-          return healthAlertKeys.includes('healthy');
-        }).length
+        healthy: filteredBeforeReadiness.filter(feature => getDeliveryHealthGroups(feature).has('healthy')).length
       };
       
-            // Aplica el filtro de Readiness después de calcular los contadores.
+      // Aplica el filtro de Readiness después de calcular los contadores.
       const filteredByReadiness = filteredBeforeReadiness.filter(f => {
         const readiness = getFeatureReadiness(f);
 
@@ -2256,6 +2371,8 @@
       const filtered = filteredByReadiness.filter(f => {
         const healthAlertKeys = getDeliveryHealthAlerts(f)
           .map(alert => alert.key);
+
+        const healthGroups = getDeliveryHealthGroups(f);
       
         const matchesHealthGroup = (() => {
           if (healthGroupFilter === 'All') {
@@ -2263,19 +2380,15 @@
           }
       
           if (healthGroupFilter === 'requires-action') {
-            return requiresActionHealthKeys.some(
-              key => healthAlertKeys.includes(key)
-            );
+            return healthGroups.has('requires-action');
           }
       
           if (healthGroupFilter === 'requires-attention') {
-            return requiresAttentionHealthKeys.some(
-              key => healthAlertKeys.includes(key)
-            );
+            return healthGroups.has('requires-attention');
           }
-      
+          
           if (healthGroupFilter === 'healthy') {
-            return healthAlertKeys.includes('healthy');
+            return healthGroups.has('healthy');
           }
       
           return true;
