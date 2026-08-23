@@ -1533,63 +1533,72 @@
     }
 
     function FeatureDeliveryDetails({ feature, stories, adoLink }) {
-      const [workItemSubfilter, setWorkItemSubfilter] = React.useState('all');
-    
+      const [workItemSubfilter, setWorkItemSubfilter] =
+        React.useState('all');
+
       const delivery = getDeliveryHealth(feature);
       const alerts = getDeliveryHealthAlerts(feature);
       const summary = getWorkItemsDeliverySummary(stories);
-    
-      /* Si el usuario abre Delivery Health en otra Feature, el detalle vuelve a mostrar todos sus Stories y Bugs. */
-      React.useEffect(() => { setWorkItemSubfilter('all');}, [feature.id]);
 
-      /* Removed queda incluido en el resumen, pero no se incluye en ninguno de los tres grupos de cards. */
+      /*
+        Si el usuario abre Delivery Health en otra Feature,
+        el detalle vuelve a mostrar todos sus Stories y Bugs.
+      */
+      React.useEffect(() => {
+        setWorkItemSubfilter('all');
+      }, [feature.id]);
+
+      /*
+        Removed queda incluido en el resumen, pero no se incluye
+        en ninguno de los tres grupos de cards.
+      */
       const visibleStories = stories.filter(story => {
         if (workItemSubfilter === 'all') {
           return getWorkItemDeliveryCategory(story) !== 'removed';
         }
-      
+
         if (workItemSubfilter === 'pending') {
           return getWorkItemDeliveryCategory(story) === 'pending';
         }
-      
+
         if (workItemSubfilter === 'inProgress') {
           return getWorkItemDeliveryCategory(story) === 'inProgress';
         }
-      
+
         if (workItemSubfilter === 'done') {
           return getWorkItemDeliveryCategory(story) === 'done';
         }
-      
+
         if (workItemSubfilter === 'unestimated') {
           return isWorkItemUnestimated(story);
         }
-      
+
         if (workItemSubfilter === 'discoveryWithoutSprint') {
           const hasIterationPath =
             typeof story.iterationPath === 'string' &&
             story.iterationPath.trim() !== '';
-      
+
           return (
             getWorkItemDeliveryCategory(story) === 'pending' &&
             !hasIterationPath
           );
         }
-      
+
         return true;
       });
-      
+
       const pendingStories = sortDeliveryWorkItemsByTypeAndId(
         visibleStories.filter(
           story => getWorkItemDeliveryCategory(story) === 'pending'
         )
       );
-      
+
       const inProgressStories = sortDeliveryWorkItemsByTypeAndId(
         visibleStories.filter(
           story => getWorkItemDeliveryCategory(story) === 'inProgress'
         )
       );
-      
+
       const doneStories = sortDeliveryWorkItemsByTypeAndId(
         visibleStories.filter(
           story => getWorkItemDeliveryCategory(story) === 'done'
@@ -1603,6 +1612,10 @@
               <strong className="delivery-details__title">
                 Delivery Health
               </strong>
+
+              <p className="delivery-details__reason">
+                {delivery.reason}
+              </p>
             </div>
 
             <span
@@ -1620,7 +1633,9 @@
           </div>
 
           <div className="delivery-details__summary">
-            <button type="button" className={[
+            <button
+              type="button"
+              className={[
                 'delivery-details__metric',
                 workItemSubfilter === 'all'
                   ? 'delivery-details__metric--active'
@@ -1631,8 +1646,10 @@
             >
               {summary.includedWorkItems} included
             </button>
-          
-            <button type="button" className={[
+
+            <button
+              type="button"
+              className={[
                 'delivery-details__metric',
                 workItemSubfilter === 'pending'
                   ? 'delivery-details__metric--active'
@@ -1643,8 +1660,10 @@
             >
               {summary.pendingWorkItems} discovery
             </button>
-          
-            <button type="button" className={[
+
+            <button
+              type="button"
+              className={[
                 'delivery-details__metric',
                 workItemSubfilter === 'inProgress'
                   ? 'delivery-details__metric--active'
@@ -1655,8 +1674,10 @@
             >
               {summary.inProgressWorkItems} in progress
             </button>
-          
-            <button type="button" className={[
+
+            <button
+              type="button"
+              className={[
                 'delivery-details__metric',
                 workItemSubfilter === 'done'
                   ? 'delivery-details__metric--active'
@@ -1667,9 +1688,11 @@
             >
               {summary.doneWorkItems} done
             </button>
-          
+
             {summary.unestimatedWorkItems > 0 && (
-              <button type="button" className={[
+              <button
+                type="button"
+                className={[
                   'delivery-details__metric',
                   workItemSubfilter === 'unestimated'
                     ? 'delivery-details__metric--active'
@@ -1681,7 +1704,7 @@
                 {summary.unestimatedWorkItems} need estimate
               </button>
             )}
-          
+
             {summary.discoveryWithoutSprintWorkItems > 0 && (
               <button
                 type="button"
@@ -1691,10 +1714,13 @@
                     ? 'delivery-details__metric--active'
                     : ''
                 ].filter(Boolean).join(' ')}
-                onClick={() => setWorkItemSubfilter('discoveryWithoutSprint')}
+                onClick={() =>
+                  setWorkItemSubfilter('discoveryWithoutSprint')
+                }
                 title="Show Discovery work items without a Sprint"
               >
-                {summary.discoveryWithoutSprintWorkItems} Discovery without Sprint
+                {summary.discoveryWithoutSprintWorkItems}
+                {' '}Discovery without Sprint
               </button>
             )}
           </div>
@@ -1702,10 +1728,14 @@
           {alerts.length > 0 ? (
             <div className="delivery-alerts-grid">
               {alerts.map(alert => (
-                <div key={alert.key} className={`delivery-alert ${alert.className}`}>
+                <div
+                  key={alert.key}
+                  className={`delivery-alert ${alert.className}`}
+                >
                   <strong className="delivery-alert__title">
                     {alert.label}
                   </strong>
+
                   <span>{alert.reason}</span>
                 </div>
               ))}
@@ -1715,6 +1745,7 @@
               No delivery alerts apply to this Feature.
             </div>
           )}
+
           {pendingStories.length > 0 && (
             <DeliveryWorkItemGroup
               title="Discovery"
@@ -1722,6 +1753,31 @@
               adoLink={adoLink}
             />
           )}
+
+          {inProgressStories.length > 0 && (
+            <DeliveryWorkItemGroup
+              title="In progress"
+              stories={inProgressStories}
+              adoLink={adoLink}
+            />
+          )}
+
+          {doneStories.length > 0 && (
+            <DeliveryWorkItemGroup
+              title="Done"
+              stories={doneStories}
+              adoLink={adoLink}
+            />
+          )}
+
+          {visibleStories.length === 0 && (
+            <div className="delivery-work-group">
+              <div className="delivery-work-group__empty">
+                No Stories or Bugs match the selected filter.
+              </div>
+            </div>
+          )}
+        </div>
       );
     }
 
