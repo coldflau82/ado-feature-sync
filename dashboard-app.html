@@ -32,14 +32,6 @@
     a { color: #007bff; text-decoration: none; }
     a:hover { text-decoration: underline; }
     .expand-btn { cursor: pointer; user-select: none; text-align: center; width: 30px; }
-    .readiness-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: bold; white-space: nowrap; }
-    .readiness-badge__icon { width: 15px; height: 15px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 10px; line-height: 1; }
-    .readiness--ready { color: #166534; background: #dcfce7; }
-    .readiness--ready .readiness-badge__icon { color: white; background: #16a34a; }
-    .readiness--needs-info { color: #9a3412; background: #ffedd5; }
-    .readiness--needs-info .readiness-badge__icon { color: white; background: #ea580c; }
-    .readiness--unknown { color: #475569; background: #e2e8f0; }
-    .readiness--unknown .readiness-badge__icon { color: white; background: #64748b; }
     .readiness-details { margin: 0; padding: 0; background: transparent; border: none; border-radius: 0; }
     .readiness-details__header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
     .readiness-checks-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 7px; width:100%; }
@@ -201,31 +193,59 @@
     @media (max-width: 1150px) { .top-filters-bar { justify-content: flex-start; }}
     /* Navegación principal: Feature List / Roadmap */
     .view-switcher { display: inline-flex; grid-template-columns: repeat(2, minmax(128px, 1fr)); gap: 8px; align-items: stretch; }
-    .view-switcher__button { appearance: none; width: 130px; min-width: 130px; height: 58px; min-height: 58px; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 7px; background: #ffffff; color: #475569; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; line-height: 1.2; text-align: left;  display: inline-flex; align-items: center; justify-content: flex-start; gap: 8px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;}
+    /* ── Navegación principal: Feature List / Roadmap ── */
+    /* Esta regla define solamente la apariencia compartida. Los tamaños se definen exclusivamente dentro de .dashboard-navigation para evitar contradicciones. */
+    .view-switcher { display: inline-flex; gap: 8px; align-items: stretch; }
+    .view-switcher__button { appearance: none; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 7px; background: #ffffff; color: #475569; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; line-height: 1.2;
+      text-align: left; display: inline-flex; align-items: center; justify-content: flex-start; gap: 8px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); 
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; }
     .view-switcher__button:hover:not(.view-switcher__button--active) { background: #f1f5f9; border-color: #94a3b8; color: #1d4ed8; transform: translateY(-1px); box-shadow: 0 3px 8px rgba(15, 23, 42, 0.08); }
     .view-switcher__button:active { transform: scale(0.98); }
-    .view-switcher__button--active { background: #2563eb;   border-color: #1d4ed8; color: #ffffff; box-shadow: 0 3px 8px rgba(37, 99, 235, 0.28); }
+    .view-switcher__button--active { background: #2563eb; border-color: #1d4ed8; color: #ffffff; box-shadow: 0 3px 8px rgba(37, 99, 235, 0.28); }
     .view-switcher__button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.3); outline-offset: 2px; }
     .view-switcher__icon { width: 18px; height: 18px; flex: 0 0 18px; display: inline-flex; align-items: center; justify-content: center; }
     .view-switcher__label { display: block; }
-    /* Protección final: las tarjetas superiores del dashboard deben conservar la misma altura, sin importar qué filtro esté seleccionado o cuántos dígitos tenga cada contador. */
-    .readiness-overview-card, .health-overview-card, .view-switcher__button { height: 58px; min-height: 58px; box-sizing: border-box; }
-    /*  HEADER DEL DASHBOARD Y TARJETAS KPI  */
+    /* ── Header del dashboard y KPI cards ── */
     .dashboard-header { display: grid; grid-template-columns: 145px minmax(0, 1fr) 336px; grid-template-areas: "title kpis navigation"; align-items: center; column-gap: 16px; margin-bottom: 12px; }
     .dashboard-title { grid-area: title; margin: 0; min-width: 0; white-space: nowrap; font-size: 22px; line-height: 1.05; letter-spacing: 0.5px; }
-    /*  El bloque central ocupa solamente el espacio disponible entre el título y los botones Feature List / Roadmap. */
-    .dashboard-kpis { grid-area: kpis; display: grid; grid-template-columns: repeat(var(--kpi-card-count), minmax(0, 1fr)); gap: 9px; min-width: 0; align-items: stretch; }
+    /* El bloque central ocupa únicamente el espacio disponible entre el título y los botones de navegación. */
+    .dashboard-kpis { grid-area: kpis; display: grid; grid-template-columns: repeat( var(--kpi-card-count), minmax(0, 1fr) );  gap: 9px; min-width: 0; align-items: stretch; }
     .dashboard-kpis--6 { --kpi-card-count: 6; }
     .dashboard-kpis--7 { --kpi-card-count: 7; }
-    /* ReadinessOverview y DeliveryHealthOverview dejan de ser contenedores flex dentro del header. Así, todas sus tarjetas pasan a ser celdas directas de una única grilla. */
+    /* ReadinessOverview y DeliveryHealthOverview no agregan una capa visual dentro del header: sus cards son celdas directas de la grilla. */
     .dashboard-kpis .readiness-overview, .dashboard-kpis .health-overview { display: contents; }
-    /* Todas las tarjetas KPI tienen idénticas dimensiones. La altura reservada para el label permite una o dos líneas, aun cuando una tarjeta tenga un texto corto como "Healthy". */
-    .dashboard-kpis .readiness-overview-card, .dashboard-kpis .health-overview-card { width: 100%; min-width: 0; height: 74px; min-height: 74px; margin: 0; padding: 9px 10px; box-sizing: border-box;
-      display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; overflow: hidden; text-align: left; }
+    /* Fuente única de verdad para las KPI cards.
+      Se preserva el diseño actual:
+      - ancho adaptable a la grilla;
+      - altura fija de 74px;
+      - sin ancho fijo de 130px;
+      - sin altura antigua de 58px.  */
+    .dashboard-kpis .readiness-overview-card, .dashboard-kpis .health-overview-card { width: 100%; min-width: 0; height: 74px; min-height: 74px; margin: 0; padding: 9px 10px; border: 1px solid #e2e8f0; border-radius: 7px;
+      background: #ffffff; box-sizing: border-box; display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; overflow: hidden; text-align: left; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }
+    .dashboard-kpis .readiness-overview-card { cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
+    .dashboard-kpis .readiness-overview-card:hover { transform: translateY(-1px);  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08); }
+    .dashboard-kpis .health-overview-card { cursor: pointer; }
+    .dashboard-kpis .health-overview-card:hover { border-color: #94a3b8; transform: translateY(-1px); }
+    .dashboard-kpis .health-overview-card:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
     .dashboard-kpis .readiness-overview-card__label, .dashboard-kpis .health-overview-card__label { display: block; min-height: 28px; margin: 0; font-size: 11px; line-height: 14px; font-weight: 700; white-space: normal; overflow-wrap: anywhere; }
     .dashboard-kpis .readiness-overview-card__count, .dashboard-kpis .health-overview-card__count { display: block; margin-top: 0; font-size: 22px; line-height: 22px; font-weight: 700; color: #1e293b; }
-    /* Navegación a la derecha: reserva siempre el mismo espacio. */
+    .dashboard-kpis .readiness-overview-card--active { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.16); }
+    .dashboard-kpis .readiness-overview-card--ready { background: #f0fdf4; border-color: #86efac; }
+    .dashboard-kpis .readiness-overview-card--ready .readiness-overview-card__label { color: #166534; }
+    .dashboard-kpis .readiness-overview-card--needs-info { background: #fff7ed; border-color: #fb923c; }
+    .dashboard-kpis .readiness-overview-card--needs-info .readiness-overview-card__label { color: #9a3412; }
+    .dashboard-kpis .readiness-overview-card--unknown { background: #f8fafc; border-color: #cbd5e1; }
+    .dashboard-kpis .readiness-overview-card--unknown .readiness-overview-card__label { color: #475569; }
+    .dashboard-kpis .health-overview-card--action { background: #fef2f2; border-color: #fca5a5; }
+    .dashboard-kpis .health-overview-card--action .health-overview-card__label { color: #991b1b; }
+    .dashboard-kpis .health-overview-card--attention { background: #fef3c7; border-color: #fbbf24; }
+    .dashboard-kpis .health-overview-card--attention .health-overview-card__label { color: #854d0e; }
+    .dashboard-kpis .health-overview-card--healthy { background: #f0fdf4; border-color: #86efac; }
+    .dashboard-kpis .health-overview-card--healthy .health-overview-card__label { color: #166534; }
+    .dashboard-kpis .health-overview-card--selected { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18); }
+    /*  Navegación a la derecha. Importante:
+      - estos botones son los únicos elementos de 160px × 74px;
+      - las KPI cards mantienen ancho flexible y altura de 74px. */
     .dashboard-navigation { grid-area: navigation; justify-self: end; min-width: 0; }
     .dashboard-navigation .view-switcher { display: grid; grid-template-columns: repeat(2, 160px); gap: 8px; align-items: stretch; }
     .dashboard-navigation .view-switcher__button { width: 160px; min-width: 160px; height: 74px; min-height: 74px; box-sizing: border-box; }
