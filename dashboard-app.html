@@ -944,7 +944,7 @@
       );
     }
 
-    function FeatureRow({ featureId, title, targetDate, releaseFixVersion, estimation, priority, formatDate, timelineStart, timelineEnd, adoLink, isExpanded, onToggleExpand, states, loading, showTooltip, moveTooltip, hideTooltip }) {
+    function FeatureRow({ featureId, title,  assignedTo, targetDate, releaseFixVersion, estimation, priority, formatDate, timelineStart, timelineEnd, adoLink, isExpanded, onToggleExpand, states, loading, showTooltip, moveTooltip, hideTooltip }) {
       const stateColors = {
         'New': '#94a3b8',
         'In Shaping': '#fbbf24',
@@ -994,7 +994,9 @@
             onMouseEnter={(e) => showTooltip && showTooltip(e, (
               <div>
                 <div style={{ marginBottom: '6px', maxWidth: '240px', whiteSpace: 'normal', lineHeight: '1.4' }}>{title}</div>
-                {targetDate && <div style={{ color: '#94a3b8', fontSize: '10px' }}>🎯 Target: {formatDate(targetDate)}</div>}
+                <div style={{ color: '#94a3b8', fontSize: '10px' }}>👤 Assigned to: {getShortAssignedToName(assignedTo)}</div>
+                {targetDate && <div style={{ color: '#94a3b8', fontSize: '10px', marginTop: '2px' }}>🎯 Target: {formatDate(targetDate)}</div>}
+                {releaseFixVersion && <div style={{ color: '#94a3b8', fontSize: '10px', marginTop: '2px' }}>🚀 RFV: {releaseFixVersion}</div>}
               </div>
             ))}
             onMouseMove={(e) => moveTooltip && moveTooltip(e)}
@@ -3316,6 +3318,7 @@
                             <FeatureRow
                               featureId={f.id}
                               title={f.title}
+                              assignedTo={f.assignedTo}
                               targetDate={f.targetDate}
                               releaseFixVersion={f.releaseFixVersion}
                               estimation={f.estimation}
