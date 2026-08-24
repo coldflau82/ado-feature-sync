@@ -156,7 +156,7 @@ function getAdoClient() {
 }
 
 // ===== Filtro base de Area Path (idéntico al que ya tenías) =====
-const BASE_FILTER = 'AND [System.State] <> "Removed" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Online" OR [System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement\\Service-Print" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Cart and Checkout" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 1" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 2" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Product 3" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition\\Global Print")';
+const BASE_FILTER = 'AND [System.State] <> "Removed" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition")';
 
 // ===== Campos que se traen en el batch =====
 // Los campos HTML se consultan solo para devolver una bandera boolean.
