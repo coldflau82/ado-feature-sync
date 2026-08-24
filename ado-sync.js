@@ -33,14 +33,22 @@ const redis = Redis.fromEnv();
 // Empieza con 5; puede subirse gradualmente si ADO no devuelve 429.
 const HISTORY_BATCH_CONCURRENCY = 5;
 
-// Protección adicional para evitar solicitudes batch accidentalmente enormes.
-// El dashboard actual manda como máximo 15 IDs por página.
+/* Protección adicional para evitar solicitudes batch accidentalmente enormes.
+El dashboard actual manda como máximo 15 IDs por página.*/
 const MAX_HISTORY_BATCH_IDS = 500;
 
+/* Límite para la carga masiva de Stories/Bugs por Feature.
+  Aunque la pantalla actual muestra 15 Features por página, se deja un máximo amplio para reutilizar el endpoint en futuras vistas sin
+  permitir peticiones accidentalmente gigantes desde el navegador. */
+const MAX_FEATURE_STORIES_BATCH_IDS = 500;
+
+/* Azure DevOps acepta un máximo de 200 IDs en workitemsbatch. Esta constante se reutiliza tanto para Features como para Stories/Bugs.*/
+const ADO_WORK_ITEMS_BATCH_SIZE = 200;
+
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 /* Ejecuta asyncFn sobre cada elemento, con un máximo de "limit" operaciones simultáneas.
   Conserva el orden de resultados, aunque en nuestros endpoints de historial escribiremos directamente en un objeto results por ID. */
-
 async function mapWithConcurrency(items, limit, asyncFn) {
   const results = new Array(items.length);
   let nextIndex = 0;
@@ -184,6 +192,28 @@ const DELIVERY_WORK_ITEM_FIELDS = [
   'System.IterationPath',
   'Microsoft.VSTS.Scheduling.StoryPoints',
   'System.AssignedTo'
+];
+
+const DELIVERY_WORK_ITEM_FIELDS = [
+  'System.Id',
+  'System.WorkItemType',
+  'System.State',
+  'System.IterationPath',
+  'Microsoft.VSTS.Scheduling.StoryPoints',
+  'System.AssignedTo'
+];
+
+/* Campos requeridos para el detalle visual de Stories/Bugs.
+  DELIVERY_WORK_ITEM_FIELDS se mantiene minimalista porque se usa al construir Delivery Health dentro de /api/features.
+  STORY_WORK_ITEM_FIELDS incluye también el título porque esta respuesta se utiliza para mostrar cards, History y filas expandidas del Roadmap.*/
+const STORY_WORK_ITEM_FIELDS = [
+  'System.Id',
+  'System.Title',
+  'System.State',
+  'System.WorkItemType',
+  'System.IterationPath',
+  'System.AssignedTo',
+  'Microsoft.VSTS.Scheduling.StoryPoints'
 ];
 
 // ===== Estados de Delivery Health =====
@@ -1094,6 +1124,314 @@ async function enrichFeaturesWithDeliverySummary(c, features) {
       deliverySummary: buildDeliverySummary(deliveryWorkItems, 'ok')
     };
   });
+}
+
+// ===== Mapea un Story/Bug para el detalle visual del dashboard =====
+function mapFeatureStoryWorkItem(workItem) {
+  const fields = workItem.fields || {};
+  const assignedToField = fields['System.AssignedTo'];
+  const state = fields['System.State'] || '';
+  const storyPoints = normalizeStoryPoints(
+    fields['Microsoft.VSTS.Scheduling.StoryPoints']
+  );
+
+  /* Normaliza Assigned To porque ADO puede devolver:
+    - un objeto IdentityRef con displayName;
+    - un texto;
+    - uniqueName como fallback. */
+  const assignedTo =
+    typeof assignedToField === 'string'
+      ? assignedToField
+      : assignedToField?.displayName ||
+        assignedToField?.uniqueName ||
+        '';
+
+  const deliveryWorkItem = {
+    id: workItem.id,
+    state,
+    storyPoints
+  };
+
+  return {
+    id: workItem.id,
+    title: fields['System.Title'] || '',
+    storyPoints,
+    state,
+    workItemType: fields['System.WorkItemType'] || '',
+    iterationPath: fields['System.IterationPath'] || '',
+    assignedTo,
+
+    /*
+      Estas propiedades ya son utilizadas por el frontend para mostrar
+      el detalle, sin reinterpretar la regla de estimación.
+    */
+    requiresEstimate: workItemRequiresEstimate(state),
+    isUnestimated: isWorkItemUnestimated(deliveryWorkItem)
+  };
+}
+
+/*
+  Obtiene Features con relaciones directas en batches de máximo 200.
+
+  Devuelve:
+  - featuresById: Feature crudo por ID;
+  - unavailableFeatureIds: Features que ADO no devolvió o cuya petición falló.
+
+  Es importante diferenciar "Feature sin hijos" de "Feature no disponible":
+  - Feature recibido con relations: [] => no tiene Stories/Bugs.
+  - Feature no recibido / petición fallida => unavailable.
+*/
+async function fetchFeaturesWithRelationsBatch(c, featureIds) {
+  const featuresById = new Map();
+  const unavailableFeatureIds = new Set();
+
+  for (
+    let index = 0;
+    index < featureIds.length;
+    index += ADO_WORK_ITEMS_BATCH_SIZE
+  ) {
+    const currentIds = featureIds.slice(
+      index,
+      index + ADO_WORK_ITEMS_BATCH_SIZE
+    );
+
+    try {
+      const response = await withAdoRetry(() =>
+        c.post('/wit/workitemsbatch?api-version=7.0', {
+          ids: currentIds,
+          $expand: 'Relations',
+          errorPolicy: 'Omit'
+        })
+      );
+
+      const returnedFeatures = response.data?.value || [];
+      const returnedIds = new Set(
+        returnedFeatures.map(feature => Number(feature.id))
+      );
+
+      returnedFeatures.forEach(feature => {
+        featuresById.set(Number(feature.id), feature);
+      });
+
+      /*
+        Si ADO omitió un Feature solicitado, no se debe responder []
+        porque el frontend interpretaría incorrectamente que no tiene
+        Stories/Bugs asociados.
+      */
+      currentIds.forEach(featureId => {
+        if (!returnedIds.has(featureId)) {
+          unavailableFeatureIds.add(featureId);
+        }
+      });
+    } catch (error) {
+      console.error(
+        'ERROR fetching Feature relations batch for Stories/Bugs from ADO',
+        {
+          batchStart: index,
+          batchSize: currentIds.length,
+          adoStatus: error.response?.status || null,
+          adoStatusText: error.response?.statusText || null,
+          adoResponse: error.response?.data || null,
+          message: error.message
+        }
+      );
+
+      currentIds.forEach(featureId => {
+        unavailableFeatureIds.add(featureId);
+      });
+    }
+  }
+
+  return {
+    featuresById,
+    unavailableFeatureIds
+  };
+}
+
+/*
+  Obtiene los detalles visuales de los hijos únicos de todos los Features.
+
+  Si una solicitud batch falla, los IDs hijos de ese batch se agregan a
+  unavailableWorkItemIds. Después, cada Feature afectado se marcará como
+  unavailable sin bloquear los resultados correctos de otros Features.
+*/
+async function fetchFeatureStoryWorkItemsBatch(c, workItemIds) {
+  const workItemsById = new Map();
+  const unavailableWorkItemIds = new Set();
+
+  for (
+    let index = 0;
+    index < workItemIds.length;
+    index += ADO_WORK_ITEMS_BATCH_SIZE
+  ) {
+    const currentIds = workItemIds.slice(
+      index,
+      index + ADO_WORK_ITEMS_BATCH_SIZE
+    );
+
+    try {
+      const response = await withAdoRetry(() =>
+        c.post('/wit/workitemsbatch?api-version=7.0', {
+          ids: currentIds,
+          fields: STORY_WORK_ITEM_FIELDS,
+          errorPolicy: 'Omit'
+        })
+      );
+
+      const returnedWorkItems = response.data?.value || [];
+      const returnedIds = new Set(
+        returnedWorkItems.map(workItem => Number(workItem.id))
+      );
+
+      returnedWorkItems.forEach(workItem => {
+        workItemsById.set(
+          Number(workItem.id),
+          mapFeatureStoryWorkItem(workItem)
+        );
+      });
+
+      /*
+        Un ID omitido por ADO es distinto de un hijo que no sea Bug o
+        User Story. El primero indica una carga incompleta; el segundo
+        simplemente no debe aparecer en el dashboard.
+      */
+      currentIds.forEach(workItemId => {
+        if (!returnedIds.has(workItemId)) {
+          unavailableWorkItemIds.add(workItemId);
+        }
+      });
+    } catch (error) {
+      console.error(
+        'ERROR fetching Stories/Bugs work items batch from ADO',
+        {
+          batchStart: index,
+          batchSize: currentIds.length,
+          adoStatus: error.response?.status || null,
+          adoStatusText: error.response?.statusText || null,
+          adoResponse: error.response?.data || null,
+          message: error.message
+        }
+      );
+
+      currentIds.forEach(workItemId => {
+        unavailableWorkItemIds.add(workItemId);
+      });
+    }
+  }
+
+  return {
+    workItemsById,
+    unavailableWorkItemIds
+  };
+}
+
+/*
+  Carga Stories/Bugs de varios Features en una única operación lógica.
+
+  Flujo:
+  1. Obtiene relaciones directas de todos los Features solicitados.
+  2. Extrae IDs hijos únicos.
+  3. Obtiene campos de todos los hijos en batches de máximo 200.
+  4. Reconstruye el resultado agrupado por Feature.
+
+  El resultado no considera como error que un Feature tenga cero hijos.
+  En cambio, sí declara unavailable si ADO no permitió recuperar los
+  datos necesarios para determinar el resultado real.
+*/
+async function fetchStoriesForFeaturesBatch(c, featureIds) {
+  const results = {};
+  const unavailableFeatureIds = new Set();
+
+  /*
+    Inicializamos siempre las claves solicitadas para que el contrato sea
+    predecible. Si no hay problemas técnicos, [] significa realmente
+    "no tiene Stories/Bugs directos".
+  */
+  featureIds.forEach(featureId => {
+    results[featureId] = [];
+  });
+
+  const {
+    featuresById,
+    unavailableFeatureIds: unavailableRelationsFeatureIds
+  } = await fetchFeaturesWithRelationsBatch(c, featureIds);
+
+  unavailableRelationsFeatureIds.forEach(featureId => {
+    unavailableFeatureIds.add(featureId);
+  });
+
+  const childIdsByFeature = new Map();
+  const allChildIds = new Set();
+
+  featureIds.forEach(featureId => {
+    if (unavailableFeatureIds.has(featureId)) {
+      return;
+    }
+
+    const feature = featuresById.get(featureId);
+
+    if (!feature) {
+      unavailableFeatureIds.add(featureId);
+      return;
+    }
+
+    const childIds = getDirectChildWorkItemIds(feature);
+
+    childIdsByFeature.set(featureId, childIds);
+
+    childIds.forEach(childId => {
+      allChildIds.add(childId);
+    });
+  });
+
+  const {
+    workItemsById,
+    unavailableWorkItemIds
+  } = allChildIds.size > 0
+    ? await fetchFeatureStoryWorkItemsBatch(c, [...allChildIds])
+    : {
+        workItemsById: new Map(),
+        unavailableWorkItemIds: new Set()
+      };
+
+  featureIds.forEach(featureId => {
+    if (unavailableFeatureIds.has(featureId)) {
+      return;
+    }
+
+    const childIds = childIdsByFeature.get(featureId) || [];
+
+    /*
+      Si falta incluso uno de los hijos de este Feature, no es correcto
+      devolver una lista parcial como si fuese completa.
+    */
+    const hasUnavailableChild = childIds.some(childId =>
+      unavailableWorkItemIds.has(childId)
+    );
+
+    if (hasUnavailableChild) {
+      unavailableFeatureIds.add(featureId);
+      return;
+    }
+
+    results[featureId] = childIds
+      .map(childId => workItemsById.get(childId))
+      .filter(Boolean)
+      .filter(workItem =>
+        workItem.workItemType === 'User Story' ||
+        workItem.workItemType === 'Bug'
+      );
+  });
+
+  /*
+    Para IDs no disponibles se conserva results[id]: [] por consistencia
+    estructural, pero el frontend debe usar unavailableFeatureIds para no
+    confundir este caso con "sin Stories/Bugs".
+  */
+  return {
+    results,
+    unavailableFeatureIds: [...unavailableFeatureIds]
+  };
 }
 
 // ===== Trae IDs para un rango de fechas específico =====
