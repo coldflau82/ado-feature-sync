@@ -1836,8 +1836,11 @@
       const [expandedRoadmapFeatureId, setExpandedRoadmapFeatureId] = useState(null);
       const [historyCache, setHistoryCache] = useState({});
       const [loadingHistory, setLoadingHistory] = useState(false);
+      /* storiesCache contiene el resultado por Feature. Un arreglo vacío puede significar que realmente no hay Stories/Bugs.
+        Por eso unavailableStoriesIds existe separadamente: permite informar una carga incompleta sin confundirla con un Feature sin hijos. */
       const [storiesCache, setStoriesCache] = useState({});
       const [loadingStoriesIds, setLoadingStoriesIds] = useState({});
+      const [unavailableStoriesIds, setUnavailableStoriesIds] = useState({});
       const [loadingFeatureHistoryIds, setLoadingFeatureHistoryIds] = useState({});
       const [storyHistoryCache, setStoryHistoryCache] = useState({});
       const [loadingStoryHistory, setLoadingStoryHistory] = useState(false);
@@ -1864,14 +1867,18 @@
       }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle, readinessFilter, healthGroupFilter, healthRuleFilter ]);
 
       async function loadFeatures(forceRefresh = false) {
-        if (forceRefresh) { 
-          setRefreshing(true); 
+        if (forceRefresh) {
+          setRefreshing(true);
+          /* Los Features fueron solicitados explícitamente de nuevo. Se invalidan también los detalles dependientes de ellos. */
           setStoriesCache({});
+          setUnavailableStoriesIds({});
           setHistoryCache({});
           setStoryHistoryCache({});
           setLoadingStoriesIds({});
-          setLoadingFeatureHistoryIds({});} 
-        else { setLoading(true); }
+          setLoadingFeatureHistoryIds({});
+        } else {
+          setLoading(true);
+        }
         try {
           const url = forceRefresh ? '/api/features?refresh=1' : '/api/features';
           const res = await fetch(url);
@@ -2150,11 +2157,142 @@
               [featureId]: []
             }));
           })
-          .finally(() => {
+        .finally(() => {
             setLoadingFeatureHistoryIds(prev => ({
               ...prev,
               [featureId]: false
             }));
+          });
+      };
+
+      /* Carga Stories/Bugs de múltiples Features con UNA llamada HTTP.
+        Esta función centraliza los cuatro escenarios que antes usaban fetch('/api/feature-stories/:id') individualmente:
+        1. Precarga de los Features visibles en Feature List.
+        2. Apertura de History.
+        3. Apertura de Delivery Health.
+        4. Expansión de una fila del Roadmap. */
+      const loadStoriesForFeatures = (featureIds) => {
+        const ids = [
+          ...new Set(
+            (featureIds || [])
+              .map(Number)
+              .filter(id => Number.isInteger(id) && id > 0)
+          )
+        ].filter(featureId =>
+          !Object.prototype.hasOwnProperty.call(
+            storiesCache,
+            featureId
+          ) &&
+          !loadingStoriesIds[featureId] &&
+          !unavailableStoriesIds[featureId]
+        );
+
+        if (ids.length === 0) {
+          return;
+        }
+
+        /* Marcamos todos los IDs antes de realizar fetch para evitar peticiones repetidas mientras React procesa el siguiente render. */
+        setLoadingStoriesIds(previous => {
+          const next = { ...previous };
+
+          ids.forEach(featureId => {
+            next[featureId] = true;
+          });
+
+          return next;
+        });
+
+        fetch('/api/features-stories-batch', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ ids })
+        })
+          .then(async response => {
+            const data = await response.json();
+
+            if (!response.ok) {
+              throw new Error(
+                data.error ||
+                'Unable to load Stories/Bugs for the selected Features.'
+              );
+            }
+
+            return data;
+          })
+          .then(data => {
+            const results = data.results || {};
+            const unavailableIds = new Set(
+              (data.unavailableFeatureIds || [])
+                .map(Number)
+                .filter(Number.isInteger)
+            );
+
+            /* Guardamos un arreglo por cada ID solicitado, incluso cuando esté unavailable. Esto evita una precarga infinita. La UI usa unavailableStoriesIds para mostrar el error correcto. */
+            setStoriesCache(previous => {
+              const next = { ...previous };
+
+              ids.forEach(featureId => {
+                next[featureId] = Array.isArray(results[featureId])
+                  ? results[featureId]
+                  : [];
+              });
+
+              return next;
+            });
+
+            setUnavailableStoriesIds(previous => {
+              const next = { ...previous };
+
+              ids.forEach(featureId => {
+                if (unavailableIds.has(featureId)) {
+                  next[featureId] = true;
+                } else {
+                  delete next[featureId];
+                }
+              });
+
+              return next;
+            });
+          })
+          .catch(error => {
+            console.error(
+              'Error loading Stories/Bugs batch:',
+              error
+            );
+
+            /*  Un error HTTP general no permite saber qué Feature falló. Marcamos todos los IDs de esta solicitud como unavailable, evitando reintentos automáticos repetidos cada vez que la página vuelva a renderizarse. */
+            setStoriesCache(previous => {
+              const next = { ...previous };
+
+              ids.forEach(featureId => {
+                next[featureId] = [];
+              });
+
+              return next;
+            });
+
+            setUnavailableStoriesIds(previous => {
+              const next = { ...previous };
+
+              ids.forEach(featureId => {
+                next[featureId] = true;
+              });
+
+              return next;
+            });
+          })
+          .finally(() => {
+            setLoadingStoriesIds(previous => {
+              const next = { ...previous };
+
+              ids.forEach(featureId => {
+                next[featureId] = false;
+              });
+
+              return next;
+            });
           });
       };
 
@@ -2163,11 +2301,7 @@
           expandedFeaturePanel?.featureId === featureId &&
           expandedFeaturePanel?.panel === 'history';
 
-        /*
-          Clic en el mismo triángulo: cerrar el panel History.
-          Clic desde otra Feature o desde Readiness: reemplazar el
-          estado para que sólo exista un panel abierto globalmente.
-        */
+        /* Clic en el mismo triángulo: cerrar el panel History. Clic desde otra Feature o desde Readiness: reemplazar el estado para que sólo exista un panel abierto globalmente. */
         if (panelIsAlreadyOpen) {
           setExpandedFeaturePanel(null);
           return;
@@ -2178,37 +2312,8 @@
           panel: 'history'
         });
 
-        /*
-          Las Stories/Bugs pueden estar precargadas por la página actual.
-          Si no están disponibles, se solicitan al abrir History.
-        */
-        if (!storiesCache[featureId] && !loadingStoriesIds[featureId]) {
-          setLoadingStoriesIds(prev => ({
-            ...prev,
-            [featureId]: true
-          }));
-
-          fetch('/api/feature-stories/' + featureId)
-            .then(response => response.json())
-            .then(data => {
-              setStoriesCache(prev => ({
-                ...prev,
-                [featureId]: data.stories || []
-              }));
-            })
-            .catch(() => {
-              setStoriesCache(prev => ({
-                ...prev,
-                [featureId]: []
-              }));
-            })
-            .finally(() => {
-              setLoadingStoriesIds(prev => ({
-                ...prev,
-                [featureId]: false
-              }));
-            });
-        }
+      /* Las Stories/Bugs normalmente ya fueron precargadas para la página actual. Si no, se solicita este Feature mediante el endpoint batch. */
+        loadStoriesForFeatures([featureId]);
 
         ensureFeatureHistoryLoaded(featureId);
       };
@@ -2218,11 +2323,7 @@
           expandedFeaturePanel?.featureId === featureId &&
           expandedFeaturePanel?.panel === 'readiness';
 
-        /*
-          Clic en el mismo badge: cerrar.
-          Si estaba abierto History o Delivery, el estado se reemplaza
-          y queda abierto solamente Readiness.
-        */
+        /*  Clic en el mismo badge: cerrar. Si estaba abierto History o Delivery, el estado se reemplaza y queda abierto solamente Readiness. */
         if (panelIsAlreadyOpen) {
           setExpandedFeaturePanel(null);
           return;
@@ -2239,11 +2340,7 @@
           expandedFeaturePanel?.featureId === featureId &&
           expandedFeaturePanel?.panel === 'delivery';
 
-        /*
-          Clic en el mismo badge: cerrar.
-          Al abrir Delivery se reemplaza History o Readiness para que
-          siempre exista un único panel abierto globalmente.
-        */
+        /* Clic en el mismo badge: cerrar. Al abrir Delivery se reemplaza History o Readiness para que siempre exista un único panel abierto globalmente. */
         if (panelIsAlreadyOpen) {
           setExpandedFeaturePanel(null);
           return;
@@ -2254,37 +2351,8 @@
           panel: 'delivery'
         });
 
-        /*
-          Normalmente las Stories/Bugs ya están precargadas para la página
-          actual. Esta carga es un fallback seguro si aún no existen.
-        */
-        if (!storiesCache[featureId] && !loadingStoriesIds[featureId]) {
-          setLoadingStoriesIds(prev => ({
-            ...prev,
-            [featureId]: true
-          }));
-
-          fetch('/api/feature-stories/' + featureId)
-            .then(response => response.json())
-            .then(data => {
-              setStoriesCache(prev => ({
-                ...prev,
-                [featureId]: data.stories || []
-              }));
-            })
-            .catch(() => {
-              setStoriesCache(prev => ({
-                ...prev,
-                [featureId]: []
-              }));
-            })
-            .finally(() => {
-              setLoadingStoriesIds(prev => ({
-                ...prev,
-                [featureId]: false
-              }));
-            });
-        }
+        /* Normalmente las Stories/Bugs ya están precargadas para la página actual. Este fallback usa el endpoint batch incluso para un ID. */
+        loadStoriesForFeatures([featureId]);
       };
 
       const deliveryHealthRuleOptions = [
@@ -2305,42 +2373,36 @@
       const featuresStartIdx = (featuresPage - 1) * featuresItemsPerPage;
       const featuresPageItems = sortedFiltered.slice(featuresStartIdx, featuresStartIdx + featuresItemsPerPage);
 
+      /* Precarga los Stories/Bugs de los 15 Features visibles con una sola petición al backend, en lugar de una petición por Feature. */
       useEffect(() => {
         const featuresToLoad = featuresPageItems
-          .map(f => f.id)
-          .filter(id => !storiesCache[id] && !loadingStoriesIds[id]);
-        if (featuresToLoad.length === 0) return;
-        featuresToLoad.forEach(featureId => {
-          setLoadingStoriesIds(prev => ({ ...prev, [featureId]: true }));
-          fetch('/api/feature-stories/' + featureId)
-            .then(r => r.json())
-            .then(d => {
-              setStoriesCache(prev => ({ ...prev, [featureId]: d.stories || [] }));
-              setLoadingStoriesIds(prev => ({ ...prev, [featureId]: false }));
-            })
-            .catch(() => {
-              setStoriesCache(prev => ({ ...prev, [featureId]: [] }));
-              setLoadingStoriesIds(prev => ({ ...prev, [featureId]: false }));
-            });
-        });
-      }, [featuresPage, sortedFiltered.length, filterAreaPath.join(','), filterIteration.join(','), filterState.join(','), filterTargetDate.join(','), filterReleaseVersion.join(','), filterAssignedTo.join(','), readinessFilter, searchTitle]);
+          .map(feature => feature.id)
+          .filter(featureId =>
+            !Object.prototype.hasOwnProperty.call(
+              storiesCache,
+              featureId
+            ) &&
+            !loadingStoriesIds[featureId] &&
+            !unavailableStoriesIds[featureId]
+          );
+
+        if (featuresToLoad.length === 0) {
+          return;
+        }
+
+        loadStoriesForFeatures(featuresToLoad);
+      }, [featuresPage, sortedFiltered.length, filterAreaPath.join(','), filterIteration.join(','), filterState.join(','), filterTargetDate.join(','), filterReleaseVersion.join(','), filterAssignedTo.join(','), readinessFilter, healthGroupFilter, healthRuleFilter, searchTitle]);
 
       const toggleRoadmapFeature = (featureId) => {
-        if (expandedRoadmapFeatureId === featureId) { setExpandedRoadmapFeatureId(null); return; }
-        setExpandedRoadmapFeatureId(featureId);
-        if (!storiesCache[featureId]) {
-          setLoadingStoriesIds(prev => ({ ...prev, [featureId]: true }));
-          fetch('/api/feature-stories/' + featureId)
-            .then(r => r.json())
-            .then(d => {
-              setStoriesCache(prev => ({ ...prev, [featureId]: d.stories || [] }));
-              setLoadingStoriesIds(prev => ({ ...prev, [featureId]: false }));
-            })
-            .catch(() => {
-              setStoriesCache(prev => ({ ...prev, [featureId]: [] }));
-              setLoadingStoriesIds(prev => ({ ...prev, [featureId]: false }));
-            });
+        if (expandedRoadmapFeatureId === featureId) {
+          setExpandedRoadmapFeatureId(null);
+          return;
         }
+
+        setExpandedRoadmapFeatureId(featureId);
+
+        /* Si el Feature no pertenece a la página actual de Feature List o todavía no fue precargado, se usa el mismo endpoint batch. */
+        loadStoriesForFeatures([featureId]);
       };
 
       const adoLink = (id) => `https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/${id}`;
@@ -3031,12 +3093,34 @@
 
                                       <div className="feature-stories-panel__divider" />
 
-                                      {loadingStoriesIds[f.id] ? (
-                                        <div style={{ padding: '10px 0', fontSize: '12px', color: '#64748b' }}>
+                                     {loadingStoriesIds[f.id] ? (
+                                        <div
+                                          style={{
+                                            padding: '10px 0',
+                                            fontSize: '12px',
+                                            color: '#64748b'
+                                          }}
+                                        >
                                           Loading Stories and Bugs...
                                         </div>
+                                      ) : unavailableStoriesIds[f.id] ? (
+                                        <div
+                                          style={{
+                                            padding: '10px 0',
+                                            fontSize: '12px',
+                                            color: '#b45309'
+                                          }}
+                                        >
+                                          Stories and Bugs could not be fully retrieved from Azure DevOps. Please refresh the dashboard and try again.
+                                        </div>
                                       ) : (storiesCache[f.id] || []).length === 0 ? (
-                                        <div style={{ padding: '10px 0', fontSize: '12px', color: '#64748b' }}>
+                                        <div
+                                          style={{
+                                            padding: '10px 0',
+                                            fontSize: '12px',
+                                            color: '#64748b'
+                                          }}
+                                        >
                                           No Stories or Bugs found for this Feature yet.
                                         </div>
                                       ) : (
@@ -3066,8 +3150,24 @@
                                 <td id={`feature-delivery-panel-${f.id}`} colSpan="13" style={{ paddingLeft: '40px', paddingTop: '12px',  paddingBottom: '12px', paddingRight: '20px' }}>
                                   <div style={{ background: '#f8fafc', border: '1px solid #dbe4ee', borderRadius: '8px', padding: '14px 16px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' }}>
                                     {loadingStoriesIds[f.id] ? (
-                                      <div style={{ padding: '10px 0', fontSize: '12px', color: '#64748b' }}>
+                                      <div
+                                        style={{
+                                          padding: '10px 0',
+                                          fontSize: '12px',
+                                          color: '#64748b'
+                                        }}
+                                      >
                                         Loading Stories and Bugs...
+                                      </div>
+                                    ) : unavailableStoriesIds[f.id] ? (
+                                      <div
+                                        style={{
+                                          padding: '10px 0',
+                                          fontSize: '12px',
+                                          color: '#b45309'
+                                        }}
+                                      >
+                                        Stories and Bugs could not be fully retrieved from Azure DevOps. Delivery Health rules remain based on the server-provided Feature summary.
                                       </div>
                                     ) : (
                                       <FeatureDeliveryDetails
@@ -3239,10 +3339,32 @@
                               moveTooltip={moveTooltip}
                               hideTooltip={hideTooltip}
                             />
-                            {isExpanded && (
+                          {isExpanded && (
                               loadingStoriesIds[f.id] ? (
                                 <tr style={{ background: '#f2f2f2' }}>
-                                  <td colSpan="5" style={{ padding: '20px', textAlign: 'center' }}>Loading stories...</td>
+                                  <td
+                                    colSpan="5"
+                                    style={{
+                                      padding: '20px',
+                                      textAlign: 'center'
+                                    }}
+                                  >
+                                    Loading Stories and Bugs...
+                                  </td>
+                                </tr>
+                              ) : unavailableStoriesIds[f.id] ? (
+                                <tr style={{ background: '#fefce8' }}>
+                                  <td
+                                    colSpan="5"
+                                    style={{
+                                      padding: '20px',
+                                      textAlign: 'center',
+                                      color: '#b45309',
+                                      fontSize: '12px'
+                                    }}
+                                  >
+                                    Stories and Bugs could not be fully retrieved from Azure DevOps. Refresh the dashboard and try again.
+                                  </td>
                                 </tr>
                               ) : (
                                 (storiesCache[f.id] || []).map(s => (
