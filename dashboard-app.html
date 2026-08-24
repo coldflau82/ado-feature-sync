@@ -1521,7 +1521,7 @@
             </span>
 
             <span style={{ fontSize: '10px', color: isWorkItemUnestimated(story) ? '#b45309' : '#666', fontWeight: isWorkItemUnestimated(story) ? 'bold' : 'normal' }}>
-              🎯 {story.storyPoints ?? 'Missing'}
+              🎯 {story.storyPoints ?? 'No Data'}
               {story.storyPoints !== null && story.storyPoints !== undefined ? ' pts' : ''}
             </span>
 
@@ -1946,8 +1946,7 @@
         setSaveAsDefault(checked);
         if (!checked) localStorage.removeItem(FILTER_STORAGE_KEY);
       };
-      // Applies every dashboard filter except Readiness.
-      // This collection is used by the Readiness overview counters.
+      // Applies every dashboard filter except Readiness. This collection is used by the Readiness overview counters.
       const filteredBeforeReadiness = features.filter(f => {
         const areaOk = filterAreaPath.length === 0 ||filterAreaPath.includes(f.areaPath);
         const iterOk = filterIteration.length === 0 || filterIteration.includes(f.iterationPath);
@@ -1984,8 +1983,7 @@
         );
       });
       
-      // The overview always represents the current selection from all
-      // filters other than Readiness.
+      // The overview always represents the current selection from all filters other than Readiness.
       const readinessCounts = {
         total: filteredBeforeReadiness.length,
         healthy: filteredBeforeReadiness.filter(f => getFeatureReadiness(f) === 'Healthy').length,
@@ -2048,13 +2046,8 @@
         return readiness === readinessFilter;
       });
 
-      /*
-        Las tarjetas de Health usan las alertas individuales, no solamente
-        la alerta principal mostrada por el badge.
-
-        Esto permite que, si un Feature tiene más de una alarma, aparezca
-        dentro de cada grupo que le corresponda.
-      */
+      /* Las tarjetas de Health usan las alertas individuales, no solamente la alerta principal mostrada por el badge.
+         Esto permite que, si un Feature tiene más de una alarma, aparezca dentro de cada grupo que le corresponda. */
       const filtered = filteredByReadiness.filter(f => {
         const delivery = getDeliveryHealth(f);
 
