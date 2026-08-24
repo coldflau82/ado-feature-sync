@@ -194,15 +194,6 @@ const DELIVERY_WORK_ITEM_FIELDS = [
   'System.AssignedTo'
 ];
 
-const DELIVERY_WORK_ITEM_FIELDS = [
-  'System.Id',
-  'System.WorkItemType',
-  'System.State',
-  'System.IterationPath',
-  'Microsoft.VSTS.Scheduling.StoryPoints',
-  'System.AssignedTo'
-];
-
 /* Campos requeridos para el detalle visual de Stories/Bugs.
   DELIVERY_WORK_ITEM_FIELDS se mantiene minimalista porque se usa al construir Delivery Health dentro de /api/features.
   STORY_WORK_ITEM_FIELDS incluye también el título porque esta respuesta se utiliza para mostrar cards, History y filas expandidas del Roadmap.*/
