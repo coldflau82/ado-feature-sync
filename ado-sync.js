@@ -1845,110 +1845,111 @@ app.post('/api/stories-history-batch', async (req, res) => {
   }
 });
 
+/* Nuevo endpoint masivo para Stories/Bugs.
+  - results[id] = [] y el ID NO está en unavailableFeatureIds: el Feature realmente no tiene Stories/Bugs directos.
+  - results[id] = [] y el ID SÍ está en unavailableFeatureIds: no fue posible recuperar información completa desde ADO. */
+
+app.post('/api/features-stories-batch', async (req, res) => {
+  try {
+    if (!Array.isArray(req.body?.ids)) {
+      return res.status(400).json({
+        error: 'The request body must contain an "ids" array.'
+      });
+    }
+
+    /*
+      Normaliza:
+      - convierte strings numéricos a number;
+      - elimina inválidos;
+      - elimina duplicados;
+      - evita repetir trabajo hacia ADO.
+    */
+    const ids = [
+      ...new Set(
+        req.body.ids
+          .map(Number)
+          .filter(id => Number.isInteger(id) && id > 0)
+      )
+    ];
+
+    if (ids.length > MAX_FEATURE_STORIES_BATCH_IDS) {
+      return res.status(400).json({
+        error:
+          `A maximum of ${MAX_FEATURE_STORIES_BATCH_IDS} ` +
+          'Feature IDs is allowed per Stories/Bugs batch request.'
+      });
+    }
+
+    /* Una petición sin IDs es válida y facilita que el frontend mantenga una lógica uniforme al navegar entre páginas sin resultados. */
+    if (ids.length === 0) {
+      return res.json({
+        results: {},
+        unavailableFeatureIds: []
+      });
+    }
+
+    const c = getAdoClient();
+
+    const {
+      results,
+      unavailableFeatureIds
+    } = await fetchStoriesForFeaturesBatch(c, ids);
+
+    return res.json({
+      results,
+      unavailableFeatureIds
+    });
+  } catch (error) {
+    console.error('ERROR /api/features-stories-batch', {
+      adoStatus: error.response?.status || null,
+      adoStatusText: error.response?.statusText || null,
+      adoResponse: error.response?.data || null,
+      message: error.message,
+      stack: error.stack || null
+    });
+
+    return res.status(500).json({
+      error: 'Unable to fetch Feature Stories/Bugs from ADO.'
+    });
+  }
+});
+
+/* Endpoint individual legado.
+  Se conserva por compatibilidad temporal con posibles clientes externos o bookmarks técnicos, pero el dashboard ya no lo utilizará después de aplicar los cambios del frontend. */
 app.get('/api/feature-stories/:id', async (req, res) => {
   try {
-    const c = getAdoClient();
     const featureId = Number(req.params.id);
 
-    if (!Number.isFinite(featureId)) {
+    if (!Number.isInteger(featureId) || featureId <= 0) {
       return res.status(400).json({
         error: 'Invalid Feature ID.'
       });
     }
 
-    /* Obtenemos el Feature con sus relaciones directas. 
-      Esto evita depender de una consulta WIQL de WorkItemLinks y usa
-      exactamente la misma interpretación de hijos directos que Delivery
-      Health: Feature -> User Story / Bug. */
-    const featureResponse = await withAdoRetry(() =>
-      c.get(
-        `/wit/workitems/${featureId}?$expand=Relations&api-version=7.0`
-      )
-    );
-
-    const feature = featureResponse.data || {};
-
-    const childIds = getDirectChildWorkItemIds(feature);
-
-    if (childIds.length === 0) {
-      return res.json({
-        stories: []
-      });
-    }
+    const c = getAdoClient();
 
     /*
-      Azure DevOps workitemsbatch admite hasta 200 IDs por consulta.
-      Aunque normalmente un Feature tendrá menos, este código protege
-      el endpoint cuando haya una cantidad mayor.
+      El endpoint individual reutiliza el mismo flujo batch.
+      Así se garantiza que:
+      - la interpretación de relaciones directas es idéntica;
+      - el mapeo de Stories/Bugs es idéntico;
+      - la lógica de unavailable es idéntica.
     */
-    const batchSize = 200;
-    const allWorkItems = [];
+    const {
+      results,
+      unavailableFeatureIds
+    } = await fetchStoriesForFeaturesBatch(c, [featureId]);
 
-    for (let index = 0; index < childIds.length; index += batchSize) {
-      const currentIds = childIds.slice(index, index + batchSize);
-
-      const batchResponse = await withAdoRetry(() =>
-        c.post(
-          '/wit/workitemsbatch?api-version=7.0',
-          {
-            ids: currentIds,
-            fields: [
-              'System.Id',
-              'System.Title',
-              'System.State',
-              'System.WorkItemType',
-              'System.IterationPath',
-              'System.AssignedTo',
-              'Microsoft.VSTS.Scheduling.StoryPoints'
-            ],
-            errorPolicy: 'Omit'
-          }
-        )
-      );
-
-      allWorkItems.push(...(batchResponse.data.value || []));
+    if (unavailableFeatureIds.includes(featureId)) {
+      return res.status(503).json({
+        error:
+          'Feature Stories/Bugs could not be fully retrieved from ADO.',
+        unavailableFeatureIds
+      });
     }
 
-    const stories = allWorkItems
-      .filter(workItem => {
-        const workItemType =
-          workItem.fields?.['System.WorkItemType'] || '';
-
-        return (
-          workItemType === 'User Story' ||
-          workItemType === 'Bug'
-        );
-      })
-      .map(workItem => {
-        const fields = workItem.fields || {};
-        const assignedToField = fields['System.AssignedTo'];
-
-        /*
-          Normaliza Assigned To porque ADO puede devolver:
-          - un objeto IdentityRef con displayName;
-          - un texto, según la respuesta o integración.
-        */
-        const assignedTo = typeof assignedToField === 'string' ? assignedToField : assignedToField?.displayName || assignedToField?.uniqueName || '';
-        const state = fields['System.State'] || '';
-        const storyPoints = normalizeStoryPoints( fields['Microsoft.VSTS.Scheduling.StoryPoints'] );
-        const deliveryWorkItem = { id: workItem.id, state, storyPoints };
-        
-        return {
-          id: workItem.id,
-          title: fields['System.Title'] || '',
-          storyPoints,
-          state,
-          workItemType: fields['System.WorkItemType'] || '',
-          iterationPath: fields['System.IterationPath'] || '',
-          assignedTo,
-          /* Estas banderas permiten que el frontend no replique ni contradiga las reglas de Delivery Health del backend. */
-          requiresEstimate: workItemRequiresEstimate(state),
-          isUnestimated: isWorkItemUnestimated(deliveryWorkItem)
-        };
-      });
-
     return res.json({
-      stories
+      stories: results[featureId] || []
     });
   } catch (error) {
     console.error('ERROR /api/feature-stories/:id', {
@@ -1960,8 +1961,7 @@ app.get('/api/feature-stories/:id', async (req, res) => {
     });
 
     return res.status(500).json({
-      error: 'Unable to fetch Feature Stories/Bugs from ADO.',
-      details: error.response?.data || null
+      error: 'Unable to fetch Feature Stories/Bugs from ADO.'
     });
   }
 });
@@ -2030,9 +2030,7 @@ app.get('/api/features', async (req, res) => {
 
     console.error('ERROR /api/features', diagnostic);
 
-    // Diagnóstico temporal para poder identificar el problema cuando
-    // los logs de Vercel no están disponibles.
-    //
+    // Diagnóstico temporal para poder identificar el problema cuando los logs de Vercel no están disponibles.
     // No exponer stack, variables de entorno, Authorization ni PAT.
     res.status(500).json({
       error: 'Unable to fetch Features from ADO.',
