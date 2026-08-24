@@ -485,7 +485,7 @@
 
           {missingChecks.length > 0 && (
             <div className="readiness-summary readiness-summary--missing">
-              <strong>Missing:</strong>{' '}
+              <strong>No data:</strong>{' '}
               {missingChecks
                 .map(check => readinessCheckLabels[check] || check)
                 .join(', ')}
@@ -892,7 +892,7 @@
                   fontWeight: storyPoints === null || storyPoints === undefined ? 'bold' : 'normal'
                 }}
               >
-                ({storyPoints ?? 'Missing'}{storyPoints !== null && storyPoints !== undefined ? ' pts' : ''})
+                ({storyPoints ?? 'No data'}{storyPoints !== null && storyPoints !== undefined ? ' pts' : ''})
               </span>
             </div>
           </td>
@@ -1453,7 +1453,7 @@
                           📍 {sprintLabel}
                         </span>
                         <span style={{ fontSize: '10px', color: hasWorkItemEstimate(story) ? '#666' : '#dc2626', fontWeight: hasWorkItemEstimate(story) ? 'normal' : 'bold' }}>
-                          🎯 {story.storyPoints ?? 'Missing'}{story.storyPoints !== null && story.storyPoints !== undefined ? ' pts' : ''}
+                          🎯 {story.storyPoints ?? 'No data'}{story.storyPoints !== null && story.storyPoints !== undefined ? ' pts' : ''}
                         </span>
                         <span className="feature-story-card__assigned-to">
                           👤 {getShortAssignedToName(story.assignedTo)}
@@ -1521,7 +1521,7 @@
             </span>
 
             <span style={{ fontSize: '10px', color: isWorkItemUnestimated(story) ? '#b45309' : '#666', fontWeight: isWorkItemUnestimated(story) ? 'bold' : 'normal' }}>
-              🎯 {story.storyPoints ?? 'No Data'}
+              🎯 {story.storyPoints ?? 'No data'}
               {story.storyPoints !== null && story.storyPoints !== undefined ? ' pts' : ''}
             </span>
 
