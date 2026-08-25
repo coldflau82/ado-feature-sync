@@ -2818,7 +2818,7 @@
         - cierre de paneles expandidos;
         - retorno al inicio del panel de resultados. */
       const changeFeaturesPage = (nextPage) => {
-        const targetPage = Math.max( 1, Math.min(featuresTotalPages, Number(nextPage) || 1)};
+        const targetPage = Math.max( 1, Math.min(featuresTotalPages, Number(nextPage) || 1));
         if (targetPage === featuresPage) { return; }
         setFeaturesPage(targetPage);
         setExpandedFeaturePanel(null);
