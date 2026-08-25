@@ -321,7 +321,7 @@
     .filters-card { padding: 0 !important; overflow: hidden;}
     .filters-card__header { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 12px; border-bottom: 1px solid #e5e7eb; background: #ffffff;}
     .filters-card--collapsed .filters-card__header { border-bottom: none;}
-    .filters-card__toggle { min-width: 0; flex: 1; display: flex; align-items: center; gap: 8px; padding: 4px 2px; border: 0; background: transparent; color: #1f2937; font: inherit; text-align: left; cursor: pointer;}
+    .filters-card__toggle { min-width: 0; flex: 1; display: 'grid'; gridTemplateColumns: '0.7fr 1.8fr 0.8fr 0.5fr 0.6fr 0.8fr'; align-items: center; gap: 8px; padding: 4px 2px; border: 0; background: transparent; color: #1f2937; font: inherit; text-align: left; cursor: pointer;}
     .filters-card__toggle:hover .filters-card__toggle-title { color: #2563eb;}
     .filters-card__toggle-icon { width: 16px; color: #537fbd; font-size: 16px; line-height: 1;}
     .filters-card__toggle-title { font-weight: 700; white-space: nowrap;}
@@ -3038,17 +3038,9 @@
 
         function FeatureTooltipContent({ feature }) {
         /*
-          Reutilizamos exactamente la lógica de display ya utilizada
-          en la columna Iteration: tomar el último segmento del path.
-
-          Area:
-          Commercial Engineering\Digital\Acquisition\Global Product 1
-          → Global Product 1
-
-          Iteration:
-          Commercial Engineering\2026\Q4
-          → Q4
-        */
+          Reutilizamos exactamente la lógica de display ya utilizada en la columna Iteration: tomar el último segmento del path.
+          Area: Commercial Engineering\Digital\Acquisition\Global Product 1 → Global Product 1
+          Iteration: Commercial Engineering\2026\Q4  → Q4 */
         const shortArea = feature.areaPath
           ? feature.areaPath.split('\\').pop()
           : '—';
