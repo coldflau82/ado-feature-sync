@@ -2275,8 +2275,9 @@
       const [legendExpanded, setLegendExpanded] = useState(false);
       const [refreshing, setRefreshing] = useState(false);
       const [cacheInfo, setCacheInfo] = useState(null);
-      const [readinessFilter, setReadinessFilter] = useState('All');
-      const [healthGroupFilter, setHealthGroupFilter] = useState('All');
+      const [readinessKpiFilter, setReadinessKpiFilter] = useState('All');
+      const [healthGroupKpiFilter, setHealthGroupKpiFilter] = useState('All');
+      const [readinessDropdownFilter, setReadinessDropdownFilter] = useState('All');
       const [healthRuleFilter, setHealthRuleFilter] = useState('All');
 
        /*  Referencia al único contenedor desplazable de resultados. En desktop/tablet este será el único scroll vertical disponible. */
@@ -2288,6 +2289,48 @@
           left: 0,
           behavior
         });
+      };
+
+      /* Restablece la navegación y los paneles abiertos después de cambiar cualquier filtro principal. */
+      const resetResultsAfterMainFilterChange = () => {
+        setFeaturesPage(1);
+        setRoadmapPage(1);
+        setExpandedFeaturePanel(null);
+        setExpandedRoadmapFeatureId(null);
+      
+        requestAnimationFrame(() => {
+          scrollResultsToTop('smooth');
+        });
+      };
+      
+      /* Limpia todos los filtros KPI y los dropdowns relacionados conReadiness / Delivery Health.      
+        No modifica Search ni los filtros estructurales: Area Path, Iteration Path, Assigned To, State, Target Date y Release Fix Version. */
+      const clearReadinessAndHealthFilters = () => {
+        setReadinessKpiFilter('All');
+        setHealthGroupKpiFilter('All');
+        setReadinessDropdownFilter('All');
+        setHealthRuleFilter('All');
+      };
+      
+      /* Una tarjeta KPI de Readiness es exclusiva: elimina cualquier KPI o dropdown de Delivery Health, así como cualquier Readiness previamente seleccionado, y luego aplica
+        la tarjeta solicitada. */
+      const applyReadinessKpi = (readiness) => {
+        clearReadinessAndHealthFilters();
+      
+        if (readiness !== 'All') { setReadinessKpiFilter(readiness); }
+      
+        resetResultsAfterMainFilterChange();
+      };
+      
+      /* Una tarjeta KPI de Delivery Health es exclusiva: elimina cualquier KPI o dropdown de Readiness, además de cualquier otra KPI de Delivery Health, y luego aplica la tarjeta solicitada.*/
+      const applyHealthGroupKpi = (healthGroup) => {
+        clearReadinessAndHealthFilters();
+      
+        if (healthGroup !== 'All') {
+          setHealthGroupKpiFilter(healthGroup);
+        }
+      
+        resetResultsAfterMainFilterChange();
       };
       
       useEffect(() => {
@@ -2304,7 +2347,7 @@
         requestAnimationFrame(() => {
           scrollResultsToTop('auto');
         });
-      }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle, readinessFilter, healthGroupFilter, healthRuleFilter ]);
+      }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle, searchTitle, readinessKpiFilter, healthGroupKpiFilter, readinessDropdownFilter, healthRuleFilter ]);
 
       /* Cambiar de Feature List a Roadmap también restablece el scroll interno para no dejar al usuario a mitad de una tabla distinta. */
       useEffect(() => {
@@ -2375,8 +2418,11 @@
             setFilterTargetDate(parsed.filterTargetDate || []);
             setFilterReleaseVersion(parsed.filterReleaseVersion || []);
             setFilterAssignedTo(parsed.filterAssignedTo || []);
-            setReadinessFilter(parsed.readinessFilter || 'All');
+            setReadinessDropdownFilter( parsed.readinessDropdownFilter || parsed.readinessFilter || 'All' );
             setHealthRuleFilter(parsed.healthRuleFilter || 'All');
+            /* Las KPI no se restauran como filtro predeterminado. Se mantienen como una interacción temporal de la sesión. */
+            setReadinessKpiFilter('All');
+            setHealthGroupKpiFilter('All');
             setSaveAsDefault(true);
           } catch (e) { console.error('Error loading saved filters:', e); }
         }
@@ -2384,9 +2430,9 @@
 
       useEffect(() => {
         if (!saveAsDefault) return;
-        const filtersToSave = { filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, readinessFilter, healthRuleFilter };
+        const filtersToSave = { filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, readinessDropdownFilter, healthRuleFilter };
         localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filtersToSave));
-      }, [saveAsDefault, filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, readinessFilter, healthRuleFilter]);
+      }, [saveAsDefault, filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, readinessDropdownFilter, healthRuleFilter]);
 
       const handleSaveAsDefaultChange = (e) => {
         const checked = e.target.checked;
@@ -2482,15 +2528,16 @@
         ).length
       };
       
-      // Aplica el filtro de Readiness después de calcular los contadores.
-      const filteredByReadiness = filteredBeforeReadiness.filter(f => {
-        const readiness = getFeatureReadiness(f);
-
-        if (readinessFilter === 'All') {
-          return true;
-        }
-
-        return readiness === readinessFilter;
+      /* Aplica el filtro de Readiness después de calcular los contadores.
+      Readiness puede originarse desde uno de dos controles independientes:
+        1. Una tarjeta KPI.
+        2. El dropdown superior.
+      Normalmente sólo uno estará activo porque las acciones KPI limpian los dropdowns. Sin embargo, esta lógica es segura incluso si ambos recibieran valores por cualquier motivo. */
+      const filteredByReadiness = filteredBeforeReadiness.filter(feature => {
+        const readiness = getFeatureReadiness(feature);
+        const matchesReadinessKpi = readinessKpiFilter === 'All' || readiness === readinessKpiFilter;
+        const matchesReadinessDropdown = readinessDropdownFilter === 'All' || readiness === readinessDropdownFilter;
+        return matchesReadinessKpi && matchesReadinessDropdown;
       });
 
       /* Las tarjetas de Health usan las alertas individuales, no solamente la alerta principal mostrada por el badge.
@@ -2505,23 +2552,23 @@
 
         const healthGroups = getDeliveryHealthGroups(f);
       
-        const matchesHealthGroup = (() => {
-          if (healthGroupFilter === 'All') {
+        const matchesHealthGroupKpi = (() => {
+          if (healthGroupKpiFilter === 'All') {
             return true;
           }
-      
-          if (healthGroupFilter === 'requires-action') {
+        
+          if (healthGroupKpiFilter === 'requires-action') {
             return healthGroups.has('requires-action');
           }
-      
-          if (healthGroupFilter === 'requires-attention') {
+        
+          if (healthGroupKpiFilter === 'requires-attention') {
             return healthGroups.has('requires-attention');
           }
-          
-          if (healthGroupFilter === 'healthy') {
+        
+          if (healthGroupKpiFilter === 'healthy') {
             return healthGroups.has('healthy');
           }
-      
+        
           return true;
         })();
       
@@ -2529,7 +2576,7 @@
           healthRuleFilter === 'All' ||
           healthRuleKeys.has(healthRuleFilter);
       
-        return matchesHealthGroup && matchesHealthRule;
+        return matchesHealthGroupKpi && matchesHealthRule;
       });
 
       let sortedFiltered = [...filtered];
@@ -2844,7 +2891,8 @@
         }
 
         loadStoriesForFeatures(featuresToLoad);
-      }, [featuresPage, sortedFiltered.length, filterAreaPath.join(','), filterIteration.join(','), filterState.join(','), filterTargetDate.join(','), filterReleaseVersion.join(','), filterAssignedTo.join(','), readinessFilter, healthGroupFilter, healthRuleFilter, searchTitle]);
+      }, [featuresPage, sortedFiltered.length, filterAreaPath.join(','), filterIteration.join(','), filterState.join(','), filterTargetDate.join(','), filterReleaseVersion.join(','), filterAssignedTo.join(','), 
+          readinessKpiFilter, healthGroupKpiFilter, readinessDropdownFilter, healthRuleFilter, searchTitle]);
 
       const toggleRoadmapFeature = (featureId) => {
         if (expandedRoadmapFeatureId === featureId) {
@@ -2922,7 +2970,7 @@
             setHistoryCache(prev => ({ ...prev, ...(d.results || {}) }));
           })
           .catch(() => {});
-      }, [roadmapPage, currentPage, sortedFiltered.length, filterAreaPath.join(','), filterIteration.join(','), filterState.join(','), filterTargetDate.join(','), filterReleaseVersion.join(','), filterAssignedTo.join(','), readinessFilter, searchTitle]);
+      }, [roadmapPage, currentPage, sortedFiltered.length, filterAreaPath.join(','), filterIteration.join(','), filterState.join(','), filterTargetDate.join(','), filterReleaseVersion.join(','), filterAssignedTo.join(','), readinessDropdownFilter, searchTitle]);
 
       useEffect(() => {
         if (!expandedRoadmapFeatureId || expandedRoadmapStories.length === 0) return;
@@ -3142,45 +3190,23 @@
                   : 'dashboard-kpis--6'
               ].join(' ')}
             >
-              <ReadinessOverview
-                counts={readinessCounts}
-                SelectedReadiness={readinessFilter}
-                isAllFeaturesSelected={
-                  readinessFilter === 'All' &&
-                  healthGroupFilter === 'All' &&
-                  healthRuleFilter === 'All'
-                }
-                onSelectReadiness={(readiness) => {
-                  if (readiness === 'All') {
-                    setReadinessFilter('All');
-                    setHealthGroupFilter('All');
-                    setHealthRuleFilter('All');
-                  } else {
-                    setReadinessFilter(readiness);
-                  }
-
-                  setFeaturesPage(1);
-                  setRoadmapPage(1);
-                  setExpandedRoadmapFeatureId(null);
-                }}
-              />
-
-              <DeliveryHealthOverview
-                counts={deliveryHealthCounts}
-                selectedHealthGroup={healthGroupFilter}
-                onSelectHealthGroup={(healthGroup) => {
-                  setHealthGroupFilter(currentFilter =>
-                    currentFilter === healthGroup
-                      ? 'All'
-                      : healthGroup
-                  );
-
-                  setFeaturesPage(1);
-                  setRoadmapPage(1);
-                  setExpandedRoadmapFeatureId(null);
-                }}
-              />
-            </div>
+            <ReadinessOverview
+              counts={readinessCounts}
+              SelectedReadiness={readinessKpiFilter}
+              isAllFeaturesSelected={
+                readinessKpiFilter === 'All' &&
+                healthGroupKpiFilter === 'All' &&
+                readinessDropdownFilter === 'All' &&
+                healthRuleFilter === 'All'
+              }
+              onSelectReadiness={applyReadinessKpi}
+            />
+            
+            <DeliveryHealthOverview
+              counts={deliveryHealthCounts}
+              selectedHealthGroup={healthGroupKpiFilter}
+              onSelectHealthGroup={applyHealthGroupKpi}
+            />
 
             <div className="dashboard-navigation">
               <nav
@@ -3291,14 +3317,23 @@
               </div>
             <div className="top-filter-group">
                 <label className="filter-label">Readiness</label>
-                <select className="filter-select top-filter-readiness" value={readinessFilter} onChange={(e) => {
-                    setReadinessFilter(e.target.value);
-                    setFeaturesPage(1);
-                    setRoadmapPage(1);
-                    setExpandedRoadmapFeatureId(null);
-                  }}
-                  title="Filter Features by readiness status"
-                >
+            <select
+              className="filter-select top-filter-readiness"
+              value={readinessDropdownFilter}
+              onChange={(e) => {
+                /* Al usar un dropdown, las KPI se desactivan para que no exista una selección KPI visual que esté modificando los resultados. */
+                setReadinessKpiFilter('All');
+                setHealthGroupKpiFilter('All');
+            
+                setReadinessDropdownFilter(e.target.value);
+            
+                setFeaturesPage(1);
+                setRoadmapPage(1);
+                setExpandedFeaturePanel(null);
+                setExpandedRoadmapFeatureId(null);
+              }}
+              title="Filter Features by readiness status"
+            >
                   <option value="All">All statuses</option>
                   <option value="Healthy">Ready</option>
                   <option value="Incomplete">Needs info</option>
@@ -3309,14 +3344,25 @@
               <div className="top-filter-group">
                 <label className="filter-label">Delivery Health</label>
           
-                <select className="filter-select top-filter-delivery-health" value={healthRuleFilter} onChange={(e) => {
-                    setHealthRuleFilter(e.target.value);
-                    setFeaturesPage(1);
-                    setRoadmapPage(1);
-                    setExpandedRoadmapFeatureId(null);
-                  }}
-                  title="Filter Features by a specific Delivery Health rule"
-                >
+              <select
+                className="filter-select top-filter-delivery-health"
+                value={healthRuleFilter}
+                onChange={(e) => {
+                  /*
+                    El dropdown es un filtro explícito y desactiva las KPI visuales.
+                  */
+                  setReadinessKpiFilter('All');
+                  setHealthGroupKpiFilter('All');
+              
+                  setHealthRuleFilter(e.target.value);
+              
+                  setFeaturesPage(1);
+                  setRoadmapPage(1);
+                  setExpandedFeaturePanel(null);
+                  setExpandedRoadmapFeatureId(null);
+                }}
+                title="Filter Features by a specific Delivery Health rule"
+              >
                   <option value="All">All health rules</option>
           
                   {deliveryHealthRuleOptions.map(rule => (
@@ -3354,8 +3400,9 @@
                 setFilterTargetDate([]);
                 setFilterReleaseVersion([]);
                 setFilterAssignedTo([]);
-                setReadinessFilter('All');
-                setHealthGroupFilter('All');
+                setReadinessKpiFilter('All');
+                setHealthGroupKpiFilter('All');
+                setReadinessDropdownFilter('All');
                 setHealthRuleFilter('All');
                 setSearchInput('');
                 setSearchTitle('');
