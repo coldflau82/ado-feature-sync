@@ -306,8 +306,6 @@
     .top-filters-bar { padding: 8px 14px; margin-bottom: 8px; }
     /* Reduce ligeramente la altura de inputs y selects superiores. */
     .top-filter-group .filter-select, .top-filter-search { min-height: 32px; }
-    /* Menos espacio entre la barra Search/Readiness/Delivery Health y la tarjeta de filtros avanzados. */
-    .filters-card { margin-bottom: 8px !important; padding: 10px 20px 7px 20px !important; }
     /* Reduce la altura visible de los selects múltiples. Siguen siendo multi-select; sólo muestran menos filas visibles. */
     .filters-card .filter-select[multiple] { min-height: 84px; max-height: 84px; }
     /* Reduce separación bajo los contadores "X selected". */
@@ -319,6 +317,30 @@
     .dashboard-pagination { gap: 5px; }
     .dashboard-pagination__button { min-width: 30px; height: 30px; padding: 0 8px; font-size: 11px; }
     .dashboard-pagination__summary { font-size: 11px; }
+    /* Advanced Filters colapsables */
+    .filters-card { padding: 0 !important; overflow: hidden;}
+    .filters-card__header { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 12px; border-bottom: 1px solid #e5e7eb; background: #ffffff;}
+    .filters-card--collapsed .filters-card__header { border-bottom: none;}
+    .filters-card__toggle { min-width: 0; flex: 1; display: flex; align-items: center; gap: 8px; padding: 4px 2px; border: 0; background: transparent; color: #1f2937; font: inherit; text-align: left; cursor: pointer;}
+    .filters-card__toggle:hover .filters-card__toggle-title { color: #2563eb;}
+    .filters-card__toggle-icon { width: 16px; color: #537fbd; font-size: 16px; line-height: 1;}
+    .filters-card__toggle-title { font-weight: 700; white-space: nowrap;}
+    .filters-card__active-count { padding: 3px 7px; border-radius: 999px; background: #eaf2ff; color: #315d98; font-size: 11px; font-weight: 700; white-space: nowrap;}
+    .filters-card__clear-button { flex-shrink: 0; padding: 5px 8px; border: 1px solid #d7dde6; border-radius: 5px; background: #ffffff; color: #537fbd; font-size: 11px; font-weight: 600; cursor: pointer;}
+    .filters-card__clear-button:hover { border-color: #537fbd; background: #f3f7fc;}
+    .filters-card__content { display: grid; grid-template-columns: repeat(6, minmax(135px, 1fr)); gap: 12px; padding: 10px 12px 8px;}
+    /* Resumen clicable cuando el panel está cerrado. Muestra filtros por grupo y conserva sus valores representativos.*/
+    .advanced-filter-summary { width: 100%; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 0 12px 9px; border: 0; background: #ffffff; color: #4b5563; font: inherit; text-align: left;  cursor: pointer;}
+    .advanced-filter-summary:hover { background: #fbfdff;}
+    .advanced-filter-summary__chip { max-width: 285px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 7px; border: 1px solid #dbe5f2; border-radius: 999px; background: #f5f8fc; color: #425466; font-size: 11px; line-height: 1.25;}
+    .advanced-filter-summary__chip strong { color: #315d98; font-weight: 700;}
+    .advanced-filter-summary__empty { color: #6b7280; font-size: 12px;}
+    .advanced-filter-summary__total { margin-left: auto; color: #6b7280; font-size: 11px; white-space: nowrap; }
+    /* Mantiene controles múltiples utilizables, sin altura excesiva. */
+    .filters-card__content .filter-select[multiple] { min-height: 92px; max-height: 92px;}
+    /* En pantallas medianas, evita columnas demasiado estrechas. */
+    @media (max-width: 1280px) { .filters-card__content { grid-template-columns: repeat(3, minmax(180px, 1fr)); }}
+    @media (max-width: 760px) { .filters-card__header { align-items: flex-start; } .filters-card__active-count { display: none; } .filters-card__content { grid-template-columns: 1fr; } .advanced-filter-summary__total { width: 100%; margin-left: 0; }}
 
   </style>
 </head>
@@ -2267,6 +2289,42 @@
       );
     }
 
+    /* Convierte una lista de valores seleccionados en un texto breve. */
+    function getSelectedValuesPreview(values, maxVisible = 2) {
+      if (!Array.isArray(values) || values.length === 0) {
+        return '';
+      }
+    
+      const visibleValues = values.slice(0, maxVisible);
+      const hiddenCount = values.length - visibleValues.length;
+    
+      return [
+        visibleValues.join(', '),
+        hiddenCount > 0 ? `+${hiddenCount}` : ''
+      ]
+        .filter(Boolean)
+        .join(' ');
+    }
+    
+    /* Chip compacto que conserva visibilidad de filtros múltiples cuando el panel de filtros avanzados está colapsado. */
+    function AdvancedFilterSummaryChip({ label, values }) {
+      if (!Array.isArray(values) || values.length === 0) {
+        return null;
+      }
+    
+      const allValuesText = values.join(', ');
+      const preview = getSelectedValuesPreview(values);
+    
+      return (
+        <span
+          className="advanced-filter-summary__chip"
+          title={`${label}: ${allValuesText}`}
+        >
+          <strong>{label}:</strong>&nbsp;{preview}
+        </span>
+      );
+    }
+    
     function Dashboard() {
       const { tooltip, showTooltip, moveTooltip, hideTooltip } = useTooltip();
       const [features, setFeatures] = useState([]);
@@ -2274,6 +2332,10 @@
       const [warnings, setWarnings] = useState([]);
       const [filterAreaPath, setFilterAreaPath] = useState([]);
       const [filterIteration, setFilterIteration] = useState([]);
+      const [filterAssignedTo, setFilterAssignedTo] = useState([]);
+      const [filterState, setFilterState] = useState([]);
+      const [filterTargetDate, setFilterTargetDate] = useState([currentYear]);
+      const [filterReleaseVersion, setFilterReleaseVersion] = useState([]);
       const [currentPage, setCurrentPage] = useState('roadmap');
       /* Un solo panel abierto en Feature List. Ejemplo: { featureId: 123456, panel: 'history' } En los próximos puntos también permitirá readiness y delivery, pero ahora sólo se utiliza el panel "history". */
       const [expandedFeaturePanel, setExpandedFeaturePanel] = useState(null);
@@ -2282,9 +2344,8 @@
       const [sortColumn, setSortColumn] = useState('id');
       const [sortOrder, setSortOrder] = useState('asc');
       const currentYear = String(new Date().getFullYear());
-      const [filterState, setFilterState] = useState([]);
-      const [filterTargetDate, setFilterTargetDate] = useState([currentYear]);
-      const [filterReleaseVersion, setFilterReleaseVersion] = useState([]);
+      const activeAdvancedFiltersCount = [ filterAreaPath, filterIteration, filterAssignedTo, filterState, filterTargetDate, filterReleaseVersion].filter(values => Array.isArray(values) && values.length > 0).length;
+      const totalAdvancedFilterSelections = [ filterAreaPath, filterIteration, filterAssignedTo, filterState, filterTargetDate, filterReleaseVersion].reduce( (total, values) => total + (Array.isArray(values) ? values.length : 0),  0);
       const [roadmapPage, setRoadmapPage] = useState(1);
       const [timelineOffset, setTimelineOffset] = useState(-8);
       const [weekOffset, setWeekOffset] = useState(-8);
@@ -2300,7 +2361,6 @@
       const [storyHistoryCache, setStoryHistoryCache] = useState({});
       const [loadingStoryHistory, setLoadingStoryHistory] = useState(false);
       const [featuresPage, setFeaturesPage] = useState(1);
-      const [filterAssignedTo, setFilterAssignedTo] = useState([]);
       const [saveAsDefault, setSaveAsDefault] = useState(false);
       const [legendExpanded, setLegendExpanded] = useState(false);
       const [refreshing, setRefreshing] = useState(false);
@@ -2309,65 +2369,21 @@
       const [healthGroupKpiFilter, setHealthGroupKpiFilter] = useState('All');
       const [readinessDropdownFilter, setReadinessDropdownFilter] = useState('All');
       const [healthRuleFilter, setHealthRuleFilter] = useState('All');
-
-       /*  Referencia al único contenedor desplazable de resultados. En desktop/tablet este será el único scroll vertical disponible. */
+      const [areAdvancedFiltersOpen, setAreAdvancedFiltersOpen] = useState(false);
+      /*  Referencia al único contenedor desplazable de resultados. En desktop/tablet este será el único scroll vertical disponible. */
       const resultsScrollRef = useRef(null);
-
-      const scrollResultsToTop = (behavior = 'auto') => {
-        resultsScrollRef.current?.scrollTo({
-          top: 0,
-          left: 0,
-          behavior
-        });
-      };
-
+      const scrollResultsToTop = (behavior = 'auto') => { resultsScrollRef.current?.scrollTo({ top: 0, left: 0, behavior }); };
       /* Restablece la navegación y los paneles abiertos después de cambiar cualquier filtro principal. */
-      const resetResultsAfterMainFilterChange = () => {
-        setFeaturesPage(1);
-        setRoadmapPage(1);
-        setExpandedFeaturePanel(null);
-        setExpandedRoadmapFeatureId(null);
-      
-        requestAnimationFrame(() => {
-          scrollResultsToTop('smooth');
-        });
-      };
-      
-      /* Limpia todos los filtros KPI y los dropdowns relacionados conReadiness / Delivery Health.      
-        No modifica Search ni los filtros estructurales: Area Path, Iteration Path, Assigned To, State, Target Date y Release Fix Version. */
-      const clearReadinessAndHealthFilters = () => {
-        setReadinessKpiFilter('All');
-        setHealthGroupKpiFilter('All');
-        setReadinessDropdownFilter('All');
-        setHealthRuleFilter('All');
-      };
-      
-      /* Una tarjeta KPI de Readiness es exclusiva: elimina cualquier KPI o dropdown de Delivery Health, así como cualquier Readiness previamente seleccionado, y luego aplica
-        la tarjeta solicitada. */
-      const applyReadinessKpi = (readiness) => {
-        clearReadinessAndHealthFilters();
-      
-        if (readiness !== 'All') { setReadinessKpiFilter(readiness); }
-      
-        resetResultsAfterMainFilterChange();
-      };
-      
+      const resetResultsAfterMainFilterChange = () => { setFeaturesPage(1); setRoadmapPage(1); setExpandedFeaturePanel(null); setExpandedRoadmapFeatureId(null); requestAnimationFrame(() => { scrollResultsToTop('smooth'); }); };
+      /* Limpia todos los filtros KPI y los dropdowns relacionados conReadiness / Delivery Health. No modifica Search ni los filtros estructurales: Area Path, Iteration Path, Assigned To, State, Target Date y Release Fix Version. */
+      const clearReadinessAndHealthFilters = () => { setReadinessKpiFilter('All'); setHealthGroupKpiFilter('All'); setReadinessDropdownFilter('All'); setHealthRuleFilter('All'); };
+      /* Una tarjeta KPI de Readiness es exclusiva: elimina cualquier KPI o dropdown de Delivery Health, así como cualquier Readiness previamente seleccionado, y luego aplica la tarjeta solicitada. */
+      const applyReadinessKpi = (readiness) => { clearReadinessAndHealthFilters(); if (readiness !== 'All') { setReadinessKpiFilter(readiness); } resetResultsAfterMainFilterChange(); };
       /* Una tarjeta KPI de Delivery Health es exclusiva: elimina cualquier KPI o dropdown de Readiness, además de cualquier otra KPI de Delivery Health, y luego aplica la tarjeta solicitada.*/
-      const applyHealthGroupKpi = (healthGroup) => {
-        clearReadinessAndHealthFilters();
+      const applyHealthGroupKpi = (healthGroup) => { clearReadinessAndHealthFilters(); if (healthGroup !== 'All') { setHealthGroupKpiFilter(healthGroup); } resetResultsAfterMainFilterChange();};
+     
+      useEffect(() => { const timer = setTimeout(() => { setSearchTitle(searchInput); }, 300); return () => clearTimeout(timer); }, [searchInput]);
       
-        if (healthGroup !== 'All') {
-          setHealthGroupKpiFilter(healthGroup);
-        }
-      
-        resetResultsAfterMainFilterChange();
-      };
-      
-      useEffect(() => {
-        const timer = setTimeout(() => { setSearchTitle(searchInput); }, 300);
-        return () => clearTimeout(timer);
-      }, [searchInput]);
-
       useEffect(() => {
         setRoadmapPage(1);
         setFeaturesPage(1);
@@ -3437,6 +3453,7 @@
                 setHealthRuleFilter('All');
                 setSearchInput('');
                 setSearchTitle('');
+                setAreAdvancedFiltersOpen(false);
               }}
             >
               <span>Clear</span>
@@ -3444,62 +3461,328 @@
             </button>
           </div>
 
-          <div className="filters-card" style={{ background: 'white', padding: '15px 20px 10px 20px', borderRadius: '8px', marginBottom: '12px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '0.7fr 1.8fr 0.8fr 0.5fr 0.6fr 0.8fr', gap: '15px', alignItems: 'start' }}>
-              <div>
-                <label className="filter-label">Area Path</label>
-                <select multiple className="filter-select" value={filterAreaPath} onChange={(e) => setFilterAreaPath([...e.target.selectedOptions].map(o => o.value))}>
-                  {areaPaths.map(area => <option key={area} value={area}>{area.split('\\').pop()}</option>)}
-                </select>
-                {filterAreaPath.length > 0 && <p className="filter-count">{filterAreaPath.length} selected</p>}
-              </div>
-              <div>
-                <label className="filter-label">Iteration Path</label>
-                <select multiple className="filter-select" value={filterIteration} onChange={(e) => setFilterIteration([...e.target.selectedOptions].map(o => o.value))}>
-                  {iterations.map(iter => <option key={iter} value={iter}>{iter}</option>)}
-                </select>
-                {filterIteration.length > 0 && <p className="filter-count">{filterIteration.length} selected</p>}
-              </div>
-              <div>
-                <label className="filter-label">Assigned To</label>
-                <select multiple className="filter-select" value={filterAssignedTo} onChange={(e) => setFilterAssignedTo([...e.target.selectedOptions].map(o => o.value))}>
-                  {[...assignedTos].sort((a, b) => getShortAssignedToName(a).localeCompare( getShortAssignedToName(b), undefined,{ sensitivity: 'base' } ))
-                      .map(person => ( <option key={person} value={person}> {getShortAssignedToName(person)} </option> ))}
+          <div className={[ 'filters-card', areAdvancedFiltersOpen ? 'filters-card--open' : 'filters-card--collapsed' ].join(' ')}>
+            <div className="filters-card__header">
+              <button
+                type="button"
+                className="filters-card__toggle"
+                onClick={() =>
+                  setAreAdvancedFiltersOpen(currentValue => !currentValue)
+                }
+                aria-expanded={areAdvancedFiltersOpen}
+                aria-controls="advanced-filters-content"
+                title={
+                  areAdvancedFiltersOpen
+                    ? 'Hide advanced filters'
+                    : 'Show advanced filters'
+                }
+              >
+                <span
+                  className="filters-card__toggle-icon"
+                  aria-hidden="true"
+                >
+                  {areAdvancedFiltersOpen ? '▾' : '▸'}
+                </span>
+          
+                <span className="filters-card__toggle-title">
+                  Advanced filters
+                </span>
+          
+                {activeAdvancedFiltersCount > 0 && (
+                  <span className="filters-card__active-count">
+                    {activeAdvancedFiltersCount}{' '}
+                    {activeAdvancedFiltersCount === 1
+                      ? 'filter group active'
+                      : 'filter groups active'}
+                  </span>
+                )}
+              </button>
+          
+              {activeAdvancedFiltersCount > 0 && (
+                <button
+                  type="button"
+                  className="filters-card__clear-button"
+                  onClick={() => {
+                    setFilterAreaPath([]);
+                    setFilterIteration([]);
+                    setFilterAssignedTo([]);
+                    setFilterState([]);
+                    setFilterTargetDate([]);
+                    setFilterReleaseVersion([]);
+                  }}
+                  title="Clear advanced filters only"
+                >
+                  Clear advanced filters
+                </button>
+              )}
+            </div>
+          
+            {!areAdvancedFiltersOpen && (
+              <button
+                type="button"
+                className="advanced-filter-summary"
+                onClick={() => setAreAdvancedFiltersOpen(true)}
+                title="Show advanced filters"
+              >
+                {activeAdvancedFiltersCount === 0 ? (
+                  <span className="advanced-filter-summary__empty">
+                    No advanced filters applied
+                  </span>
+                ) : (
+                  <>
+                    <AdvancedFilterSummaryChip
+                      label="Area"
+                      values={filterAreaPath}
+                    />
+          
+                    <AdvancedFilterSummaryChip
+                      label="Iteration"
+                      values={filterIteration}
+                    />
+          
+                    <AdvancedFilterSummaryChip
+                      label="Assigned"
+                      values={filterAssignedTo}
+                    />
+          
+                    <AdvancedFilterSummaryChip
+                      label="State"
+                      values={filterState}
+                    />
+          
+                    <AdvancedFilterSummaryChip
+                      label="Target date"
+                      values={filterTargetDate}
+                    />
+          
+                    <AdvancedFilterSummaryChip
+                      label="Release"
+                      values={filterReleaseVersion}
+                    />
+          
+                    <span className="advanced-filter-summary__total">
+                      {totalAdvancedFilterSelections} selected
+                    </span>
+                  </>
+                )}
+              </button>
+            )}
+          
+            {areAdvancedFiltersOpen && (
+              <div
+                id="advanced-filters-content"
+                className="filters-card__content"
+              >
+                <div>
+                  <label className="filter-label">
+                    Area Path
+                  </label>
+          
+                  <select
+                    multiple
+                    className="filter-select"
+                    value={filterAreaPath}
+                    onChange={(e) =>
+                      setFilterAreaPath(
+                        [...e.target.selectedOptions].map(option => option.value)
+                      )
+                    }
+                  >
+                    {areaPaths.map(area => (
+                      <option key={area} value={area}>
+                        {area.split('\\').pop()}
+                      </option>
+                    ))}
                   </select>
-                {filterAssignedTo.length > 0 && <p className="filter-count">{filterAssignedTo.length} selected</p>}
-              </div>
-              <div>
-                <label className="filter-label">State</label>
-                <select multiple className="filter-select" value={filterState} onChange={(e) => setFilterState([...e.target.selectedOptions].map(o => o.value))}>
-                  {states.map(state => <option key={state} value={state}>{state}</option>)}
-                </select>
-                {filterState.length > 0 && <p className="filter-count">{filterState.length} selected</p>}
-              </div>
-              <div>
-                <label className="filter-label">Target Date</label>
-                <select multiple className="filter-select" value={filterTargetDate} onChange={(e) => setFilterTargetDate([...e.target.selectedOptions].map(o => o.value))}>
-                  {targetYears.map(year => (
-                    <React.Fragment key={year}>
-                      <option value={String(year)} style={{ fontWeight: 'bold' }}>{year}</option>
-                      {[...(monthsByYear[year] || [])].sort((a, b) => a - b).map(month => (
-                        <option key={year + '-' + month} value={year + '-' + month} style={{ paddingLeft: '15px' }}>
-                          &nbsp;&nbsp;{new Date(2000, month, 1).toLocaleString('default', { month: 'long' })}
+          
+                  {filterAreaPath.length > 0 && (
+                    <p className="filter-count">
+                      {filterAreaPath.length} selected
+                    </p>
+                  )}
+                </div>
+          
+                <div>
+                  <label className="filter-label">
+                    Iteration Path
+                  </label>
+          
+                  <select
+                    multiple
+                    className="filter-select"
+                    value={filterIteration}
+                    onChange={(e) =>
+                      setFilterIteration(
+                        [...e.target.selectedOptions].map(option => option.value)
+                      )
+                    }
+                  >
+                    {iterations.map(iteration => (
+                      <option key={iteration} value={iteration}>
+                        {iteration}
+                      </option>
+                    ))}
+                  </select>
+          
+                  {filterIteration.length > 0 && (
+                    <p className="filter-count">
+                      {filterIteration.length} selected
+                    </p>
+                  )}
+                </div>
+          
+                <div>
+                  <label className="filter-label">
+                    Assigned To
+                  </label>
+          
+                  <select
+                    multiple
+                    className="filter-select"
+                    value={filterAssignedTo}
+                    onChange={(e) =>
+                      setFilterAssignedTo(
+                        [...e.target.selectedOptions].map(option => option.value)
+                      )
+                    }
+                  >
+                    {[...assignedTos]
+                      .sort((a, b) =>
+                        getShortAssignedToName(a).localeCompare(
+                          getShortAssignedToName(b),
+                          undefined,
+                          { sensitivity: 'base' }
+                        )
+                      )
+                      .map(person => (
+                        <option key={person} value={person}>
+                          {getShortAssignedToName(person)}
                         </option>
                       ))}
-                    </React.Fragment>
-                  ))}
-                </select>
-                {filterTargetDate.length > 0 && <p className="filter-count">{filterTargetDate.length} selected</p>}
+                  </select>
+          
+                  {filterAssignedTo.length > 0 && (
+                    <p className="filter-count">
+                      {filterAssignedTo.length} selected
+                    </p>
+                  )}
+                </div>
+          
+                <div>
+                  <label className="filter-label">
+                    State
+                  </label>
+          
+                  <select
+                    multiple
+                    className="filter-select"
+                    value={filterState}
+                    onChange={(e) =>
+                      setFilterState(
+                        [...e.target.selectedOptions].map(option => option.value)
+                      )
+                    }
+                  >
+                    {states.map(state => (
+                      <option key={state} value={state}>
+                        {state}
+                      </option>
+                    ))}
+                  </select>
+          
+                  {filterState.length > 0 && (
+                    <p className="filter-count">
+                      {filterState.length} selected
+                    </p>
+                  )}
+                </div>
+          
+                <div>
+                  <label className="filter-label">
+                    Target Date
+                  </label>
+          
+                  <select
+                    multiple
+                    className="filter-select"
+                    value={filterTargetDate}
+                    onChange={(e) =>
+                      setFilterTargetDate(
+                        [...e.target.selectedOptions].map(option => option.value)
+                      )
+                    }
+                  >
+                    {targetYears.map(year => (
+                      <React.Fragment key={year}>
+                        <option
+                          value={String(year)}
+                          style={{ fontWeight: 'bold' }}
+                        >
+                          {year}
+                        </option>
+          
+                        {[...(monthsByYear[year] || [])]
+                          .sort((a, b) => a - b)
+                          .map(month => (
+                            <option
+                              key={`${year}-${month}`}
+                              value={`${year}-${month}`}
+                              style={{ paddingLeft: '15px' }}
+                            >
+                              &nbsp;&nbsp;
+                              {new Date(2000, month, 1).toLocaleString(
+                                'default',
+                                { month: 'long' }
+                              )}
+                            </option>
+                          ))}
+                      </React.Fragment>
+                    ))}
+                  </select>
+          
+                  {filterTargetDate.length > 0 && (
+                    <p className="filter-count">
+                      {filterTargetDate.length} selected
+                    </p>
+                  )}
+                </div>
+          
+                <div>
+                  <label className="filter-label">
+                    Release Fix Version
+                  </label>
+          
+                  <select
+                    multiple
+                    className="filter-select"
+                    value={filterReleaseVersion}
+                    onChange={(e) =>
+                      setFilterReleaseVersion(
+                        [...e.target.selectedOptions].map(option => option.value)
+                      )
+                    }
+                  >
+                    {releaseVersions.map(releaseVersion => (
+                      <option
+                        key={releaseVersion}
+                        value={releaseVersion}
+                      >
+                        {releaseVersion}
+                      </option>
+                    ))}
+                  </select>
+          
+                  {filterReleaseVersion.length > 0 && (
+                    <p className="filter-count">
+                      {filterReleaseVersion.length} selected
+                    </p>
+                  )}
+                </div>
               </div>
-              <div>
-                <label className="filter-label">Release Fix Version</label>
-                <select multiple className="filter-select" value={filterReleaseVersion} onChange={(e) => setFilterReleaseVersion([...e.target.selectedOptions].map(o => o.value))}>
-                  {releaseVersions.map(rv => <option key={rv} value={rv}>{rv}</option>)}
-                </select>
-                {filterReleaseVersion.length > 0 && <p className="filter-count">{filterReleaseVersion.length} selected</p>}
-              </div>
-            </div>
+            )}
+          
             <div
+              className="filters-card__footer"
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -3517,271 +3800,46 @@
                   whiteSpace: 'nowrap'
                 }}
               >
-                {currentPage === 'features'
-                  ? (
-                    <>
-                      Showing {featuresPageItems.length} of{' '}
-                      {sortedFiltered.length} (Page {featuresPage} of{' '}
-                      {featuresTotalPages})
-                    </>
-                  )
-                  : (
-                    <>
-                      Showing {pageItems.length} of {sortedFiltered.length}{' '}
-                      (Page {roadmapPage} of {totalPages})
-                    </>
-                  )}
+                {currentPage === 'features' ? (
+                  <>
+                    Showing {featuresPageItems.length} of{' '}
+                    {sortedFiltered.length} (Page {featuresPage} of{' '}
+                    {featuresTotalPages})
+                  </>
+                ) : (
+                  <>
+                    Showing {pageItems.length} of {sortedFiltered.length}{' '}
+                    (Page {roadmapPage} of {totalPages})
+                  </>
+                )}
               </span>
-
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                <input type="checkbox" checked={saveAsDefault} onChange={handleSaveAsDefaultChange} style={{ width: '12px', height: '12px', margin: 0 }} />
+          
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '10px',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={saveAsDefault}
+                  onChange={handleSaveAsDefaultChange}
+                  style={{
+                    width: '12px',
+                    height: '12px',
+                    margin: 0
+                  }}
+                />
+          
                 Save as default filter
               </label>
             </div>
           </div>
-
-          {currentPage === 'roadmap' && (
-            <RoadmapLegend
-              legendExpanded={legendExpanded}
-              onToggle={() => setLegendExpanded(previous => !previous)}
-            />
-          )}
-          </div>
-
-          <div
-            className="dashboard-results-scroll"
-            ref={resultsScrollRef}
-            tabIndex="0"
-            aria-label={
-              currentPage === 'features'
-                ? 'Feature List results'
-                : 'Roadmap results'
-            }
-          >
-          {currentPage === 'features' && (
-            <>
-              {loading ? <div>Loading...</div> : (
-                <div className="table-wrapper">
-                  <table className="feature-list-table">
-                    <thead>
-                      <tr>
-                        <th style={{ width: '30px' }}></th>
-                        <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('id'); setSortOrder(sortColumn === 'id' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>ID {sortColumn === 'id' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
-                        <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('title'); setSortOrder(sortColumn === 'title' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>Feature {sortColumn === 'title' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
-                        <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('priority'); setSortOrder(sortColumn === 'priority' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>Priority {sortColumn === 'priority' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
-                        <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('targetDate'); setSortOrder(sortColumn === 'targetDate' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>Target Date {sortColumn === 'targetDate' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
-                        <th>Planned Month</th>
-                        <th>BE</th>
-                        <th>FE</th>
-                        <th>QA</th>
-                        <th style={{ cursor: 'pointer' }} onClick={() => { setSortColumn('state'); setSortOrder(sortColumn === 'state' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>State {sortColumn === 'state' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
-                        <th style={{ width: '145px', textAlign: 'center', cursor: 'pointer' }} onClick={() => { setSortColumn('readiness'); setSortOrder( sortColumn === 'readiness' && sortOrder === 'asc' ? 'desc' : 'asc' ); }} >Readiness {sortColumn === 'readiness' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th> 
-                        <th style={{ width: '155px', textAlign: 'center' }}> Delivery Health </th> 
-                        <th style={{ width: '120px', textAlign: 'center' }}> Progress </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {featuresPageItems.map(f => {
-                        const featureStateDot = { 'New': '#94a3b8', 'In Shaping': '#fbbf24', 'In Planning': '#fb923c', 'Planned': '#34d399', 'In Process': '#60a5fa', 'Closed': '#a78bfa' }[f.state] || '#ccc';
-                        const isHistoryPanelOpen = expandedFeaturePanel?.featureId === f.id && expandedFeaturePanel?.panel === 'history';
-                        const isReadinessPanelOpen = expandedFeaturePanel?.featureId === f.id && expandedFeaturePanel?.panel === 'readiness';
-                        const isDeliveryPanelOpen = expandedFeaturePanel?.featureId === f.id && expandedFeaturePanel?.panel === 'delivery';
-                  
-                        return (
-                          <React.Fragment key={f.id}>
-                            <tr style={{ background: 'white', borderLeft: '3px solid ' + featureStateDot }}>
-                              <td className="expand-btn">
-                                <button type="button" className="feature-expand-control" onClick={() => toggleFeatureExpand(f.id)}
-                                  title={ isHistoryPanelOpen ? 'Close Feature history and Stories/Bugs' : 'Show Feature history and Stories/Bugs' }
-                                  aria-label={ isHistoryPanelOpen ? `Close history and Stories/Bugs for Feature ${f.id}` : `Show history and Stories/Bugs for Feature ${f.id}`}
-                                  aria-expanded={isHistoryPanelOpen}
-                                  aria-controls={`feature-panel-${f.id}`}
-                                >
-                                  {isHistoryPanelOpen ? '▼' : '►'}
-                                </button>
-                              </td>
-                              <td> <a href={adoLink(f.id)} target="_blank" rel="noopener noreferrer"> {f.id} </a> </td> 
-                              <td style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '320px' }} > 
-                                <span className="feature-title" style={{ cursor: 'help', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} onMouseEnter={(e) => showTooltip( e, <FeatureTooltipContent feature={f} /> ) } onMouseMove={(e) => moveTooltip(e)} onMouseLeave={() => hideTooltip()} > {f.title} </span> 
-                              </td> 
-                              <td>{f.priority || '-'}</td> 
-                              <td style={{ fontSize: '11px' }}> {formatDate(f.targetDate)} </td>
-                              <td>{f.plannedMonth || '-'}</td>
-                              <td>{f.estimation.be || '-'}</td>
-                              <td>{f.estimation.fe || '-'}</td>
-                              <td>{f.estimation.qa || '-'}</td>
-                              <td>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: featureStateDot, flexShrink: 0, display: 'inline-block' }}></span>
-                                  {f.state}
-                                </span>
-                              </td>
-                              <td style={{ textAlign: 'center', padding: '8px' }}> <ReadinessBadge readiness={getFeatureReadiness(f)} 
-                                  featureId={f.id}
-                                  isActive={isReadinessPanelOpen}
-                                  onClick={() => toggleFeatureReadiness(f.id)}
-                                />
-                              </td>
-                              <td style={{ textAlign: 'center', padding: '8px' }}> <DeliveryHealthBadge feature={f} isActive={isDeliveryPanelOpen} onClick={() => toggleFeatureDelivery(f.id)} /> </td> 
-                              <td style={{ textAlign: 'center', padding: '8px' }}>
-                                {loadingStoriesIds[f.id] ? (
-                                  <span style={{ fontSize: '10px', color: '#aaa', fontStyle: 'italic' }}>Loading...</span>
-                                                                ) : storiesCache[f.id] ? (() => {
-                                  const summary = getWorkItemsDeliverySummary(
-                                    storiesCache[f.id]
-                                  );
-
-                                  const done = summary.doneWorkItems;
-                                  const total = summary.includedWorkItems;
-                                  const pct = total === 0
-                                    ? 0
-                                    : Math.round((done / total) * 100);
-
-                                  const barColor = pct === 100
-                                    ? '#34d399'
-                                    : pct >= 50
-                                      ? '#60a5fa'
-                                      : '#fbbf24';
-
-                                  return (
-                                    <div title={done + ' of ' + total + ' stories and bugs done'}>
-                                      <div style={{ fontSize: '10px', color: '#666', marginBottom: '3px' }}>{done}/{total} ({pct}%) </div>
-                                      <div style={{ height: '6px', background: '#e5e7eb', borderRadius: '3px', overflow: 'hidden' }}>
-                                        <div style={{ height: '100%', width: pct + '%', background: barColor, borderRadius: '3px', transition: 'width 0.3s ease' }} />
-                                      </div>
-                                    </div>
-                                  );
-                                })() : <span style={{ fontSize: '10px', color: '#bbb' }}>—</span>}
-                              </td>
-                            </tr>
-                            {expandedFeaturePanel?.featureId === f.id &&
-                              expandedFeaturePanel?.panel === 'history' && (
-                                <tr style={{ background: '#f9f9f9' }}>
-                                  <td
-                                    colSpan="13"
-                                    style={{
-                                      paddingLeft: '40px',
-                                      paddingTop: '12px',
-                                      paddingBottom: '12px',
-                                      paddingRight: '20px'
-                                    }}
-                                  >
-                                    <div
-                                      style={{
-                                        background: '#f8fafc',
-                                        border: '1px solid #dbe4ee',
-                                        borderRadius: '8px',
-                                        padding: '14px 16px',
-                                        boxShadow:
-                                          '0 1px 2px rgba(15, 23, 42, 0.04)'
-                                      }}
-                                    >
-                                      <FeatureStateHistory
-                                        history={historyCache[f.id] || []}
-                                        loading={Boolean(
-                                          loadingFeatureHistoryIds[f.id]
-                                        )}
-                                        formatDate={formatDate}
-                                      />
-
-                                      <div className="feature-stories-panel__divider" />
-
-                                     {loadingStoriesIds[f.id] ? (
-                                        <div
-                                          style={{
-                                            padding: '10px 0',
-                                            fontSize: '12px',
-                                            color: '#64748b'
-                                          }}
-                                        >
-                                          Loading Stories and Bugs...
-                                        </div>
-                                      ) : unavailableStoriesIds[f.id] ? (
-                                        <div
-                                          style={{
-                                            padding: '10px 0',
-                                            fontSize: '12px',
-                                            color: '#b45309'
-                                          }}
-                                        >
-                                          Stories and Bugs could not be fully retrieved from Azure DevOps. Please refresh the dashboard and try again.
-                                        </div>
-                                      ) : (storiesCache[f.id] || []).length === 0 ? (
-                                        <div
-                                          style={{
-                                            padding: '10px 0',
-                                            fontSize: '12px',
-                                            color: '#64748b'
-                                          }}
-                                        >
-                                          No Stories or Bugs found for this Feature yet.
-                                        </div>
-                                      ) : (
-                                        <FeatureStoriesCards
-                                          stories={storiesCache[f.id] || []}
-                                          adoLink={adoLink}
-                                        />
-                                      )}
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            {isReadinessPanelOpen && (
-                              <tr style={{ background: '#f9f9f9' }}>
-                                <td
-                                  id={`feature-panel-${f.id}`}
-                                  colSpan="13"
-                                  style={{ paddingLeft: '40px', paddingTop: '12px', paddingBottom: '12px', paddingRight: '20px' }}>
-                                  <div style={{ background: '#f8fafc', border: '1px solid #dbe4ee', borderRadius: '8px', padding: '14px 16px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' }}>
-                                    <FeatureReadinessDetails feature={f} />
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                            {isDeliveryPanelOpen && (
-                              <tr style={{ background: '#f9f9f9' }}>
-                                <td id={`feature-delivery-panel-${f.id}`} colSpan="13" style={{ paddingLeft: '40px', paddingTop: '12px',  paddingBottom: '12px', paddingRight: '20px' }}>
-                                  <div style={{ background: '#f8fafc', border: '1px solid #dbe4ee', borderRadius: '8px', padding: '14px 16px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' }}>
-                                    {loadingStoriesIds[f.id] ? (
-                                      <div
-                                        style={{
-                                          padding: '10px 0',
-                                          fontSize: '12px',
-                                          color: '#64748b'
-                                        }}
-                                      >
-                                        Loading Stories and Bugs...
-                                      </div>
-                                    ) : unavailableStoriesIds[f.id] ? (
-                                      <div
-                                        style={{
-                                          padding: '10px 0',
-                                          fontSize: '12px',
-                                          color: '#b45309'
-                                        }}
-                                      >
-                                        Stories and Bugs could not be fully retrieved from Azure DevOps. Delivery Health rules remain based on the server-provided Feature summary.
-                                      </div>
-                                    ) : (
-                                      <FeatureDeliveryDetails
-                                        feature={f}
-                                        stories={storiesCache[f.id] || []}
-                                        adoLink={adoLink}
-                                      />
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
-          )}
 
           {currentPage === 'roadmap' && (
             <>
