@@ -3792,48 +3792,136 @@
                   <thead>
                     <tr>
                       <th style={{ width: '30px' }}></th>
-                      <th style={{ position: 'sticky', top: 0, zIndex: 100, background: '#f9f9f9', boxShadow: '0 2px 4px rgba(0,0,0,0.08)' }}>
-                    <tr>
-                      <th style={{ width: '30px' }}></th>
-                      <th style={{ width: '40px', textAlign: 'center', cursor: 'pointer', fontSize: '12px', whiteSpace: 'nowrap' }}
-                        onClick={() => { setSortColumn('priority'); setSortOrder(sortColumn === 'priority' && sortOrder === 'asc' ? 'desc' : 'asc'); }}
+                  
+                      <th
+                        style={{
+                          width: '40px',
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          whiteSpace: 'nowrap'
+                        }}
+                        onClick={() => {
+                          setSortColumn('priority');
+                          setSortOrder(
+                            sortColumn === 'priority' && sortOrder === 'asc'
+                              ? 'desc'
+                              : 'asc'
+                          );
+                        }}
                       >
-                        P {sortColumn === 'priority' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}
+                        P{' '}
+                        {sortColumn === 'priority'
+                          ? (sortOrder === 'asc' ? '▲' : '▼')
+                          : ''}
                       </th>
-                      <th style={{ width: '80px' }}>ID</th>
-                      <th style={{ width: '300px', padding: '12px 4px 12px 12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
+                  
+                      <th style={{ width: '80px' }}>
+                        ID
+                      </th>
+                  
+                      <th
+                        style={{
+                          width: '300px',
+                          padding: '12px 4px 12px 12px'
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            height: '100%'
+                          }}
+                        >
                           <span>Feature</span>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                  
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              flexShrink: 0
+                            }}
+                          >
                             <button
                               type="button"
-                              title={expandedRoadmapFeatureId !== null ? 'Previous week' : 'Previous month'}
-                              aria-label={expandedRoadmapFeatureId !== null ? 'Previous week' : 'Previous month'}
-                              style={{ width: '28px', height: '28px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                              onClick={() => expandedRoadmapFeatureId !== null
-                                ? setWeekOffset(weekOffset - 1)
-                                : setTimelineOffset(timelineOffset - 1)}
+                              title={
+                                expandedRoadmapFeatureId !== null
+                                  ? 'Previous week'
+                                  : 'Previous month'
+                              }
+                              aria-label={
+                                expandedRoadmapFeatureId !== null
+                                  ? 'Previous week'
+                                  : 'Previous month'
+                              }
+                              style={{
+                                width: '28px',
+                                height: '28px',
+                                background: '#537fbd',
+                                color: 'white',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                              onClick={() =>
+                                expandedRoadmapFeatureId !== null
+                                  ? setWeekOffset(weekOffset - 1)
+                                  : setTimelineOffset(timelineOffset - 1)
+                              }
                             >
                               ◄
                             </button>
-
+                  
                             <button
                               type="button"
-                              title={expandedRoadmapFeatureId !== null ? 'Next week' : 'Next month'}
-                              aria-label={expandedRoadmapFeatureId !== null ? 'Next week' : 'Next month'}
-                              style={{ width: '28px', height: '28px', background: '#537fbd', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                              onClick={() => expandedRoadmapFeatureId !== null
-                                ? setWeekOffset(weekOffset + 1)
-                                : setTimelineOffset(timelineOffset + 1)}
+                              title={
+                                expandedRoadmapFeatureId !== null
+                                  ? 'Next week'
+                                  : 'Next month'
+                              }
+                              aria-label={
+                                expandedRoadmapFeatureId !== null
+                                  ? 'Next week'
+                                  : 'Next month'
+                              }
+                              style={{
+                                width: '28px',
+                                height: '28px',
+                                background: '#537fbd',
+                                color: 'white',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                              onClick={() =>
+                                expandedRoadmapFeatureId !== null
+                                  ? setWeekOffset(weekOffset + 1)
+                                  : setTimelineOffset(timelineOffset + 1)
+                              }
                             >
                               ►
                             </button>
                           </div>
                         </div>
                       </th>
-
-                      <th style={{ padding: '4px 6px', verticalAlign: 'middle', fontWeight: 'normal' }}>
+                  
+                      <th
+                        style={{
+                          padding: '4px 6px',
+                          verticalAlign: 'middle',
+                          fontWeight: 'normal'
+                        }}
+                      >
                         <TimelineSubHeader
                           isWeekMode={expandedRoadmapFeatureId !== null}
                           timelineOffset={timelineOffset}
