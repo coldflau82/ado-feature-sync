@@ -290,6 +290,10 @@
       .dashboard-pagination-footer { flex: 0 0 auto; margin-top: 8px; }}
     /* Wrapper horizontal exclusivo para las tablas. No agrega scroll vertical. Sólo aparece scroll horizontal cuando el ancho mínimo del Gantt no cabe en la pantalla.*/
       .gantt-horizontal-scroll { width: 100%; overflow-x: auto; overflow-y: visible; scrollbar-gutter: stable; }
+    /* Scroll horizontal sólo cuando la tabla Feature List no cabe. No genera un scroll vertical adicional: el vertical continúa siendo únicamente .dashboard-results-scroll.*/
+    .feature-list-horizontal-scroll { width: 100%; overflow-x: auto; overflow-y: visible; scrollbar-gutter: stable;}
+    /* Evita que las columnas de Feature List se compriman demasiado.*/
+    .feature-list-table { min-width: 1180px; }
     /* La tabla conserva un ancho mínimo para que no comprima la línea de tiempo y sus barras Gantt sean utilizables. Puedes aumentar este valor si quieres más espacio para el timeline.*/
     .roadmap-table { min-width: 1180px; }
     /* Si Feature List también posee columnas que deban conservar ancho, aplica la misma protección. */
@@ -3105,9 +3109,34 @@
         );
       }
 
-      // ── Renderiza el header de la línea de tiempo (meses o semanas) ──
-      // Vive dentro de la tabla para que use exactamente el mismo ancho
-      // que las barras, marcadores y líneas del Timeline.
+      const handleSortColumn = (column) => {
+        setSortColumn(column);
+
+        setSortOrder(currentOrder => {
+          if (sortColumn === column) {
+            return currentOrder === 'asc' ? 'desc' : 'asc';
+          }
+
+          return 'asc';
+        });
+
+        setFeaturesPage(1);
+        setRoadmapPage(1);
+
+        requestAnimationFrame(() => {
+          scrollResultsToTop('smooth');
+        });
+      };
+
+      const getSortIndicator = (column) => {
+        if (sortColumn !== column) {
+          return '';
+        }
+
+        return sortOrder === 'asc' ? ' ▲' : ' ▼';
+      };
+      
+      /*─ Renderiza el header de la línea de tiempo (meses o semanas). Vive dentro de la tabla para que use exactamente el mismo ancho que las barras, marcadores y líneas del Timeline.*/
       function TimelineSubHeader({ isWeekMode, timelineOffset, weekOffset }) {
         const today = new Date();
 
@@ -3841,9 +3870,390 @@
             </div>
           </div>
         </div>
-         {/* Única zona con scroll vertical en desktop/tablet. El ref hace que scrollResultsToTop() funcione al paginar, cambiar filtros o cambiar entre Feature List / Roadmap. */}
-        <main ref={resultsScrollRef}
-          className="dashboard-results-scroll">
+        
+        {/* Única zona con scroll vertical en desktop/tablet. El ref hace que scrollResultsToTop() funcione al paginar, cambiar filtros o cambiar entre Feature List / Roadmap. */}
+        <main ref={resultsScrollRef} className="dashboard-results-scroll" >
+          {currentPage === 'features' && (
+            <div className="table-wrapper">
+              <div className="feature-list-horizontal-scroll">
+                <table className="feature-list-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: '42px', textAlign: 'center' }}>
+                        Details
+                      </th>
+
+                      <th
+                        style={{
+                          width: '45px',
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                        onClick={() => handleSortColumn('priority')}
+                        title="Sort by priority"
+                      >
+                        P{getSortIndicator('priority')}
+                      </th>
+
+                      <th
+                        style={{
+                          width: '82px',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                        onClick={() => handleSortColumn('id')}
+                        title="Sort by ID"
+                      >
+                        ID{getSortIndicator('id')}
+                      </th>
+
+                      <th
+                        style={{
+                          minWidth: '280px',
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => handleSortColumn('title')}
+                        title="Sort by Feature title"
+                      >
+                        Feature{getSortIndicator('title')}
+                      </th>
+
+                      <th
+                        style={{
+                          minWidth: '150px',
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => handleSortColumn('areaPath')}
+                        title="Sort by Area Path"
+                      >
+                        Area Path{getSortIndicator('areaPath')}
+                      </th>
+
+                      <th
+                        style={{
+                          minWidth: '130px',
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => handleSortColumn('iteration')}
+                        title="Sort by Iteration Path"
+                      >
+                        Iteration{getSortIndicator('iteration')}
+                      </th>
+
+                      <th
+                        style={{
+                          minWidth: '145px',
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => handleSortColumn('assignedTo')}
+                        title="Sort by Assigned To"
+                      >
+                        Assigned To{getSortIndicator('assignedTo')}
+                      </th>
+
+                      <th
+                        style={{
+                          width: '105px',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                        onClick={() => handleSortColumn('targetDate')}
+                        title="Sort by Target Date"
+                      >
+                        Target Date{getSortIndicator('targetDate')}
+                      </th>
+
+                      <th
+                        style={{
+                          width: '125px',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                        onClick={() => handleSortColumn('readiness')}
+                        title="Sort by Readiness"
+                      >
+                        Readiness{getSortIndicator('readiness')}
+                      </th>
+
+                      <th
+                        style={{
+                          width: '150px',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        Delivery Health
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {loading ? (
+                      <tr>
+                        <td
+                          colSpan="10"
+                          style={{
+                            padding: '28px',
+                            textAlign: 'center',
+                            color: '#64748b'
+                          }}
+                        >
+                          Loading Features...
+                        </td>
+                      </tr>
+                    ) : featuresPageItems.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan="10"
+                          style={{
+                            padding: '28px',
+                            textAlign: 'center',
+                            color: '#64748b'
+                          }}
+                        >
+                          No Features match the selected filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      featuresPageItems.map(feature => {
+                        const activePanel =
+                          expandedFeaturePanel?.featureId === feature.id
+                            ? expandedFeaturePanel.panel
+                            : null;
+
+                        const isHistoryOpen = activePanel === 'history';
+                        const isReadinessOpen = activePanel === 'readiness';
+                        const isDeliveryOpen = activePanel === 'delivery';
+
+                        return (
+                          <React.Fragment key={feature.id}>
+                            <tr>
+                              <td
+                                style={{
+                                  width: '42px',
+                                  padding: '6px',
+                                  textAlign: 'center'
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  className="feature-expand-control"
+                                  onClick={() => toggleFeatureExpand(feature.id)}
+                                  aria-expanded={isHistoryOpen}
+                                  aria-controls={`feature-panel-${feature.id}`}
+                                  title={
+                                    isHistoryOpen
+                                      ? 'Close Feature history'
+                                      : 'Show Feature history'
+                                  }
+                                >
+                                  {isHistoryOpen ? '▼' : '►'}
+                                </button>
+                              </td>
+
+                              <td
+                                style={{
+                                  textAlign: 'center',
+                                  fontWeight: 'bold',
+                                  color: feature.priority
+                                    ? '#1e3a8a'
+                                    : '#94a3b8'
+                                }}
+                              >
+                                {feature.priority || '—'}
+                              </td>
+
+                              <td>
+                                <a
+                                  href={adoLink(feature.id)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  {feature.id}
+                                </a>
+                              </td>
+
+                              <td
+                                style={{
+                                  maxWidth: '320px',
+                                  cursor: 'default'
+                                }}
+                                onMouseEnter={(event) =>
+                                  showTooltip(
+                                    event,
+                                    <FeatureTooltipContent
+                                      feature={feature}
+                                    />
+                                  )
+                                }
+                                onMouseMove={moveTooltip}
+                                onMouseLeave={hideTooltip}
+                              >
+                                <div
+                                  style={{
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    fontWeight: '600'
+                                  }}
+                                  title={feature.title}
+                                >
+                                  {feature.title || 'Untitled Feature'}
+                                </div>
+                              </td>
+
+                              <td
+                                style={{
+                                  maxWidth: '170px',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}
+                                title={feature.areaPath || '—'}
+                              >
+                                {feature.areaPath
+                                  ? feature.areaPath.split('\\').pop()
+                                  : '—'}
+                              </td>
+
+                              <td
+                                style={{
+                                  maxWidth: '150px',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}
+                                title={feature.iterationPath || '—'}
+                              >
+                                {feature.iterationPath
+                                  ? feature.iterationPath.split('\\').pop()
+                                  : '—'}
+                              </td>
+
+                              <td
+                                style={{
+                                  maxWidth: '160px',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}
+                                title={getShortAssignedToName(
+                                  feature.assignedTo
+                                )}
+                              >
+                                {getShortAssignedToName(feature.assignedTo)}
+                              </td>
+
+                              <td style={{ whiteSpace: 'nowrap' }}>
+                                {formatDate(feature.targetDate)}
+                              </td>
+
+                              <td>
+                                <ReadinessBadge
+                                  readiness={getFeatureReadiness(feature)}
+                                  featureId={feature.id}
+                                  isActive={isReadinessOpen}
+                                  onClick={() =>
+                                    toggleFeatureReadiness(feature.id)
+                                  }
+                                />
+                              </td>
+
+                              <td>
+                                <DeliveryHealthBadge
+                                  feature={feature}
+                                  isActive={isDeliveryOpen}
+                                  onClick={() =>
+                                    toggleFeatureDelivery(feature.id)
+                                  }
+                                />
+                              </td>
+                            </tr>
+
+                            {activePanel && (
+                              <tr id={ isDeliveryOpen
+                                    ? `feature-delivery-panel-${feature.id}`
+                                    : `feature-panel-${feature.id}`
+                                }
+                                style={{ background: '#f8fafc' }}
+                              >
+                                <td
+                                  colSpan="10"
+                                  style={{
+                                    padding: '16px 20px',
+                                    borderBottom: '1px solid #dbe4ee'
+                                  }}
+                                >
+                                  {isHistoryOpen && (
+                                    loadingFeatureHistoryIds[feature.id] ? (
+                                      <div
+                                        style={{
+                                          fontSize: '12px',
+                                          color: '#64748b'
+                                        }}
+                                      >
+                                        Loading Feature history...
+                                      </div>
+                                    ) : (
+                                      <FeatureStateHistory
+                                        history={
+                                          historyCache[feature.id] || []
+                                        }
+                                        loading={false}
+                                        formatDate={formatDate}
+                                      />
+                                    )
+                                  )}
+
+                                  {isReadinessOpen && (
+                                    <FeatureReadinessDetails
+                                      feature={feature}
+                                    />
+                                  )}
+
+                                  {isDeliveryOpen && (
+                                    loadingStoriesIds[feature.id] ? (
+                                      <div
+                                        style={{
+                                          fontSize: '12px',
+                                          color: '#64748b'
+                                        }}
+                                      >
+                                        Loading Stories and Bugs...
+                                      </div>
+                                    ) : unavailableStoriesIds[feature.id] ? (
+                                      <div
+                                        style={{
+                                          color: '#b45309',
+                                          fontSize: '12px'
+                                        }}
+                                      >
+                                        Stories and Bugs could not be fully
+                                        retrieved from Azure DevOps. Refresh
+                                        the dashboard and try again.
+                                      </div>
+                                    ) : (
+                                      <FeatureDeliveryDetails
+                                        feature={feature}
+                                        stories={
+                                          storiesCache[feature.id] || []
+                                        }
+                                        adoLink={adoLink}
+                                      />
+                                    )
+                                  )}
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {currentPage === 'roadmap' && (
             <div className = "table-wrapper">
