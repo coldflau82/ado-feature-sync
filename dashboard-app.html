@@ -131,6 +131,42 @@
     .feature-list-tooltip__subdetail { padding-left: 24px; }
     .feature-list-tooltip__metric { margin-top: 3px; padding-left: 12px; color: #cbd5e1; font-size: 11px; }
     .feature-list-tooltip__warning { padding-left: 12px; color: #b45309; font-size: 11px; }
+    /* FEATURE LIST Esta tabla debe ocupar el ancho disponible del dashboard, sin necesitar scroll horizontal. */
+    .feature-list-table-wrapper { width: 100%; margin-bottom: 0; overflow: visible; }
+    .feature-list-table { width: 100%;  min-width: 0; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
+    /* Anchos compactos para que las doce columnas se vean completas en el área disponible de una pantalla laptop/desktop.*/
+    .feature-list-col--id { width: 5%; }
+    .feature-list-col--title { width: 24%; }
+    .feature-list-col--priority { width: 6%; }
+    .feature-list-col--target-date { width: 8%; }
+    .feature-list-col--planned-month { width: 9%; }
+    .feature-list-col--estimate { width: 4%; }
+    .feature-list-col--state { width: 11%; }
+    .feature-list-col--readiness { width: 11%; }
+    .feature-list-col--delivery { width: 12%; }
+    .feature-list-col--progress { width: 10%; }
+    .feature-list-table th, .feature-list-table td { padding: 8px 7px; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; }
+    .feature-list-table th { white-space: nowrap; font-size: 11px; }
+    .feature-list-table td { white-space: nowrap; }
+    /* El título puede reducirse con ellipsis, pero el texto completo queda disponible en el tooltip que ya usa FeatureTooltipContent.*/
+    .feature-list-title-cell { min-width: 0; }
+    /* El header permanece visible al hacer scroll vertical dentro de: .dashboard-results-scroll */
+    .dashboard-results-scroll .feature-list-table thead th { position: sticky; top: 0; z-index: 50; background: #f9f9f9; box-shadow: 0 2px 4px rgba(15, 23, 42, 0.12); }
+    /* Estado: punto de color + nombre del estado. Además de esta indicación, la fila conserva su línea de color izquierda según el estado. */
+    .feature-state-cell { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+    .feature-state-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; display: inline-block; }
+    .feature-list-date-cell { font-size: 11px; }
+    .feature-list-centered-cell { text-align: center; padding: 8px !important; }
+    .feature-list-progress-cell { text-align: center; padding: 8px !important; white-space: normal !important; }
+    .feature-list-progress-label { font-size: 10px; color: #666; margin-bottom: 3px; white-space: nowrap; }
+    .feature-list-progress-track { height: 6px; width: 100%; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
+    .feature-list-progress-bar { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
+    .feature-list-progress-loading { font-size: 10px; color: #aaa; font-style: italic; }
+    .feature-list-progress-empty { font-size: 10px; color: #bbb; }
+    /* Paneles de Readiness y Delivery Health. History ya no forma parte de Feature List. */
+    .feature-detail-panel { background: #f8fafc; border: 1px solid #dbe4ee; border-radius: 8px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+    .feature-detail-panel-message { padding: 10px 0; font-size: 12px; color: #64748b; }
+    .feature-detail-panel-warning { padding: 10px 0; font-size: 12px; color: #b45309; }
     .feature-expand-control { width: 28px; height: 28px; border: none; border-radius: 4px; background: transparent; color: #334155; cursor: pointer; font-size: 13px; line-height: 1; } 
     .feature-expand-control:hover, .feature-expand-control:focus-visible { background: #dbeafe; color: #1d4ed8; outline: none; } 
     .feature-history { margin: 0; } 
@@ -290,10 +326,7 @@
       .dashboard-pagination-footer { flex: 0 0 auto; margin-top: 8px; }}
     /* Wrapper horizontal exclusivo para las tablas. No agrega scroll vertical. Sólo aparece scroll horizontal cuando el ancho mínimo del Gantt no cabe en la pantalla.*/
       .gantt-horizontal-scroll { width: 100%; overflow-x: auto; overflow-y: visible; scrollbar-gutter: stable; }
-    /* Scroll horizontal sólo cuando la tabla Feature List no cabe. No genera un scroll vertical adicional: el vertical continúa siendo únicamente .dashboard-results-scroll.*/
-    .feature-list-horizontal-scroll { width: 100%; overflow-x: auto; overflow-y: visible; scrollbar-gutter: stable;}
-    /* Evita que las columnas de Feature List se compriman demasiado.*/
-    .feature-list-table { min-width: 1180px; }
+    .feature-list-horizontal-scroll { overflow: visible; }
     /* La tabla conserva un ancho mínimo para que no comprima la línea de tiempo y sus barras Gantt sean utilizables. Puedes aumentar este valor si quieres más espacio para el timeline.*/
     .roadmap-table { min-width: 1180px; }
     /* Si Feature List también posee columnas que deban conservar ancho, aplica la misma protección. */
@@ -3873,138 +3906,181 @@
         
         {/* Única zona con scroll vertical en desktop/tablet. El ref hace que scrollResultsToTop() funcione al paginar, cambiar filtros o cambiar entre Feature List / Roadmap. */}
         <main ref={resultsScrollRef} className="dashboard-results-scroll" >
-          {currentPage === 'features' && (
-            <div className="table-wrapper">
-              <div className="feature-list-horizontal-scroll">
+        {currentPage === 'features' && (
+          <>
+            {loading ? (
+              <div
+                style={{
+                  padding: '28px',
+                  textAlign: 'center',
+                  color: '#64748b'
+                }}
+              >
+                Loading Features...
+              </div>
+            ) : (
+              <div className="table-wrapper feature-list-table-wrapper">
                 <table className="feature-list-table">
+                  <colgroup>
+                    <col className="feature-list-col--id" />
+                    <col className="feature-list-col--title" />
+                    <col className="feature-list-col--priority" />
+                    <col className="feature-list-col--target-date" />
+                    <col className="feature-list-col--planned-month" />
+                    <col className="feature-list-col--estimate" />
+                    <col className="feature-list-col--estimate" />
+                    <col className="feature-list-col--estimate" />
+                    <col className="feature-list-col--state" />
+                    <col className="feature-list-col--readiness" />
+                    <col className="feature-list-col--delivery" />
+                    <col className="feature-list-col--progress" />
+                  </colgroup>
+        
                   <thead>
                     <tr>
-                      <th style={{ width: '42px', textAlign: 'center' }}>
-                        Details
+                      <th
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => {
+                          setSortColumn('id');
+                          setSortOrder(
+                            sortColumn === 'id' && sortOrder === 'asc'
+                              ? 'desc'
+                              : 'asc'
+                          );
+                          setFeaturesPage(1);
+                        }}
+                      >
+                        ID{' '}
+                        {sortColumn === 'id'
+                          ? sortOrder === 'asc'
+                            ? '▲'
+                            : '▼'
+                          : ''}
                       </th>
-
+        
+                      <th
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => {
+                          setSortColumn('title');
+                          setSortOrder(
+                            sortColumn === 'title' && sortOrder === 'asc'
+                              ? 'desc'
+                              : 'asc'
+                          );
+                          setFeaturesPage(1);
+                        }}
+                      >
+                        Feature{' '}
+                        {sortColumn === 'title'
+                          ? sortOrder === 'asc'
+                            ? '▲'
+                            : '▼'
+                          : ''}
+                      </th>
+        
+                      <th
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => {
+                          setSortColumn('priority');
+                          setSortOrder(
+                            sortColumn === 'priority' && sortOrder === 'asc'
+                              ? 'desc'
+                              : 'asc'
+                          );
+                          setFeaturesPage(1);
+                        }}
+                      >
+                        Priority{' '}
+                        {sortColumn === 'priority'
+                          ? sortOrder === 'asc'
+                            ? '▲'
+                            : '▼'
+                          : ''}
+                      </th>
+        
+                      <th
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => {
+                          setSortColumn('targetDate');
+                          setSortOrder(
+                            sortColumn === 'targetDate' && sortOrder === 'asc'
+                              ? 'desc'
+                              : 'asc'
+                          );
+                          setFeaturesPage(1);
+                        }}
+                      >
+                        Target Date{' '}
+                        {sortColumn === 'targetDate'
+                          ? sortOrder === 'asc'
+                            ? '▲'
+                            : '▼'
+                          : ''}
+                      </th>
+        
+                      <th>Planned Month</th>
+                      <th>BE</th>
+                      <th>FE</th>
+                      <th>QA</th>
+        
+                      <th
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => {
+                          setSortColumn('state');
+                          setSortOrder(
+                            sortColumn === 'state' && sortOrder === 'asc'
+                              ? 'desc'
+                              : 'asc'
+                          );
+                          setFeaturesPage(1);
+                        }}
+                      >
+                        State{' '}
+                        {sortColumn === 'state'
+                          ? sortOrder === 'asc'
+                            ? '▲'
+                            : '▼'
+                          : ''}
+                      </th>
+        
                       <th
                         style={{
-                          width: '45px',
                           textAlign: 'center',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap'
-                        }}
-                        onClick={() => handleSortColumn('priority')}
-                        title="Sort by priority"
-                      >
-                        P{getSortIndicator('priority')}
-                      </th>
-
-                      <th
-                        style={{
-                          width: '82px',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap'
-                        }}
-                        onClick={() => handleSortColumn('id')}
-                        title="Sort by ID"
-                      >
-                        ID{getSortIndicator('id')}
-                      </th>
-
-                      <th
-                        style={{
-                          minWidth: '280px',
                           cursor: 'pointer'
                         }}
-                        onClick={() => handleSortColumn('title')}
-                        title="Sort by Feature title"
-                      >
-                        Feature{getSortIndicator('title')}
-                      </th>
-
-                      <th
-                        style={{
-                          minWidth: '150px',
-                          cursor: 'pointer'
-                        }}
-                        onClick={() => handleSortColumn('areaPath')}
-                        title="Sort by Area Path"
-                      >
-                        Area Path{getSortIndicator('areaPath')}
-                      </th>
-
-                      <th
-                        style={{
-                          minWidth: '130px',
-                          cursor: 'pointer'
-                        }}
-                        onClick={() => handleSortColumn('iteration')}
-                        title="Sort by Iteration Path"
-                      >
-                        Iteration{getSortIndicator('iteration')}
-                      </th>
-
-                      <th
-                        style={{
-                          minWidth: '145px',
-                          cursor: 'pointer'
-                        }}
-                        onClick={() => handleSortColumn('assignedTo')}
-                        title="Sort by Assigned To"
-                      >
-                        Assigned To{getSortIndicator('assignedTo')}
-                      </th>
-
-                      <th
-                        style={{
-                          width: '105px',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap'
-                        }}
-                        onClick={() => handleSortColumn('targetDate')}
-                        title="Sort by Target Date"
-                      >
-                        Target Date{getSortIndicator('targetDate')}
-                      </th>
-
-                      <th
-                        style={{
-                          width: '125px',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap'
-                        }}
-                        onClick={() => handleSortColumn('readiness')}
-                        title="Sort by Readiness"
-                      >
-                        Readiness{getSortIndicator('readiness')}
-                      </th>
-
-                      <th
-                        style={{
-                          width: '150px',
-                          whiteSpace: 'nowrap'
+                        onClick={() => {
+                          setSortColumn('readiness');
+                          setSortOrder(
+                            sortColumn === 'readiness' && sortOrder === 'asc'
+                              ? 'desc'
+                              : 'asc'
+                          );
+                          setFeaturesPage(1);
                         }}
                       >
+                        Readiness{' '}
+                        {sortColumn === 'readiness'
+                          ? sortOrder === 'asc'
+                            ? '▲'
+                            : '▼'
+                          : ''}
+                      </th>
+        
+                      <th style={{ textAlign: 'center' }}>
                         Delivery Health
+                      </th>
+        
+                      <th style={{ textAlign: 'center' }}>
+                        Progress
                       </th>
                     </tr>
                   </thead>
-
+        
                   <tbody>
-                    {loading ? (
+                    {featuresPageItems.length === 0 ? (
                       <tr>
                         <td
-                          colSpan="10"
-                          style={{
-                            padding: '28px',
-                            textAlign: 'center',
-                            color: '#64748b'
-                          }}
-                        >
-                          Loading Features...
-                        </td>
-                      </tr>
-                    ) : featuresPageItems.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan="10"
+                          colSpan="12"
                           style={{
                             padding: '28px',
                             textAlign: 'center',
@@ -4015,233 +4091,208 @@
                         </td>
                       </tr>
                     ) : (
-                      featuresPageItems.map(feature => {
-                        const activePanel =
-                          expandedFeaturePanel?.featureId === feature.id
-                            ? expandedFeaturePanel.panel
-                            : null;
-
-                        const isHistoryOpen = activePanel === 'history';
-                        const isReadinessOpen = activePanel === 'readiness';
-                        const isDeliveryOpen = activePanel === 'delivery';
-
+                      featuresPageItems.map(f => {
+                        const featureStateDot = {
+                          New: '#94a3b8',
+                          'In Shaping': '#fbbf24',
+                          'In Planning': '#fb923c',
+                          Planned: '#34d399',
+                          'In Process': '#60a5fa',
+                          Closed: '#a78bfa'
+                        }[f.state] || '#ccc';
+        
+                        const isReadinessPanelOpen =
+                          expandedFeaturePanel?.featureId === f.id &&
+                          expandedFeaturePanel?.panel === 'readiness';
+        
+                        const isDeliveryPanelOpen =
+                          expandedFeaturePanel?.featureId === f.id &&
+                          expandedFeaturePanel?.panel === 'delivery';
+        
                         return (
-                          <React.Fragment key={feature.id}>
-                            <tr>
-                              <td
-                                style={{
-                                  width: '42px',
-                                  padding: '6px',
-                                  textAlign: 'center'
-                                }}
-                              >
-                                <button
-                                  type="button"
-                                  className="feature-expand-control"
-                                  onClick={() => toggleFeatureExpand(feature.id)}
-                                  aria-expanded={isHistoryOpen}
-                                  aria-controls={`feature-panel-${feature.id}`}
-                                  title={
-                                    isHistoryOpen
-                                      ? 'Close Feature history'
-                                      : 'Show Feature history'
-                                  }
-                                >
-                                  {isHistoryOpen ? '▼' : '►'}
-                                </button>
-                              </td>
-
-                              <td
-                                style={{
-                                  textAlign: 'center',
-                                  fontWeight: 'bold',
-                                  color: feature.priority
-                                    ? '#1e3a8a'
-                                    : '#94a3b8'
-                                }}
-                              >
-                                {feature.priority || '—'}
-                              </td>
-
+                          <React.Fragment key={f.id}>
+                            <tr
+                              style={{
+                                background: 'white',
+                                borderLeft: `3px solid ${featureStateDot}`
+                              }}
+                            >
                               <td>
                                 <a
-                                  href={adoLink(feature.id)}
+                                  href={adoLink(f.id)}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >
-                                  {feature.id}
+                                  {f.id}
                                 </a>
                               </td>
-
-                              <td
-                                style={{
-                                  maxWidth: '320px',
-                                  cursor: 'default'
-                                }}
-                                onMouseEnter={(event) =>
-                                  showTooltip(
-                                    event,
-                                    <FeatureTooltipContent
-                                      feature={feature}
-                                    />
-                                  )
-                                }
-                                onMouseMove={moveTooltip}
-                                onMouseLeave={hideTooltip}
-                              >
-                                <div
+        
+                              <td className="feature-list-title-cell">
+                                <span
+                                  className="feature-title"
                                   style={{
+                                    cursor: 'help',
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
                                     whiteSpace: 'nowrap',
-                                    fontWeight: '600'
+                                    display: 'block'
                                   }}
-                                  title={feature.title}
+                                  onMouseEnter={(event) =>
+                                    showTooltip(
+                                      event,
+                                      <FeatureTooltipContent feature={f} />
+                                    )
+                                  }
+                                  onMouseMove={moveTooltip}
+                                  onMouseLeave={hideTooltip}
                                 >
-                                  {feature.title || 'Untitled Feature'}
-                                </div>
+                                  {f.title}
+                                </span>
                               </td>
-
-                              <td
-                                style={{
-                                  maxWidth: '170px',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap'
-                                }}
-                                title={feature.areaPath || '—'}
-                              >
-                                {feature.areaPath
-                                  ? feature.areaPath.split('\\').pop()
-                                  : '—'}
+        
+                              <td>{f.priority || '-'}</td>
+        
+                              <td className="feature-list-date-cell">
+                                {formatDate(f.targetDate)}
                               </td>
-
-                              <td
-                                style={{
-                                  maxWidth: '150px',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap'
-                                }}
-                                title={feature.iterationPath || '—'}
-                              >
-                                {feature.iterationPath
-                                  ? feature.iterationPath.split('\\').pop()
-                                  : '—'}
-                              </td>
-
-                              <td
-                                style={{
-                                  maxWidth: '160px',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap'
-                                }}
-                                title={getShortAssignedToName(
-                                  feature.assignedTo
-                                )}
-                              >
-                                {getShortAssignedToName(feature.assignedTo)}
-                              </td>
-
-                              <td style={{ whiteSpace: 'nowrap' }}>
-                                {formatDate(feature.targetDate)}
-                              </td>
-
+        
+                              <td>{f.plannedMonth || '-'}</td>
+        
+                              <td>{f.estimation?.be || '-'}</td>
+                              <td>{f.estimation?.fe || '-'}</td>
+                              <td>{f.estimation?.qa || '-'}</td>
+        
                               <td>
+                                <span className="feature-state-cell">
+                                  <span
+                                    className="feature-state-dot"
+                                    style={{ background: featureStateDot }}
+                                  />
+                                  <span>{f.state || '-'}</span>
+                                </span>
+                              </td>
+        
+                              <td className="feature-list-centered-cell">
                                 <ReadinessBadge
-                                  readiness={getFeatureReadiness(feature)}
-                                  featureId={feature.id}
-                                  isActive={isReadinessOpen}
-                                  onClick={() =>
-                                    toggleFeatureReadiness(feature.id)
-                                  }
+                                  readiness={getFeatureReadiness(f)}
+                                  featureId={f.id}
+                                  isActive={isReadinessPanelOpen}
+                                  onClick={() => toggleFeatureReadiness(f.id)}
                                 />
                               </td>
-
-                              <td>
+        
+                              <td className="feature-list-centered-cell">
                                 <DeliveryHealthBadge
-                                  feature={feature}
-                                  isActive={isDeliveryOpen}
-                                  onClick={() =>
-                                    toggleFeatureDelivery(feature.id)
-                                  }
+                                  feature={f}
+                                  isActive={isDeliveryPanelOpen}
+                                  onClick={() => toggleFeatureDelivery(f.id)}
                                 />
+                              </td>
+        
+                              <td className="feature-list-progress-cell">
+                                {loadingStoriesIds[f.id] ? (
+                                  <span className="feature-list-progress-loading">
+                                    Loading...
+                                  </span>
+                                ) : storiesCache[f.id] ? (
+                                  (() => {
+                                    const summary = getWorkItemsDeliverySummary(
+                                      storiesCache[f.id]
+                                    );
+        
+                                    const done = summary.doneWorkItems;
+                                    const total = summary.includedWorkItems;
+        
+                                    const pct =
+                                      total === 0
+                                        ? 0
+                                        : Math.round((done / total) * 100);
+        
+                                    const barColor =
+                                      pct === 100
+                                        ? '#34d399'
+                                        : pct >= 50
+                                          ? '#60a5fa'
+                                          : '#fbbf24';
+        
+                                    return (
+                                      <div
+                                        title={`${done} of ${total} stories and bugs done`}
+                                      >
+                                        <div className="feature-list-progress-label">
+                                          {done}/{total} ({pct}%)
+                                        </div>
+        
+                                        <div className="feature-list-progress-track">
+                                          <div
+                                            className="feature-list-progress-bar"
+                                            style={{
+                                              width: `${pct}%`,
+                                              background: barColor
+                                            }}
+                                          />
+                                        </div>
+                                      </div>
+                                    );
+                                  })()
+                                ) : (
+                                  <span className="feature-list-progress-empty">
+                                    —
+                                  </span>
+                                )}
                               </td>
                             </tr>
-
-                            {activePanel && (
-                              <tr id={ isDeliveryOpen
-                                    ? `feature-delivery-panel-${feature.id}`
-                                    : `feature-panel-${feature.id}`
-                                }
-                                style={{ background: '#f8fafc' }}
-                              >
+        
+                            {isReadinessPanelOpen && (
+                              <tr style={{ background: '#f9f9f9' }}>
                                 <td
-                                  colSpan="10"
+                                  id={`feature-panel-${f.id}`}
+                                  colSpan="12"
                                   style={{
-                                    padding: '16px 20px',
-                                    borderBottom: '1px solid #dbe4ee'
+                                    paddingLeft: '20px',
+                                    paddingTop: '12px',
+                                    paddingBottom: '12px',
+                                    paddingRight: '20px'
                                   }}
                                 >
-                                  {isHistoryOpen && (
-                                    loadingFeatureHistoryIds[feature.id] ? (
-                                      <div
-                                        style={{
-                                          fontSize: '12px',
-                                          color: '#64748b'
-                                        }}
-                                      >
-                                        Loading Feature history...
-                                      </div>
-                                    ) : (
-                                      <FeatureStateHistory
-                                        history={
-                                          historyCache[feature.id] || []
-                                        }
-                                        loading={false}
-                                        formatDate={formatDate}
-                                      />
-                                    )
-                                  )}
-
-                                  {isReadinessOpen && (
-                                    <FeatureReadinessDetails
-                                      feature={feature}
-                                    />
-                                  )}
-
-                                  {isDeliveryOpen && (
-                                    loadingStoriesIds[feature.id] ? (
-                                      <div
-                                        style={{
-                                          fontSize: '12px',
-                                          color: '#64748b'
-                                        }}
-                                      >
+                                  <div className="feature-detail-panel">
+                                    <FeatureReadinessDetails feature={f} />
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+        
+                            {isDeliveryPanelOpen && (
+                              <tr style={{ background: '#f9f9f9' }}>
+                                <td
+                                  id={`feature-delivery-panel-${f.id}`}
+                                  colSpan="12"
+                                  style={{
+                                    paddingLeft: '20px',
+                                    paddingTop: '12px',
+                                    paddingBottom: '12px',
+                                    paddingRight: '20px'
+                                  }}
+                                >
+                                  <div className="feature-detail-panel">
+                                    {loadingStoriesIds[f.id] ? (
+                                      <div className="feature-detail-panel-message">
                                         Loading Stories and Bugs...
                                       </div>
-                                    ) : unavailableStoriesIds[feature.id] ? (
-                                      <div
-                                        style={{
-                                          color: '#b45309',
-                                          fontSize: '12px'
-                                        }}
-                                      >
-                                        Stories and Bugs could not be fully
-                                        retrieved from Azure DevOps. Refresh
-                                        the dashboard and try again.
+                                    ) : unavailableStoriesIds[f.id] ? (
+                                      <div className="feature-detail-panel-warning">
+                                        Stories and Bugs could not be fully retrieved
+                                        from Azure DevOps. Delivery Health rules remain
+                                        based on the server-provided Feature summary.
                                       </div>
                                     ) : (
                                       <FeatureDeliveryDetails
-                                        feature={feature}
-                                        stories={
-                                          storiesCache[feature.id] || []
-                                        }
+                                        feature={f}
+                                        stories={storiesCache[f.id] || []}
                                         adoLink={adoLink}
                                       />
-                                    )
-                                  )}
+                                    )}
+                                  </div>
                                 </td>
                               </tr>
                             )}
@@ -4252,8 +4303,9 @@
                   </tbody>
                 </table>
               </div>
-            </div>
-          )}
+            )}
+          </>
+        )}
 
           {currentPage === 'roadmap' && (
             <div className = "table-wrapper">
