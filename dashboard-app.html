@@ -321,14 +321,14 @@
     .filters-card { padding: 0 !important; overflow: hidden;}
     .filters-card__header { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 12px; border-bottom: 1px solid #e5e7eb; background: #ffffff;}
     .filters-card--collapsed .filters-card__header { border-bottom: none;}
-    .filters-card__toggle { min-width: 0; flex: 1; display: 'grid'; gridTemplateColumns: '0.7fr 1.8fr 0.8fr 0.5fr 0.6fr 0.8fr'; align-items: center; gap: 8px; padding: 4px 2px; border: 0; background: transparent; color: #1f2937; font: inherit; text-align: left; cursor: pointer;}
+    .filters-card__toggle { min-width: 0; flex: 1; display: flex; align-items: center; gap: 8px; padding: 4px 2px; border: 0; background: transparent; color: #1f2937; font: inherit; text-align: left; cursor: pointer;}
     .filters-card__toggle:hover .filters-card__toggle-title { color: #2563eb;}
     .filters-card__toggle-icon { width: 16px; color: #537fbd; font-size: 16px; line-height: 1;}
     .filters-card__toggle-title { font-weight: 700; white-space: nowrap;}
     .filters-card__active-count { padding: 3px 7px; border-radius: 999px; background: #eaf2ff; color: #315d98; font-size: 11px; font-weight: 700; white-space: nowrap;}
     .filters-card__clear-button { flex-shrink: 0; padding: 5px 8px; border: 1px solid #d7dde6; border-radius: 5px; background: #ffffff; color: #537fbd; font-size: 11px; font-weight: 600; cursor: pointer;}
     .filters-card__clear-button:hover { border-color: #537fbd; background: #f3f7fc;}
-    .filters-card__content { display: grid; grid-template-columns: repeat(6, minmax(135px, 1fr)); gap: 12px; padding: 10px 12px 8px;}
+    .filters-card__content { display: grid; grid-template-columns: 0.7fr 1.8fr 0.8fr 0.5fr 0.6fr 0.8fr; gap: 12px; padding: 10px 12px 8px; overflow-x: auto;}
     /* Resumen clicable cuando el panel está cerrado. Muestra filtros por grupo y conserva sus valores representativos.*/
     .advanced-filter-summary { width: 100%; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 0 12px 9px; border: 0; background: #ffffff; color: #4b5563; font: inherit; text-align: left;  cursor: pointer;}
     .advanced-filter-summary:hover { background: #fbfdff;}
@@ -339,7 +339,6 @@
     /* Mantiene controles múltiples utilizables, sin altura excesiva. */
     .filters-card__content .filter-select[multiple] { min-height: 92px; max-height: 92px;}
     /* En pantallas medianas, evita columnas demasiado estrechas. */
-    @media (max-width: 1280px) { .filters-card__content { grid-template-columns: repeat(3, minmax(180px, 1fr)); }}
     @media (max-width: 760px) { .filters-card__header { align-items: flex-start; } .filters-card__active-count { display: none; } .filters-card__content { grid-template-columns: 1fr; } .advanced-filter-summary__total { width: 100%; margin-left: 0; }}
 
   </style>
@@ -2334,6 +2333,7 @@
       const [filterIteration, setFilterIteration] = useState([]);
       const [filterAssignedTo, setFilterAssignedTo] = useState([]);
       const [filterState, setFilterState] = useState([]);
+      const currentYear = String(new Date().getFullYear());
       const [filterTargetDate, setFilterTargetDate] = useState([currentYear]);
       const [filterReleaseVersion, setFilterReleaseVersion] = useState([]);
       const [currentPage, setCurrentPage] = useState('roadmap');
@@ -2343,7 +2343,6 @@
       const [searchInput, setSearchInput] = useState('');
       const [sortColumn, setSortColumn] = useState('id');
       const [sortOrder, setSortOrder] = useState('asc');
-      const currentYear = String(new Date().getFullYear());
       const activeAdvancedFiltersCount = [ filterAreaPath, filterIteration, filterAssignedTo, filterState, filterTargetDate, filterReleaseVersion].filter(values => Array.isArray(values) && values.length > 0).length;
       const totalAdvancedFilterSelections = [ filterAreaPath, filterIteration, filterAssignedTo, filterState, filterTargetDate, filterReleaseVersion].reduce( (total, values) => total + (Array.isArray(values) ? values.length : 0),  0);
       const [roadmapPage, setRoadmapPage] = useState(1);
