@@ -3302,9 +3302,10 @@
                 </nav>
               </div>
             </div>
+            {warnings.length > 0 && (
               <div className="warnings">
                 <strong>⚠️ Data Warnings:</strong>
-              {warnings.map((w, i) => <div key={i} style={{ fontSize: '13px', marginTop: '5px' }}>{w}</div>))}
+              {warnings.map((w, i) => <div key={i} style={{ fontSize: '13px', marginTop: '5px' }}>{w}</div>)}
             </div>
           )}
 
