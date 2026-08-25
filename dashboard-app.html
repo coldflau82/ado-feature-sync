@@ -4156,7 +4156,9 @@
                                 {formatDate(f.targetDate)}
                               </td>
         
-                              <td>{f.plannedMonth || '-'}</td>
+                              <td className="feature-list-date-cell">
+                                {f.plannedMonth || '-'}
+                              </td>
         
                               <td>{f.estimation?.be || '-'}</td>
                               <td>{f.estimation?.fe || '-'}</td>
