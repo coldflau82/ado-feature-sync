@@ -134,14 +134,15 @@
     /* FEATURE LIST Esta tabla debe ocupar el ancho disponible del dashboard, sin necesitar scroll horizontal. */
     .feature-list-table-wrapper { width: 100%; margin-bottom: 0; overflow: visible; font-size: 11px}
     .feature-list-table { width: 100%;  min-width: 0; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
-    /* Anchos compactos para que las doce columnas se vean completas en el área disponible de una pantalla laptop/desktop.*/
-    .feature-list-col--id { width: 5%; }
-    .feature-list-col--title { width: 24%; }
-    .feature-list-col--priority { width: 6%; }
-    .feature-list-col--target-date { width: 8%; }
-    .feature-list-col--planned-month { width: 9%; }
+    /* Anchos compactos para que las doce columnas se vean completas en el área disponible de una pantalla laptop/desktop.
+       ID y Feature reciben espacio adicional para mostrar IDs de 7–8 dígitos y más texto del título. */
+    .feature-list-col--id { width: 7%; }
+    .feature-list-col--title { width: 26%; }
+    .feature-list-col--priority { width: 5%; }
+    .feature-list-col--target-date { width: 7%; }
+    .feature-list-col--planned-month { width: 8%; }
     .feature-list-col--estimate { width: 4%; }
-    .feature-list-col--state { width: 11%; }
+    .feature-list-col--state { width: 10%; }
     .feature-list-col--readiness { width: 11%; }
     .feature-list-col--delivery { width: 12%; }
     .feature-list-col--progress { width: 10%; }
