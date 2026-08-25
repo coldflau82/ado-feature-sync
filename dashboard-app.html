@@ -259,7 +259,36 @@
       .dashboard-navigation .view-switcher__button { width: 100%; min-width: 0;}
       .dashboard-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }}
     /* Móviles muy estrechos: se mantiene dos columnas, pero se reduce ligeramente el padding horizontal. */
-    @media (max-width: 420px) { .dashboard-kpis { gap: 7px; } .dashboard-kpis .readiness-overview-card,.dashboard-kpis .health-overview-card { padding-left: 8px; padding-right: 8px; }}
+    @media (max-width: 420px) { .dashboard-kpis { gap: 7px; } 
+    .dashboard-kpis .readiness-overview-card,.dashboard-kpis .health-overview-card { padding-left: 8px; padding-right: 8px; }}
+     /* ── Dashboard shell: desktop/tablet con un único scroll interno ── */
+    .dashboard-fixed-content { flex: 0 0 auto; min-width: 0; }
+    .dashboard-results-scroll { min-width: 0; }
+    .dashboard-pagination-footer { background: #ffffff; border-radius: 8px; display: flex; align-items: center; justify-content: center; min-height: 64px; padding: 10px 14px; }
+    .dashboard-pagination { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 7px; }
+    .dashboard-pagination__button { min-width: 34px; height: 34px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 5px; background: #ffffff; color: #1e3a8a; cursor: pointer; font-family: inherit; font-size: 12px;
+      font-weight: 700; line-height: 1; transition:  background 0.15s ease,  border-color 0.15s ease,  color 0.15s ease,  transform 0.15s ease; }
+    .dashboard-pagination__button:hover:not(:disabled) { background: #eff6ff; border-color: #60a5fa; color: #1d4ed8; }
+    .dashboard-pagination__button:active:not(:disabled) { transform: scale(0.97); }
+    .dashboard-pagination__button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.3); outline-offset: 2px; }
+    .dashboard-pagination__button:disabled { background: #f1f5f9; border-color: #e2e8f0; color: #94a3b8; cursor: default; }
+    .dashboard-pagination__button--active { background: #2563eb; border-color: #1d4ed8; color: #ffffff; cursor: default; } 
+    .dashboard-pagination__button--active:hover { background: #2563eb; border-color: #1d4ed8; color: #ffffff; }
+    .dashboard-pagination__ellipsis { min-width: 20px; color: #64748b; font-size: 14px; font-weight: 700; text-align: center; user-select: none; }
+    .dashboard-pagination__summary { margin-left: 5px; color: #475569; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    /* Desktop/tablet:
+      - el navegador no tiene scroll vertical;
+      - el dashboard ocupa el alto completo disponible;
+      - solamente .dashboard-results-scroll puede desplazarse. */
+    @media (min-width: 821px) { html, body, #root { height: 100%; overflow: hidden; } html { overflow-y: hidden; scrollbar-gutter: auto; } 
+      .container.dashboard-shell { height: 100dvh; max-width: 1400px; display: flex; flex-direction: column; overflow: hidden; }
+      .dashboard-results-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; scrollbar-gutter: stable; padding-right: 2px; }
+      .dashboard-results-scroll .table-wrapper { margin-bottom: 0; }
+      .dashboard-pagination-footer { flex: 0 0 auto; margin-top: 12px; }
+      /* El encabezado de Feature List se mantiene visible dentro del único panel desplazable de resultados. */
+      .feature-list-table thead { position: sticky; top: 0; z-index: 20; background: #f9f9f9; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); }}
+    /* Mobile: se conserva el scroll natural del navegador y no se fuerza una altura de viewport para evitar paneles demasiado pequeños. */
+    @media (max-width: 820px) { .dashboard-pagination-footer { margin-top: 20px; } .dashboard-pagination__summary { width: 100%; margin-left: 0; text-align: center; }}
     
   </style>
 </head>
@@ -267,7 +296,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, } = React;
+    const { useState, useEffect, , useRef } = React;
 
     const releaseDates = {
       'CE-2026-FEB': '2026-02-09',
@@ -1834,6 +1863,380 @@
       );
     }
 
+   /* Leyenda exclusiva del Roadmap. Se renderiza fuera del panel de resultados para permanecer visible mientras el usuario navega mediante el scroll interno. */
+    function RoadmapLegend({
+      legendExpanded,
+      onToggle
+    }) {
+      return (
+        <div
+          style={{
+            background: 'white',
+            padding: '10px 15px',
+            borderRadius: '8px',
+            marginBottom: '10px'
+          }}
+        >
+          <div
+            onClick={onToggle}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              userSelect: 'none'
+            }}
+            role="button"
+            tabIndex="0"
+            aria-expanded={legendExpanded}
+            aria-label={
+              legendExpanded
+                ? 'Collapse Roadmap legend'
+                : 'Expand Roadmap legend'
+            }
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onToggle();
+              }
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 'bold'
+                }}
+              >
+                Features & Stories states
+              </span>
+
+              <span
+                style={{
+                  fontSize: '10px',
+                  transform: legendExpanded
+                    ? 'rotate(180deg)'
+                    : 'rotate(0deg)',
+                  transition: 'transform 0.2s'
+                }}
+                aria-hidden="true"
+              >
+                ▼
+              </span>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '20px',
+                flexWrap: 'nowrap'
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <div
+                  style={{
+                    width: '2px',
+                    height: '12px',
+                    background: '#333333',
+                    flexShrink: 0
+                  }}
+                />
+                <span style={{ fontSize: '10px' }}>Today</span>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <div
+                  style={{
+                    width: '0',
+                    height: '0',
+                    borderLeft: '5px solid transparent',
+                    borderRight: '5px solid transparent',
+                    borderTop: '8px solid #f43f5e',
+                    flexShrink: 0
+                  }}
+                />
+                <span style={{ fontSize: '10px' }}>Target Date</span>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <div
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    background: '#1e3a8a',
+                    transform: 'rotate(45deg)',
+                    flexShrink: 0
+                  }}
+                />
+                <span style={{ fontSize: '10px' }}>
+                  Release Fix Version
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {legendExpanded && (
+            <div
+              style={{
+                display: 'flex',
+                gap: '10px',
+                alignItems: 'flex-start',
+                flexWrap: 'wrap',
+                flexDirection: 'column',
+                marginTop: '10px'
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  alignItems: 'center',
+                  flexWrap: 'wrap'
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Feature States:
+                </span>
+
+                {[
+                  { label: 'New', color: '#94a3b8' },
+                  { label: 'In Shaping', color: '#fbbf24' },
+                  { label: 'In Planning', color: '#fb923c' },
+                  { label: 'Planned', color: '#34d399' },
+                  { label: 'In Process', color: '#60a5fa' },
+                  { label: 'Closed', color: '#a78bfa' }
+                ].map(item => (
+                  <div
+                    key={item.label}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '12px',
+                        height: '12px',
+                        background: item.color,
+                        borderRadius: '2px'
+                      }}
+                    />
+                    <span style={{ fontSize: '10px' }}>
+                      {item.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  fontSize: '10px'
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Stories States:
+                </span>
+
+                {Object.entries(storyStateColors).map(
+                  ([state, color]) => (
+                    <div
+                      key={state}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: '12px',
+                          height: '12px',
+                          background: color,
+                          borderRadius: '2px'
+                        }}
+                      />
+                      <span>{state}</span>
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+   /* Paginación compacta para evitar mostrar demasiados botones cuando existen muchas páginas.*/
+    function DashboardPagination({
+      currentPage,
+      totalPages,
+      onPageChange,
+      ariaLabel
+    }) {
+      const visiblePages = (() => {
+        if (totalPages <= 7) {
+          return Array.from(
+            { length: totalPages },
+            (_, index) => index + 1
+          );
+        }
+
+        if (currentPage <= 4) {
+          return [1, 2, 3, 4, 'ellipsis-end', totalPages];
+        }
+
+        if (currentPage >= totalPages - 3) {
+          return [
+            1,
+            'ellipsis-start',
+            totalPages - 3,
+            totalPages - 2,
+            totalPages - 1,
+            totalPages
+          ];
+        }
+
+        return [
+          1,
+          'ellipsis-start',
+          currentPage - 1,
+          currentPage,
+          currentPage + 1,
+          'ellipsis-end',
+          totalPages
+        ];
+      })();
+
+      return (
+        <nav
+          className="dashboard-pagination"
+          aria-label={ariaLabel}
+        >
+          <button
+            type="button"
+            className="dashboard-pagination__button"
+            onClick={() => onPageChange(1)}
+            disabled={currentPage === 1}
+            title="Go to first page"
+          >
+            First
+          </button>
+
+          <button
+            type="button"
+            className="dashboard-pagination__button"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            title="Go to previous page"
+          >
+            Previous
+          </button>
+
+          {visiblePages.map((pageItem, index) => {
+            if (typeof pageItem !== 'number') {
+              return (
+                <span
+                  key={`${pageItem}-${index}`}
+                  className="dashboard-pagination__ellipsis"
+                  aria-hidden="true"
+                >
+                  …
+                </span>
+              );
+            }
+
+            const isActive = pageItem === currentPage;
+
+            return (
+              <button
+                key={pageItem}
+                type="button"
+                className={[
+                  'dashboard-pagination__button',
+                  isActive
+                    ? 'dashboard-pagination__button--active'
+                    : ''
+                ].filter(Boolean).join(' ')}
+                onClick={() => onPageChange(pageItem)}
+                disabled={isActive}
+                aria-current={isActive ? 'page' : undefined}
+                title={`Go to page ${pageItem}`}
+              >
+                {pageItem}
+              </button>
+            );
+          })}
+
+          <button
+            type="button"
+            className="dashboard-pagination__button"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            title="Go to next page"
+          >
+            Next
+          </button>
+
+          <button
+            type="button"
+            className="dashboard-pagination__button"
+            onClick={() => onPageChange(totalPages)}
+            disabled={currentPage === totalPages}
+            title="Go to last page"
+          >
+            Last
+          </button>
+
+          <span className="dashboard-pagination__summary">
+            Page {currentPage} of {totalPages}
+          </span>
+        </nav>
+      );
+    }
+
     function Dashboard() {
       const { tooltip, showTooltip, moveTooltip, hideTooltip } = useTooltip();
       const [features, setFeatures] = useState([]);
@@ -1876,6 +2279,17 @@
       const [healthGroupFilter, setHealthGroupFilter] = useState('All');
       const [healthRuleFilter, setHealthRuleFilter] = useState('All');
 
+       /*  Referencia al único contenedor desplazable de resultados. En desktop/tablet este será el único scroll vertical disponible. */
+      const resultsScrollRef = useRef(null);
+
+      const scrollResultsToTop = (behavior = 'auto') => {
+        resultsScrollRef.current?.scrollTo({
+          top: 0,
+          left: 0,
+          behavior
+        });
+      };
+      
       useEffect(() => {
         const timer = setTimeout(() => { setSearchTitle(searchInput); }, 300);
         return () => clearTimeout(timer);
@@ -1886,8 +2300,19 @@
         setFeaturesPage(1);
         setExpandedFeaturePanel(null);
         setExpandedRoadmapFeatureId(null);
+         /* Cuando cambia el conjunto de resultados, el usuario debe empezar desde la primera fila del nuevo resultado filtrado. */
+        requestAnimationFrame(() => {
+          scrollResultsToTop('auto');
+        });
       }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle, readinessFilter, healthGroupFilter, healthRuleFilter ]);
 
+      /* Cambiar de Feature List a Roadmap también restablece el scroll interno para no dejar al usuario a mitad de una tabla distinta. */
+      useEffect(() => {
+        requestAnimationFrame(() => {
+          scrollResultsToTop('auto');
+        });
+      }, [currentPage]);
+      
       async function loadFeatures(forceRefresh = false) {
         if (forceRefresh) {
           setRefreshing(true);
@@ -2388,6 +2813,19 @@
       const featuresStartIdx = (featuresPage - 1) * featuresItemsPerPage;
       const featuresPageItems = sortedFiltered.slice(featuresStartIdx, featuresStartIdx + featuresItemsPerPage);
 
+       /* Los dos handlers centralizan:
+        - límites mínimos y máximos;
+        - cierre de paneles expandidos;
+        - retorno al inicio del panel de resultados. */
+      const changeFeaturesPage = (nextPage) => {
+        const targetPage = Math.max( 1, Math.min(featuresTotalPages, Number(nextPage) || 1)};
+        if (targetPage === featuresPage) { return; }
+        setFeaturesPage(targetPage);
+        setExpandedFeaturePanel(null);
+
+        requestAnimationFrame(() => { scrollResultsToTop('smooth'); });
+      };
+
       /* Precarga los Stories/Bugs de los 15 Features visibles con una sola petición al backend, en lugar de una petición por Feature. */
       useEffect(() => {
         const featuresToLoad = featuresPageItems
@@ -2434,9 +2872,21 @@
       const pageItems = sortedFiltered.slice(startIdx, startIdx + itemsPerPage);
       const pageItemIds = pageItems.map(item => item.id).join(',');
 
+      const changeRoadmapPage = (nextPage) => {
+        const targetPage = Math.max( 1, Math.min(totalPages, Number(nextPage) || 1) );
+        if (targetPage === roadmapPage) { return; }
+
+        setRoadmapPage(targetPage);
+        setExpandedRoadmapFeatureId(null);
+
+        requestAnimationFrame(() => {
+          scrollResultsToTop('smooth');
+        });
+      };
+    
       const expandedRoadmapStories = expandedRoadmapFeatureId ? (storiesCache[expandedRoadmapFeatureId] || []) : [];
       const expandedStoryIds = expandedRoadmapStories.map(s => s.id).join(',');
-
+    
       useEffect(() => {
         if (currentPage !== 'roadmap' || pageItems.length === 0) return;
         const ids = pageItems.map(item => item.id).filter(id => !historyCache[id]);
@@ -2678,11 +3128,12 @@
       }
 
       return (
-        <div className="container">
-          <div className="header dashboard-header">
-            <h1 className="dashboard-title">
-              ADO DEC <br /> Dashboard
-            </h1>
+        <div className="container dashboard-shell">
+          <div className="dashboard-fixed-content">
+            <div className="header dashboard-header">
+              <h1 className="dashboard-title">
+                ADO DEC <br /> Dashboard
+              </h1>
 
             <div className={[
                 'dashboard-kpis',
@@ -2821,11 +3272,12 @@
                   </span>
                 </button>
               </nav>
+              </div>
             </div>
-          </div>
-          {warnings.length > 0 && (
-            <div className="warnings">
-              <strong>⚠️ Data Warnings:</strong>
+
+            {warnings.length > 0 && (
+              <div className="warnings">
+                <strong>⚠️ Data Warnings:</strong>
               {warnings.map((w, i) => <div key={i} style={{ fontSize: '13px', marginTop: '5px' }}>{w}</div>)}
             </div>
           )}
@@ -2969,10 +3421,40 @@
                 {filterReleaseVersion.length > 0 && <p className="filter-count">{filterReleaseVersion.length} selected</p>}
               </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '2px', marginTop: '4px', boxSizing: 'border-box' }}>
-              <span style={{ color: '#666', fontSize: '10px', whiteSpace: 'nowrap' }}>
-                Showing {featuresPageItems.length} of {sortedFiltered.length} (Page {featuresPage} of {featuresTotalPages})
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                width: '100%',
+                padding: '2px',
+                marginTop: '4px',
+                boxSizing: 'border-box'
+              }}
+            >
+              <span
+                style={{
+                  color: '#666',
+                  fontSize: '10px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {currentPage === 'features'
+                  ? (
+                    <>
+                      Showing {featuresPageItems.length} of{' '}
+                      {sortedFiltered.length} (Page {featuresPage} of{' '}
+                      {featuresTotalPages})
+                    </>
+                  )
+                  : (
+                    <>
+                      Showing {pageItems.length} of {sortedFiltered.length}{' '}
+                      (Page {roadmapPage} of {totalPages})
+                    </>
+                  )}
               </span>
+
               <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>
                 <input type="checkbox" checked={saveAsDefault} onChange={handleSaveAsDefaultChange} style={{ width: '12px', height: '12px', margin: 0 }} />
                 Save as default filter
@@ -2980,11 +3462,29 @@
             </div>
           </div>
 
+          {currentPage === 'roadmap' && (
+            <RoadmapLegend
+              legendExpanded={legendExpanded}
+              onToggle={() => setLegendExpanded(previous => !previous)}
+            />
+          )}
+          </div>
+
+          <div
+            className="dashboard-results-scroll"
+            ref={resultsScrollRef}
+            tabIndex="0"
+            aria-label={
+              currentPage === 'features'
+                ? 'Feature List results'
+                : 'Roadmap results'
+            }
+          >
           {currentPage === 'features' && (
             <>
               {loading ? <div>Loading...</div> : (
                 <div className="table-wrapper">
-                  <table>
+                  <table className="feature-list-table">
                     <thead>
                       <tr>
                         <th style={{ width: '30px' }}></th>
@@ -3202,70 +3702,24 @@
                   </table>
                 </div>
               )}
-              {!loading && (
-                <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center' }}>
-                  <button style={{ padding: '8px 16px', background: featuresPage === 1 ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: featuresPage === 1 ? 'default' : 'pointer', borderRadius: '4px' }} onClick={() => setFeaturesPage(featuresPage - 1)} disabled={featuresPage === 1}>Previous</button>
-                  <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Page {featuresPage} of {featuresTotalPages}</span>
-                  <button style={{ padding: '8px 16px', background: featuresPage === featuresTotalPages ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: featuresPage === featuresTotalPages ? 'default' : 'pointer', borderRadius: '4px' }} onClick={() => setFeaturesPage(featuresPage + 1)} disabled={featuresPage === featuresTotalPages}>Next</button>
-                </div>
-              )}
             </>
           )}
 
           {currentPage === 'roadmap' && (
             <>
-              {/* Leyenda */}
-              <div style={{ background: 'white', padding: '10px 15px', borderRadius: '8px', marginBottom: '10px' }}>
-                <div onClick={() => setLegendExpanded(!legendExpanded)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Features & Stories states</span>
-                    <span style={{ fontSize: '10px', transform: legendExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'nowrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                      <div style={{ width: '2px', height: '12px', background: '#333333', flexShrink: 0 }}></div>
-                      <span style={{ fontSize: '10px' }}>Today</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                      <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '8px solid #f43f5e', flexShrink: 0 }}></div>
-                      <span style={{ fontSize: '10px' }}>Target Date</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                      <div style={{ width: '8px', height: '8px', background: '#1e3a8a', transform: 'rotate(45deg)', flexShrink: 0 }}></div>
-                      <span style={{ fontSize: '10px' }}>Release Fix Version</span>
-                    </div>
-                  </div>
-                </div>
-                {legendExpanded && (
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'left', flexWrap: 'wrap', flexDirection: 'column', marginTop: '10px' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'left', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 'bold' }}>Feature States:</span>
-                      {[{ label: 'New', color: '#94a3b8' }, { label: 'In Shaping', color: '#fbbf24' }, { label: 'In Planning', color: '#fb923c' }, { label: 'Planned', color: '#34d399' }, { label: 'In Process', color: '#60a5fa' }, { label: 'Closed', color: '#a78bfa' }].map((item, idx) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <div style={{ width: '12px', height: '12px', background: item.color, borderRadius: '2px' }}></div>
-                          <span style={{ fontSize: '10px' }}>{item.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', fontSize: '10px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 'bold' }}>Stories States:</span>
-                      {Object.entries(storyStateColors).map(([state, color]) => (
-                        <div key={state} style={{ display: 'flex', alignItems: 'left', gap: '4px' }}>
-                          <div style={{ width: '12px', height: '12px', background: color, borderRadius: '2px' }}></div>
-                          <span>{state}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
               {/* ── TABLA PRINCIPAL DEL ROADMAP ── */}
-              {/* El header de la línea de tiempo ahora vive DENTRO de la tabla
-                  como una fila especial, garantizando alineación perfecta */}
-              <div className="table-wrapper" style={{ maxHeight: '70vh', overflowY: 'auto', scrollbarGutter: 'stable' }}>
+              {/* El header permanece sticky dentro del único panel de resultados. */}
+              <div className="table-wrapper">
                 <table style={{ tableLayout: 'fixed', width: '100%' }}>
-                  <thead style={{ position: 'sticky', top: 0, zIndex: 100, background: '#f9f9f9', boxShadow: '0 2px 4px rgba(0,0,0,0.08)' }}>
+                  <thead
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 100,
+                      background: '#f9f9f9',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.08)'
+                    }}
+                  >
                     <tr>
                       <th style={{ width: '30px' }}></th>
                       <th
@@ -3411,16 +3865,30 @@
                   </tbody>
                 </table>
               </div>
-
-              {!loading && (
-                <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center' }}>
-                  <button style={{ padding: '8px 16px', background: roadmapPage === 1 ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: roadmapPage === 1 ? 'default' : 'pointer', borderRadius: '4px' }} onClick={() => setRoadmapPage(roadmapPage - 1)} disabled={roadmapPage === 1}>Previous</button>
-                  <span style={{ fontSize: '13px', fontWeight: 'bold' }}>Page {roadmapPage} of {totalPages}</span>
-                  <button style={{ padding: '8px 16px', background: roadmapPage === totalPages ? '#ccc' : '#007bff', color: 'white', border: 'none', cursor: roadmapPage === totalPages ? 'default' : 'pointer', borderRadius: '4px' }} onClick={() => setRoadmapPage(roadmapPage + 1)} disabled={roadmapPage === totalPages}>Next</button>
-                </div>
-              )}
-            </>
+               </>
           )}
+          </div>
+
+          {!loading && (
+            <div className="dashboard-pagination-footer">
+              {currentPage === 'features' ? (
+                <DashboardPagination
+                  currentPage={featuresPage}
+                  totalPages={featuresTotalPages}
+                  onPageChange={changeFeaturesPage}
+                  ariaLabel="Feature List pagination"
+                />
+              ) : (
+                <DashboardPagination
+                  currentPage={roadmapPage}
+                  totalPages={totalPages}
+                  onPageChange={changeRoadmapPage}
+                  ariaLabel="Roadmap pagination"
+                />
+              )}
+            </div>
+          )}
+
           <Tooltip tooltip={tooltip} />
         </div>
       );
