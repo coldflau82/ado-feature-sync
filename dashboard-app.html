@@ -765,6 +765,20 @@
       }
     }
 
+    function getDeliveryHealthDisplayLabels(key, fallbackLabel) {
+      if (key === 'needs-estimate') {
+        return {
+          label: 'Needs High Level Estimation',
+          shortLabel: 'Needs HLE'
+        };
+      }
+    
+      return {
+        label: fallbackLabel,
+        shortLabel: fallbackLabel
+      };
+    }
+        
     function parseDashboardDate(value) {
       if (!value) {
         return null;
@@ -813,10 +827,18 @@
 
       const visual = getDeliveryVisualMeta(primary.key);
 
+      const labels = getDeliveryHealthDisplayLabels(
+        primary.key,
+        primary.label
+      );
+      
       return {
         key: primary.key,
-        label: primary.label,
-        shortLabel: primary.shortLabel || primary.label,
+        label: labels.label,
+        shortLabel:
+          primary.key === 'needs-estimate'
+            ? labels.shortLabel
+            : (primary.shortLabel || labels.shortLabel),
         group: primary.group,
         className: visual.className,
         icon: visual.icon,
@@ -846,10 +868,15 @@
 
       return backendAlerts.map(alert => {
         const visual = getDeliveryVisualMeta(alert.key);
-
+      
+        const labels = getDeliveryHealthDisplayLabels(
+          alert.key,
+          alert.label
+        );
+      
         return {
           key: alert.key,
-          label: alert.label,
+          label: labels.label,
           group: alert.group,
           className: visual.alertClassName,
           reason: alert.reason
