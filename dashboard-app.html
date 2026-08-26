@@ -364,30 +364,43 @@
     .dashboard-pagination { gap: 5px; }
     .dashboard-pagination__button { min-width: 30px; height: 30px; padding: 0 8px; font-size: 11px; }
     .dashboard-pagination__summary { font-size: 11px; }
-    /* Advanced Filters colapsables */
-    .filters-card { padding: 0 !important; overflow: hidden;}
-    .filters-card__header { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 12px; border-bottom: 1px solid #e5e7eb; background: #ffffff;}
-    .filters-card--collapsed .filters-card__header { border-bottom: none;}
-    .filters-card__toggle { min-width: 0; flex: 1; display: flex; align-items: center; gap: 8px; padding: 4px 2px; border: 0; background: transparent; color: #1f2937; font: inherit; text-align: left; cursor: pointer;}
-    .filters-card__toggle:hover .filters-card__toggle-title { color: #2563eb;}
-    .filters-card__toggle-icon { width: 16px; color: #537fbd; font-size: 16px; line-height: 1;}
-    .filters-card__toggle-title { font-weight: 700; white-space: nowrap;}
-    .filters-card__active-count { padding: 3px 7px; border-radius: 999px; background: #eaf2ff; color: #315d98; font-size: 11px; font-weight: 700; white-space: nowrap;}
-     /* Botón único para limpiar todos los filtros del dashboard. */
+        /* Advanced Filters:
+       Una única tarjeta blanca para header, resumen/controles y footer.
+       El borde y la sombra suave permiten diferenciarla del fondo general
+       sin agregar un contenedor visual adicional. */
+    .filters-card { margin-bottom: 8px; padding: 0 !important; overflow: hidden; border: 1px solid #dbe4ee; border-radius: 8px; background: #ffffff; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+    .filters-card__header { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid #dbe4ee; background: #ffffff; }
+    .filters-card--collapsed .filters-card__header { border-bottom: 1px solid #eef2f7; }
+    .filters-card__toggle { min-width: 0; flex: 1; display: flex; align-items: center; gap: 8px; padding: 4px 2px; border: 0; background: transparent;
+      color: #0f172a; font: inherit; text-align: left; cursor: pointer; }
+    .filters-card__toggle:hover .filters-card__toggle-title { color: #1d4ed8; }
+    .filters-card__toggle-icon { width: 16px; color: #2563eb; font-size: 16px; line-height: 1; }
+    .filters-card__toggle-title { color: #0f172a; font-size: 13px; font-weight: 700; white-space: nowrap; }
+    .filters-card__active-count { padding: 3px 7px; border-radius: 999px; background: #eaf2ff; color: #1d4ed8; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    /* Botón único para limpiar todos los filtros del dashboard. */
     .filters-card__clear-all-button { flex-shrink: 0; min-width: 96px; padding: 6px 10px; border: 1px solid #2563eb; border-radius: 5px; background: #2563eb; color: #ffffff;
       font-size: 11px; font-weight: 700; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease; }
     .filters-card__clear-all-button:hover:not(:disabled) { background: #1d4ed8; border-color: #1d4ed8; }
     .filters-card__clear-all-button:active:not(:disabled) { transform: scale(0.97); }
     .filters-card__clear-all-button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.28); outline-offset: 2px; }
     .filters-card__clear-all-button:disabled { background: #dbeafe; border-color: #bfdbfe; color: #64748b; cursor: not-allowed; opacity: 0.8; }
-    .filters-card__content { display: grid; grid-template-columns: 0.7fr 1.8fr 0.8fr 0.5fr 0.6fr 0.8fr; gap: 12px; padding: 10px 12px 8px; overflow-x: auto;}
-    /* Resumen clicable cuando el panel está cerrado. Muestra filtros por grupo y conserva sus valores representativos.*/
-    .advanced-filter-summary { width: 100%; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 0 12px 9px; border: 0; background: #ffffff; color: #4b5563; font: inherit; text-align: left;  cursor: pointer;}
-    .advanced-filter-summary:hover { background: #fbfdff;}
-    .advanced-filter-summary__chip { max-width: 285px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 7px; border: 1px solid #dbe5f2; border-radius: 999px; background: #f5f8fc; color: #425466; font-size: 11px; line-height: 1.25;}
-    .advanced-filter-summary__chip strong { color: #315d98; font-weight: 700;}
-    .advanced-filter-summary__empty { color: #6b7280; font-size: 12px;}
-    .advanced-filter-summary__total { margin-left: auto; color: #6b7280; font-size: 11px; white-space: nowrap; }
+    .filters-card__content { display: grid; grid-template-columns: 0.7fr 1.8fr 0.8fr 0.5fr 0.6fr 0.8fr; gap: 12px; padding: 12px; overflow-x: auto; background: #ffffff; }
+    .filters-card__content .filter-label { color: #334155; font-size: 12px; font-weight: 700; }
+    .filters-card__footer { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 34px; padding: 8px 12px; border-top: 1px solid #e5edf5;
+      background: #f8fafc; box-sizing: border-box; }
+    .filters-card__results-summary { color: #475569; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .filters-card__save-default { display: flex; align-items: center; gap: 6px; color: #334155; font-size: 11px; font-weight: 600; cursor: pointer; flex-shrink: 0; white-space: nowrap; }
+    .filters-card__save-default input { width: 13px; height: 13px; margin: 0; accent-color: #2563eb; }
+    /* Resumen clicable cuando el panel está cerrado. Se mantiene dentro de la misma tarjeta blanca de Advanced filters. */
+    .advanced-filter-summary { width: 100%; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-height: 38px; padding: 8px 12px; border: 0; border-bottom: 1px solid #eef2f7;
+      background: #ffffff; color: #475569; font: inherit; text-align: left; cursor: pointer; }
+    .advanced-filter-summary:hover { background: #f8fbff; }
+    .advanced-filter-summary:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.28); outline-offset: -3px; }
+    .advanced-filter-summary__chip { max-width: 285px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 7px; border: 1px solid #dbe5f2; border-radius: 999px;
+      background: #f5f8fc; color: #425466; font-size: 11px; line-height: 1.25; }
+    .advanced-filter-summary__chip strong { color: #1d4ed8; font-weight: 700; }
+    .advanced-filter-summary__empty { color: #64748b; font-size: 11px; font-weight: 600; }
+    .advanced-filter-summary__total { margin-left: auto; color: #475569; font-size: 11px; font-weight: 700; white-space: nowrap; }
     /* Mantiene controles múltiples utilizables, sin altura excesiva. */
     .filters-card__content .filter-select[multiple] { min-height: 92px; max-height: 92px;}
     /* En pantallas medianas, evita columnas demasiado estrechas. */
@@ -3848,24 +3861,8 @@
             )}
           
             <div
-              className="filters-card__footer"
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                width: '100%',
-                padding: '2px',
-                marginTop: '4px',
-                boxSizing: 'border-box'
-              }}
-            >
-              <span
-                style={{
-                  color: '#666',
-                  fontSize: '10px',
-                  whiteSpace: 'nowrap'
-                }}
-              >
+            <div className="filters-card__footer">
+              <span className="filters-card__results-summary">
                 {currentPage === 'features' ? (
                   <>
                     Showing {featuresPageItems.length} of{' '}
@@ -3880,26 +3877,11 @@
                 )}
               </span>
           
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '10px',
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                  whiteSpace: 'nowrap'
-                }}
-              >
+              <label className="filters-card__save-default">
                 <input
                   type="checkbox"
                   checked={saveAsDefault}
                   onChange={handleSaveAsDefaultChange}
-                  style={{
-                    width: '12px',
-                    height: '12px',
-                    margin: 0
-                  }}
                 />
           
                 Save as default filter
