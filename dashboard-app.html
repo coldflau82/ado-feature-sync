@@ -405,7 +405,13 @@
     .filters-card__content .filter-select[multiple] { min-height: 92px; max-height: 92px;}
     /* En pantallas medianas, evita columnas demasiado estrechas. */
     @media (max-width: 760px) { .filters-card__header { align-items: flex-start; } .filters-card__active-count { display: none; } .filters-card__content { grid-template-columns: 1fr; } .advanced-filter-summary__total { width: 100%; margin-left: 0; }}
-
+    .top-filter-preset { width: 175px; }
+    .filters-card__save-my-filter { flex-shrink: 0; min-width: 124px; padding: 6px 10px; border: 1px solid #2563eb; border-radius: 5px; background: #ffffff; color: #1d4ed8; font-family: inherit;
+      font-size: 11px; font-weight: 700; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease; }
+    .filters-card__save-my-filter:hover { background: #eff6ff; border-color: #1d4ed8; }
+    .filters-card__save-my-filter:active { transform: scale(0.97); }
+    .filters-card__save-my-filter:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.28); outline-offset: 2px; }
+    
   </style>
 </head>
 <body>
@@ -2425,7 +2431,6 @@
       const [storyHistoryCache, setStoryHistoryCache] = useState({});
       const [loadingStoryHistory, setLoadingStoryHistory] = useState(false);
       const [featuresPage, setFeaturesPage] = useState(1);
-      const [saveAsDefault, setSaveAsDefault] = useState(false);
       const [legendExpanded, setLegendExpanded] = useState(false);
       const [refreshing, setRefreshing] = useState(false);
       const [cacheInfo, setCacheInfo] = useState(null);
@@ -2443,22 +2448,62 @@
       const clearReadinessAndHealthFilters = () => { setReadinessKpiFilter('All'); setHealthGroupKpiFilter('All'); setReadinessDropdownFilter('All'); setHealthRuleFilter('All'); };
       /* Limpia todos los filtros del dashboard desde el único botón Clear filters. Save as default filter no se modifica: si está activo, la configuración vacía se guardará automáticamente en localStorage mediante el useEffect existente. */
       const clearAllFilters = () => {
-        setFilterAreaPath([]);
-        setFilterIteration([]);
-        setFilterAssignedTo([]);
-        setFilterState([]);
-        setFilterTargetDate([]);
-        setFilterReleaseVersion([]);
-        clearReadinessAndHealthFilters();
-        setSearchInput('');
-        setSearchTitle('');
-        setAreAdvancedFiltersOpen(false);
+        resetAllDashboardFilters();
+        setSelectedFilterPreset('my-filter');
         resetResultsAfterMainFilterChange(); };
       /* Una tarjeta KPI de Readiness es exclusiva: elimina cualquier KPI o dropdown de Delivery Health, así como cualquier Readiness previamente seleccionado, y luego aplica la tarjeta solicitada. */
       const applyReadinessKpi = (readiness) => { clearReadinessAndHealthFilters(); if (readiness !== 'All') { setReadinessKpiFilter(readiness); } resetResultsAfterMainFilterChange(); };
       /* Una tarjeta KPI de Delivery Health es exclusiva: elimina cualquier KPI o dropdown de Readiness, además de cualquier otra KPI de Delivery Health, y luego aplica la tarjeta solicitada.*/
       const applyHealthGroupKpi = (healthGroup) => { clearReadinessAndHealthFilters(); if (healthGroup !== 'All') { setHealthGroupKpiFilter(healthGroup); } resetResultsAfterMainFilterChange();};
-     
+      const getQuarterInfo = (date = new Date()) => { const year = date.getFullYear(); const quarter = Math.floor(date.getMonth() / 3) + 1; return { year, quarter }; };
+      const getNextQuarterInfo = (date = new Date()) => { const { year, quarter } = getQuarterInfo(date);
+        return quarter === 4 ? { year: year + 1, quarter: 1 } : { year, quarter: quarter + 1 }; };
+      const getQuarterToken = ({ year, quarter }) => { return `${year}\\Q${quarter}`; };
+      const getNextReleaseFixVersion = () => { const today = new Date(); today.setHours(0, 0, 0, 0);
+        return Object.entries(releaseDates).map(([releaseFixVersion, dateValue]) => ({ releaseFixVersion, date: parseDashboardDate(dateValue)}))
+          .filter(item => item.date && item.date >= today).sort((a, b) => a.date - b.date)[0]?.releaseFixVersion || null; };
+      const applyFilterPreset = (presetKey) => { setSelectedFilterPreset(presetKey); resetAllDashboardFilters();
+        if (presetKey === 'current-quarter') { const currentQuarter = getQuarterInfo();
+          setFilterIteration([ getQuarterToken(currentQuarter) ]); }
+        if (presetKey === 'next-quarter') { const nextQuarter = getNextQuarterInfo();
+          setFilterIteration([ getQuarterToken(nextQuarter) ]); }
+        if (presetKey === 'next-rfv') {
+          const nextReleaseFixVersion = getNextReleaseFixVersion();
+          if (nextReleaseFixVersion) { setFilterReleaseVersion([ nextReleaseFixVersion ]); } 
+        }
+        if (presetKey === 'my-filter') {
+          const saved = localStorage.getItem(FILTER_STORAGE_KEY);
+          if (saved) {
+            try { const parsed = JSON.parse(saved);
+              setFilterAreaPath(parsed.filterAreaPath || []);
+              setFilterIteration(parsed.filterIteration || []);
+              setFilterAssignedTo(parsed.filterAssignedTo || []);
+              setFilterState(parsed.filterState || []);
+              setFilterTargetDate(parsed.filterTargetDate || []);
+              setFilterReleaseVersion(parsed.filterReleaseVersion || []);
+              setReadinessDropdownFilter(parsed.readinessDropdownFilter || 'All');
+              setHealthRuleFilter(parsed.healthRuleFilter || 'All');
+            } 
+            catch (error) { console.error('Unable to load My filter:', error); }
+          }
+        }
+        resetResultsAfterMainFilterChange();
+      };
+
+      const saveMyFilter = () => { const filtersToSave = {
+          filterAreaPath,
+          filterIteration,
+          filterAssignedTo,
+          filterState,
+          filterTargetDate,
+          filterReleaseVersion,
+          readinessDropdownFilter,
+          healthRuleFilter,
+        };
+        localStorage.setItem( FILTER_STORAGE_KEY, JSON.stringify(filtersToSave) );
+        setSelectedFilterPreset('my-filter');
+      };
+      
       useEffect(() => { const timer = setTimeout(() => { setSearchTitle(searchInput); }, 300); return () => clearTimeout(timer); }, [searchInput]);
       
       useEffect(() => {
@@ -2528,7 +2573,7 @@
         }
       });
 
-      const FILTER_STORAGE_KEY = 'featureTracker_defaultFilters';
+      const [selectedFilterPreset, setSelectedFilterPreset] = useState('my-filter');
 
       useEffect(() => {
         const saved = localStorage.getItem(FILTER_STORAGE_KEY);
@@ -2557,11 +2602,6 @@
         localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filtersToSave));
       }, [saveAsDefault, filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, readinessDropdownFilter, healthRuleFilter]);
 
-      const handleSaveAsDefaultChange = (e) => {
-        const checked = e.target.checked;
-        setSaveAsDefault(checked);
-        if (!checked) localStorage.removeItem(FILTER_STORAGE_KEY);
-      };
       // Applies every dashboard filter except Readiness. This collection is used by the Readiness overview counters.
       const filteredBeforeReadiness = features.filter(f => {
         const areaOk = filterAreaPath.length === 0 ||filterAreaPath.includes(f.areaPath);
@@ -3452,29 +3492,50 @@
           <div className="top-filters-bar">
             <div className="top-filters-main">
               <div className="top-filter-group">
+                <label className="filter-label">Preset</label>
+                <select className="filter-select top-filter-preset" value={selectedFilterPreset} onChange={(event) => applyFilterPreset(event.target.value)} title="Apply a saved or predefined filter">
+                  <option value="my-filter">
+                    My filter
+                  </option>
+              
+                  <option value="current-quarter">
+                    Current Q features
+                  </option>
+              
+                  <option value="next-quarter">
+                    Next Q features
+                  </option>
+              
+                  <option value="next-rfv">
+                    Next RFV features
+                  </option>
+                </select>
+              </div>
+              
+              <div className="top-filter-group">
                 <label className="filter-label">Search:</label>
-          
                 <input type="text" className="top-filter-search" placeholder="Type feature title or Tag..." value={searchInput} maxLength={35} onChange={(e) => setSearchInput(e.target.value)} />
               </div>
+              
             <div className="top-filter-group">
                 <label className="filter-label">Readiness</label>
-            <select
-              className="filter-select top-filter-readiness"
-              value={readinessDropdownFilter}
-              onChange={(e) => {
-                /* Al usar un dropdown, las KPI se desactivan para que no exista una selección KPI visual que esté modificando los resultados. */
-                setReadinessKpiFilter('All');
-                setHealthGroupKpiFilter('All');
-            
-                setReadinessDropdownFilter(e.target.value);
-            
-                setFeaturesPage(1);
-                setRoadmapPage(1);
-                setExpandedFeaturePanel(null);
-                setExpandedRoadmapFeatureId(null);
-              }}
-              title="Filter Features by readiness status"
-            >
+                  <select
+                    className="filter-select top-filter-readiness"
+                    value={readinessDropdownFilter}
+                    onChange={(e) => {
+                      /* Al usar un dropdown, las KPI se desactivan para que no exista una selección KPI visual que esté modificando los resultados. */
+                      setReadinessKpiFilter('All');
+                      setHealthGroupKpiFilter('All');
+                  
+                      setReadinessDropdownFilter(e.target.value);
+                  
+                      setFeaturesPage(1);
+                      setRoadmapPage(1);
+                      setExpandedFeaturePanel(null);
+                      setExpandedRoadmapFeatureId(null);
+                    }}
+                    title="Filter Features by readiness status"
+                  >
                   <option value="All">All statuses</option>
                   <option value="Healthy">Ready</option>
                   <option value="Incomplete">Needs info</option>
@@ -3876,12 +3937,9 @@
                 )}
               </span>
           
-              <label className="filters-card__save-default">
-                <input
-                  type="checkbox"
-                  checked={saveAsDefault}
-                  onChange={handleSaveAsDefaultChange}
-                />
+              <button type="button" className="filters-card__save-my-filter" onClick={saveMyFilter} title="Save the current filter configuration as My filter">
+                Save as My filter
+              </button>
           
                 Save as default filter
               </label>
