@@ -373,8 +373,13 @@
     .filters-card__toggle-icon { width: 16px; color: #537fbd; font-size: 16px; line-height: 1;}
     .filters-card__toggle-title { font-weight: 700; white-space: nowrap;}
     .filters-card__active-count { padding: 3px 7px; border-radius: 999px; background: #eaf2ff; color: #315d98; font-size: 11px; font-weight: 700; white-space: nowrap;}
-    .filters-card__clear-button { flex-shrink: 0; padding: 5px 8px; border: 1px solid #d7dde6; border-radius: 5px; background: #ffffff; color: #537fbd; font-size: 11px; font-weight: 600; cursor: pointer;}
-    .filters-card__clear-button:hover { border-color: #537fbd; background: #f3f7fc;}
+     /* Botón único para limpiar todos los filtros del dashboard. */
+    .filters-card__clear-all-button { flex-shrink: 0; min-width: 96px; padding: 6px 10px; border: 1px solid #2563eb; border-radius: 5px; background: #2563eb; color: #ffffff;
+      font-size: 11px; font-weight: 700; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease; }
+    .filters-card__clear-all-button:hover:not(:disabled) { background: #1d4ed8; border-color: #1d4ed8; }
+    .filters-card__clear-all-button:active:not(:disabled) { transform: scale(0.97); }
+    .filters-card__clear-all-button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.28); outline-offset: 2px; }
+    .filters-card__clear-all-button:disabled { background: #dbeafe; border-color: #bfdbfe; color: #64748b; cursor: not-allowed; opacity: 0.8; }
     .filters-card__content { display: grid; grid-template-columns: 0.7fr 1.8fr 0.8fr 0.5fr 0.6fr 0.8fr; gap: 12px; padding: 10px 12px 8px; overflow-x: auto;}
     /* Resumen clicable cuando el panel está cerrado. Muestra filtros por grupo y conserva sus valores representativos.*/
     .advanced-filter-summary { width: 100%; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 0 12px 9px; border: 0; background: #ffffff; color: #4b5563; font: inherit; text-align: left;  cursor: pointer;}
@@ -2421,8 +2426,21 @@
       const scrollResultsToTop = (behavior = 'auto') => { resultsScrollRef.current?.scrollTo({ top: 0, left: 0, behavior }); };
       /* Restablece la navegación y los paneles abiertos después de cambiar cualquier filtro principal. */
       const resetResultsAfterMainFilterChange = () => { setFeaturesPage(1); setRoadmapPage(1); setExpandedFeaturePanel(null); setExpandedRoadmapFeatureId(null); requestAnimationFrame(() => { scrollResultsToTop('smooth'); }); };
-      /* Limpia todos los filtros KPI y los dropdowns relacionados conReadiness / Delivery Health. No modifica Search ni los filtros estructurales: Area Path, Iteration Path, Assigned To, State, Target Date y Release Fix Version. */
+      /* Limpia todos los filtros KPI y los dropdowns relacionados con Readiness / Delivery Health. No modifica Search ni los filtros estructurales: Area Path, Iteration Path, Assigned To, State, Target Date y Release Fix Version. */
       const clearReadinessAndHealthFilters = () => { setReadinessKpiFilter('All'); setHealthGroupKpiFilter('All'); setReadinessDropdownFilter('All'); setHealthRuleFilter('All'); };
+      /* Limpia todos los filtros del dashboard desde el único botón Clear filters. Save as default filter no se modifica: si está activo, la configuración vacía se guardará automáticamente en localStorage mediante el useEffect existente. */
+      const clearAllFilters = () => {
+        setFilterAreaPath([]);
+        setFilterIteration([]);
+        setFilterAssignedTo([]);
+        setFilterState([]);
+        setFilterTargetDate([]);
+        setFilterReleaseVersion([]);
+        clearReadinessAndHealthFilters();
+        setSearchInput('');
+        setSearchTitle('');
+        setAreAdvancedFiltersOpen(false);
+        resetResultsAfterMainFilterChange(); };
       /* Una tarjeta KPI de Readiness es exclusiva: elimina cualquier KPI o dropdown de Delivery Health, así como cualquier Readiness previamente seleccionado, y luego aplica la tarjeta solicitada. */
       const applyReadinessKpi = (readiness) => { clearReadinessAndHealthFilters(); if (readiness !== 'All') { setReadinessKpiFilter(readiness); } resetResultsAfterMainFilterChange(); };
       /* Una tarjeta KPI de Delivery Health es exclusiva: elimina cualquier KPI o dropdown de Readiness, además de cualquier otra KPI de Delivery Health, y luego aplica la tarjeta solicitada.*/
@@ -3502,28 +3520,6 @@
               </span>
             )}
           
-            <button type="button" className="clear-filters-button" title="Clear all filters" aria-label="Clear all filters"
-              onClick={() => {
-                setFilterAreaPath([]);
-                setFilterIteration([]);
-                setFilterState([]);
-                setFilterTargetDate([]);
-                setFilterReleaseVersion([]);
-                setFilterAssignedTo([]);
-                setReadinessKpiFilter('All');
-                setHealthGroupKpiFilter('All');
-                setReadinessDropdownFilter('All');
-                setHealthRuleFilter('All');
-                setSearchInput('');
-                setSearchTitle('');
-                setAreAdvancedFiltersOpen(false);
-              }}
-            >
-              <span>Clear</span>
-              <span>filters</span>
-            </button>
-          </div>
-
           <div className={[ 'filters-card', areAdvancedFiltersOpen ? 'filters-card--open' : 'filters-card--collapsed' ].join(' ')}>
             <div className="filters-card__header">
               <button
@@ -3560,24 +3556,30 @@
                   </span>
                 )}
               </button>
-          
-              {activeAdvancedFiltersCount > 0 && (
-                <button
-                  type="button"
-                  className="filters-card__clear-button"
-                  onClick={() => {
-                    setFilterAreaPath([]);
-                    setFilterIteration([]);
-                    setFilterAssignedTo([]);
-                    setFilterState([]);
-                    setFilterTargetDate([]);
-                    setFilterReleaseVersion([]);
-                  }}
-                  title="Clear advanced filters only"
-                >
-                  Clear advanced filters
-                </button>
-              )}
+
+              <button
+                type="button"
+                className="filters-card__clear-all-button"
+                onClick={clearAllFilters}
+                disabled={
+                  filterAreaPath.length === 0 &&
+                  filterIteration.length === 0 &&
+                  filterAssignedTo.length === 0 &&
+                  filterState.length === 0 &&
+                  filterTargetDate.length === 0 &&
+                  filterReleaseVersion.length === 0 &&
+                  readinessKpiFilter === 'All' &&
+                  healthGroupKpiFilter === 'All' &&
+                  readinessDropdownFilter === 'All' &&
+                  healthRuleFilter === 'All' &&
+                  searchInput.trim() === '' &&
+                  searchTitle.trim() === ''
+                }
+                title="Clear all dashboard filters"
+                aria-label="Clear all dashboard filters"
+              >
+                Clear filters
+              </button>
             </div>
           
             {!areAdvancedFiltersOpen && (
