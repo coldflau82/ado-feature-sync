@@ -250,7 +250,7 @@
     .dashboard-kpis--6 { --kpi-card-count: 6; }
     .dashboard-kpis--7 { --kpi-card-count: 7; }
     /* ReadinessOverview y DeliveryHealthOverview no agregan una capa visual dentro del header: sus cards son celdas directas de la grilla. */
-    .dashboard-kpis .readiness-overview, .dashboard-kpis .health-overview { display: contents; }
+    .dashboard-kpis .readiness-overview, .dashboard-kpis .health-overview { margin: 0 }
     /* Fuente única de verdad para las KPI cards.
       Se preserva el diseño actual:
       - ancho adaptable a la grilla;
@@ -416,6 +416,37 @@
     /* El botón se muestra al lado del selector, no como elemento del footer. */
     .top-filter-group--preset .filters-card__save-my-filter { min-height: 32px; height: 32px; white-space: nowrap; }
     .advanced-filter-summary__chip { cursor: help; }
+    /* ── KPI groups: Readiness / Delivery Health / All Features ── */
+/* Tres zonas principales: 1. Readiness 2. Delivery Health 3. All Features */
+.dashboard-kpis { display: grid; grid-template-columns: minmax(205px, 2fr) minmax(310px, 3fr) minmax(112px, 0.85fr); gap: 10px; align-items: stretch; min-width: 0; }
+/* Contenedor tenue para hacer explícita la categoría de las tarjetas. */
+.dashboard-kpi-group { position: relative; min-width: 0; padding: 19px 6px 6px; border: 1px solid #dbe4ee; border-radius: 8px; background: #f8fafc;}
+/* Título pequeño, integrado en la parte superior del contenedor. */
+.dashboard-kpi-group__title { position: absolute; top: 5px; left: 8px; color: #475569; font-size: 10px; font-weight: 700; letter-spacing: 0.02em; line-height: 1;}
+/* Cada grupo distribuye sus cards en una sola fila cuando hay espacio. */
+.dashboard-kpi-group .readiness-overview,.dashboard-kpi-group .health-overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 6px; width: 100%; margin: 0;}
+/* All Features queda fuera de las categorías. */
+.dashboard-kpi-all-features,.dashboard-kpi-all-features .readiness-overview { width: 100%; height: 100%; margin: 0;}
+/* Las cards bajan ligeramente de altura para dar espacio al título del grupo. */
+.dashboard-kpis .readiness-overview-card,.dashboard-kpis .health-overview-card { width: 100%; min-width: 0; height: 56px; min-height: 56px; margin: 0; padding: 7px 8px; border-radius: 6px;}
+/* Conserva el label compacto y legible. */
+.dashboard-kpis .readiness-overview-card__label,.dashboard-kpis .health-overview-card__label { min-height: 25px; font-size: 10px; line-height: 12px;}
+/* El número sigue siendo el elemento visual más importante. */
+.dashboard-kpis .readiness-overview-card__count,.dashboard-kpis .health-overview-card__count { font-size: 21px; line-height: 21px;}
+/* All Features tiene una apariencia neutra: no pertenece a Readiness ni a Delivery Health; representa el retorno a la vista completa. */
+.dashboard-kpis .readiness-overview-card--all { height: 100%; min-height: 82px; border-color: #93c5fd; background: #ffffff;}
+.dashboard-kpis .readiness-overview-card--all .readiness-overview-card__label { color: #1d4ed8;}
+.dashboard-kpis .readiness-overview-card--all.readiness-overview-card--active { border-color: #2563eb; background: #eff6ff;}
+/* El header debe permitir que los grupos tengan altura suficiente. */
+.dashboard-navigation .view-switcher__button { height: 82px; min-height: 82px;}
+/* En pantallas medianas, los tres bloques siguen ocupando una fila completa bajo el título y la navegación. */
+@media (max-width: 1220px) { .dashboard-kpis { grid-template-columns: minmax(205px, 2fr) minmax(310px, 3fr) minmax(112px, 0.85fr); }}
+/* En tablet/móvil, cada grupo se apila. Las tarjetas dentro de cada grupo se muestran de dos en dos. */
+@media (max-width: 820px) { .dashboard-kpis { grid-template-columns: 1fr; }
+  .dashboard-kpi-group .readiness-overview, .dashboard-kpi-group .health-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-kpi-all-features { max-width: none; }
+  .dashboard-kpis .readiness-overview-card--all { min-height: 56px; }
+  .dashboard-navigation .view-switcher__button { height: 74px; min-height: 74px; }}
     
   </style>
 </head>
@@ -826,14 +857,15 @@
       });
     }
     
-     function ReadinessOverview({ counts, SelectedReadiness, isAllFeaturesSelected, onSelectReadiness }) {
+     function ReadinessOverview({
+      counts,
+      SelectedReadiness,
+      isAllFeaturesSelected,
+      onSelectReadiness,
+      showReadinessCards = true,
+      showAllCard = true
+    }) {
       const cards = [
-        {
-          key: 'All',
-          label: 'All Features',
-          count: counts.total,
-          className: ''
-        },
         {
           key: 'Healthy',
           label: 'Ready',
@@ -854,25 +886,63 @@
           count: counts.unknown,
           icon: '?',
           className: 'readiness-overview-card--unknown'
+        },
+        {
+          key: 'All',
+          label: 'All Features',
+          count: counts.total,
+          className: 'readiness-overview-card--all'
         }
       ].filter(card => {
-        // La tarjeta Unknown sólo aporta valor cuando existen Features cuyo Readiness no pudo ser validado.
-        return card.key !== 'Unknown' || card.count > 0;
+        /* La tarjeta Unknown solamente se muestra si hay Features sin validar. */
+        if (card.key === 'Unknown' && card.count === 0) {
+          return false;
+        }
+    
+        /* Esta instancia se utiliza exclusivamente para la tarjeta All Features. */
+        if (!showReadinessCards) {
+          return card.key === 'All';
+        }
+    
+        /* Esta instancia muestra únicamente las tarjetas propias de Readiness. */
+        if (!showAllCard && card.key === 'All') {
+          return false;
+        }
+    
+        return true;
       });
     
       return (
         <div className="readiness-overview">
-          {cards.map(card => { 
-            const isSelected = card.key === 'All' ? isAllFeaturesSelected : SelectedReadiness === card.key;
-          
+          {cards.map(card => {
+            const isSelected =
+              card.key === 'All'
+                ? isAllFeaturesSelected
+                : SelectedReadiness === card.key;
+    
             return (
-              <button key={card.key} type="button" className={[ 'readiness-overview-card', card.className, isSelected ? 'readiness-overview-card--active' : '' ].filter(Boolean).join(' ')}
+              <button
+                key={card.key}
+                type="button"
+                className={[
+                  'readiness-overview-card',
+                  card.className,
+                  isSelected ? 'readiness-overview-card--active' : ''
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
                 onClick={() => onSelectReadiness(card.key)}
-                title={ card.key === 'All' ? 'Clear KPI filters and show all Features' : `Filter Features by readiness: ${card.label}`} >
+                title={
+                  card.key === 'All'
+                    ? 'Clear KPI filters and show all Features'
+                    : `Filter Features by readiness: ${card.label}`
+                }
+              >
                 <span className="readiness-overview-card__label">
                   {card.icon && <span>{card.icon}</span>}
                   {card.label}
                 </span>
+    
                 <span className="readiness-overview-card__count">
                   {card.count}
                 </span>
@@ -3387,31 +3457,58 @@
                 ADO DEC <br /> Dashboard
               </h1>
             
-              <div
-                className={[
-                  'dashboard-kpis',
-                  readinessCounts.unknown > 0
-                    ? 'dashboard-kpis--7'
-                    : 'dashboard-kpis--6'
-                ].join(' ')}
-              >
-                <ReadinessOverview
-                  counts={readinessCounts}
-                  SelectedReadiness={readinessKpiFilter}
-                  isAllFeaturesSelected={
-                    readinessKpiFilter === 'All' &&
-                    healthGroupKpiFilter === 'All' &&
-                    readinessDropdownFilter === 'All' &&
-                    healthRuleFilter === 'All'
-                  }
-                  onSelectReadiness={applyReadinessKpi}
-                />
-            
-                <DeliveryHealthOverview
-                  counts={deliveryHealthCounts}
-                  selectedHealthGroup={healthGroupKpiFilter}
-                  onSelectHealthGroup={applyHealthGroupKpi}
-                />
+              <div className="dashboard-kpis">
+                <section className="dashboard-kpi-group dashboard-kpi-group--readiness" aria-label="Readiness summary">
+                  <div className="dashboard-kpi-group__title">
+                    Readiness
+                  </div>
+              
+                  <ReadinessOverview
+                    counts={readinessCounts}
+                    SelectedReadiness={readinessKpiFilter}
+                    isAllFeaturesSelected={
+                      readinessKpiFilter === 'All' &&
+                      healthGroupKpiFilter === 'All' &&
+                      readinessDropdownFilter === 'All' &&
+                      healthRuleFilter === 'All'
+                    }
+                    onSelectReadiness={applyReadinessKpi}
+                    showAllCard={false}
+                  />
+                </section>
+              
+                <section
+                  className="dashboard-kpi-group dashboard-kpi-group--delivery"
+                  aria-label="Delivery Health summary"
+                >
+                  <div className="dashboard-kpi-group__title">
+                    Delivery Health
+                  </div>
+              
+                  <DeliveryHealthOverview
+                    counts={deliveryHealthCounts}
+                    selectedHealthGroup={healthGroupKpiFilter}
+                    onSelectHealthGroup={applyHealthGroupKpi}
+                  />
+                </section>
+              
+                <section
+                  className="dashboard-kpi-all-features"
+                  aria-label="Show all Features"
+                >
+                  <ReadinessOverview
+                    counts={readinessCounts}
+                    SelectedReadiness={readinessKpiFilter}
+                    isAllFeaturesSelected={
+                      readinessKpiFilter === 'All' &&
+                      healthGroupKpiFilter === 'All' &&
+                      readinessDropdownFilter === 'All' &&
+                      healthRuleFilter === 'All'
+                    }
+                    onSelectReadiness={applyReadinessKpi}
+                    showReadinessCards={false}
+                  />
+                </section>
               </div>
             
               <div className="dashboard-navigation">
