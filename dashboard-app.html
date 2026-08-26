@@ -2439,6 +2439,7 @@
       const [readinessDropdownFilter, setReadinessDropdownFilter] = useState('All');
       const [healthRuleFilter, setHealthRuleFilter] = useState('All');
       const [areAdvancedFiltersOpen, setAreAdvancedFiltersOpen] = useState(false);
+      const FILTER_STORAGE_KEY = 'featureTracker_myFilter';
       /*  Referencia al único contenedor desplazable de resultados. En desktop/tablet este será el único scroll vertical disponible. */
       const resultsScrollRef = useRef(null);
       const scrollResultsToTop = (behavior = 'auto') => { resultsScrollRef.current?.scrollTo({ top: 0, left: 0, behavior }); };
@@ -2446,6 +2447,18 @@
       const resetResultsAfterMainFilterChange = () => { setFeaturesPage(1); setRoadmapPage(1); setExpandedFeaturePanel(null); setExpandedRoadmapFeatureId(null); requestAnimationFrame(() => { scrollResultsToTop('smooth'); }); };
       /* Limpia todos los filtros KPI y los dropdowns relacionados con Readiness / Delivery Health. No modifica Search ni los filtros estructurales: Area Path, Iteration Path, Assigned To, State, Target Date y Release Fix Version. */
       const clearReadinessAndHealthFilters = () => { setReadinessKpiFilter('All'); setHealthGroupKpiFilter('All'); setReadinessDropdownFilter('All'); setHealthRuleFilter('All'); };
+      const resetAllDashboardFilters = () => {
+        setFilterAreaPath([]);
+        setFilterIteration([]);
+        setFilterAssignedTo([]);
+        setFilterState([]);
+        setFilterTargetDate([]);
+        setFilterReleaseVersion([]);
+        clearReadinessAndHealthFilters();
+        setSearchInput('');
+        setSearchTitle('');
+        setAreAdvancedFiltersOpen(false);
+      };
       /* Limpia todos los filtros del dashboard desde el único botón Clear filters. Save as default filter no se modifica: si está activo, la configuración vacía se guardará automáticamente en localStorage mediante el useEffect existente. */
       const clearAllFilters = () => {
         resetAllDashboardFilters();
@@ -2575,33 +2588,29 @@
 
       const [selectedFilterPreset, setSelectedFilterPreset] = useState('my-filter');
 
-      useEffect(() => {
-        const saved = localStorage.getItem(FILTER_STORAGE_KEY);
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            setFilterAreaPath(parsed.filterAreaPath || []);
-            setFilterIteration(parsed.filterIteration || []);
-            setFilterState(parsed.filterState || []);
-            setFilterTargetDate(parsed.filterTargetDate || []);
-            setFilterReleaseVersion(parsed.filterReleaseVersion || []);
-            setFilterAssignedTo(parsed.filterAssignedTo || []);
-            setReadinessDropdownFilter( parsed.readinessDropdownFilter || parsed.readinessFilter || 'All' );
-            setHealthRuleFilter(parsed.healthRuleFilter || 'All');
-            /* Las KPI no se restauran como filtro predeterminado. Se mantienen como una interacción temporal de la sesión. */
-            setReadinessKpiFilter('All');
-            setHealthGroupKpiFilter('All');
-            setSaveAsDefault(true);
-          } catch (e) { console.error('Error loading saved filters:', e); }
+      useEffect(() => { const saved = localStorage.getItem(FILTER_STORAGE_KEY);
+        if (!saved) {
+          return;
+        }
+        try {
+          const parsed = JSON.parse(saved);
+          setFilterAreaPath(parsed.filterAreaPath || []);
+          setFilterIteration(parsed.filterIteration || []);
+          setFilterAssignedTo(parsed.filterAssignedTo || []);
+          setFilterState(parsed.filterState || []);
+          setFilterTargetDate(parsed.filterTargetDate || []);
+          setFilterReleaseVersion(parsed.filterReleaseVersion || []);
+          setReadinessDropdownFilter(
+            parsed.readinessDropdownFilter || 'All'
+          );
+          setHealthRuleFilter(parsed.healthRuleFilter || 'All');
+          setReadinessKpiFilter('All');
+          setHealthGroupKpiFilter('All');
+        } catch (error) {
+          console.error('Unable to load My filter:', error);
         }
       }, []);
-
-      useEffect(() => {
-        if (!saveAsDefault) return;
-        const filtersToSave = { filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, readinessDropdownFilter, healthRuleFilter };
-        localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filtersToSave));
-      }, [saveAsDefault, filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, readinessDropdownFilter, healthRuleFilter]);
-
+      
       // Applies every dashboard filter except Readiness. This collection is used by the Readiness overview counters.
       const filteredBeforeReadiness = features.filter(f => {
         const areaOk = filterAreaPath.length === 0 ||filterAreaPath.includes(f.areaPath);
