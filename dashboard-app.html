@@ -415,6 +415,7 @@
     .top-filter-group--preset { gap: 6px; }
     /* El botón se muestra al lado del selector, no como elemento del footer. */
     .top-filter-group--preset .filters-card__save-my-filter { min-height: 32px; height: 32px; white-space: nowrap; }
+    .advanced-filter-summary__chip { cursor: help; }
     
   </style>
 </head>
@@ -2381,7 +2382,7 @@
     }
     
     /* Chip compacto que conserva visibilidad de filtros múltiples cuando el panel de filtros avanzados está colapsado. */
-    function AdvancedFilterSummaryChip({ label, values }) {
+    function AdvancedFilterSummaryChip({ label, values, showTooltip, moveTooltip, hideTooltip }) {
       if (!Array.isArray(values) || values.length === 0) {
         return null;
       }
@@ -2392,8 +2393,18 @@
       return (
         <span
           className="advanced-filter-summary__chip"
-          title={`${label}: ${allValuesText}`}
-        >
+            onMouseEnter={(event) =>
+              showTooltip(
+                event,
+                <div>
+                  <strong>{label}</strong>
+                  <div>{allValuesText}</div>
+                </div>
+              )
+            }
+            onMouseMove={moveTooltip}
+            onMouseLeave={hideTooltip}
+          >
           <strong>{label}:</strong>&nbsp;{preview}
         </span>
       );
@@ -3694,7 +3705,7 @@
                 type="button"
                 className="advanced-filter-summary"
                 onClick={() => setAreAdvancedFiltersOpen(true)}
-                title="Show advanced filters"
+                aria-label="Show advanced filters"
               >
                 {activeAdvancedFiltersCount === 0 ? (
                   <span className="advanced-filter-summary__empty">
@@ -3705,31 +3716,49 @@
                     <AdvancedFilterSummaryChip
                       label="Area"
                       values={filterAreaPath}
+                      showTooltip={showTooltip}
+                      moveTooltip={moveTooltip}
+                      hideTooltip={hideTooltip}
                     />
-          
+                    
                     <AdvancedFilterSummaryChip
                       label="Iteration"
                       values={filterIteration}
+                      showTooltip={showTooltip}
+                      moveTooltip={moveTooltip}
+                      hideTooltip={hideTooltip}
                     />
-          
+                    
                     <AdvancedFilterSummaryChip
                       label="Assigned"
                       values={filterAssignedTo}
+                      showTooltip={showTooltip}
+                      moveTooltip={moveTooltip}
+                      hideTooltip={hideTooltip}
                     />
-          
+                    
                     <AdvancedFilterSummaryChip
                       label="State"
                       values={filterState}
+                      showTooltip={showTooltip}
+                      moveTooltip={moveTooltip}
+                      hideTooltip={hideTooltip}
                     />
-          
+                    
                     <AdvancedFilterSummaryChip
                       label="Target date"
                       values={filterTargetDate}
+                      showTooltip={showTooltip}
+                      moveTooltip={moveTooltip}
+                      hideTooltip={hideTooltip}
                     />
-          
+                    
                     <AdvancedFilterSummaryChip
                       label="Release"
                       values={filterReleaseVersion}
+                      showTooltip={showTooltip}
+                      moveTooltip={moveTooltip}
+                      hideTooltip={hideTooltip}
                     />
           
                     <span className="advanced-filter-summary__total">
