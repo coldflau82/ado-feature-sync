@@ -350,7 +350,7 @@
     /* Header superior: reduce padding y separación inferior. */
     .header.dashboard-header { padding: 14px 18px; margin-bottom: 8px; }
     /* Barra de Search y filtros principales. */
-    .top-filters-bar { padding: 8px 14px; margin-bottom: 8px; }
+    .top-filters-bar { padding: 8px 14px; margin-bottom: 8px; border-radius: 8px 8px 0 0; border-bottom: 1px solid #dbe4ee; }
     /* Reduce ligeramente la altura de inputs y selects superiores. */
     .top-filter-group .filter-select, .top-filter-search { min-height: 32px; }
     /* Reduce la altura visible de los selects múltiples. Siguen siendo multi-select; sólo muestran menos filas visibles. */
@@ -368,7 +368,7 @@
        Una única tarjeta blanca para header, resumen/controles y footer.
        El borde y la sombra suave permiten diferenciarla del fondo general
        sin agregar un contenedor visual adicional. */
-    .filters-card { margin-bottom: 8px; padding: 0 !important; overflow: hidden; border: 1px solid #dbe4ee; border-radius: 8px; background: #ffffff; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+    .filters-card { margin-bottom: 8px; padding: 0 !important; overflow: hidden; border: 1px solid #dbe4ee;  border-top: 0; border-radius: 0 0 8px 8px; background: #ffffff; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
     .filters-card__header { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid #dbe4ee; background: #ffffff; }
     .filters-card--collapsed .filters-card__header { border-bottom: 1px solid #eef2f7; }
     .filters-card__toggle { min-width: 0; flex: 1; display: flex; align-items: center; gap: 8px; padding: 4px 2px; border: 0; background: transparent;
