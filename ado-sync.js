@@ -181,10 +181,8 @@ const FEATURE_FIELDS = [
   'Custom.PI_CustomerBenefit',
 ];
 
-// ===== Campos mínimos de Stories/Bugs para Delivery Health =====
-// Solo se consultan para construir conteos y banderas.
-// No se devuelven títulos, descripciones ni contenido sensible dentro
-// del deliverySummary de /api/features.
+/* ===== Campos mínimos de Stories/Bugs para Delivery Health =====
+  Solo se consultan para construir conteos y banderas. No se devuelven títulos, descripciones ni contenido sensible dentro del deliverySummary de /api/features.*/
 const DELIVERY_WORK_ITEM_FIELDS = [
   'System.Id',
   'System.WorkItemType',
@@ -206,6 +204,42 @@ const STORY_WORK_ITEM_FIELDS = [
   'System.AssignedTo',
   'Microsoft.VSTS.Scheduling.StoryPoints'
 ];
+
+// ===== Relaciones visuales Feature -> Story/Bug -> Bug =====
+//
+// No altera Delivery Health en Fase 1.
+// Estos campos se usan exclusivamente para construir el grafo de
+// relaciones que será consumido por el rediseño visual de Fase 2.
+
+const RELATION_GRAPH_WORK_ITEM_FIELDS = [
+  'System.Id',
+  'System.Title',
+  'System.WorkItemType',
+  'System.State',
+  'System.AreaPath',
+  'System.IterationPath',
+  'System.AssignedTo',
+  'System.Tags',
+  'Microsoft.VSTS.Scheduling.StoryPoints'
+];
+
+/*
+  Azure DevOps puede devolver Related con nombres diferentes según
+  el endpoint, configuración o representación del vínculo.
+
+  Se soportan los valores conocidos para evitar perder relaciones
+  mientras validamos cuáles devuelve específicamente la instancia ADO.
+*/
+const RELATED_RELATION_TYPES = new Set([
+  'System.LinkTypes.Related',
+  'System.LinkTypes.Related-Forward',
+  'System.LinkTypes.Related-Reverse'
+]);
+
+const HIERARCHY_FORWARD_RELATION =
+  'System.LinkTypes.Hierarchy-Forward';
+
+const MAX_FEATURE_RELATIONSHIP_BATCH_IDS = 500;
 
 // ===== Estados de Delivery Health =====
 //
@@ -633,14 +667,93 @@ function getDirectChildWorkItemIds(feature) {
   ];
 }
 
+/* Convierte una relación devuelta por Azure DevOps a un formato independiente del endpoint y apto para el grafo visual.
+  Sólo nos interesan:
+  - Hierarchy-Forward => Child
+  - Related / Related-Forward / Related-Reverse => Related*/
+function getVisualRelationFromAdoRelation(relation) {
+  const targetId = getWorkItemIdFromRelation(relation);
+  if (!Number.isFinite(targetId)) {
+    return null;
+  }
+  if (relation.rel === HIERARCHY_FORWARD_RELATION) {
+    return {
+      targetId,
+      relationType: 'child',
+      rawRelationType: relation.rel
+    };
+  }
+  if (RELATED_RELATION_TYPES.has(relation.rel)) {
+    return {
+      targetId,
+      relationType: 'related',
+      rawRelationType: relation.rel
+    };
+  }
+  return null;
+}
+
+/* Obtiene los vínculos directos relevantes de cualquier Work Item.
+  Por ahora se excluyen:
+  - Parent / Hierarchy-Reverse
+  - Attachments
+  - Hyperlinks
+  - Duplicate
+  - Test Case
+  - Predecessor / Successor
+  - otros tipos no definidos en el alcance funcional de Fase 1*/
+function getVisualRelations(workItem) {
+  if (!Array.isArray(workItem?.relations)) {
+    return [];
+  }
+  const uniqueRelations = new Map();
+  workItem.relations.forEach(relation => {
+    const mappedRelation = getVisualRelationFromAdoRelation(relation);
+    if (!mappedRelation) {
+      return;
+    }
+
+    /* Puede ocurrir que ADO devuelva más de una referencia equivalente. Conservamos una sola relación por target + tipo. */
+    const key =
+      `${mappedRelation.targetId}:${mappedRelation.relationType}`;
+    if (!uniqueRelations.has(key)) {
+      uniqueRelations.set(key, mappedRelation);
+    }
+  });
+  return [...uniqueRelations.values()];
+}
+
+function mapRelationshipGraphWorkItem(workItem) {
+  const fields = workItem.fields || {};
+  const assignedToField = fields['System.AssignedTo'];
+
+  const assignedTo =
+    typeof assignedToField === 'string'
+      ? assignedToField
+      : assignedToField?.displayName ||
+        assignedToField?.uniqueName ||
+        '';
+
+  return {
+    id: Number(workItem.id),
+    title: fields['System.Title'] || '',
+    workItemType: fields['System.WorkItemType'] || '',
+    state: fields['System.State'] || '',
+    areaPath: fields['System.AreaPath'] || '',
+    iterationPath: fields['System.IterationPath'] || '',
+    tags: fields['System.Tags'] || '',
+    assignedTo,
+    storyPoints: normalizeStoryPoints(
+      fields['Microsoft.VSTS.Scheduling.StoryPoints']
+    )
+  };
+}
+
 // ===== Crea un resumen unificado de Stories/Bugs para Delivery Health =====
-//
 // Reglas:
-//
 // totalWorkItems = includedWorkItems + removedWorkItems
 // includedWorkItems = doneWorkItems + inProgressWorkItems + pendingWorkItems
 // openWorkItems = inProgressWorkItems + pendingWorkItems
-//
 // Removed no participa en delivery, progreso ni cobertura de estimación.
 function buildDeliverySummary(workItems, source = 'ok') {
   const unknownSummary = {
@@ -1316,8 +1429,455 @@ async function fetchFeatureStoryWorkItemsBatch(c, workItemIds) {
   };
 }
 
+/* Recupera Work Items con fields + relations en batches de máximo 200.
+  Es reutilizable para:
+  - User Stories / Bugs vinculados a Features;
+  - Bugs vinculados desde User Stories;
+  - futuras extensiones del grafo.
+  Si ADO omite algún ID solicitado, se agrega a unavailableWorkItemIds.
+  Esto evita presentar un árbol incompleto como si estuviera completo. */
+async function fetchRelationshipGraphWorkItemsBatch(c, workItemIds) {
+  const workItemsById = new Map();
+  const unavailableWorkItemIds = new Set();
+
+  for (
+    let index = 0;
+    index < workItemIds.length;
+    index += ADO_WORK_ITEMS_BATCH_SIZE
+  ) {
+    const currentIds = workItemIds.slice(
+      index,
+      index + ADO_WORK_ITEMS_BATCH_SIZE
+    );
+
+    try {
+      const response = await withAdoRetry(() =>
+        c.post('/wit/workitemsbatch?api-version=7.0', {
+          ids: currentIds,
+          fields: RELATION_GRAPH_WORK_ITEM_FIELDS,
+          $expand: 'Relations',
+          errorPolicy: 'Omit'
+        })
+      );
+
+      const returnedWorkItems = response.data?.value || [];
+
+      const returnedIds = new Set(
+        returnedWorkItems.map(workItem => Number(workItem.id))
+      );
+
+      returnedWorkItems.forEach(workItem => {
+        workItemsById.set(Number(workItem.id), workItem);
+      });
+
+      currentIds.forEach(workItemId => {
+        if (!returnedIds.has(workItemId)) {
+          unavailableWorkItemIds.add(workItemId);
+        }
+      });
+    } catch (error) {
+      console.error(
+        'ERROR fetching relationship graph work items batch from ADO',
+        {
+          batchStart: index,
+          batchSize: currentIds.length,
+          adoStatus: error.response?.status || null,
+          adoStatusText: error.response?.statusText || null,
+          adoResponse: error.response?.data || null,
+          message: error.message
+        }
+      );
+
+      currentIds.forEach(workItemId => {
+        unavailableWorkItemIds.add(workItemId);
+      });
+    }
+  }
+
+  return {
+    workItemsById,
+    unavailableWorkItemIds
+  };
+}
+
+function createEmptyRelationshipGraph(featureId) {
+  return {
+    source: 'ok',
+
+    summary: {
+      directChildStories: 0,
+      directChildBugs: 0,
+      relatedStories: 0,
+      relatedBugs: 0,
+      nestedChildBugs: 0,
+      nestedRelatedBugs: 0,
+      totalUniqueLinkedItems: 0
+    },
+
+    nodes: [
+      {
+        id: Number(featureId),
+        title: '',
+        workItemType: 'Feature',
+        state: '',
+        areaPath: '',
+        iterationPath: '',
+        tags: '',
+        assignedTo: '',
+        storyPoints: null
+      }
+    ],
+
+    edges: []
+  };
+}
+
+function addGraphEdge(edgesByKey, edge) {
+  const key =
+    `${edge.sourceId}:${edge.targetId}:${edge.relationType}`;
+
+  if (!edgesByKey.has(key)) {
+    edgesByKey.set(key, edge);
+  }
+}
+
 /*
-  Carga Stories/Bugs de varios Features en una única operación lógica.
+  Construye un resumen técnico/funcional del grafo.
+
+  No reutiliza deliverySummary porque:
+  - deliverySummary sólo considera hijos directos;
+  - esta estructura incluye Related y Bugs de segundo nivel;
+  - Fase 1 no debe alterar las reglas actuales de Delivery Health.
+*/
+function buildRelationshipGraphSummary(graph) {
+  const summary = {
+    directChildStories: 0,
+    directChildBugs: 0,
+    relatedStories: 0,
+    relatedBugs: 0,
+    nestedChildBugs: 0,
+    nestedRelatedBugs: 0,
+    totalUniqueLinkedItems: 0
+  };
+
+  const nodeById = new Map(
+    graph.nodes.map(node => [Number(node.id), node])
+  );
+
+  graph.edges.forEach(edge => {
+    const target = nodeById.get(Number(edge.targetId));
+
+    if (!target) {
+      return;
+    }
+
+    /*
+      Nivel 1: Feature -> User Story / Bug
+    */
+    if (edge.level === 1) {
+      if (
+        edge.relationType === 'child' &&
+        target.workItemType === 'User Story'
+      ) {
+        summary.directChildStories += 1;
+      }
+
+      if (
+        edge.relationType === 'child' &&
+        target.workItemType === 'Bug'
+      ) {
+        summary.directChildBugs += 1;
+      }
+
+      if (
+        edge.relationType === 'related' &&
+        target.workItemType === 'User Story'
+      ) {
+        summary.relatedStories += 1;
+      }
+
+      if (
+        edge.relationType === 'related' &&
+        target.workItemType === 'Bug'
+      ) {
+        summary.relatedBugs += 1;
+      }
+    }
+
+    /*
+      Nivel 2: User Story -> Bug
+    */
+    if (
+      edge.level === 2 &&
+      target.workItemType === 'Bug'
+    ) {
+      if (edge.relationType === 'child') {
+        summary.nestedChildBugs += 1;
+      }
+
+      if (edge.relationType === 'related') {
+        summary.nestedRelatedBugs += 1;
+      }
+    }
+  });
+
+  summary.totalUniqueLinkedItems = graph.nodes.filter(
+    node => node.workItemType !== 'Feature'
+  ).length;
+
+  return summary;
+}
+
+/* Carga el grafo de relaciones para varios Features sin ejecutar una petición ADO por Feature.
+  Profundidad máxima:
+  Feature
+    ├── Child / Related -> User Story o Bug
+    └── User Story
+          └── Child / Related -> Bug
+  No se recorren Bugs -> Bugs ni User Story -> User Story. */
+async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
+  const results = {};
+  const unavailableFeatureIds = new Set();
+
+  featureIds.forEach(featureId => {
+    results[featureId] = createEmptyRelationshipGraph(featureId);
+  });
+
+  /* Paso 1: Reutilizamos la función existente que obtiene relaciones de Features. */
+  const {
+    featuresById,
+    unavailableFeatureIds: unavailableRootFeatureIds
+  } = await fetchFeaturesWithRelationsBatch(c, featureIds);
+
+  unavailableRootFeatureIds.forEach(featureId => {
+    unavailableFeatureIds.add(featureId);
+  });
+
+  /* Paso 2: Extraer todos los targets de primer nivel: Feature -> Child / Related -> Story o Bug. */
+  const firstLevelRelationsByFeature = new Map();
+  const firstLevelIds = new Set();
+
+  featureIds.forEach(featureId => {
+    if (unavailableFeatureIds.has(featureId)) {
+      return;
+    }
+
+    const feature = featuresById.get(featureId);
+
+    if (!feature) {
+      unavailableFeatureIds.add(featureId);
+      return;
+    }
+
+    const relations = getVisualRelations(feature);
+
+    firstLevelRelationsByFeature.set(featureId, relations);
+
+    relations.forEach(relation => {
+      firstLevelIds.add(relation.targetId);
+    });
+  });
+
+  /* Paso 3: Obtener detalles + relaciones de los targets del Feature. */
+  const {
+    workItemsById: firstLevelWorkItemsById,
+    unavailableWorkItemIds: unavailableFirstLevelIds
+  } = firstLevelIds.size > 0
+    ? await fetchRelationshipGraphWorkItemsBatch(
+        c,
+        [...firstLevelIds]
+      )
+    : {
+        workItemsById: new Map(),
+        unavailableWorkItemIds: new Set()
+      };
+
+  /* Paso 4: Identificar Bugs de segundo nivel: User Story -> Child / Related -> Bug. */
+  const secondLevelRelationsByFeature = new Map();
+  const secondLevelIds = new Set();
+
+  featureIds.forEach(featureId => {
+    if (unavailableFeatureIds.has(featureId)) {
+      return;
+    }
+
+    const firstLevelRelations =
+      firstLevelRelationsByFeature.get(featureId) || [];
+
+    const featureHasUnavailableFirstLevelTarget =
+      firstLevelRelations.some(relation =>
+        unavailableFirstLevelIds.has(relation.targetId)
+      );
+
+    if (featureHasUnavailableFirstLevelTarget) {
+      unavailableFeatureIds.add(featureId);
+      return;
+    }
+
+    const nestedRelations = [];
+
+    firstLevelRelations.forEach(featureRelation => {
+      const firstLevelWorkItem = firstLevelWorkItemsById.get(
+        featureRelation.targetId
+      );
+
+      /* Sólo se recorren vínculos salientes de User Stories. Los Bugs de primer nivel se muestran, pero no se recorren. */
+      if (
+        firstLevelWorkItem?.fields?.['System.WorkItemType'] !==
+        'User Story'
+      ) {
+        return;
+      }
+
+      getVisualRelations(firstLevelWorkItem).forEach(
+        storyRelation => {
+          nestedRelations.push({
+            sourceId: Number(firstLevelWorkItem.id),
+            targetId: storyRelation.targetId,
+            relationType: storyRelation.relationType,
+            rawRelationType: storyRelation.rawRelationType
+          });
+
+          secondLevelIds.add(storyRelation.targetId);
+        }
+      );
+    });
+
+    secondLevelRelationsByFeature.set(featureId, nestedRelations);
+  });
+
+  /* Paso 5: Obtener los targets de segundo nivel. Después se filtrarán para conservar exclusivamente Bugs. */
+  const {
+    workItemsById: secondLevelWorkItemsById,
+    unavailableWorkItemIds: unavailableSecondLevelIds
+  } = secondLevelIds.size > 0
+    ? await fetchRelationshipGraphWorkItemsBatch(
+        c,
+        [...secondLevelIds]
+      )
+    : {
+        workItemsById: new Map(),
+        unavailableWorkItemIds: new Set()
+      };
+
+  /* Paso 6: Construir nodes + edges por Feature. */
+  featureIds.forEach(featureId => {
+    if (unavailableFeatureIds.has(featureId)) {
+      return;
+    }
+
+    const firstLevelRelations =
+      firstLevelRelationsByFeature.get(featureId) || [];
+
+    const nestedRelations =
+      secondLevelRelationsByFeature.get(featureId) || [];
+
+    /* Si una relación de segundo nivel no pudo recuperarse, el resultado completo del Feature queda como unavailable.
+      Esto es preferible a mostrar un árbol aparentemente completo. */
+    const hasUnavailableSecondLevelTarget =
+      nestedRelations.some(relation =>
+        unavailableSecondLevelIds.has(relation.targetId)
+      );
+
+    if (hasUnavailableSecondLevelTarget) {
+      unavailableFeatureIds.add(featureId);
+      return;
+    }
+
+    const graph = createEmptyRelationshipGraph(featureId);
+    const nodesById = new Map(
+      graph.nodes.map(node => [Number(node.id), node])
+    );
+    const edgesByKey = new Map();
+
+    /* Nivel 1: Feature -> User Story / Bug. */
+    firstLevelRelations.forEach(relation => {
+      const workItem = firstLevelWorkItemsById.get(relation.targetId);
+
+      if (!workItem) {
+        return;
+      }
+
+      const node = mapRelationshipGraphWorkItem(workItem);
+
+      /*  En el primer nivel sólo incluimos User Story y Bug. */
+      if (
+        node.workItemType !== 'User Story' &&
+        node.workItemType !== 'Bug'
+      ) {
+        return;
+      }
+
+      nodesById.set(node.id, node);
+
+      addGraphEdge(edgesByKey, {
+        sourceId: Number(featureId),
+        targetId: node.id,
+        relationType: relation.relationType,
+        rawRelationType: relation.rawRelationType,
+        level: 1
+      });
+    });
+
+    /* Nivel 2: User Story -> Bug. */
+    nestedRelations.forEach(relation => {
+      const targetWorkItem = secondLevelWorkItemsById.get(
+        relation.targetId
+      );
+
+      if (!targetWorkItem) {
+        return;
+      }
+
+      const targetNode = mapRelationshipGraphWorkItem(
+        targetWorkItem
+      );
+
+      /* El alcance definido para Fase 1 es exclusivamente: User Story -> Bug.
+        Por lo tanto se ignoran:
+        - User Story -> User Story
+        - User Story -> Task
+        - User Story -> Feature
+        - User Story -> Test Case
+        - cualquier otro Work Item Type */
+      if (targetNode.workItemType !== 'Bug') {
+        return;
+      }
+
+      nodesById.set(targetNode.id, targetNode);
+
+      addGraphEdge(edgesByKey, {
+        sourceId: relation.sourceId,
+        targetId: targetNode.id,
+        relationType: relation.relationType,
+        rawRelationType: relation.rawRelationType,
+        level: 2
+      });
+    });
+
+    graph.nodes = [...nodesById.values()];
+    graph.edges = [...edgesByKey.values()];
+    graph.summary = buildRelationshipGraphSummary(graph);
+
+    results[featureId] = graph;
+  });
+
+  /* Para los Features no disponibles se deja una estructura consistente, pero source: unknown indica al frontend que no debe interpretarla
+    como un Feature sin relaciones. */
+  unavailableFeatureIds.forEach(featureId => {
+    results[featureId] = {
+      ...createEmptyRelationshipGraph(featureId),
+      source: 'unknown'
+    };
+  });
+
+  return {
+    results,
+    unavailableFeatureIds: [...unavailableFeatureIds]
+  };
+}
+
+/* Carga Stories/Bugs de varios Features en una única operación lógica.
 
   Flujo:
   1. Obtiene relaciones directas de todos los Features solicitados.
@@ -1327,8 +1887,7 @@ async function fetchFeatureStoryWorkItemsBatch(c, workItemIds) {
 
   El resultado no considera como error que un Feature tenga cero hijos.
   En cambio, sí declara unavailable si ADO no permitió recuperar los
-  datos necesarios para determinar el resultado real.
-*/
+  datos necesarios para determinar el resultado real. */
 async function fetchStoriesForFeaturesBatch(c, featureIds) {
   const results = {};
   const unavailableFeatureIds = new Set();
@@ -1966,6 +2525,73 @@ app.get('/api/feature-stories/:id', async (req, res) => {
   }
 });
 
+/* Endpoint exclusivo para Fase 1 de relaciones.
+  No reemplaza:
+  - /api/features-stories-batch
+  - /api/feature-stories/:id
+  - Delivery Health actual
+  Permite traer un grafo de: Feature -> Story/Bug -> Bug usando relaciones Child y Related.*/
+app.post('/api/features-relationship-graph-batch', async (req, res) => {
+  try {
+    if (!Array.isArray(req.body?.ids)) {
+      return res.status(400).json({
+        error: 'The request body must contain an "ids" array.'
+      });
+    }
+
+    const ids = [
+      ...new Set(
+        req.body.ids
+          .map(Number)
+          .filter(id => Number.isInteger(id) && id > 0)
+      )
+    ];
+
+    if (ids.length > MAX_FEATURE_RELATIONSHIP_BATCH_IDS) {
+      return res.status(400).json({
+        error:
+          `A maximum of ${MAX_FEATURE_RELATIONSHIP_BATCH_IDS} ` +
+          'Feature IDs is allowed per relationship graph request.'
+      });
+    }
+
+    if (ids.length === 0) {
+      return res.json({
+        results: {},
+        unavailableFeatureIds: []
+      });
+    }
+
+    const c = getAdoClient();
+
+    const {
+      results,
+      unavailableFeatureIds
+    } = await fetchRelationshipGraphsForFeaturesBatch(c, ids);
+
+    return res.json({
+      results,
+      unavailableFeatureIds
+    });
+  } catch (error) {
+    console.error(
+      'ERROR /api/features-relationship-graph-batch',
+      {
+        adoStatus: error.response?.status || null,
+        adoStatusText: error.response?.statusText || null,
+        adoResponse: error.response?.data || null,
+        message: error.message,
+        stack: error.stack || null
+      }
+    );
+
+    return res.status(500).json({
+      error:
+        'Unable to fetch Feature relationship graphs from ADO.'
+    });
+  }
+});
+  
 app.get('/api/features', async (req, res) => {
   try {
     const c = getAdoClient();
