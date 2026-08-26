@@ -2524,7 +2524,7 @@
       const [expandedFeaturePanel, setExpandedFeaturePanel] = useState(null);
       const [searchTitle, setSearchTitle] = useState('');
       const [searchInput, setSearchInput] = useState('');
-      const [sortColumn, setSortColumn] = useState('id');
+      const [sortColumn, setSortColumn] = useState('priority');
       const [sortOrder, setSortOrder] = useState('asc');
       const activeAdvancedFiltersCount = [ filterAreaPath, filterIteration, filterAssignedTo, filterState, filterTargetDate, filterReleaseVersion].filter(values => Array.isArray(values) && values.length > 0).length;
       const totalAdvancedFilterSelections = [ filterAreaPath, filterIteration, filterAssignedTo, filterState, filterTargetDate, filterReleaseVersion].reduce( (total, values) => total + (Array.isArray(values) ? values.length : 0),  0);
@@ -2881,15 +2881,19 @@
             valA = extractYearQuarter(a.iterationPath);
             valB = extractYearQuarter(b.iterationPath);
           }
-          else if (sortColumn === 'priority') { valA = parseInt(a.priority) || 0; valB = parseInt(b.priority) || 0; }
-          else if (sortColumn === 'state') { valA = (a.state || '').toLowerCase(); valB = (b.state || '').toLowerCase(); }
-          else if (sortColumn === 'targetDate') { valA = (a.targetDate || ''); valB = (b.targetDate || ''); }
-          else if (sortColumn === 'assignedTo') { valA = (a.assignedTo || '').toLowerCase(); valB = (b.assignedTo || '').toLowerCase(); }
-          else if (sortColumn === 'readiness') { const readinessOrder = { 'Incomplete': 1, 'Unknown': 2, 'Healthy': 3 }; valA = readinessOrder[getFeatureReadiness(a)] || 4; valB = readinessOrder[getFeatureReadiness(b)] || 4; }
-          if (sortOrder === 'asc') return valA < valB ? -1 : valA > valB ? 1 : 0;
-          else return valA > valB ? -1 : valA < valB ? 1 : 0;
-        });
-      }
+          else if (sortColumn === 'priority') {
+            /* Features sin Priority se muestran después de cualquier Priority numérica. Number.MAX_SAFE_INTEGER es mayor que cualquier valor real de prioridad. */
+            valA = a.priority === null || a.priority === undefined || a.priority === '' ? Number.MAX_SAFE_INTEGER : parseInt(a.priority, 10);        
+            valB = b.priority === null || b.priority === undefined || b.priority === '' ? Number.MAX_SAFE_INTEGER : parseInt(b.priority, 10);
+          }
+            else if (sortColumn === 'state') { valA = (a.state || '').toLowerCase(); valB = (b.state || '').toLowerCase(); }
+            else if (sortColumn === 'targetDate') { valA = (a.targetDate || ''); valB = (b.targetDate || ''); }
+            else if (sortColumn === 'assignedTo') { valA = (a.assignedTo || '').toLowerCase(); valB = (b.assignedTo || '').toLowerCase(); }
+            else if (sortColumn === 'readiness') { const readinessOrder = { 'Incomplete': 1, 'Unknown': 2, 'Healthy': 3 }; valA = readinessOrder[getFeatureReadiness(a)] || 4; valB = readinessOrder[getFeatureReadiness(b)] || 4; }
+            if (sortOrder === 'asc') return valA < valB ? -1 : valA > valB ? 1 : 0;
+            else return valA > valB ? -1 : valA < valB ? 1 : 0;
+          });
+        }
 
       const ensureFeatureHistoryLoaded = (featureId) => {
         const alreadyLoaded = Object.prototype.hasOwnProperty.call(
