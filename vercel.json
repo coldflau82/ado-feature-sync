@@ -6,20 +6,18 @@
       "use": "@vercel/node"
     }
   ],
-  "routes": [
+   "routes": [
+    {
+      "src": "^/dashboard-app$",
+      "dest": "/dashboard-app.html"
+    },
     {
       "src": "^/dashboard$",
-      "headers": {
-        "Location": "/dashboard-app.html"
-      },
-      "status": 307
+      "dest": "/dashboard-app.html"
     },
     {
       "src": "^/dashboard\\.html$",
-      "headers": {
-        "Location": "/dashboard-app.html"
-      },
-      "status": 307
+      "dest": "/dashboard-app.html"
     },
     {
       "src": "/(.*)",
