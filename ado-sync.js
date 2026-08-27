@@ -1647,18 +1647,7 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
     featuresById,
     unavailableFeatureIds: unavailableRootFeatureIds
   } = await fetchFeaturesWithRelationsBatch(c, featureIds);
-  
-  console.log(
-    'Relationship graph root Feature fetch result',
-    {
-      requestedFeatureIds: featureIds,
-      returnedFeatureIds: [...featuresById.keys()],
-      unavailableRootFeatureIds: [
-        ...unavailableRootFeatureIds
-      ]
-    }
-  );
-    
+     
   unavailableRootFeatureIds.forEach(featureId => {
     unavailableFeatureIds.add(featureId);
   });
@@ -1701,19 +1690,6 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
         workItemsById: new Map(),
         unavailableWorkItemIds: new Set()
       };
-
-  console.log(
-    'Relationship graph first-level Work Item fetch result',
-    {
-      requestedFirstLevelIds: [...firstLevelIds],
-      returnedFirstLevelIds: [
-        ...firstLevelWorkItemsById.keys()
-      ],
-      unavailableFirstLevelIds: [
-        ...unavailableFirstLevelIds
-      ]
-    }
-  );
   
   /* Paso 4: Identificar Bugs de segundo nivel: User Story -> Child / Related -> Bug. */
   const secondLevelRelationsByFeature = new Map();
@@ -1782,19 +1758,6 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
         workItemsById: new Map(),
         unavailableWorkItemIds: new Set()
       };
-  
-    console.log(
-    'Relationship graph second-level Work Item fetch result',
-    {
-      requestedSecondLevelIds: [...secondLevelIds],
-      returnedSecondLevelIds: [
-        ...secondLevelWorkItemsById.keys()
-      ],
-      unavailableSecondLevelIds: [
-        ...unavailableSecondLevelIds
-      ]
-    }
-  );
 
   /* Paso 6: Construir nodes + edges por Feature. */
   featureIds.forEach(featureId => {
