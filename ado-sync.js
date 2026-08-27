@@ -1991,17 +1991,23 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
       });
     });
 
-  graph.nodes = [...nodesById.values()];
-  graph.edges = [...edgesByKey.values()];
-  graph.summary = buildRelationshipGraphSummary(graph);
-  
-  /* Mantiene nodes y edges para diagnóstico o una vista futura de grafo, pero también entrega las colecciones que consume el frontend actual. */
-  Object.assign( graph, buildRelationshipGraphUiCollections(graph) );
-  
-  results[featureId] = graph;
+    graph.nodes = [...nodesById.values()];
+    graph.edges = [...edgesByKey.values()];
+    graph.summary = buildRelationshipGraphSummary(graph);
 
-  /* Para los Features no disponibles se deja una estructura consistente, pero source: unknown indica al frontend que no debe interpretarla
-    como un Feature sin relaciones. */
+    /*
+      Mantiene nodes y edges para diagnóstico o para una futura vista
+      de grafo, y agrega colecciones que el frontend puede usar directamente.
+    */
+    Object.assign(
+      graph,
+      buildRelationshipGraphUiCollections(graph)
+    );
+
+    results[featureId] = graph;
+  });
+
+  /* Este bloque debe estar FUERA del featureIds.forEach del Paso 6. Marca solamente los Features cuya información no se pudo cargar completamente desde Azure DevOps. */
   unavailableFeatureIds.forEach(featureId => {
     results[featureId] = {
       ...createEmptyRelationshipGraph(featureId),
@@ -2013,7 +2019,7 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
     results,
     unavailableFeatureIds: [...unavailableFeatureIds]
   };
-}}
+}
 
 /* Carga Stories/Bugs de varios Features en una única operación lógica.
 
