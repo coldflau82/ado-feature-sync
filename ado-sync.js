@@ -1352,17 +1352,6 @@ async function fetchFeaturesWithRelationsBatch(c, featureIds) {
   };
 }
 
-console.log(
-  'Relationship graph root Feature fetch result',
-  {
-    requestedFeatureIds: featureIds,
-    returnedFeatureIds: [...featuresById.keys()],
-    unavailableRootFeatureIds: [
-      ...unavailableRootFeatureIds
-    ]
-  }
-);
-
 /*
   Obtiene los detalles visuales de los hijos únicos de todos los Features.
 
@@ -1659,7 +1648,18 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
     featuresById,
     unavailableFeatureIds: unavailableRootFeatureIds
   } = await fetchFeaturesWithRelationsBatch(c, featureIds);
-
+  
+  console.log(
+    'Relationship graph root Feature fetch result',
+    {
+      requestedFeatureIds: featureIds,
+      returnedFeatureIds: [...featuresById.keys()],
+      unavailableRootFeatureIds: [
+        ...unavailableRootFeatureIds
+      ]
+    }
+  );
+    
   unavailableRootFeatureIds.forEach(featureId => {
     unavailableFeatureIds.add(featureId);
   });
@@ -1770,19 +1770,6 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
     secondLevelRelationsByFeature.set(featureId, nestedRelations);
   });
 
-    console.log(
-    'Relationship graph second-level Work Item fetch result',
-    {
-      requestedSecondLevelIds: [...secondLevelIds],
-      returnedSecondLevelIds: [
-        ...secondLevelWorkItemsById.keys()
-      ],
-      unavailableSecondLevelIds: [
-        ...unavailableSecondLevelIds
-      ]
-    }
-  );
-
   /* Paso 5: Obtener los targets de segundo nivel. Después se filtrarán para conservar exclusivamente Bugs. */
   const {
     workItemsById: secondLevelWorkItemsById,
@@ -1796,6 +1783,19 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
         workItemsById: new Map(),
         unavailableWorkItemIds: new Set()
       };
+  
+    console.log(
+    'Relationship graph second-level Work Item fetch result',
+    {
+      requestedSecondLevelIds: [...secondLevelIds],
+      returnedSecondLevelIds: [
+        ...secondLevelWorkItemsById.keys()
+      ],
+      unavailableSecondLevelIds: [
+        ...unavailableSecondLevelIds
+      ]
+    }
+  );
 
   /* Paso 6: Construir nodes + edges por Feature. */
   featureIds.forEach(featureId => {
