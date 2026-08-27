@@ -1,5 +1,36 @@
-{
-  "version": 2,
+{{
+    "$schema": "https://openapi.vercel.sh/vercel.json",
+    "version": 2,
+    "redirects": [
+      {
+        "source": "/",
+        "destination": "/dashboard",
+        "permanent": false
+      },
+      {
+        "source": "/dashboard",
+        "destination": "/dashboard-app.html",
+        "permanent": false
+      },
+      {
+        "source": "/dashboard.html",
+        "destination": "/dashboard",
+        "permanent": false
+      }
+    ],
+    "builds": [
+      {
+        "src": "ado-sync.js",
+        "use": "@vercel/node"
+      }
+    ],
+    "routes": [
+      {
+        "src": "/(.*)",
+        "dest": "ado-sync.js"
+      }
+    ]
+  }
   "builds": [
     {
       "src": "ado-sync.js",
