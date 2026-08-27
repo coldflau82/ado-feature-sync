@@ -2013,7 +2013,7 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
     results,
     unavailableFeatureIds: [...unavailableFeatureIds]
   };
-}
+}}
 
 /* Carga Stories/Bugs de varios Features en una única operación lógica.
 
