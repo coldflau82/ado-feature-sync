@@ -3107,8 +3107,12 @@
         requestAnimationFrame(() => { scrollResultsToTop('smooth'); });
       };
 
-      /* Precarga los Stories/Bugs de los 15 Features visibles con una sola petición al backend, en lugar de una petición por Feature. */
-      useEffect(() => {
+      /* Precarga los Stories/Bugs de los 15 Features visibles con una sola petición al backend, solamente cuando Feature List está activa.
+        En Roadmap no necesitamos esta carga para todas las Features visibles: las Stories/Bugs se solicitan únicamente al expandir una Feature.
+        Esto evita competir con las solicitudes de historial del Roadmap. */
+      useEffect(() => { if (currentPage !== 'features') {
+          return;
+        }
         const featuresToLoad = featuresPageItems
           .map(feature => feature.id)
           .filter(featureId =>
@@ -3125,8 +3129,20 @@
         }
 
         loadStoriesForFeatures(featuresToLoad);
-      }, [featuresPage, sortedFiltered.length, filterAreaPath.join(','), filterIteration.join(','), filterState.join(','), filterTargetDate.join(','), filterReleaseVersion.join(','), filterAssignedTo.join(','), 
-          readinessKpiFilter, healthGroupKpiFilter, readinessDropdownFilter, healthRuleFilter, searchTitle]);
+      }, [currentPage,
+          featuresPage,
+          sortedFiltered.length,
+          filterAreaPath.join(','),
+          filterIteration.join(','),
+          filterState.join(','),
+          filterTargetDate.join(','),
+          filterReleaseVersion.join(','),
+          filterAssignedTo.join(','),
+          readinessKpiFilter,
+          healthGroupKpiFilter,
+          readinessDropdownFilter,
+          healthRuleFilter,
+          searchTitle]);
 
       const toggleRoadmapFeature = (featureId) => {
         if (expandedRoadmapFeatureId === featureId) {
