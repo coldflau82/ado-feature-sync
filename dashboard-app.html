@@ -459,9 +459,30 @@
     .feature-readiness-summary__message--unknown { color: #475569; }
     .feature-detail-panel__divider { height: 1px; margin: 14px 0; background: #dbe4ee; }
     .delivery-details__title-row { display: inline-flex; align-items: center; gap: 7px;}
-    .delivery-details__title-icon { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 10px; font-weight: 700; line-height: 1; }
+    .delivery-details__title-icon { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 16px; border-radius: 50%; color: white; font-size: 10px; font-weight: 700; line-height: 1; }
+    /* El icono que acompaña el título usa el tono fuerte de cada estado. Esto evita que se vea demasiado pálido sobre el panel claro. */
+    .delivery-details__title-icon.delivery--overdue { background: #dc2626;}
+    .delivery-details__title-icon.delivery--needs-info { background: #ea580c;}
+    .delivery-details__title-icon.delivery--attention { background: #ca8a04;}
+    .delivery-details__title-icon.delivery--healthy { background: #16a34a;}
+    .delivery-details__title-icon.delivery--not-started { background: #2563eb;}
+    .delivery-details__title-icon.delivery--unknown { background: #64748b;}
     .dashboard-interaction-hint { margin: 8px 0; padding: 7px 10px; border: 1px solid #dbe4ee; border-radius: 6px; background: #f8fafc; color: #475569; font-size: 11px; line-height: 1.4; }
     .dashboard-interaction-hint strong { color: #1e3a8a;}
+    /* Franja compacta de Delivery Health. El título, icono y alertas se muestran en la misma zona visual. Si el contenido no cabe, las alertas pasan a una segunda línea. */
+    .delivery-details__health-line { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-bottom: 10px;}
+    .delivery-details__health-heading { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto;}
+    .delivery-details__inline-alerts { display: flex; align-items: center; flex: 1 1 420px; flex-wrap: wrap; gap: 6px; min-width: 0;}
+    .delivery-details__inline-reason { color: #64748b; font-size: 11px; line-height: 1.4;}
+    /* Las alertas conservan colorimetría y texto explícito, pero ocupan mucho menos espacio que las tarjetas grandes. */
+    .delivery-inline-alert { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 4px; max-width: 100%; padding: 5px 8px; border: 1px solid transparent; border-radius: 5px; font-size: 10px; line-height: 1.35;}
+    .delivery-inline-alert__title { font-weight: 700; white-space: nowrap;}
+    .delivery-inline-alert__reason { font-weight: 400;}
+    .delivery-inline-alert--overdue { color: #991b1b; background: #fef2f2; border-color: #fecaca;}
+    .delivery-inline-alert--needs-info { color: #9a3412; background: #fff7ed; border-color: #fed7aa;}
+    .delivery-inline-alert--attention { color: #854d0e; background: #fefce8; border-color: #fde68a;}
+    .delivery-inline-alert--healthy { color: #166534; background: #f0fdf4; border-color: #bbf7d0;}
+    .delivery-inline-alert--unknown { color: #475569; background: #f8fafc; border-color: #cbd5e1;}
         
   </style>
 </head>
@@ -1893,43 +1914,61 @@
       );
 
       return (
-        <div className="delivery-details">
-          <div className="delivery-details__header">
-            <div>
-              <div className="delivery-details__title-row">
-                <strong className="delivery-details__title">
-                  Delivery Health
-                </strong>
-          
-                <span
-                  className={`delivery-details__title-icon ${delivery.className}`}
-                  aria-label={`Delivery health: ${delivery.label}`}
-                  title={`Delivery health: ${delivery.label}`}
-                >
-                  {delivery.icon}
-                </span>
-              </div>
-          
-              <p className="delivery-details__reason">
-                {delivery.reason}
-              </p>
-            </div>
-          </div>
-
-          <div className="delivery-details__summary">
-            <button
-              type="button"
-              className={[
-                'delivery-details__metric',
-                workItemSubfilter === 'all'
-                  ? 'delivery-details__metric--active'
-                  : ''
-              ].filter(Boolean).join(' ')}
-              onClick={() => setWorkItemSubfilter('all')}
-              title="Show all included Stories and Bugs"
+        <div className="delivery-details__health-line">
+          <div className="delivery-details__health-heading">
+            <strong className="delivery-details__title">
+              Delivery Health
+            </strong>
+        
+            <span
+              className={`delivery-details__title-icon ${delivery.className}`}
+              aria-label={`Delivery health: ${delivery.label}`}
+              title={`Delivery health: ${delivery.label}`}
             >
-              {summary.includedWorkItems} Included
-            </button>
+              {delivery.icon}
+            </span>
+          </div>
+        
+          {alerts.length > 0 ? (
+            <div
+              className="delivery-details__inline-alerts"
+              aria-label="Delivery Health alerts"
+            >
+              {alerts.map(alert => (
+                <div
+                  key={alert.key}
+                  className={[
+                    'delivery-inline-alert',
+                    alert.className.replace(
+                      'delivery-alert--',
+                      'delivery-inline-alert--'
+                    )
+                  ].join(' ')}
+                >
+                  <strong className="delivery-inline-alert__title">
+                    {alert.label}
+                  </strong>
+        
+                  <span className="delivery-inline-alert__reason">
+                    {alert.reason}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <span className="delivery-details__inline-reason">
+              {delivery.reason}
+            </span>
+          )}
+        </div>
+
+        <div className="delivery-details__summary">
+          <button type="button" className={['delivery-details__metric', workItemSubfilter === 'all' ? 'delivery-details__metric--active' : '' ].filter(Boolean).join(' ')}
+            onClick={() => setWorkItemSubfilter('all')}
+            title="Show all included Stories and Bugs"
+          >
+            {summary.includedWorkItems} Included
+          </button>
 
             <button
               type="button"
@@ -1985,7 +2024,7 @@
                 onClick={() => setWorkItemSubfilter('unestimated')}
                 title="Show work items that currently need an estimate"
               >
-                {summary.unestimatedWorkItems} Need estimate
+                {summary.unestimatedWorkItems} Needs Estimate
               </button>
             )}
 
@@ -2008,27 +2047,6 @@
               </button>
             )}
           </div>
-
-          {alerts.length > 0 ? (
-            <div className="delivery-alerts-grid">
-              {alerts.map(alert => (
-                <div
-                  key={alert.key}
-                  className={`delivery-alert ${alert.className}`}
-                >
-                  <strong className="delivery-alert__title">
-                    {alert.label}
-                  </strong>
-
-                  <span>{alert.reason}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="delivery-work-group__empty">
-              No delivery alerts apply to this Feature.
-            </div>
-          )}
 
           {pendingStories.length > 0 && (
             <DeliveryWorkItemGroup
