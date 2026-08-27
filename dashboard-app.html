@@ -1914,61 +1914,57 @@
       );
 
       return (
-        <div className="delivery-details__health-line">
-          <div className="delivery-details__health-heading">
-            <strong className="delivery-details__title">
-              Delivery Health
-            </strong>
-        
-            <span
-              className={`delivery-details__title-icon ${delivery.className}`}
-              aria-label={`Delivery health: ${delivery.label}`}
-              title={`Delivery health: ${delivery.label}`}
-            >
-              {delivery.icon}
-            </span>
-          </div>
-        
-          {alerts.length > 0 ? (
-            <div
-              className="delivery-details__inline-alerts"
-              aria-label="Delivery Health alerts"
-            >
-              {alerts.map(alert => (
-                <div
-                  key={alert.key}
-                  className={[
-                    'delivery-inline-alert',
-                    alert.className.replace(
-                      'delivery-alert--',
-                      'delivery-inline-alert--'
-                    )
-                  ].join(' ')}
-                >
-                  <strong className="delivery-inline-alert__title">
-                    {alert.label}
-                  </strong>
-        
-                  <span className="delivery-inline-alert__reason">
-                    {alert.reason}
-                  </span>
-                </div>
-              ))}
+        <div className="delivery-details">
+          <div className="delivery-details__health-line">
+            <div className="delivery-details__health-heading">
+              <strong className="delivery-details__title">
+                Delivery Health
+              </strong>
+          
+              <span
+                className={`delivery-details__title-icon ${delivery.className}`}
+                aria-label={`Delivery health: ${delivery.label}`}
+                title={`Delivery health: ${delivery.label}`}
+              >
+                {delivery.icon}
+              </span>
             </div>
-          ) : (
-            <span className="delivery-details__inline-reason">
-              {delivery.reason}
-            </span>
-          )}
-        </div>
-
-        <div className="delivery-details__summary">
-          <button type="button" className={['delivery-details__metric', workItemSubfilter === 'all' ? 'delivery-details__metric--active' : '' ].filter(Boolean).join(' ')}
-            onClick={() => setWorkItemSubfilter('all')}
-            title="Show all included Stories and Bugs"
-          >
-            {summary.includedWorkItems} Included
-          </button>
+          
+            {alerts.length > 0 ? (
+              <div className="delivery-details__inline-alerts" aria-label="Delivery Health alerts">
+                {alerts.map(alert => (
+                  <div key={alert.key} className={[
+                      'delivery-inline-alert',
+                      alert.className.replace(
+                        'delivery-alert--',
+                        'delivery-inline-alert--'
+                      )
+                    ].join(' ')}
+                  >
+                    <strong className="delivery-inline-alert__title">
+                      {alert.label}
+                    </strong>
+          
+                    <span className="delivery-inline-alert__reason">
+                      {alert.reason}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <span className="delivery-details__inline-reason">
+                {delivery.reason}
+              </span>
+            )}
+          </div>
+  
+          <div className="delivery-details__summary">
+            <button type="button" className={['delivery-details__metric', workItemSubfilter === 'all' ? 'delivery-details__metric--active' : '' ].filter(Boolean).join(' ')}
+              onClick={() => setWorkItemSubfilter('all')}
+              title="Show all included Stories and Bugs"
+            >
+              {summary.includedWorkItems} Included
+            </button>
 
             <button
               type="button"
@@ -2080,7 +2076,8 @@
             </div>
           )}
         </div>
-      );
+      </div>
+    ); 
     }
 
    /* Leyenda exclusiva del Roadmap. Se renderiza fuera del panel de resultados para permanecer visible mientras el usuario navega mediante el scroll interno. */
