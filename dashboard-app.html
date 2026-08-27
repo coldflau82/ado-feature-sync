@@ -1588,6 +1588,17 @@
         relationshipGraph?.source === 'ok'
           ? normalizeRelationshipGraph(relationshipGraph)
           : null;
+
+      if (Number(feature.id) === 1165429) {
+        console.log('[Relationship debug]', {
+          featureId: feature.id,
+          directFeatureChildBugs:
+            normalizedRelationshipGraph?.directFeatureChildBugs,
+          linkedBugs,
+          storyLinkedBugs,
+          linkedStories
+        });
+      }
       
       const linkedBugs =
         normalizedRelationshipGraph?.linkedBugs || [];
@@ -1599,7 +1610,7 @@
         normalizedRelationshipGraph?.total || 0;
 
       const linkedBugsForSelectedStory = linkedStoryFilterId
-        ? linkedBugs.filter(bug =>
+        ? storyLinkedBugs.filter(bug =>
             (bug.relatedFromStoryIds || [])
               .map(Number)
               .includes(Number(linkedStoryFilterId))
@@ -1609,7 +1620,7 @@
       const getLinkedBugCountForStory = (storyId) => {
         const numericStoryId = Number(storyId);
       
-        return linkedBugs.filter(bug =>
+        return storyLinkedBugs.filter(bug =>
           (bug.relatedFromStoryIds || [])
             .map(Number)
             .includes(numericStoryId)
@@ -2433,18 +2444,21 @@
         ? graph.directFeatureRelatedStories
         : [];
     
+      /*
+        Los Bugs hijos directos siguen siendo work items normales del Feature.
+        No deben duplicarse en la vista global "Linked Bugs".
+      */
       const directChildIds = new Set(
         directFeatureChildBugs
           .map(getRelationshipItemId)
           .filter(Boolean)
       );
     
-      /* Combina Bugs que pueden aparecer más de una vez en el graph.    
-        Un mismo Bug puede:
-        - estar relacionado directamente con el Feature;
-        - estar relacionado con una o más User Stories hijas.    
-        relatedFromStoryIds preserva todas las Stories desde las cuales se encontró el vínculo.  */
-      const linkedBugsById = new Map();
+      /*
+        Une Bugs repetidos y conserva todas las Stories desde las que
+        fue encontrada una relación Related.
+      */
+      const relationshipBugsById = new Map();
     
       [
         ...directFeatureRelatedBugs.map(item => ({
@@ -2471,23 +2485,24 @@
       ].forEach(item => {
         const id = getRelationshipItemId(item);
     
-        if (!id || directChildIds.has(id)) {
+        if (!id) {
           return;
         }
     
-        const previousItem = linkedBugsById.get(id);
+        const previousItem = relationshipBugsById.get(id);
     
         if (!previousItem) {
-          linkedBugsById.set(id, item);
+          relationshipBugsById.set(id, item);
           return;
         }
     
-        linkedBugsById.set(id, {
+        relationshipBugsById.set(id, {
           ...previousItem,
     
           /*
-            Se conservan todas las Stories de origen si el Bug
-            está relacionado con más de una.
+            Mantiene toda Story vinculada al Bug.
+            Ejemplo:
+            Bug #1222712 -> Story #1211928 y Story #1211930.
           */
           relatedFromStoryIds: [
             ...new Set([
@@ -2498,16 +2513,39 @@
         });
       });
     
-      const linkedStories = dedupeRelationshipItems(
-        directFeatureRelatedStories
-      ).filter(item => !directChildIds.has(getRelationshipItemId(item)));
+      /*
+        Incluye TODOS los Bugs que tengan una relación con una Story hija,
+        incluso si además son hijos directos del Feature.
     
-      const linkedBugs = [...linkedBugsById.values()];
+        Esta colección se usa exclusivamente para:
+        - el contador de cada Story;
+        - el detalle "Bugs linked to Story #...".
+    
+        No participa en Progress ni Delivery Health.
+      */
+      const storyLinkedBugs = [...relationshipBugsById.values()].filter(
+        item => (item.relatedFromStoryIds || []).length > 0
+      );
+    
+      /*
+        Vista global:
+        excluye Bugs hijos directos para no mostrar un duplicado,
+        porque estos ya aparecen en Discovery / In Progress / Done.
+      */
+      const linkedBugs =
+        normalizedRelationshipGraph?.linkedBugs || [];
+      
+      const storyLinkedBugs =
+        normalizedRelationshipGraph?.storyLinkedBugs || [];
+      
+      const linkedStories =
+        normalizedRelationshipGraph?.linkedStories || [];
     
       return {
         source,
         directFeatureChildBugs,
         linkedBugs,
+        storyLinkedBugs,
         linkedStories,
         total: linkedBugs.length + linkedStories.length
       };
