@@ -1451,14 +1451,13 @@ async function fetchRelationshipGraphWorkItemsBatch(c, workItemIds) {
     );
 
     try {
-      const response = await withAdoRetry(() =>
-        c.post('/wit/workitemsbatch?api-version=7.0', {
-          ids: currentIds,
-          fields: RELATION_GRAPH_WORK_ITEM_FIELDS,
-          $expand: 'Relations',
-          errorPolicy: 'Omit'
-        })
-      );
+     const response = await withAdoRetry(() =>
+       c.post('/wit/workitemsbatch?api-version=7.0', {
+         ids: currentIds,
+         $expand: 'All',
+         errorPolicy: 'Omit'
+       })
+    );
 
       const returnedWorkItems = response.data?.value || [];
 
