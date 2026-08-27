@@ -57,6 +57,15 @@
     .health-overview-card--selected { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18); }
     .health-overview-card:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
     .readiness-filter { min-width: 165px; }
+    /* Base compartida de los badges de Readiness y Delivery Health. Las clases readiness--* y delivery--* sólo definen colores específicos por estado; 
+    estas clases definen la forma, espaciado y alineación visual. */
+    .readiness-badge, .delivery-badge { display: inline-flex; align-items: center; justify-content: center; gap: 4px; max-width: 100%; padding: 3px 6px 3px 4px;
+      border-radius: 999px; font-size: 10px; font-weight: 700; line-height: 1.2; white-space: nowrap; vertical-align: middle; }
+    .readiness-badge__icon, .delivery-badge__icon { width: 14px;  height: 14px; flex: 0 0 14px; display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 50%; color: #ffffff; font-size: 9px; font-weight: 700; line-height: 1; }
+    .readiness-badge__label, .delivery-badge__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* En las celdas de la tabla, permite que badges largos como "Unable to validate" o "Needs HLE" sigan siendo legibles sin alterar el layout de las columnas. */
+    .feature-list-centered-cell .readiness-badge,.feature-list-centered-cell .delivery-badge { max-width: 100%; }
     .readiness--ready { color: #166534; background: #dcfce7; }
     .readiness--ready .readiness-badge__icon { color: white; background: #16a34a; }
     .readiness--needs-info { color: #9a3412; background: #ffedd5; }
