@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard temporalmente en mantenimiento</title>
+
+    <style>
+      :root {
+        color-scheme: light;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: #f4f7fb;
+        color: #172033;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+      }
+
+      main {
+        width: min(560px, 100%);
+        padding: 42px 36px;
+        text-align: center;
+        background: #fff;
+        border: 1px solid #dde5f0;
+        border-radius: 16px;
+        box-shadow: 0 12px 32px rgba(24, 44, 78, 0.12);
+      }
+
+      .icon {
+        width: 54px;
+        height: 54px;
+        margin: 0 auto 18px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: #eaf2ff;
+        color: #1559b0;
+        font-size: 26px;
+      }
+
+      h1 {
+        margin: 0 0 14px;
+        font-size: 24px;
+      }
+
+      p {
+        margin: 0;
+        color: #536178;
+        line-height: 1.55;
+      }
+
+      .small {
+        margin-top: 22px;
+        font-size: 12px;
+        color: #7c8799;
+      }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <div class="icon" aria-hidden="true">🛠</div>
+
+      <h1>Estamos realizando una actualización</h1>
+
+      <p>
+        El dashboard está temporalmente disponible de forma limitada mientras
+        completamos una mejora técnica.
+      </p>
+
+      <p style="margin-top: 12px;">
+        Por favor, intenta nuevamente en unos minutos.
+      </p>
+
+      <p class="small">
+        Referencia técnica: ::vercel:REQUEST_ID::
+      </p>
+    </main>
+  </body>
+</html>
