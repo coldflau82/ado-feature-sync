@@ -987,7 +987,7 @@ function buildDeliveryHealth(feature) {
   if (isClosed && openWorkItems > 0) {
     alerts.push({
       key: 'closed-with-open-work',
-      label: 'Open work on Closed Feature',
+      label: 'Closed w/open work',
       group: 'requires-attention',
       reason:
         'The Feature is Closed, but associated delivery work is still open or in progress.'
