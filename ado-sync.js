@@ -1,41 +1,27 @@
 require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
-
 const path = require('path');
 
 const app = express();
 
-app.get(["/", "/dashboard", "/dashboard-app", "/dashboard.html"], (req, res) => {
-  res.sendFile(path.join(process.cwd(), "public", "dashboard-app.html"));
+/* Ruta oficial, sin extensión. Mantiene visible /dashboard-app y sirve el HTML real.*/
+app.get('/dashboard-app', (req, res) => {
+  res.sendFile(
+    path.join(process.cwd(), 'public', 'dashboard-app.html')
+  );
+});
+
+/* Rutas antiguas o alternativas. Redirigen el navegador a la URL oficial. */
+app.get(['/', '/dashboard', '/dashboard.html', '/dashboard-app.html'], (req, res) => {
+  res.redirect(307, '/dashboard-app');
 });
 
 app.use(express.json());
 
-/*
-  Para desarrollo local, sirve los archivos dentro de /public.
-  En Vercel, los assets de /public se sirven directamente desde CDN.
-*/
+/* Para desarrollo local, sirve los archivos dentro de /public.
+  En Vercel, los assets de /public se sirven directamente desde CDN. */
 app.use(express.static(path.join(__dirname, 'public')));
-
-/*
-  Ruta oficial del dashboard.
-*/
-app.get('/', (req, res) => {
-  res.redirect('/dashboard');
-});
-
-app.get('/dashboard', (req, res) => {
-  res.redirect('/dashboard-app.html');
-});
-
-/*
-  Compatibilidad con enlaces antiguos.
-  No vuelve pública una variante anterior: sólo redirige a la página oficial.
-*/
-app.get('/dashboard.html', (req, res) => {
-  res.redirect('/dashboard');
-});
 
 const { Redis } = require('@upstash/redis');
 
