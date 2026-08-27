@@ -1,36 +1,5 @@
-{{
-    "$schema": "https://openapi.vercel.sh/vercel.json",
-    "version": 2,
-    "redirects": [
-      {
-        "source": "/",
-        "destination": "/dashboard",
-        "permanent": false
-      },
-      {
-        "source": "/dashboard",
-        "destination": "/dashboard-app.html",
-        "permanent": false
-      },
-      {
-        "source": "/dashboard.html",
-        "destination": "/dashboard",
-        "permanent": false
-      }
-    ],
-    "builds": [
-      {
-        "src": "ado-sync.js",
-        "use": "@vercel/node"
-      }
-    ],
-    "routes": [
-      {
-        "src": "/(.*)",
-        "dest": "ado-sync.js"
-      }
-    ]
-  }
+{
+  "version": 2,
   "builds": [
     {
       "src": "ado-sync.js",
@@ -38,6 +7,27 @@
     }
   ],
   "routes": [
+    {
+      "src": "^/$",
+      "headers": {
+        "Location": "/dashboard"
+      },
+      "status": 307
+    },
+    {
+      "src": "^/dashboard$",
+      "headers": {
+        "Location": "/dashboard-app.html"
+      },
+      "status": 307
+    },
+    {
+      "src": "^/dashboard\\.html$",
+      "headers": {
+        "Location": "/dashboard"
+      },
+      "status": 307
+    },
     {
       "src": "/(.*)",
       "dest": "ado-sync.js"
