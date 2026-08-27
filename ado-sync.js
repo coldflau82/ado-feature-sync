@@ -721,18 +721,20 @@ function mapRelationshipGraphWorkItem(workItem) {
         '';
 
   return {
-    id: Number(workItem.id),
-    title: fields['System.Title'] || '',
-    workItemType: fields['System.WorkItemType'] || '',
-    state: fields['System.State'] || '',
-    areaPath: fields['System.AreaPath'] || '',
-    iterationPath: fields['System.IterationPath'] || '',
-    tags: fields['System.Tags'] || '',
-    assignedTo,
-    storyPoints: normalizeStoryPoints(
-      fields['Microsoft.VSTS.Scheduling.StoryPoints']
-    )
-  };
+  id: Number(workItem.id),
+  title: fields['System.Title'] || '',
+  workItemType: fields['System.WorkItemType'] || '',
+  state: fields['System.State'] || '',
+  areaPath: fields['System.AreaPath'] || '',
+  iterationPath: fields['System.IterationPath'] || '',
+  tags: fields['System.Tags'] || '',
+  assignedTo,
+  releaseFixVersion:
+    fields['Custom.ReleaseFixVersion'] || '',
+  storyPoints: normalizeStoryPoints(
+    fields['Microsoft.VSTS.Scheduling.StoryPoints']
+  )
+};
 }
 
 // ===== Crea un resumen unificado de Stories/Bugs para Delivery Health =====
@@ -1242,19 +1244,18 @@ function mapFeatureStoryWorkItem(workItem) {
     storyPoints
   };
 
-  return {
+    return {
     id: workItem.id,
     title: fields['System.Title'] || '',
     storyPoints,
     state,
     workItemType: fields['System.WorkItemType'] || '',
+    areaPath: fields['System.AreaPath'] || '',
     iterationPath: fields['System.IterationPath'] || '',
+    releaseFixVersion: fields['Custom.ReleaseFixVersion'] || '',
+    tags: fields['System.Tags'] || '',
     assignedTo,
-
-    /*
-      Estas propiedades ya son utilizadas por el frontend para mostrar
-      el detalle, sin reinterpretar la regla de estimación.
-    */
+    /* Estas propiedades ya son utilizadas por el frontend para mostrar el detalle, sin reinterpretar la regla de estimación. */
     requiresEstimate: workItemRequiresEstimate(state),
     isUnestimated: isWorkItemUnestimated(deliveryWorkItem)
   };
