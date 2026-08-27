@@ -1352,6 +1352,17 @@ async function fetchFeaturesWithRelationsBatch(c, featureIds) {
   };
 }
 
+console.log(
+  'Relationship graph root Feature fetch result',
+  {
+    requestedFeatureIds: featureIds,
+    returnedFeatureIds: [...featuresById.keys()],
+    unavailableRootFeatureIds: [
+      ...unavailableRootFeatureIds
+    ]
+  }
+);
+
 /*
   Obtiene los detalles visuales de los hijos únicos de todos los Features.
 
@@ -1692,6 +1703,19 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
         unavailableWorkItemIds: new Set()
       };
 
+  console.log(
+    'Relationship graph first-level Work Item fetch result',
+    {
+      requestedFirstLevelIds: [...firstLevelIds],
+      returnedFirstLevelIds: [
+        ...firstLevelWorkItemsById.keys()
+      ],
+      unavailableFirstLevelIds: [
+        ...unavailableFirstLevelIds
+      ]
+    }
+  );
+  
   /* Paso 4: Identificar Bugs de segundo nivel: User Story -> Child / Related -> Bug. */
   const secondLevelRelationsByFeature = new Map();
   const secondLevelIds = new Set();
@@ -1745,6 +1769,19 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
 
     secondLevelRelationsByFeature.set(featureId, nestedRelations);
   });
+
+    console.log(
+    'Relationship graph second-level Work Item fetch result',
+    {
+      requestedSecondLevelIds: [...secondLevelIds],
+      returnedSecondLevelIds: [
+        ...secondLevelWorkItemsById.keys()
+      ],
+      unavailableSecondLevelIds: [
+        ...unavailableSecondLevelIds
+      ]
+    }
+  );
 
   /* Paso 5: Obtener los targets de segundo nivel. Después se filtrarán para conservar exclusivamente Bugs. */
   const {
