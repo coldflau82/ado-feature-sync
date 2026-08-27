@@ -211,25 +211,8 @@ const STORY_WORK_ITEM_FIELDS = [
 // Estos campos se usan exclusivamente para construir el grafo de
 // relaciones que será consumido por el rediseño visual de Fase 2.
 
-const RELATION_GRAPH_WORK_ITEM_FIELDS = [
-  'System.Id',
-  'System.Title',
-  'System.WorkItemType',
-  'System.State',
-  'System.AreaPath',
-  'System.IterationPath',
-  'System.AssignedTo',
-  'System.Tags',
-  'Microsoft.VSTS.Scheduling.StoryPoints'
-];
-
-/*
-  Azure DevOps puede devolver Related con nombres diferentes según
-  el endpoint, configuración o representación del vínculo.
-
-  Se soportan los valores conocidos para evitar perder relaciones
-  mientras validamos cuáles devuelve específicamente la instancia ADO.
-*/
+/* Azure DevOps puede devolver Related con nombres diferentes según el endpoint, configuración o representación del vínculo.
+  Se soportan los valores conocidos para evitar perder relaciones mientras validamos cuáles devuelve específicamente la instancia ADO.*/
 const RELATED_RELATION_TYPES = new Set([
   'System.LinkTypes.Related',
   'System.LinkTypes.Related-Forward',
