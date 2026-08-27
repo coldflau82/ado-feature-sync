@@ -1588,20 +1588,12 @@
         relationshipGraph?.source === 'ok'
           ? normalizeRelationshipGraph(relationshipGraph)
           : null;
-
-      if (Number(feature.id) === 1165429) {
-        console.log('[Relationship debug]', {
-          featureId: feature.id,
-          directFeatureChildBugs:
-            normalizedRelationshipGraph?.directFeatureChildBugs,
-          linkedBugs,
-          storyLinkedBugs,
-          linkedStories
-        });
-      }
-      
+     
       const linkedBugs =
         normalizedRelationshipGraph?.linkedBugs || [];
+      
+      const storyLinkedBugs =
+        normalizedRelationshipGraph?.storyLinkedBugs || [];
       
       const linkedStories =
         normalizedRelationshipGraph?.linkedStories || [];
@@ -1626,6 +1618,17 @@
             .includes(numericStoryId)
         ).length;
       };
+
+      if (Number(feature.id) === 1165429) {
+        console.log('[Relationship debug]', {
+          featureId: feature.id,
+          directFeatureChildBugs:
+            normalizedRelationshipGraph?.directFeatureChildBugs,
+          linkedBugs,
+          storyLinkedBugs,
+          linkedStories
+        });
+      }
       
       const showLinkedBugsForStory = (storyId) => {
         setLinkedStoryFilterId(Number(storyId));
