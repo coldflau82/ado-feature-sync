@@ -2236,15 +2236,26 @@
         setAreAdvancedFiltersOpen(false);
       };
       /* Limpia todos los filtros del dashboard desde el único botón Clear filters. Save as default filter no se modifica: si está activo, la configuración vacía se guardará automáticamente en localStorage mediante el useEffect existente. */
-      const clearAllFilters = () => {
+     const clearAllFilters = () => {
         resetAllDashboardFilters();
-        setSelectedFilterPreset('my-filter');
-        resetResultsAfterMainFilterChange(); };
+      
+        /* Filtros vacíos no necesariamente corresponden a My filter.
+          Se muestran como Custom para que el usuario pueda volver a seleccionar My filter explícitamente si quiere restaurarlo. */
+        setSelectedFilterPreset('custom');
+      
+        resetResultsAfterMainFilterChange();
+      };
+      
       /* Una tarjeta KPI de Readiness es exclusiva: elimina cualquier KPI o dropdown de Delivery Health, así como cualquier Readiness previamente seleccionado, y luego aplica la tarjeta solicitada. */
-      const applyReadinessKpi = (readiness) => { clearReadinessAndHealthFilters(); if (readiness !== 'All') { setReadinessKpiFilter(readiness); } resetResultsAfterMainFilterChange(); };
+      const applyReadinessKpi = (readiness) => { markPresetAsCustom(); clearReadinessAndHealthFilters(); 
+        if (readiness !== 'All') { setReadinessKpiFilter(readiness); } resetResultsAfterMainFilterChange(); 
+      };
       /* Una tarjeta KPI de Delivery Health es exclusiva: elimina cualquier KPI o dropdown de Readiness, además de cualquier otra KPI de Delivery Health, y luego aplica la tarjeta solicitada.*/
-      const applyHealthGroupKpi = (healthGroup) => { clearReadinessAndHealthFilters(); if (healthGroup !== 'All') { setHealthGroupKpiFilter(healthGroup); } resetResultsAfterMainFilterChange();};
-      const getQuarterInfo = (date = new Date()) => { const year = date.getFullYear(); const quarter = Math.floor(date.getMonth() / 3) + 1; return { year, quarter }; };
+      const applyHealthGroupKpi = (healthGroup) => { markPresetAsCustom(); clearReadinessAndHealthFilters(); 
+        if (healthGroup !== 'All') { setHealthGroupKpiFilter(healthGroup); } resetResultsAfterMainFilterChange();
+      };
+      const getQuarterInfo = (date = new Date()) => 
+        { const year = date.getFullYear(); const quarter = Math.floor(date.getMonth() / 3) + 1; return { year, quarter }; };
       const getNextQuarterInfo = (date = new Date()) => { const { year, quarter } = getQuarterInfo(date);
         return quarter === 4 ? { year: year + 1, quarter: 1 } : { year, quarter: quarter + 1 }; };
       const getQuarterIterationPath = ({ year, quarter }) => { return `Commercial Engineering\\${year}\\Q${quarter}`; };
@@ -2363,6 +2374,16 @@
 
       const [selectedFilterPreset, setSelectedFilterPreset] = useState('my-filter');
 
+      /* Si el usuario modifica manualmente cualquier filtro, ya no está usando exactamente un preset guardado o predefinido. El selector mostrará
+        "Custom" para permitir volver a elegir My filter u otro preset. */
+      const markPresetAsCustom = () => {
+        setSelectedFilterPreset(currentPreset =>
+          currentPreset === 'custom'
+            ? currentPreset
+            : 'custom'
+        );
+      };
+      
       useEffect(() => { const saved = localStorage.getItem(FILTER_STORAGE_KEY);
         if (!saved) {
           return;
@@ -3233,6 +3254,10 @@
               <div className="top-filter-group top-filter-group--preset">
                 <label className="filter-label">Preset</label>
                 <select className="filter-select top-filter-preset" value={selectedFilterPreset} onChange={(event) => applyFilterPreset(event.target.value)} title="Apply a saved or predefined filter">
+                  <option value="custom" disabled>
+                    Custom (unsaved changes)
+                  </option>
+                  
                   <option value="my-filter">
                     My filter
                   </option>
@@ -3264,7 +3289,8 @@
               
               <div className="top-filter-group">
                 <label className="filter-label">Search:</label>
-                <input type="text" className="top-filter-search" placeholder="Type feature title or Tag..." value={searchInput} maxLength={35} onChange={(e) => setSearchInput(e.target.value)} />
+                <input type="text" className="top-filter-search" placeholder="Type feature title or Tag..." value={searchInput} maxLength={35} 
+                  onChange={(e) => markPresetAsCustom(); setSearchInput(e.target.value)} />
               </div>
               
             <div className="top-filter-group">
@@ -3273,6 +3299,7 @@
                     className="filter-select top-filter-readiness"
                     value={readinessDropdownFilter}
                     onChange={(e) => {
+                      markPresetAsCustom();
                       /* Al usar un dropdown, las KPI se desactivan para que no exista una selección KPI visual que esté modificando los resultados. */
                       setReadinessKpiFilter('All');
                       setHealthGroupKpiFilter('All');
@@ -3300,9 +3327,8 @@
                 className="filter-select top-filter-delivery-health"
                 value={healthRuleFilter}
                 onChange={(e) => {
-                  /*
-                    El dropdown es un filtro explícito y desactiva las KPI visuales.
-                  */
+                  markPresetAsCustom();
+                  /*  El dropdown es un filtro explícito y desactiva las KPI visuales. */
                   setReadinessKpiFilter('All');
                   setHealthGroupKpiFilter('All');
               
@@ -3473,6 +3499,7 @@
                     className="filter-select"
                     value={filterAreaPath}
                     onChange={(e) =>
+                      markPresetAsCustom();
                       setFilterAreaPath(
                         [...e.target.selectedOptions].map(option => option.value)
                       )
@@ -3502,6 +3529,7 @@
                     className="filter-select"
                     value={filterIteration}
                     onChange={(e) =>
+                      markPresetAsCustom();
                       setFilterIteration(
                         [...e.target.selectedOptions].map(option => option.value)
                       )
@@ -3531,6 +3559,7 @@
                     className="filter-select"
                     value={filterAssignedTo}
                     onChange={(e) =>
+                      markPresetAsCustom();
                       setFilterAssignedTo(
                         [...e.target.selectedOptions].map(option => option.value)
                       )
@@ -3568,6 +3597,7 @@
                     className="filter-select"
                     value={filterState}
                     onChange={(e) =>
+                      markPresetAsCustom();
                       setFilterState(
                         [...e.target.selectedOptions].map(option => option.value)
                       )
@@ -3597,6 +3627,7 @@
                     className="filter-select"
                     value={filterTargetDate}
                     onChange={(e) =>
+                      markPresetAsCustom();
                       setFilterTargetDate(
                         [...e.target.selectedOptions].map(option => option.value)
                       )
@@ -3647,6 +3678,7 @@
                     className="filter-select"
                     value={filterReleaseVersion}
                     onChange={(e) =>
+                      markPresetAsCustom();
                       setFilterReleaseVersion(
                         [...e.target.selectedOptions].map(option => option.value)
                       )
