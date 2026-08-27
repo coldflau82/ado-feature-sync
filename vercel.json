@@ -6,19 +6,7 @@
       "use": "@vercel/node"
     }
   ],
-   "routes": [
-    {
-      "src": "^/dashboard-app$",
-      "dest": "/dashboard-app.html"
-    },
-    {
-      "src": "^/dashboard$",
-      "dest": "/dashboard-app.html"
-    },
-    {
-      "src": "^/dashboard\\.html$",
-      "dest": "/dashboard-app.html"
-    },
+  "routes": [
     {
       "src": "/(.*)",
       "dest": "ado-sync.js"
