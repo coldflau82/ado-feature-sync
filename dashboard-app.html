@@ -1502,7 +1502,7 @@
             </span>
             {canShowLinkedBugButton && (
               <button type="button" className="story-linked-bugs-button" onClick={onShowLinkedBugs}
-                title= 🔗 {`Show Bugs linked to User Story #${story.id}`}>
+                title= {`Show Bugs linked to User Story #${story.id}`}>
                 {relationshipLoading
                   ? 'Loading linked Bugs...'
                   : relationshipUnavailable
