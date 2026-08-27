@@ -3290,10 +3290,10 @@
               <div className="top-filter-group">
                 <label className="filter-label">Search:</label>
                 <input type="text" className="top-filter-search" placeholder="Type feature title or Tag..." value={searchInput} maxLength={35} 
-                  onChange={(e) => markPresetAsCustom(); setSearchInput(e.target.value)} />
+                  onChange={(e) => { markPresetAsCustom(); setSearchInput(e.target.value)} />
               </div>
               
-            <div className="top-filter-group">
+              <div className="top-filter-group">  
                 <label className="filter-label">Readiness</label>
                   <select
                     className="filter-select top-filter-readiness"
@@ -3498,12 +3498,12 @@
                     multiple
                     className="filter-select"
                     value={filterAreaPath}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       markPresetAsCustom();
                       setFilterAreaPath(
                         [...e.target.selectedOptions].map(option => option.value)
                       )
-                    }
+                    }}
                   >
                     {areaPaths.map(area => (
                       <option key={area} value={area}>
@@ -3528,12 +3528,12 @@
                     multiple
                     className="filter-select"
                     value={filterIteration}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       markPresetAsCustom();
                       setFilterIteration(
                         [...e.target.selectedOptions].map(option => option.value)
                       )
-                    }
+                    }}
                   >
                     {iterations.map(iteration => (
                       <option key={iteration} value={iteration}>
@@ -3558,12 +3558,12 @@
                     multiple
                     className="filter-select"
                     value={filterAssignedTo}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       markPresetAsCustom();
                       setFilterAssignedTo(
                         [...e.target.selectedOptions].map(option => option.value)
                       )
-                    }
+                    }}
                   >
                     {[...assignedTos]
                       .sort((a, b) =>
@@ -3596,12 +3596,12 @@
                     multiple
                     className="filter-select"
                     value={filterState}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       markPresetAsCustom();
                       setFilterState(
                         [...e.target.selectedOptions].map(option => option.value)
                       )
-                    }
+                    }}
                   >
                     {states.map(state => (
                       <option key={state} value={state}>
@@ -3626,12 +3626,12 @@
                     multiple
                     className="filter-select"
                     value={filterTargetDate}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       markPresetAsCustom();
                       setFilterTargetDate(
                         [...e.target.selectedOptions].map(option => option.value)
                       )
-                    }
+                    }}
                   >
                     {targetYears.map(year => (
                       <React.Fragment key={year}>
@@ -3677,12 +3677,12 @@
                     multiple
                     className="filter-select"
                     value={filterReleaseVersion}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       markPresetAsCustom();
                       setFilterReleaseVersion(
                         [...e.target.selectedOptions].map(option => option.value)
                       )
-                    }
+                    }}
                   >
                     {releaseVersions.map(releaseVersion => (
                       <option
