@@ -2513,33 +2513,23 @@
         });
       });
     
-      /*
-        Incluye TODOS los Bugs que tengan una relación con una Story hija,
-        incluso si además son hijos directos del Feature.
-    
+      /* Incluye TODOS los Bugs que tengan una relación con una Story hija, incluso si además son hijos directos del Feature.
         Esta colección se usa exclusivamente para:
         - el contador de cada Story;
         - el detalle "Bugs linked to Story #...".
-    
-        No participa en Progress ni Delivery Health.
-      */
+        No participa en Progress ni Delivery Health.   */
       const storyLinkedBugs = [...relationshipBugsById.values()].filter(
         item => (item.relatedFromStoryIds || []).length > 0
       );
     
-      /*
-        Vista global:
-        excluye Bugs hijos directos para no mostrar un duplicado,
-        porque estos ya aparecen en Discovery / In Progress / Done.
-      */
-      const linkedBugs =
-        normalizedRelationshipGraph?.linkedBugs || [];
+      /* Vista global: excluye Bugs hijos directos para no mostrar un duplicado, porque estos ya aparecen en Discovery / In Progress / Done. */
+      const linkedBugs = [...relationshipBugsById.values()].filter(
+        item => !directChildIds.has(getRelationshipItemId(item))
+      );
       
-      const storyLinkedBugs =
-        normalizedRelationshipGraph?.storyLinkedBugs || [];
-      
-      const linkedStories =
-        normalizedRelationshipGraph?.linkedStories || [];
+      const linkedStories = dedupeRelationshipItems(
+        directFeatureRelatedStories
+      );
     
       return {
         source,
