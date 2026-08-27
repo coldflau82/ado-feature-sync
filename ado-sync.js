@@ -200,8 +200,11 @@ const STORY_WORK_ITEM_FIELDS = [
   'System.Title',
   'System.State',
   'System.WorkItemType',
+  'System.AreaPath',
   'System.IterationPath',
   'System.AssignedTo',
+  'System.Tags',
+  'Custom.ReleaseFixVersion',
   'Microsoft.VSTS.Scheduling.StoryPoints'
 ];
 
