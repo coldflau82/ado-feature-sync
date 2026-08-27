@@ -1850,7 +1850,7 @@
           {inProgressStories.length > 0 && (
             <DeliveryWorkItemGroup
               title="In Progress"
-              stories={pendingStories}
+              stories={inprogressStories}
               adoLink={adoLink}
               getLinkedBugCount={getLinkedBugCountForStory}
               relationshipLoading={relationshipLoading}
@@ -1862,7 +1862,7 @@
           {doneStories.length > 0 && (
             <DeliveryWorkItemGroup
               title="Done"
-              stories={pendingStories}
+              stories={doneStories}
               adoLink={adoLink}
               getLinkedBugCount={getLinkedBugCountForStory}
               relationshipLoading={relationshipLoading}
