@@ -1,9 +1,14 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "builds": [
     {
       "src": "ado-sync.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -27,6 +32,14 @@
         "Location": "/dashboard"
       },
       "status": 307
+    },
+    {
+      "src": "^/dashboard-app\\.html$",
+      "dest": "/public/dashboard-app.html"
+    },
+    {
+      "src": "^/favicon\\.png$",
+      "dest": "/public/favicon.png"
     },
     {
       "src": "/(.*)",
