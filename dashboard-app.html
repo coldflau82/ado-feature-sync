@@ -419,6 +419,10 @@
     .delivery-inline-alert--attention { color: #854d0e; background: #fefce8; border-color: #fde68a;}
     .delivery-inline-alert--healthy { color: #166534; background: #f0fdf4; border-color: #bbf7d0;}
     .delivery-inline-alert--unknown { color: #475569; background: #f8fafc; border-color: #cbd5e1;}
+    .relationship-retry-button { margin-top: 8px; padding: 5px 9px; border: 1px solid #2563eb; border-radius: 5px; background: #ffffff; color: #1d4ed8;
+      font-family: inherit; font-size: 11px; font-weight: 700; cursor: pointer;}
+    .relationship-retry-button:hover { background: #eff6ff; border-color: #1d4ed8;}
+    .relationship-retry-button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.28); outline-offset: 2px;}
         
   </style>
 </head>
@@ -1511,7 +1515,16 @@
       );
     }
 
-    function FeatureDeliveryDetails({ feature, stories, adoLink }) {
+    function FeatureDeliveryDetails({ 
+      feature, 
+      stories, 
+      adoLink, 
+      relationshipGraph,
+      relationshipLoading,
+      relationshipUnavailable,
+      onLoadRelationships,
+      onRetryRelationships }) {
+      
       const [workItemSubfilter, setWorkItemSubfilter] =
         React.useState('all');
 
@@ -1519,10 +1532,21 @@
       const alerts = getDeliveryHealthAlerts(feature);
       const summary = getWorkItemsDeliverySummary(stories);
 
-      /*
-        Si el usuario abre Delivery Health en otra Feature,
-        el detalle vuelve a mostrar todos sus Stories y Bugs.
-      */
+      const normalizedRelationshipGraph =
+        relationshipGraph?.source === 'ok'
+          ? normalizeRelationshipGraph(relationshipGraph)
+          : null;
+      
+      const linkedBugs =
+        normalizedRelationshipGraph?.linkedBugs || [];
+      
+      const linkedStories =
+        normalizedRelationshipGraph?.linkedStories || [];
+      
+      const relationshipTotal =
+        normalizedRelationshipGraph?.total || 0;
+            
+      /* Si el usuario abre Delivery Health en otra Feature, el detalle vuelve a mostrar todos sus Stories y Bugs. */
       React.useEffect(() => {
         setWorkItemSubfilter('all');
       }, [feature.id]);
@@ -1532,37 +1556,43 @@
         en ninguno de los tres grupos de cards.
       */
       const visibleStories = stories.filter(story => {
+        /* Linked Bugs proviene de otro endpoint y no pertenece a storiesCache. Por eso no mostramos hijos directos
+          mientras ese subfiltro está seleccionado. */
+        if (workItemSubfilter === 'linkedBugs') {
+          return false;
+        }
+      
         if (workItemSubfilter === 'all') {
           return getWorkItemDeliveryCategory(story) !== 'removed';
         }
-
+      
         if (workItemSubfilter === 'pending') {
           return getWorkItemDeliveryCategory(story) === 'pending';
         }
-
+      
         if (workItemSubfilter === 'inProgress') {
           return getWorkItemDeliveryCategory(story) === 'inProgress';
         }
-
+      
         if (workItemSubfilter === 'done') {
           return getWorkItemDeliveryCategory(story) === 'done';
         }
-
+      
         if (workItemSubfilter === 'unestimated') {
           return isWorkItemUnestimated(story);
         }
-
+      
         if (workItemSubfilter === 'discoveryWithoutSprint') {
           const hasIterationPath =
             typeof story.iterationPath === 'string' &&
             story.iterationPath.trim() !== '';
-
+      
           return (
             getWorkItemDeliveryCategory(story) === 'pending' &&
             !hasIterationPath
           );
         }
-
+      
         return true;
       });
 
@@ -1632,50 +1662,40 @@
           <div className="delivery-details__summary">
             <button type="button" className={['delivery-details__metric', workItemSubfilter === 'all' ? 'delivery-details__metric--active' : '' ].filter(Boolean).join(' ')}
               onClick={() => setWorkItemSubfilter('all')}
-              title="Show all included Stories and Bugs"
-            >
+              title="Show all included Stories and Bugs" >
               {summary.includedWorkItems} Included
             </button>
 
-            <button
-              type="button"
-              className={[
+            <button type="button" className={[
                 'delivery-details__metric',
                 workItemSubfilter === 'pending'
                   ? 'delivery-details__metric--active'
                   : ''
               ].filter(Boolean).join(' ')}
               onClick={() => setWorkItemSubfilter('pending')}
-              title="Show Discovery Stories and Bugs"
-            >
+              title="Show Discovery Stories and Bugs" >
               {summary.pendingWorkItems} Discovery
             </button>
 
-            <button
-              type="button"
-              className={[
+            <button type="button" className={[
                 'delivery-details__metric',
                 workItemSubfilter === 'inProgress'
                   ? 'delivery-details__metric--active'
                   : ''
               ].filter(Boolean).join(' ')}
               onClick={() => setWorkItemSubfilter('inProgress')}
-              title="Show Stories and Bugs currently in progress"
-            >
+              title="Show Stories and Bugs currently in progress" >
               {summary.inProgressWorkItems} In Progress
             </button>
 
-            <button
-              type="button"
-              className={[
+            <button type="button" className={[
                 'delivery-details__metric',
                 workItemSubfilter === 'done'
                   ? 'delivery-details__metric--active'
                   : ''
               ].filter(Boolean).join(' ')}
               onClick={() => setWorkItemSubfilter('done')}
-              title="Show completed Stories and Bugs"
-            >
+              title="Show completed Stories and Bugs" >
               {summary.doneWorkItems} Done
             </button>
 
@@ -1711,8 +1731,29 @@
               >
                 {summary.discoveryWithoutSprintWorkItems}
                 {' '}Discovery without Sprint
-              </button>
+              </button>        
             )}
+
+            <button type="button" className={[
+                'delivery-details__metric',
+                workItemSubfilter === 'linkedBugs'
+                  ? 'delivery-details__metric--active'
+                  : ''
+              ].filter(Boolean).join(' ')}
+              onClick={() => {
+                setWorkItemSubfilter('linkedBugs');
+                onLoadRelationships();
+              }}
+              title="Show Bugs and work items linked through Feature relationships" >
+              {relationshipLoading
+                ? 'Loading Linked Bugs...'
+                : normalizedRelationshipGraph
+                  ? `${linkedBugs.length} Linked Bugs`
+                  : relationshipUnavailable
+                    ? 'Linked Bugs unavailable'
+                    : 'Linked Bugs'}
+            </button>
+            
           </div>
 
           {pendingStories.length > 0 && (
@@ -1739,7 +1780,64 @@
             />
           )}
 
-          {visibleStories.length === 0 && (
+          {workItemSubfilter === 'linkedBugs' && (
+            <section className="delivery-work-group">
+              <strong className="delivery-work-group__title">
+                Relationships
+                {normalizedRelationshipGraph
+                  ? ` (${relationshipTotal})`
+                  : ''}
+              </strong>
+          
+              {relationshipLoading ? (
+                <div className="delivery-work-group__empty">
+                  Loading relationship information...
+                </div>
+              ) : relationshipUnavailable ? (
+                <div className="delivery-work-group__empty">
+                  <div>
+                    Relationship information is temporarily unavailable.
+                  </div>
+          
+                  <button
+                    type="button"
+                    className="relationship-retry-button"
+                    onClick={onRetryRelationships}
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : !normalizedRelationshipGraph ? (
+                <div className="delivery-work-group__empty">
+                  Relationship information is temporarily unavailable.
+                </div>
+              ) : relationshipTotal === 0 ? (
+                <div className="delivery-work-group__empty">
+                  No linked work items.
+                </div>
+              ) : (
+                <>
+                  {linkedBugs.length > 0 && (
+                    <DeliveryWorkItemGroup
+                      title="Linked Bugs"
+                      stories={sortDeliveryWorkItemsByTypeAndId(linkedBugs)}
+                      adoLink={adoLink}
+                    />
+                  )}
+          
+                  {linkedStories.length > 0 && (
+                    <DeliveryWorkItemGroup
+                      title="Related User Stories"
+                      stories={sortDeliveryWorkItemsByTypeAndId(linkedStories)}
+                      adoLink={adoLink}
+                    />
+                  )}
+                </>
+              )}
+            </section>
+          )}
+
+         {workItemSubfilter !== 'linkedBugs' && visibleStories.length === 0 && (
             <div className="delivery-work-group">
               <div className="delivery-work-group__empty">
                 No Stories or Bugs match the selected filter.
@@ -2169,6 +2267,80 @@
         </span>
       );
     }
+
+    function getRelationshipItemId(item) {
+      const id = Number(item?.id);
+    
+      return Number.isInteger(id) && id > 0
+        ? id
+        : null;
+    }
+    
+    function dedupeRelationshipItems(items = []) {
+      const itemsById = new Map();
+    
+      items.forEach(item => {
+        const id = getRelationshipItemId(item);
+    
+        if (id) {
+          itemsById.set(id, item);
+        }
+      });
+    
+      return [...itemsById.values()];
+    }
+    
+    /* Convierte la respuesta del endpoint a una forma segura para la UI.    
+      Los Bugs hijos directos se excluyen deliberadamente de linkedBugs,porque ya pertenecen al endpoint de hijos directos y no deben duplicarse 
+      ni afectar la interpretación visual. */
+    function normalizeRelationshipGraph(graph) {
+      const source = graph?.source || 'unknown';
+    
+      const directFeatureChildBugs = Array.isArray(graph?.directFeatureChildBugs)
+        ? graph.directFeatureChildBugs
+        : [];
+    
+      const directFeatureRelatedBugs = Array.isArray(
+        graph?.directFeatureRelatedBugs
+      )
+        ? graph.directFeatureRelatedBugs
+        : [];
+    
+      const childStoryRelatedBugs = Array.isArray(
+        graph?.childStoryRelatedBugs
+      )
+        ? graph.childStoryRelatedBugs
+        : [];
+    
+      const directFeatureRelatedStories = Array.isArray(
+        graph?.directFeatureRelatedStories
+      )
+        ? graph.directFeatureRelatedStories
+        : [];
+    
+      const directChildIds = new Set(
+        directFeatureChildBugs
+          .map(getRelationshipItemId)
+          .filter(Boolean)
+      );
+    
+      const linkedBugs = dedupeRelationshipItems([
+        ...directFeatureRelatedBugs,
+        ...childStoryRelatedBugs
+      ]).filter(item => !directChildIds.has(getRelationshipItemId(item)));
+    
+      const linkedStories = dedupeRelationshipItems(
+        directFeatureRelatedStories
+      ).filter(item => !directChildIds.has(getRelationshipItemId(item)));
+    
+      return {
+        source,
+        directFeatureChildBugs,
+        linkedBugs,
+        linkedStories,
+        total: linkedBugs.length + linkedStories.length
+      };
+    }
     
     function Dashboard() {
       const { tooltip, showTooltip, moveTooltip, hideTooltip } = useTooltip();
@@ -2202,6 +2374,15 @@
       const [storiesCache, setStoriesCache] = useState({});
       const [loadingStoriesIds, setLoadingStoriesIds] = useState({});
       const [unavailableStoriesIds, setUnavailableStoriesIds] = useState({});
+      /* Caché independiente para el grafo de relaciones. Importante:
+      - No se mezcla con storiesCache.
+      - No afecta Delivery Health.
+      - No afecta Progress.
+      - Sólo se consulta cuando el usuario solicita Linked Bugs.*/
+      const [relationshipGraphCache, setRelationshipGraphCache] = useState({});
+      const [loadingRelationshipIds, setLoadingRelationshipIds] = useState({});
+      const [unavailableRelationshipIds, setUnavailableRelationshipIds] = useState({});
+      const relationshipRequestInFlightRef = useRef(new Set());
       const [storyHistoryCache, setStoryHistoryCache] = useState({});
       const [loadingStoryHistory, setLoadingStoryHistory] = useState(false);
       const [featuresPage, setFeaturesPage] = useState(1);
@@ -2290,6 +2471,184 @@
         resetResultsAfterMainFilterChange();
       };
 
+      /* Carga relaciones adicionales bajo demanda.    
+      A diferencia de storiesCache:
+      - estas relaciones no se precargan;
+      - sólo se consultan al pulsar Linked Bugs;
+      - un error no modifica Stories/Bugs directos;
+      - un refresh general permite intentar de nuevo. */
+    const loadRelationshipGraphForFeatures = (
+      featureIds,
+      { retry = false } = {}
+    ) => {
+      const ids = [
+        ...new Set(
+          (featureIds || [])
+            .map(Number)
+            .filter(id => Number.isInteger(id) && id > 0)
+        )
+      ].filter(featureId => {
+        const existsInCache = Object.prototype.hasOwnProperty.call(
+          relationshipGraphCache,
+          featureId
+        );
+    
+        const isUnavailable = unavailableRelationshipIds[featureId];
+        const isLoading = loadingRelationshipIds[featureId];
+        const inFlight =
+          relationshipRequestInFlightRef.current.has(featureId);
+    
+        /*
+          En un retry explícito ignoramos un estado unavailable anterior,
+          pero no duplicamos solicitudes que ya estén en progreso.
+        */
+        return (
+          !inFlight &&
+          !isLoading &&
+          (retry || (!existsInCache && !isUnavailable))
+        );
+      });
+    
+      if (ids.length === 0) {
+        return;
+      }
+    
+      ids.forEach(featureId => {
+        relationshipRequestInFlightRef.current.add(featureId);
+      });
+    
+      setLoadingRelationshipIds(previous => {
+        const next = { ...previous };
+    
+        ids.forEach(featureId => {
+          next[featureId] = true;
+        });
+    
+        return next;
+      });
+    
+      /*
+        Al reintentar, se elimina el estado temporal anterior.
+      */
+      if (retry) {
+        setUnavailableRelationshipIds(previous => {
+          const next = { ...previous };
+    
+          ids.forEach(featureId => {
+            delete next[featureId];
+          });
+    
+          return next;
+        });
+      }
+    
+      fetch('/api/features-relationship-graph-batch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ ids })
+      })
+        .then(async response => {
+          const data = await response.json();
+    
+          if (!response.ok) {
+            throw new Error(
+              data.error ||
+              'Unable to load relationship information.'
+            );
+          }
+    
+          return data;
+        })
+        .then(data => {
+          const results = data.results || {};
+    
+          const unavailableIds = new Set(
+            (data.unavailableFeatureIds || [])
+              .map(Number)
+              .filter(Number.isInteger)
+          );
+    
+          setRelationshipGraphCache(previous => {
+            const next = { ...previous };
+    
+            ids.forEach(featureId => {
+              /*
+                Un ID ausente en results se considera temporalmente
+                no disponible; no se interpreta como "sin relaciones".
+              */
+              if (
+                results[featureId] &&
+                results[featureId].source === 'ok'
+              ) {
+                next[featureId] = results[featureId];
+              } else {
+                delete next[featureId];
+              }
+            });
+    
+            return next;
+          });
+    
+          setUnavailableRelationshipIds(previous => {
+            const next = { ...previous };
+    
+            ids.forEach(featureId => {
+              const result = results[featureId];
+    
+              const isTemporarilyUnavailable =
+                unavailableIds.has(featureId) ||
+                !result ||
+                result.source !== 'ok';
+    
+              if (isTemporarilyUnavailable) {
+                next[featureId] = true;
+              } else {
+                delete next[featureId];
+              }
+            });
+    
+            return next;
+          });
+        })
+        .catch(error => {
+          console.error(
+            'Error loading Feature relationship graph batch:',
+            error
+          );
+    
+          /*
+            No agregamos entradas vacías a relationshipGraphCache:
+            [] significaría erróneamente "sin relaciones".
+          */
+          setUnavailableRelationshipIds(previous => {
+            const next = { ...previous };
+    
+            ids.forEach(featureId => {
+              next[featureId] = true;
+            });
+    
+            return next;
+          });
+        })
+        .finally(() => {
+          ids.forEach(featureId => {
+            relationshipRequestInFlightRef.current.delete(featureId);
+          });
+    
+          setLoadingRelationshipIds(previous => {
+            const next = { ...previous };
+    
+            ids.forEach(featureId => {
+              next[featureId] = false;
+            });
+    
+            return next;
+          });
+        });
+    };
+          
       const saveMyFilter = () => { const filtersToSave = {
           filterAreaPath,
           filterIteration,
@@ -2330,9 +2689,14 @@
           /* Los Features fueron solicitados explícitamente de nuevo. Se invalidan también los detalles dependientes de ellos. */
           setStoriesCache({});
           setUnavailableStoriesIds({});
+          setLoadingStoriesIds({});
+        
+          setRelationshipGraphCache({});
+          setUnavailableRelationshipIds({});
+          setLoadingRelationshipIds({});
+        
           setHistoryCache({});
           setStoryHistoryCache({});
-          setLoadingStoriesIds({});
         } else {
           setLoading(true);
         }
@@ -4125,6 +4489,18 @@
                                         feature={f}
                                         stories={storiesCache[f.id] || []}
                                         adoLink={adoLink}
+                                        relationshipGraph={relationshipGraphCache[f.id]}
+                                        relationshipLoading={!!loadingRelationshipIds[f.id]}
+                                        relationshipUnavailable={!!unavailableRelationshipIds[f.id]}
+                                        onLoadRelationships={() =>
+                                          loadRelationshipGraphForFeatures([f.id])
+                                        }
+                                        onRetryRelationships={() =>
+                                          loadRelationshipGraphForFeatures(
+                                            [f.id],
+                                            { retry: true }
+                                          )
+                                        }
                                       />
                                     )}
                                   </div>
