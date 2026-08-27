@@ -397,7 +397,11 @@
     .delivery-details__title-icon.delivery--unknown { background: #64748b;}
     .dashboard-interaction-hint { margin: 8px 0; padding: 7px 10px; border: 1px solid #dbe4ee; border-radius: 6px; background: #f8fafc; color: #475569; font-size: 11px; line-height: 1.4; }
     .dashboard-interaction-hint strong { color: #1e3a8a;}
-    /* Las alertas conservan colorimetría y texto explícito, pero ocupan mucho menos espacio que las tarjetas grandes. */
+    /* Franja compacta de Delivery Health. En pantallas amplias, título, icono y alertas comparten una línea. Si falta espacio, el contenido baja de forma natural sin desbordarse. */
+    .delivery-details__health-line { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+    .delivery-details__health-heading { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; }
+    .delivery-details__inline-alerts { display: flex; align-items: center; flex: 1 1 420px; flex-wrap: wrap; gap: 6px; min-width: 0; }
+    .delivery-details__inline-reason { color: #64748b; font-size: 11px; line-height: 1.4; }
     .delivery-inline-alert { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 4px; max-width: 100%; padding: 5px 8px; border: 1px solid transparent; border-radius: 5px; font-size: 10px; line-height: 1.35;}
     .delivery-inline-alert__title { font-weight: 700; white-space: nowrap;}
     .delivery-inline-alert__reason { font-weight: 400;}
@@ -2171,7 +2175,6 @@
       const [filterReleaseVersion, setFilterReleaseVersion] = useState([]);
       const [currentPage, setCurrentPage] = useState('roadmap');
       /* Solo una Feature puede estar expandida a la vez en Feature List. El detalle consolidado contiene Readiness y Delivery Health.*/
-      const [expandedFeatureId, setExpandedFeatureId] = useState(null);
       const [expandedFeatureId, setExpandedFeatureId] = useState(null);
       const [searchTitle, setSearchTitle] = useState('');
       const [searchInput, setSearchInput] = useState('');
