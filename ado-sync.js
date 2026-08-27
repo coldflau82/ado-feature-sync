@@ -6,6 +6,10 @@ const path = require('path');
 
 const app = express();
 
+app.get(["/", "/dashboard", "/dashboard-app", "/dashboard.html"], (req, res) => {
+  res.sendFile(path.join(process.cwd(), "public", "dashboard-app.html"));
+});
+
 app.use(express.json());
 
 /*
