@@ -4,8 +4,6 @@
   "description": "Sincronización de Features y User Stories desde Azure DevOps con cálculo de métricas",
   "main": "ado-sync.js",
   "scripts": {
-    "check:server": "node --check ado-sync.js",
-    "build": "npm run check:server && vite build"
     "start": "node ado-sync.js",
     "dev": "nodemon ado-sync.js"
   },
