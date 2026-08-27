@@ -1,0 +1,22 @@
+cat > .vercelignore <<'EOF'
+# Variantes, borradores, respaldos y notas internas.
+private/
+
+# Respaldos habituales.
+*.bak
+*.backup
+*.old
+
+# Archivos temporales.
+*.tmp
+*.txt
+
+# Variables locales.
+.env
+.env.*
+!.env.example
+
+# Archivos del sistema.
+.DS_Store
+Thumbs.db
+EOF
