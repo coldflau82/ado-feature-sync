@@ -2,23 +2,35 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 
-const fs = require('fs');
 const path = require('path');
 
 const app = express();
-app.use(express.json());
-app.use(express.static(__dirname));
 
-app.get('/dashboard.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dashboard.html'));
+app.use(express.json());
+
+/*
+  Para desarrollo local, sirve los archivos dentro de /public.
+  En Vercel, los assets de /public se sirven directamente desde CDN.
+*/
+app.use(express.static(path.join(__dirname, 'public')));
+
+/*
+  Ruta oficial del dashboard.
+*/
+app.get('/', (req, res) => {
+  res.redirect('/dashboard');
 });
 
 app.get('/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dashboard-app.html'));
+  res.redirect('/dashboard-app.html');
 });
 
-app.get('/favicon.png', (req, res) => {
-  res.sendFile(path.join(__dirname, 'favicon.png'));
+/*
+  Compatibilidad con enlaces antiguos.
+  No vuelve pública una variante anterior: sólo redirige a la página oficial.
+*/
+app.get('/dashboard.html', (req, res) => {
+  res.redirect('/dashboard');
 });
 
 const { Redis } = require('@upstash/redis');
