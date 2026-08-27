@@ -259,11 +259,11 @@
       /* Header, filtros y resumen. No pueden crecer ni tomar el espacio destinado a resultados. */
       .dashboard-fixed-content { flex: 0 0 auto; min-width: 0; }
       /* Único scroll vertical del dashboard. min-height: 0 es indispensable: sin él, un hijo flex no se reduce correctamente y el overflow vertical puede no aparecer. */
-      .dashboard-results-scroll { flex: 1 1 auto; min-height: 0; min-width: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; padding-right: 2px; }
+      .dashboard-results-scroll { flex: 1 1 auto; min-height: 0; min-width: 0; overflow-y: auto; overflow-x: auto; scrollbar-gutter: stable; padding-right: 2px; }
       /* La paginación no pertenece al área desplazable. Siempre queda disponible en la parte inferior de la pantalla. */                         
       .dashboard-pagination-footer { flex: 0 0 auto; margin-top: 8px; }}
     /* Wrapper horizontal exclusivo para las tablas. No agrega scroll vertical. Sólo aparece scroll horizontal cuando el ancho mínimo del Gantt no cabe en la pantalla.*/
-      .gantt-horizontal-scroll { width: 100%; overflow-x: auto; overflow-y: visible; scrollbar-gutter: stable; }
+      .gantt-horizontal-scroll { width: 100%; overflow: visible; }
     .feature-list-horizontal-scroll { overflow: visible; }
     /* La tabla conserva un ancho mínimo para que no comprima la línea de tiempo y sus barras Gantt sean utilizables. Puedes aumentar este valor si quieres más espacio para el timeline.*/
     .roadmap-table { min-width: 1180px; }
@@ -280,7 +280,7 @@
     /* Header fijo para Feature List. El scroll real sucede dentro de .dashboard-results-scroll. */
     .dashboard-results-scroll .feature-list-table thead th { position: sticky; top: 0; z-index: 30; background: #f9f9f9; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.10); }
     /* Header fijo para Roadmap */
-    .dashboard-results-scroll .roadmap-table thead th { position: sticky; top: 0; z-index: 30; background: #f9f9f9; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.10); }
+    .dashboard-results-scroll .roadmap-table thead th { position: sticky; top: 0; z-index: 60; background: #f9f9f9; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.10); }
     /* Evita que el contenido de la línea de tiempo aparezca por encima del encabezado al hacer scroll. */
     .dashboard-results-scroll .roadmap-table thead { z-index: 30; }
     /* Compactación vertical: más espacio para Features / Gantt */
