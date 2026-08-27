@@ -2838,7 +2838,7 @@
           .catch(() => { setLoadingHistory(false); });
       }, [pageItemIds, currentPage]);
 
-      useEffect(() => {
+   /*   useEffect(() => {
         if (currentPage !== 'roadmap') return;
         const nextStart = roadmapPage * itemsPerPage;
         const nextPageItems = sortedFiltered.slice(nextStart, nextStart + itemsPerPage);
@@ -2856,7 +2856,7 @@
           })
           .catch(() => {});
       }, [roadmapPage, currentPage, sortedFiltered.length, filterAreaPath.join(','), filterIteration.join(','), filterState.join(','), filterTargetDate.join(','), filterReleaseVersion.join(','), filterAssignedTo.join(','), readinessDropdownFilter, searchTitle]);
-
+    */
       useEffect(() => {
         if (!expandedRoadmapFeatureId || expandedRoadmapStories.length === 0) return;
         const ids = expandedRoadmapStories.map(s => s.id).filter(id => !storyHistoryCache[id]);
