@@ -1490,6 +1490,18 @@ function createEmptyRelationshipGraph(featureId) {
   return {
     source: 'ok',
 
+    /*
+      Colecciones preparadas para la UI.
+
+      No reemplazan nodes/edges; son una proyección funcional del
+      grafo para que el frontend no tenga que interpretar relaciones
+      crudas ni consultar datos adicionales de ADO.
+    */
+    directFeatureChildBugs: [],
+    directFeatureRelatedBugs: [],
+    childStoryRelatedBugs: [],
+    directFeatureRelatedStories: [],
+
     summary: {
       directChildStories: 0,
       directChildBugs: 0,
@@ -1614,6 +1626,138 @@ function buildRelationshipGraphSummary(graph) {
   return summary;
 }
 
+/* Convierte el grafo técnico (nodes + edges) a colecciones que la UI puede consumir directamente.
+  Importante:
+  - Los hijos directos se mantienen separados.
+  - Los Bugs Related a una Story hija se consolidan por Bug ID.
+  - Un Bug puede conservar múltiples Stories de origen.
+  - Estas relaciones son informativas; no alteran Delivery Health. */
+function buildRelationshipGraphUiCollections(graph) {
+  const nodeById = new Map(
+    (graph.nodes || []).map(node => [Number(node.id), node])
+  );
+
+  const directFeatureChildBugsById = new Map();
+  const directFeatureRelatedBugsById = new Map();
+  const directFeatureRelatedStoriesById = new Map();
+  const childStoryRelatedBugsById = new Map();
+
+  /* Primero identificamos cuáles Stories son realmente hijas directas del Feature. Sólo estas Stories deben participar en: Feature -> Child Story -> Related Bug */
+  const directChildStoryIds = new Set(
+    (graph.edges || [])
+      .filter(edge => {
+        if (
+          edge.level !== 1 ||
+          edge.relationType !== 'child'
+        ) {
+          return false;
+        }
+
+        const target = nodeById.get(Number(edge.targetId));
+
+        return target?.workItemType === 'User Story';
+      })
+      .map(edge => Number(edge.targetId))
+  );
+
+  (graph.edges || []).forEach(edge => {
+    const target = nodeById.get(Number(edge.targetId));
+
+    if (!target) {
+      return;
+    }
+
+    /* Nivel 1: Feature -> Child / Related -> Story or Bug */
+    if (edge.level === 1) {
+      if (
+        edge.relationType === 'child' &&
+        target.workItemType === 'Bug'
+      ) {
+        directFeatureChildBugsById.set(
+          Number(target.id),
+          target
+        );
+      }
+
+      if (
+        edge.relationType === 'related' &&
+        target.workItemType === 'Bug'
+      ) {
+        directFeatureRelatedBugsById.set(
+          Number(target.id),
+          target
+        );
+      }
+
+      if (
+        edge.relationType === 'related' &&
+        target.workItemType === 'User Story'
+      ) {
+        directFeatureRelatedStoriesById.set(
+          Number(target.id),
+          target
+        );
+      }
+
+      return;
+    }
+
+    /* Nivel 2: Story hija directa -> Related -> Bug
+      Sólo se incluyen relaciones Related. Un Bug Child de una Story no entra como Linked Bug informativo. */
+    if (
+      edge.level !== 2 ||
+      edge.relationType !== 'related' ||
+      target.workItemType !== 'Bug'
+    ) {
+      return;
+    }
+
+    const sourceStoryId = Number(edge.sourceId);
+
+    /* Protección adicional: aunque el grafo tuviera otro tipo de Story en nivel 2, sólo aceptamos las Stories hijas directas del Feature. */
+    if (!directChildStoryIds.has(sourceStoryId)) {
+      return;
+    }
+
+    const bugId = Number(target.id);
+
+    const existingBug = childStoryRelatedBugsById.get(bugId);
+
+    childStoryRelatedBugsById.set(bugId, {
+      ...target,
+
+      /* Conserva todos los vínculos Story -> Bug.
+        Ejemplo:
+        Bug #1207509:
+          relatedFromStoryIds: [1209243, 1215566]  */
+      relatedFromStoryIds: [
+        ...new Set([
+          ...(existingBug?.relatedFromStoryIds || []),
+          sourceStoryId
+        ])
+      ]
+    });
+  });
+
+  return {
+    directFeatureChildBugs: [
+      ...directFeatureChildBugsById.values()
+    ],
+
+    directFeatureRelatedBugs: [
+      ...directFeatureRelatedBugsById.values()
+    ],
+
+    childStoryRelatedBugs: [
+      ...childStoryRelatedBugsById.values()
+    ],
+
+    directFeatureRelatedStories: [
+      ...directFeatureRelatedStoriesById.values()
+    ]
+  };
+}
+
 /* Carga el grafo de relaciones para varios Features sin ejecutar una petición ADO por Feature.
   Profundidad máxima:
   Feature
@@ -1707,10 +1851,16 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
         featureRelation.targetId
       );
 
-      /* Sólo se recorren vínculos salientes de User Stories. Los Bugs de primer nivel se muestran, pero no se recorren. */
+      /* Sólo recorremos relaciones desde User Stories hijas directas.      
+        No recorremos:
+        - Stories relacionadas directamente al Feature;
+        - Bugs directos del Feature;
+        - Tasks;
+        - otros tipos de Work Item.  */
       if (
+        featureRelation.relationType !== 'child' ||
         firstLevelWorkItem?.fields?.['System.WorkItemType'] !==
-        'User Story'
+          'User Story'
       ) {
         return;
       }
@@ -1841,12 +1991,14 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
       });
     });
 
-    graph.nodes = [...nodesById.values()];
-    graph.edges = [...edgesByKey.values()];
-    graph.summary = buildRelationshipGraphSummary(graph);
-
-    results[featureId] = graph;
-  });
+  graph.nodes = [...nodesById.values()];
+  graph.edges = [...edgesByKey.values()];
+  graph.summary = buildRelationshipGraphSummary(graph);
+  
+  /* Mantiene nodes y edges para diagnóstico o una vista futura de grafo, pero también entrega las colecciones que consume el frontend actual. */
+  Object.assign( graph, buildRelationshipGraphUiCollections(graph) );
+  
+  results[featureId] = graph;
 
   /* Para los Features no disponibles se deja una estructura consistente, pero source: unknown indica al frontend que no debe interpretarla
     como un Feature sin relaciones. */
