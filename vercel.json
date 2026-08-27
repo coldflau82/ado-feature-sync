@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "cleanUrls": true,
   "builds": [
     {
       "src": "ado-sync.js",
@@ -15,35 +16,42 @@
     {
       "src": "^/$",
       "headers": {
-        "Location": "/dashboard"
+        "Location": "/dashboard-app"
       },
       "status": 307
     },
     {
       "src": "^/dashboard$",
       "headers": {
-        "Location": "/dashboard-app.html"
+        "Location": "/dashboard-app"
       },
       "status": 307
     },
     {
       "src": "^/dashboard\\.html$",
       "headers": {
-        "Location": "/dashboard"
+        "Location": "/dashboard-app"
       },
       "status": 307
     },
     {
-      "src": "^/dashboard-app\\.html$",
+      "src": "^/dashboard-app$",
       "dest": "/public/dashboard-app.html"
+    },
+    {
+      "src": "^/dashboard-app\\.html$",
+      "headers": {
+        "Location": "/dashboard-app"
+      },
+      "status": 307
     },
     {
       "src": "^/favicon\\.png$",
       "dest": "/public/favicon.png"
     },
     {
-      "src": "/(.*)",
-      "dest": "ado-sync.js"
+      "src": "^/ado-sync$",
+      "dest": "/ado-sync.js"
     }
   ]
 }
