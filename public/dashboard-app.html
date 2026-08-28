@@ -429,15 +429,15 @@
     .dashboard-results-state__action:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.28); outline-offset: 2px; }
     .dashboard-results-state__action:disabled { cursor: wait; opacity: 0.7; }
     /* Franja compacta de Delivery Health. En pantallas amplias, título, icono y alertas comparten una línea. Si falta espacio, el contenido baja de forma natural sin desbordarse. */
-    .delivery-details__health-line { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+    .delivery-details__health-line { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
     .delivery-details__health-heading { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; }
-    .delivery-details__inline-alerts { display: flex; flex: 1 1 360px; flex-direction: column; align-items: stretch; gap: 4px; max-width: 100%; min-width: 280px; padding: 7px 9px;
-      border: 1px solid transparent; border-radius: 6px; font-size: 10px; line-height: 1.35; }
+    .delivery-details__inline-alerts { display: flex; flex: 1 1 360px; flex-wrap: wrap; align-items: stretch; gap: 4px; min-width:0; }
+    .delivery-details__inline-reason { color: #64748b; font-size: 11px; line-height: 1.4; }
+    .delivery-inline-alert { display: flex; flex: 1 1 360px; flex-direction: column; align-items: stretch; gap: 4px; min-width: 280xp; 
+        max-width: 100%; padding: 5px 8px; border: 1px solid transparent; border-radius: 5px; font-size: 10px; line-height: 1.35; }
     .delivery-inline-alert__header { display: flex; align-items: center; min-width: 0; }
     .delivery-inline-alert__title { font-weight: 700; line-height: 1.25; }
     .delivery-inline-alert__reason { font-weight: 400;}
-    .delivery-details__inline-reason { color: #64748b; font-size: 11px; line-height: 1.4; }
-    .delivery-inline-alert { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 4px; max-width: 100%; padding: 5px 8px; border: 1px solid transparent; border-radius: 5px; font-size: 10px; line-height: 1.35;}
     .delivery-inline-alert__details { display: grid; gap: 3px; margin-top: 2px; padding-top: 5px; border-top: 1px solid rgba(100, 116, 139, 0.22); }
     .delivery-inline-alert__detail { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; column-gap: 4px; }
     .delivery-inline-alert__detail-label { font-weight: 700; white-space: nowrap; }
