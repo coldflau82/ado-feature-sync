@@ -755,20 +755,20 @@
         primary.label
       );
       
-    return {
-      key: primary.key,
-      label: labels.label,
-      shortLabel:
-        primary.key === 'needs-estimate'
-          ? labels.shortLabel
-          : (primary.shortLabel || labels.shortLabel),
-      group: primary.group,
-      className: visual.className,
-      icon: visual.icon,
-      reason: primary.reason,
-      recommendedAction: primary.recommendedAction
-    };
-
+      return {
+        key: primary.key,
+        label: labels.label,
+        shortLabel:
+          primary.key === 'needs-estimate'
+            ? labels.shortLabel
+            : (primary.shortLabel || labels.shortLabel),
+        group: primary.group,
+        className: visual.className,
+        icon: visual.icon,
+        reason: primary.reason,
+        recommendedAction: primary.recommendedAction
+      };
+    }
     function getDeliveryHealthAlerts(feature) {
       const backendAlerts = feature.deliveryHealth?.alerts;
 
@@ -1885,37 +1885,33 @@
       );
 
       return (
-        <div className="delivery-details">
           <div className="delivery-details__health-line">
             <div className="delivery-details__health-heading">
               <strong className="delivery-details__title">
                 Delivery Health
               </strong>
-          
+
               <span
                 className={`delivery-details__title-icon ${delivery.className}`}
                 aria-label={`Delivery health: ${delivery.label}`}
                 title={`Delivery health: ${delivery.label}`}
               >
                 {delivery.icon}
-               </span>  
-             </div>
-             <div className="delivery-details__inline-alerts" aria-label="Delivery Health alerts">
-                {alerts.map(alert => (
-                  <DeliveryHealthAlert
-                    key={alert.key}
-                    alert={alert}
-                    assignedTo={feature.assignedTo}
-                  />
-                ))}
-              </div>
+              </span>
+            </div>
+
+            <div
+              className="delivery-details__inline-alerts"
+              aria-label="Delivery Health alerts"
+            >
+              {alerts.map(alert => (
+                <DeliveryHealthAlert
+                  key={alert.key}
+                  alert={alert}
+                  assignedTo={feature.assignedTo}
+                />
               ))}
             </div>
-            ) : (
-              <span className="delivery-details__inline-reason">
-                {delivery.reason}
-              </span>
-            )}
           </div>
   
           <div className="delivery-details__summary">
@@ -3544,7 +3540,7 @@
         { key: 'needs-estimate', label: 'Needs High Level Estimation' },
         { key: 'no-stories', label: 'No Stories' },
         { key: 'no-active-work', label: 'No active work' },
-        { key: 'unestimated-work', label: 'No estimated work' }
+        { key: 'unestimated-work', label: 'No estimated work' },
         { key: 'not-started', label: 'Not started' },
       ];
 
