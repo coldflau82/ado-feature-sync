@@ -419,10 +419,17 @@ const OLD_FEATURES_CACHE_TTL_SECONDS = 12 * 60 * 60;
 const RECENT_DAYS_THRESHOLD = 10;
 const CACHE_KEY = 'oldFeaturesCache';
 
+/* Un resultado de exactamente 200 IDs se trata como un rango potencialmente saturado. En vez de mostrar una advertencia y continuar con datos
+posiblemente incompletos, el rango se divide automáticamente. */
+const WIQL_SATURATION_LIMIT = 200;
+
+/* Límite defensivo de la partición automática.  Si un rango de un minuto sigue devolviendo 200 Features, no es seguro
+seguir reduciendo sin una estrategia adicional de paginación por ID.  En ese caso se lanza un error explícito para evitar ocultar datos faltantes. */
+const WIQL_MINIMUM_RANGE_MS = 60 * 1000;
+
 // ===== Cliente ADO reutilizable =====
-/* La instancia se crea una sola vez cuando inicia el proceso.
-  Todas las rutas siguen usando getAdoClient(), pero ahora reciben la misma instancia configurada. Esto evita crear objetos Axios repetidos
-  y hace que el nombre "cliente reutilizable" sea consistente con el comportamiento real. */
+/* La instancia se crea una sola vez cuando inicia el proceso. Todas las rutas siguen usando getAdoClient(), pero ahora reciben la misma instancia configurada. 
+Esto evita crear objetos Axios repetidos y hace que el nombre "cliente reutilizable" sea consistente con el comportamiento real. */
 const adoClient = axios.create({
   baseURL:
     `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
@@ -2458,26 +2465,184 @@ async function fetchStoriesForFeaturesBatch(c, featureIds) {
       );
   });
 
-  /*
-    Para IDs no disponibles se conserva results[id]: [] por consistencia
-    estructural, pero el frontend debe usar unavailableFeatureIds para no
-    confundir este caso con "sin Stories/Bugs".
-  */
+  /* Para IDs no disponibles se conserva results[id]: [] por consistencia estructural, pero el frontend debe usar unavailableFeatureIds para no
+    confundir este caso con "sin Stories/Bugs". */
   return {
     results,
     unavailableFeatureIds: [...unavailableFeatureIds]
   };
 }
 
-// ===== Trae IDs para un rango de fechas específico =====
-async function fetchIdsForRange(c, range) {
+/* Convierte una fecha UTC en un literal compatible con WIQL.
+  Ejemplo: 2026-08-28T04:30:00.000Z => '2026-08-28T04:30:00Z'
+  Las comillas son necesarias porque el valor se insertará como literal de fecha/hora dentro de la consulta WIQL. */
+
+function formatWiqlDateTime(date) {
+  return `'${date.toISOString().replace('.000Z', 'Z')}'`;
+}
+
+/* Convierte las expresiones actualmente usadas por el dashboard:
+  - @today
+  - @today - 10
+  - @today + 1
+  a un límite UTC concreto, únicamente cuando necesitamos subdividir una consulta que alcanzó el límite de 200 resultados.
+  La consulta inicial continúa usando las expresiones actuales de ADO.  Esto minimiza el cambio de comportamiento respecto a producción. */
+
+function getUtcDateFromTodayExpression(expression) {
+  const normalizedExpression = String(expression || '')
+    .trim()
+    .replace(/\s+/g, ' ');
+
+  const todayUtc = new Date();
+
+  todayUtc.setUTCHours(0, 0, 0, 0);
+
+  if (normalizedExpression === '@today') {
+    return todayUtc;
+  }
+
+  const match = normalizedExpression.match(
+    /^@today\s*([+-])\s*(\d+)$/
+  );
+
+  if (!match) {
+    throw new Error(
+      `Unable to split unsupported WIQL date expression: "${expression}".`
+    );
+  }
+
+  const operator = match[1];
+  const days = Number(match[2]);
+
+  if (!Number.isInteger(days)) {
+    throw new Error(
+      `Unable to parse WIQL date expression: "${expression}".`
+    );
+  }
+
+  const result = new Date(todayUtc);
+
+  result.setUTCDate(
+    result.getUTCDate() + (operator === '+' ? days : -days)
+  );
+
+  return result;
+}
+
+/* Construye el filtro de ChangedDate.
+  Para la consulta inicial usamos los macros existentes de WIQL, por ejemplo: [System.ChangedDate] >= @today - 180
+  Para subrangos usamos fechas UTC con precisión de hora/minuto: [System.ChangedDate] >= '2026-02-28T00:00:00Z'
+  Así la mitad izquierda usa "< midpoint" y la derecha usa ">= midpoint", sin solapamientos ni huecos. */
+
+function buildChangedDateFilter(range) {
+  const fromValue = range.fromDate
+    ? formatWiqlDateTime(range.fromDate)
+    : range.from;
+
+  const toValue = range.toDate
+    ? formatWiqlDateTime(range.toDate)
+    : range.to;
+
+  return (
+    `[System.ChangedDate] >= ${fromValue} ` +
+    `AND [System.ChangedDate] < ${toValue}`
+  );
+}
+
+/* Devuelve límites Date para un rango.
+  Los rangos originales tienen from/to con macros WIQL. Los subrangos generados automáticamente tienen fromDate/toDate. */
+function getRangeDateBounds(range) {
+  const fromDate = range.fromDate
+    ? new Date(range.fromDate)
+    : getUtcDateFromTodayExpression(range.from);
+
+  const toDate = range.toDate
+    ? new Date(range.toDate)
+    : getUtcDateFromTodayExpression(range.to);
+
+  if (
+    Number.isNaN(fromDate.getTime()) ||
+    Number.isNaN(toDate.getTime()) ||
+    fromDate >= toDate
+  ) {
+    throw new Error(
+      'Unable to split WIQL range because its date boundaries are invalid.'
+    );
+  }
+
+  return {
+    fromDate,
+    toDate
+  };
+}
+
+/* Ejecuta una consulta WIQL individual. 
+timePrecision=true es importante para las consultas subdivididas: permite trabajar con límites exactos de fecha y hora cuando un rango debe partirse en dos. */
+
+async function fetchIdsForSingleRange(c, range) {
   const response = await withAdoRetry(() =>
-    c.post('/wit/wiql?api-version=7.0', {
-      query: `SELECT [System.Id], [System.Title] FROM workitems WHERE [System.WorkItemType] = "Feature" AND [System.ChangedDate] >= ${range.from} AND [System.ChangedDate] < ${range.to} ${BASE_FILTER}`
+    c.post('/wit/wiql?timePrecision=true&api-version=7.0', {
+      query:
+        'SELECT [System.Id], [System.Title] ' +
+        'FROM workitems ' +
+        'WHERE [System.WorkItemType] = "Feature" ' +
+        `AND ${buildChangedDateFilter(range)} ` +
+        `${BASE_FILTER}`
     })
   );
 
-  return response.data.workItems.map(item => item.id);
+  return (response.data?.workItems || [])
+    .map(item => Number(item.id))
+    .filter(Number.isInteger);
+}
+
+/* Recupera IDs de Features para un rango de ChangedDate.
+  Si ADO devuelve exactamente 200 elementos, el resultado puede estar truncado. En ese caso el rango se divide recursivamente hasta que
+  cada subconsulta devuelva menos de 200 elementos.
+  La ejecución es secuencial de forma deliberada dentro de la recursión. Ya existe concurrencia controlada entre rangos históricos mediante
+  OLD_FEATURES_RANGE_CONCURRENCY; lanzar además ambas mitades en paralelo aumentaría innecesariamente el riesgo de throttling HTTP 429. */
+
+async function fetchIdsForRange(c, range) { const ids = await fetchIdsForSingleRange(c, range);
+  if (ids.length < WIQL_SATURATION_LIMIT) { return ids; }
+  const { fromDate, toDate } = getRangeDateBounds(range);
+  const rangeDurationMs = toDate.getTime() - fromDate.getTime();
+  if (rangeDurationMs <= WIQL_MINIMUM_RANGE_MS) {
+    throw new Error(
+      'WIQL range remained saturated with 200 items even after ' +
+      'splitting down to one minute. Data retrieval was stopped to ' +
+      'avoid returning an incomplete Feature list.'
+    );
+  }
+  const midpointMs = fromDate.getTime() + Math.floor(rangeDurationMs / 2);
+  const midpointDate = new Date(midpointMs);
+  /* Protección adicional: el midpoint debe quedar estrictamente entre ambos límites. Si no es posible, la consulta no puede subdividirse de forma segura. */
+  if (
+    midpointDate <= fromDate ||
+    midpointDate >= toDate
+  ) {
+    throw new Error( 'Unable to create a smaller WIQL range while resolving ' + 'a saturated result set.' );
+  }
+
+  console.warn('Splitting saturated WIQL Feature range', {
+    originalRange: {
+      from: range.from || formatWiqlDateTime(fromDate),
+      to: range.to || formatWiqlDateTime(toDate)
+    },
+    returnedItems: ids.length,
+    midpoint: midpointDate.toISOString()
+  });
+
+  const leftIds = await fetchIdsForRange(c, { fromDate, toDate: midpointDate });
+
+  const rightIds = await fetchIdsForRange(c, { fromDate: midpointDate, toDate });
+
+  /* La deduplicación es defensiva. Los intervalos no deberían solaparse por diseño, pero evita resultados repetidos si ADO devolviera un ID duplicado inesperadamente.  */
+  return [
+    ...new Set([
+      ...leftIds,
+      ...rightIds
+    ])
+  ];
 }
 
 // ===== Trae campos y relaciones de Features en lotes de 200 =====
@@ -3150,13 +3315,22 @@ app.get('/api/features', async (req, res) => {
     const allFeatures = [...recentResult.features, ...cleanOldFeatures];
 
     // 4. rangeCounts y warnings combinados
-    const rangeCounts = { ...oldFeaturesCache.rangeCounts, ...recentResult.rangeCounts };
-    const warnings = [];
-    for (const [range, count] of Object.entries(rangeCounts)) {
-      if (typeof count === 'number' && count >= 200) {
-        warnings.push(`WARNING: Range "${range}" has ${count} items - DATA MAY BE MISSING`);
-      }
-    }
+    const rangeCounts = {
+      ...oldFeaturesCache.rangeCounts,
+      ...recentResult.rangeCounts
+    };
+
+    /* Un conteo mayor o igual a 200 ya no es una advertencia por sí solo:  fetchIdsForRange() divide automáticamente las consultas saturadas.
+      Solo se informa al usuario cuando un rango realmente falló y, por tanto, no fue posible confirmar que todos los datos se recuperaron. */
+    
+    const warnings = Object.entries(rangeCounts)
+      .filter(([, count]) =>
+        typeof count === 'string' &&
+        count.startsWith('ERROR:')
+      )
+      .map(([range]) =>
+        `WARNING: Range "${range}" could not be fully retrieved from Azure DevOps.`
+      );
 
     res.json({
       rangeCounts,
@@ -3164,10 +3338,13 @@ app.get('/api/features', async (req, res) => {
       total: allFeatures.length,
       cacheInfo: {
         lastRefresh: new Date(oldFeaturesCache.timestamp).toISOString(),
-        ageMinutes: Math.round((now - oldFeaturesCache.timestamp) / 60000)
+        ageMinutes: Math.round(
+          (now - oldFeaturesCache.timestamp) / 60000
+        )
       },
       features: allFeatures
     });
+    
   } catch (error) {
     /* El diagnóstico completo se conserva en logs del servidor para soporte técnico. No debe enviarse al navegador, incluso si no
       contiene explícitamente Authorization o el PAT. */
