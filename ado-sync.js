@@ -1,7 +1,27 @@
 require('dotenv').config();
+
 const express = require('express');
 const axios = require('axios');
 const path = require('path');
+
+/* Azure DevOps es una dependencia obligatoria del dashboard. Validar al iniciar evita que la aplicación arranque aparentemente bien
+  y falle después durante una solicitud con una URL o credenciales inválidas. */
+const REQUIRED_ADO_ENV_VARS = [
+  'ADO_ORG',
+  'ADO_PROJECT',
+  'ADO_PAT'
+];
+
+const missingAdoEnvVars = REQUIRED_ADO_ENV_VARS.filter(
+  envVar => !String(process.env[envVar] || '').trim()
+);
+
+if (missingAdoEnvVars.length > 0) {
+  throw new Error(
+    `Missing required Azure DevOps environment variable(s): ` +
+    missingAdoEnvVars.join(', ')
+  );
+}
 
 const app = express();
 
@@ -143,21 +163,26 @@ const RECENT_DAYS_THRESHOLD = 10;
 const CACHE_KEY = 'oldFeaturesCache';
 
 // ===== Cliente ADO reutilizable =====
+/* La instancia se crea una sola vez cuando inicia el proceso.
+  Todas las rutas siguen usando getAdoClient(), pero ahora reciben la misma instancia configurada. Esto evita crear objetos Axios repetidos
+  y hace que el nombre "cliente reutilizable" sea consistente con el comportamiento real. */
+const adoClient = axios.create({
+  baseURL:
+    `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
+  timeout: 30000,
+  headers: {
+    Authorization: `Basic ${Buffer.from(
+      `:${process.env.ADO_PAT}`
+    ).toString('base64')}`,
+    'Content-Type': 'application/json'
+  }
+});
+
 function getAdoClient() {
-  return axios.create({
-    baseURL:
-      `https://dev.azure.com/${process.env.ADO_ORG}/${process.env.ADO_PROJECT}/_apis`,
-    timeout: 30000,
-    headers: {
-      Authorization: `Basic ${Buffer.from(
-        `:${process.env.ADO_PAT}`
-      ).toString('base64')}`,
-      'Content-Type': 'application/json'
-    }
-  });
+  return adoClient;
 }
 
-// ===== Filtro base de Area Path (idéntico al que ya tenías) =====
+// ===== Filtro base de Area Path  =====
 const BASE_FILTER = 'AND [System.State] <> "Removed" AND ([System.AreaPath] UNDER "Commercial Engineering\\Go To Market\\Digital Sales Enablement" OR [System.AreaPath] UNDER "Commercial Engineering\\Digital\\Acquisition")';
 
 // ===== Campos que se traen en el batch =====
@@ -2359,12 +2384,14 @@ app.get('/api/feature-history/:id', async (req, res) => {
       adoStatus: error.response?.status || null,
       adoStatusText: error.response?.statusText || null,
       adoResponse: error.response?.data || null,
+      errorCode: error.code || null,
       message: error.message
     });
 
+    /* La respuesta pública no debe incluir error.response.data.
+      Azure DevOps puede devolver detalles internos, estructuras, mensajes técnicos o información no pensada para usuarios. */
     return res.status(500).json({
-      error: 'Unable to fetch Feature history from ADO.',
-      details: error.response?.data || null
+      error: 'Unable to fetch Feature history from Azure DevOps.'
     });
   }
 });
@@ -2468,12 +2495,16 @@ app.get('/api/story-history/:id', async (req, res) => {
       adoStatus: error.response?.status || null,
       adoStatusText: error.response?.statusText || null,
       adoResponse: error.response?.data || null,
+      errorCode: error.code || null,
       message: error.message
     });
 
+    /*
+      Los detalles técnicos se conservan exclusivamente en logs.
+      El navegador recibe un mensaje estable y seguro.
+    */
     return res.status(500).json({
-      error: 'Unable to fetch Story history from ADO.',
-      details: error.response?.data || null
+      error: 'Unable to fetch Story history from Azure DevOps.'
     });
   }
 });
@@ -2789,24 +2820,28 @@ app.get('/api/features', async (req, res) => {
       },
       features: allFeatures
     });
-
-    } catch (error) {
+  } catch (error) {
+    /* El diagnóstico completo se conserva en logs del servidor para soporte técnico. No debe enviarse al navegador, incluso si no
+      contiene explícitamente Authorization o el PAT. */
     const diagnostic = {
       errorName: error.name || 'Error',
       message: error.message || 'Unknown error',
       adoStatus: error.response?.status || null,
       adoStatusText: error.response?.statusText || null,
       adoResponse: error.response?.data || null,
-      errorCode: error.code || null
+      errorCode: error.code || null,
+      stack: error.stack || null
     };
 
     console.error('ERROR /api/features', diagnostic);
 
-    // Diagnóstico temporal para poder identificar el problema cuando los logs de Vercel no están disponibles.
-    // No exponer stack, variables de entorno, Authorization ni PAT.
-    res.status(500).json({
-      error: 'Unable to fetch Features from ADO.',
-      diagnostic
+    /* Contrato público seguro: 
+      - sin diagnostic;
+      - sin detalles de Azure DevOps;
+      - sin códigos de red internos;
+      - sin stack trace.  */
+    return res.status(500).json({
+      error: 'Unable to fetch Features from Azure DevOps.'
     });
   }
 });
