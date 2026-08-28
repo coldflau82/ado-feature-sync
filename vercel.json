@@ -12,12 +12,4 @@
       "dest": "ado-sync.js"
     }
   ]
-  {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "api/ado-sync.js": {
-      "includeFiles": "Config/delivery-health-rules.json"
-    }
-  }
-}
 }
