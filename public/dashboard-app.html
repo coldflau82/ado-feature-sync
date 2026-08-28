@@ -431,11 +431,20 @@
     /* Franja compacta de Delivery Health. En pantallas amplias, título, icono y alertas comparten una línea. Si falta espacio, el contenido baja de forma natural sin desbordarse. */
     .delivery-details__health-line { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
     .delivery-details__health-heading { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; }
-    .delivery-details__inline-alerts { display: flex; align-items: center; flex: 1 1 420px; flex-wrap: wrap; gap: 6px; min-width: 0; }
+    .delivery-details__inline-alerts { display: flex; flex: 1 1 360px; flex-direction: column; align-items: stretch; gap: 4px; max-width: 100%; min-width: 280px; padding: 7px 9px;
+      border: 1px solid transparent; border-radius: 6px; font-size: 10px; line-height: 1.35; }
+    .delivery-inline-alert__header { display: flex; align-items: center; min-width: 0; }
+    .delivery-inline-alert__title { font-weight: 700; line-height: 1.25; }
+    .delivery-inline-alert__reason { font-weight: 400;}
     .delivery-details__inline-reason { color: #64748b; font-size: 11px; line-height: 1.4; }
     .delivery-inline-alert { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 4px; max-width: 100%; padding: 5px 8px; border: 1px solid transparent; border-radius: 5px; font-size: 10px; line-height: 1.35;}
-    .delivery-inline-alert__title { font-weight: 700; white-space: nowrap;}
-    .delivery-inline-alert__reason { font-weight: 400;}
+    .delivery-inline-alert__details { display: grid; gap: 3px; margin-top: 2px; padding-top: 5px; border-top: 1px solid rgba(100, 116, 139, 0.22); }
+    .delivery-inline-alert__detail { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; column-gap: 4px; }
+    .delivery-inline-alert__detail-label { font-weight: 700; white-space: nowrap; }
+    .delivery-inline-alert__detail-value { min-width: 0; overflow-wrap: anywhere; }
+    .delivery-inline-alert--not-started { color: #1e40af; background: #eff6ff; border-color: #bfdbfe; }
+    @media (max-width: 560px) { .delivery-inline-alert { flex-basis: 100%; min-width: 0; }
+      .delivery-inline-alert__detail { grid-template-columns: 1fr; row-gap: 1px; } }
     .delivery-inline-alert--overdue { color: #991b1b; background: #fef2f2; border-color: #fecaca;}
     .delivery-inline-alert--needs-info { color: #9a3412; background: #fff7ed; border-color: #fed7aa;}
     .delivery-inline-alert--attention { color: #854d0e; background: #fefce8; border-color: #fde68a;}
@@ -657,10 +666,10 @@
             icon: '✓'
           };
 
-        case 'not-started':
+       case 'not-started':
           return {
             className: 'delivery--not-started',
-            alertClassName: 'delivery-alert--attention',
+            alertClassName: 'delivery-alert--not-started',
             icon: '○'
           };
 
@@ -721,10 +730,7 @@
     function getDeliveryHealth(feature) {
       const primary = feature.deliveryHealth?.primary;
 
-      /*
-        Este caso no es un fallback de negocio: es una protección visual
-        para una respuesta incompleta o inválida.
-      */
+      /* Este caso no es un fallback de negocio: es una protección visual para una respuesta incompleta o inválida. */
       if (!primary || typeof primary !== 'object') {
         const visual = getDeliveryVisualMeta('unable-to-evaluate');
 
@@ -736,7 +742,9 @@
           className: visual.className,
           icon: visual.icon,
           reason:
-            'Delivery Health information was not returned by the server.'
+            'Delivery Health information was not returned by the server.',
+          recommendedAction:
+            'Refresh the dashboard and verify Azure DevOps availability.'
         };
       }
 
@@ -747,27 +755,24 @@
         primary.label
       );
       
-      return {
-        key: primary.key,
-        label: labels.label,
-        shortLabel:
-          primary.key === 'needs-estimate'
-            ? labels.shortLabel
-            : (primary.shortLabel || labels.shortLabel),
-        group: primary.group,
-        className: visual.className,
-        icon: visual.icon,
-        reason: primary.reason
-      };
-    }
+    return {
+      key: primary.key,
+      label: labels.label,
+      shortLabel:
+        primary.key === 'needs-estimate'
+          ? labels.shortLabel
+          : (primary.shortLabel || labels.shortLabel),
+      group: primary.group,
+      className: visual.className,
+      icon: visual.icon,
+      reason: primary.reason,
+      recommendedAction: primary.recommendedAction
+    };
 
     function getDeliveryHealthAlerts(feature) {
       const backendAlerts = feature.deliveryHealth?.alerts;
 
-      /*
-        El backend envía [] cuando no existen alertas aplicables,
-        por ejemplo para un Feature Healthy o Not started.
-      */
+      /* El backend envía [] cuando no existen alertas aplicables, por ejemplo para un Feature Healthy o Not started. */
       if (!Array.isArray(backendAlerts)) {
         const visual = getDeliveryVisualMeta('unable-to-evaluate');
 
@@ -777,7 +782,9 @@
           group: 'requires-attention',
           className: visual.alertClassName,
           reason:
-            'Delivery Health alert information was not returned by the server.'
+            'Delivery Health alert information was not returned by the server.',
+          recommendedAction:
+            'Refresh the dashboard and verify Azure DevOps availability.'
         }];
       }
 
@@ -794,7 +801,8 @@
           label: labels.label,
           group: alert.group,
           className: visual.alertClassName,
-          reason: alert.reason
+          reason: alert.reason,
+          recommendedAction: alert.recommendedAction
         };
       });
     }
@@ -1675,6 +1683,60 @@
       );
     }
 
+    function DeliveryHealthAlert({
+      alert,
+      assignedTo
+    }) {
+      const owner = getShortAssignedToName(assignedTo);
+    
+      const inlineAlertClassName = alert.className.replace(
+        'delivery-alert--',
+        'delivery-inline-alert--'
+      );
+    
+      return (
+        <article
+          className={[
+            'delivery-inline-alert',
+            inlineAlertClassName
+          ].join(' ')}
+        >
+          <div className="delivery-inline-alert__header">
+            <strong className="delivery-inline-alert__title">
+              {alert.label}
+            </strong>
+          </div>
+    
+          <div className="delivery-inline-alert__reason">
+            {alert.reason}
+          </div>
+    
+          <div className="delivery-inline-alert__details">
+            <div className="delivery-inline-alert__detail">
+              <span className="delivery-inline-alert__detail-label">
+                Action:
+              </span>
+    
+              <span className="delivery-inline-alert__detail-value">
+                {alert.recommendedAction ||
+                  'No recommended action configured.'}
+              </span>
+            </div>
+    
+            <div className="delivery-inline-alert__detail">
+              <span className="delivery-inline-alert__detail-label">
+                Owner:
+              </span>
+    
+              <span className="delivery-inline-alert__detail-value">
+                {owner}
+              </span>
+            </div>
+          </div>
+        </article>
+      );
+    }
+      
     function FeatureDeliveryDetails({ 
       feature, 
       stories, 
@@ -1836,30 +1898,19 @@
                 title={`Delivery health: ${delivery.label}`}
               >
                 {delivery.icon}
-              </span>
-            </div>
-          
-            {alerts.length > 0 ? (
-              <div className="delivery-details__inline-alerts" aria-label="Delivery Health alerts">
+               </span>  
+             </div>
+             <div className="delivery-details__inline-alerts" aria-label="Delivery Health alerts">
                 {alerts.map(alert => (
-                  <div key={alert.key} className={[
-                      'delivery-inline-alert',
-                      alert.className.replace(
-                        'delivery-alert--',
-                        'delivery-inline-alert--'
-                      )
-                    ].join(' ')}
-                  >
-                    <strong className="delivery-inline-alert__title">
-                      {alert.label}
-                    </strong>
-          
-                    <span className="delivery-inline-alert__reason">
-                      {alert.reason}
-                    </span>
-                  </div>
+                  <DeliveryHealthAlert
+                    key={alert.key}
+                    alert={alert}
+                    assignedTo={feature.assignedTo}
+                  />
                 ))}
               </div>
+              ))}
+            </div>
             ) : (
               <span className="delivery-details__inline-reason">
                 {delivery.reason}
@@ -3494,6 +3545,7 @@
         { key: 'no-stories', label: 'No Stories' },
         { key: 'no-active-work', label: 'No active work' },
         { key: 'unestimated-work', label: 'No estimated work' }
+        { key: 'not-started', label: 'Not started' },
       ];
 
       const featuresItemsPerPage = 15;
