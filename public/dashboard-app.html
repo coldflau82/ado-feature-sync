@@ -5087,54 +5087,90 @@
                               hideTooltip={hideTooltip}
                             />
                           {isExpanded && (
-                              loadingStoriesIds[f.id] ? (
-                                <tr style={{ background: '#f2f2f2' }}>
-                                  <td
-                                    colSpan="4"
+                            loadingStoriesIds[f.id] ? (
+                              <tr style={{ background: '#f2f2f2' }}>
+                                <td
+                                  colSpan="4"
+                                  style={{
+                                    padding: '20px',
+                                    textAlign: 'center',
+                                    color: '#64748b',
+                                    fontSize: '12px'
+                                  }}
+                                >
+                                  Loading Stories and Bugs...
+                                </td>
+                              </tr>
+                            ) : unavailableStoriesIds[f.id] ? (
+                              <tr style={{ background: '#fefce8' }}>
+                                <td
+                                  colSpan="4"
+                                  style={{
+                                    padding: '20px',
+                                    textAlign: 'center',
+                                    color: '#b45309',
+                                    fontSize: '12px'
+                                  }}
+                                >
+                                  Stories and Bugs could not be fully retrieved
+                                  from Azure DevOps. Refresh the dashboard and
+                                  try again.
+                                </td>
+                              </tr>
+                            ) : (storiesCache[f.id] || []).length === 0 ? (
+                              /*
+                                ADO respondió correctamente, pero el Feature no
+                                tiene Stories/Bugs hijos directos. Esto es un
+                                resultado válido y debe diferenciarse de una
+                                carga en curso o de un fallo de ADO.
+                              */
+                              <tr style={{ background: '#f8fafc' }}>
+                                <td
+                                  colSpan="4"
+                                  style={{
+                                    padding: '18px 20px',
+                                    textAlign: 'center',
+                                    color: '#475569',
+                                    fontSize: '12px'
+                                  }}
+                                >
+                                  <strong
                                     style={{
-                                      padding: '20px',
-                                      textAlign: 'center'
+                                      display: 'block',
+                                      marginBottom: '4px',
+                                      color: '#334155'
                                     }}
                                   >
-                                    Loading Stories and Bugs...
-                                  </td>
-                                </tr>
-                              ) : unavailableStoriesIds[f.id] ? (
-                                <tr style={{ background: '#fefce8' }}>
-                                  <td
-                                    colSpan="4"
-                                    style={{
-                                      padding: '20px',
-                                      textAlign: 'center',
-                                      color: '#b45309',
-                                      fontSize: '12px'
-                                    }}
-                                  >
-                                    Stories and Bugs could not be fully retrieved from Azure DevOps. Refresh the dashboard and try again.
-                                  </td>
-                                </tr>
-                              ) : (
-                                (storiesCache[f.id] || []).map(s => (
-                                  <StoryRow
-                                    key={s.id}
-                                    storyId={s.id}
-                                    title={s.title}
-                                    storyPoints={s.storyPoints}
-                                    state={s.state}
-                                    iterationPath={s.iterationPath}
-                                    formatDate={formatDate}
-                                    timelineStart={weekTimelineStart}
-                                    timelineEnd={weekTimelineEnd}
-                                    adoLink={adoLink}
-                                    states={storyHistoryCache[s.id] || []}
-                                    loading={loadingStoryHistory}
-                                    showTooltip={showTooltip}
-                                    moveTooltip={moveTooltip}
-                                    hideTooltip={hideTooltip}
-                                  />
-                                ))
-                              )
-                            )}
+                                    No Stories or Bugs are associated with this Feature.
+                                  </strong>
+
+                                  <span>
+                                    Click the Feature row again to collapse it.
+                                  </span>
+                                </td>
+                              </tr>
+                            ) : (
+                              (storiesCache[f.id] || []).map(s => (
+                                <StoryRow
+                                  key={s.id}
+                                  storyId={s.id}
+                                  title={s.title}
+                                  storyPoints={s.storyPoints}
+                                  state={s.state}
+                                  iterationPath={s.iterationPath}
+                                  formatDate={formatDate}
+                                  timelineStart={weekTimelineStart}
+                                  timelineEnd={weekTimelineEnd}
+                                  adoLink={adoLink}
+                                  states={storyHistoryCache[s.id] || []}
+                                  loading={loadingStoryHistory}
+                                  showTooltip={showTooltip}
+                                  moveTooltip={moveTooltip}
+                                  hideTooltip={hideTooltip}
+                                />
+                              ))
+                            )
+                          )}
                           </React.Fragment>
                         );
                       });
