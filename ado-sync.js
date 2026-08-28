@@ -1260,10 +1260,11 @@ function buildDeliveryHealth(feature) {
     totalWorkItems === 0
   ) {
     const notStartedResult = createRuleAlert('notStarted');
-
+  
     return {
       primary: notStartedResult,
-      alerts: []
+      /* Not started se envía también como alerta para que la UI use exactamente el mismo patrón visual que el resto de condiciones. */
+      alerts: [notStartedResult]
     };
   }
 
@@ -1403,10 +1404,10 @@ function buildDeliveryHealth(feature) {
   */
   if (alerts.length === 0) {
     const healthyResult = createRuleAlert('healthy');
-
+  
     return {
       primary: healthyResult,
-      alerts: []
+      alerts: [healthyResult]
     };
   }
 
