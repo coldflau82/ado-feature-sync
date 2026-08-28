@@ -23,14 +23,11 @@ if (missingAdoEnvVars.length > 0) {
   );
 }
 
-/*
-  Delivery Health usa reglas de negocio versionadas fuera del código.
-  El archivo se encuentra deliberadamente en el root del proyecto para
-  facilitar su revisión y actualización:
-    /delivery-health-rules.json
-*/
+/* Delivery Health usa reglas de negocio versionadas fuera del código. El archivo se encuentra deliberadamente en el root del proyecto para facilitar su revisión y actualización:
+/Config/delivery-health-rules.json */
 const DELIVERY_HEALTH_RULES_PATH = path.join(
   process.cwd(),
+  'Config',
   'delivery-health-rules.json'
 );
 
