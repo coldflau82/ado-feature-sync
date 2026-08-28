@@ -94,38 +94,73 @@ async function mapWithConcurrency(items, limit, asyncFn) {
   return results;
 }
 
-/* Reintenta únicamente errores temporales de Azure DevOps:
+/* Reintenta únicamente errores temporales de Azure DevOps o de red:
   - 429: throttling
   - 502, 503, 504: errores temporales de gateway/servicio
-  Si ADO incluye Retry-After, se respeta. Si no, usa backoff exponencial:
-  1 s, 2 s y 4 s. */
+  - ECONNABORTED: timeout configurado por Axios
+  - ECONNRESET: conexión cerrada inesperadamente
+  - ETIMEDOUT: timeout de red/socket
+  - EAI_AGAIN: fallo temporal de resolución DNS
+
+  Si ADO incluye Retry-After, se respeta. Si no, usa backoff
+  exponencial: 1 s, 2 s y 4 s.
+*/
 async function withAdoRetry(operation, maxRetries = 3) {
+  const retryableStatusCodes = [429, 502, 503, 504];
+
+  const retryableNetworkCodes = [
+    'ECONNABORTED',
+    'ECONNRESET',
+    'ETIMEDOUT',
+    'EAI_AGAIN'
+  ];
+
   let lastError;
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await operation();
     } catch (error) {
       lastError = error;
+
       const status = error.response?.status;
-      const retryable = [429, 502, 503, 504].includes(status);
+      const errorCode = error.code || null;
+
+      const retryable =
+        retryableStatusCodes.includes(status) ||
+        retryableNetworkCodes.includes(errorCode);
+
       if (!retryable || attempt === maxRetries) {
         throw error;
       }
-      const retryAfterHeader = error.response?.headers?.['retry-after'];
+
+      /*
+        Retry-After solo aplica cuando Azure DevOps devolvió una
+        respuesta HTTP, normalmente en escenarios de throttling 429.
+        Los errores de red usan el backoff exponencial.
+      */
+      const retryAfterHeader =
+        error.response?.headers?.['retry-after'];
+
       const retryAfterSeconds = Number(retryAfterHeader);
+
       const waitMs =
         Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
           ? retryAfterSeconds * 1000
           : 1000 * (2 ** attempt);
+
       console.warn('Retrying Azure DevOps request', {
-        status,
+        status: status || null,
+        errorCode,
         attempt: attempt + 1,
         maxRetries,
         waitMs
       });
+
       await delay(waitMs);
     }
   }
+
   throw lastError;
 }
 
