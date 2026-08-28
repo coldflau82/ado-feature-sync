@@ -23,22 +23,15 @@ if (missingAdoEnvVars.length > 0) {
   );
 }
 
-/* Delivery Health usa reglas de negocio versionadas fuera del código. El archivo se encuentra deliberadamente en el root del proyecto para facilitar su revisión y actualización:
-/Config/delivery-health-rules.json */
-const DELIVERY_HEALTH_RULES_PATH = path.join(
-  process.cwd(),
-  'Config',
-  'delivery-health-rules.json'
-);
-
+/* Reglas de negocio de Delivery Health. Ubicación: /Config/delivery-health-rules.json */
 let deliveryHealthRules;
 
 try {
-  deliveryHealthRules = require(DELIVERY_HEALTH_RULES_PATH);
+  deliveryHealthRules = require('./Config/delivery-health-rules.json');
 } catch (error) {
   throw new Error(
-    'Unable to load delivery-health-rules.json. ' +
-    `Verify that the file exists and contains valid JSON. ` +
+    'Unable to load Config/delivery-health-rules.json. ' +
+    'Verify that the file exists in the deployment and contains valid JSON. ' +
     `Original error: ${error.message}`
   );
 }
