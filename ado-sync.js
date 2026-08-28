@@ -55,6 +55,11 @@ const redis = Redis.fromEnv();
 // Empieza con 5; puede subirse gradualmente si ADO no devuelve 429.
 const HISTORY_BATCH_CONCURRENCY = 5;
 
+/* Máximo de consultas WIQL históricas simultáneas durante la creación del caché de Features antiguas.
+Se inicia deliberadamente con 2 para reducir el tiempo de refresh sin generar una carga excesiva sobre Azure DevOps. No aumentar este valor
+sin revisar primero logs de throttling HTTP 429. */
+const OLD_FEATURES_RANGE_CONCURRENCY = 2;
+
 /* Protección adicional para evitar solicitudes batch accidentalmente enormes.
 El dashboard actual manda como máximo 15 IDs por página.*/
 const MAX_HISTORY_BATCH_IDS = 500;
@@ -2368,21 +2373,55 @@ async function fetchOldFeatures(c) {
     { from: '@today - 180', to: '@today - 90' }
   ];
 
-  let allIds = [];
-  const rangeCounts = {};
+  /* Ejecuta como máximo dos WIQL en paralelo. Cada rango conserva su propio resultado o error, por lo que un fallo puntual no bloquea
+    la creación del caché histórico completo. */
+  const rangeResults = await mapWithConcurrency(
+    dateRanges,
+    OLD_FEATURES_RANGE_CONCURRENCY,
+    async range => {
+      try {
+        const ids = await fetchIdsForRange(c, range);
 
-  for (const range of dateRanges) {
-    try {
-      const ids = await fetchIdsForRange(c, range);
-      rangeCounts[`${range.from} to ${range.to}`] = ids.length;
-      allIds = [...allIds, ...ids];
-    } catch (e) {
-      rangeCounts[`${range.from} to ${range.to}`] = 'ERROR: ' + e.message;
+        return {
+          range,
+          ids,
+          error: null
+        };
+      } catch (error) {
+        return {
+          range,
+          ids: [],
+          error
+        };
+      }
     }
-  }
+  );
 
-  const raw = allIds.length ? await fetchFeatureDetailsBatch(c, allIds) : [];
-  return { features: raw.map(mapFeature), rangeCounts };
+  const rangeCounts = {};
+  const allIds = [];
+
+  /* mapWithConcurrency conserva el mismo orden de dateRanges. Reconstruimos rangeCounts y la lista total de IDs después de que
+  terminen las consultas, evitando mutaciones concurrentes sobre allIds o rangeCounts. */
+  rangeResults.forEach(({ range, ids, error }) => {
+    const rangeKey = `${range.from} to ${range.to}`;
+
+    if (error) {
+      rangeCounts[rangeKey] = `ERROR: ${error.message}`;
+      return;
+    }
+
+    rangeCounts[rangeKey] = ids.length;
+    allIds.push(...ids);
+  });
+
+  const raw = allIds.length
+    ? await fetchFeatureDetailsBatch(c, allIds)
+    : [];
+
+  return {
+    features: raw.map(mapFeature),
+    rangeCounts
+  };
 }
 
 app.get('/api/health', (req, res) => res.json({ ok: 1 }));
