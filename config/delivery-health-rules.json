@@ -1,0 +1,150 @@
+{
+  "version": 1,
+
+  "featureStates": {
+    "execution": [
+      "Planned",
+      "In Process"
+    ],
+    "closed": [
+      "Closed"
+    ],
+    "notStarted": [
+      "New"
+    ]
+  },
+
+  "workItemStates": {
+    "removed": [
+      "Removed"
+    ],
+    "done": [
+      "Approved for Release",
+      "Ready for Deployment",
+      "Closed"
+    ],
+    "inProgress": [
+      "In Process",
+      "QA Testing",
+      "Business Sprint Testing",
+      "Sprint Complete",
+      "User Acceptance Testing"
+    ],
+    "requiresEstimate": [
+      "Planned",
+      "Ready for Development",
+      "In Process",
+      "QA Testing",
+      "Business Sprint Testing",
+      "User Acceptance Testing",
+      "Approved for Release",
+      "Ready for Deployment",
+      "Sprint Complete"
+    ]
+  },
+
+  "thresholds": {
+    "targetDateNearDays": 14
+  },
+
+  "rules": {
+    "notStarted": {
+      "enabled": true,
+      "group": "not-started",
+      "label": "Not started",
+      "shortLabel": "Not started",
+      "reason": "This Feature is New and does not have associated Stories or Bugs yet.",
+      "recommendedAction": "Confirm when discovery and delivery planning should begin."
+    },
+
+    "overdue": {
+      "enabled": true,
+      "group": "requires-action",
+      "label": "Overdue",
+      "shortLabel": "Overdue",
+      "reason": "The Target Date has passed and delivery work remains open.",
+      "recommendedAction": "Review delivery plan, remaining scope, dependencies, and Target Date."
+    },
+
+    "targetDateNearUnscheduledDiscovery": {
+      "enabled": true,
+      "group": "requires-action",
+      "label": "Target date near",
+      "shortLabel": "At risk",
+      "reasonTemplate": "{count} Discovery work item(s) are not assigned to a Sprint, and the Target Date is within the next two weeks.",
+      "recommendedAction": "Assign the remaining Discovery work to a Sprint and confirm the delivery plan."
+    },
+
+    "targetNextMonthWithoutRelease": {
+      "enabled": true,
+      "group": "requires-action",
+      "label": "Target date next month — no Release Fix Version",
+      "shortLabel": "At risk",
+      "reason": "The Target Date falls in the next calendar month, but no Release Fix Version is defined.",
+      "recommendedAction": "Define the Release Fix Version and confirm release alignment."
+    },
+
+    "closedWithOpenWork": {
+      "enabled": true,
+      "group": "requires-attention",
+      "label": "Closed w/open work",
+      "shortLabel": "Closed w/open work",
+      "reason": "The Feature is Closed, but associated delivery work is still open or in progress.",
+      "recommendedAction": "Reconcile Feature status with remaining open Stories and Bugs."
+    },
+
+    "needsEstimate": {
+      "enabled": true,
+      "group": "requires-attention",
+      "label": "Needs estimate",
+      "shortLabel": "Needs estimate",
+      "reason": "The Feature is Planned or In Process and does not have BE, FE, or QA estimates.",
+      "recommendedAction": "Add BE, FE, or QA estimates before continuing delivery planning."
+    },
+
+    "noStories": {
+      "enabled": true,
+      "group": "requires-attention",
+      "label": "No Stories",
+      "shortLabel": "No Stories",
+      "reason": "This Feature is in delivery execution but has no associated Stories or Bugs.",
+      "recommendedAction": "Create or link the Stories and Bugs required to deliver this Feature."
+    },
+
+    "noActiveWork": {
+      "enabled": true,
+      "group": "requires-attention",
+      "label": "No active work",
+      "shortLabel": "No active work",
+      "reason": "There is open delivery work, but no Story or Bug is currently active.",
+      "recommendedAction": "Confirm the next Story or Bug entering active development."
+    },
+
+    "unestimatedWork": {
+      "enabled": true,
+      "group": "requires-attention",
+      "label": "No estimated work",
+      "shortLabel": "No estimated work",
+      "reasonTemplate": "{count} associated work item(s) do not have an estimate.",
+      "recommendedAction": "Estimate the open Stories or Bugs that require Story Points."
+    },
+
+    "healthy": {
+      "enabled": true,
+      "group": "healthy",
+      "label": "Healthy",
+      "shortLabel": "Healthy",
+      "reason": "No delivery execution risks were detected.",
+      "recommendedAction": "Continue monitoring delivery progress and planned milestones."
+    },
+
+    "unableToEvaluate": {
+      "enabled": true,
+      "group": "requires-attention",
+      "label": "Unable to evaluate",
+      "shortLabel": "Unavailable",
+      "reason": "Delivery work information could not be retrieved.",
+      "recommendedAction": "Refresh the dashboard and verify Azure DevOps availability and work-item relationships."
+    }
+  }
+}
