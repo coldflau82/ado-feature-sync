@@ -27,10 +27,10 @@ if (missingAdoEnvVars.length > 0) {
 let deliveryHealthRules;
 
 try {
-  deliveryHealthRules = require('./Config/delivery-health-rules.json');
+  deliveryHealthRules = require('./config/delivery-health-rules.json');
 } catch (error) {
   throw new Error(
-    'Unable to load Config/delivery-health-rules.json. ' +
+    'Unable to load config/delivery-health-rules.json. ' +
     'Verify that the file exists in the deployment and contains valid JSON. ' +
     `Original error: ${error.message}`
   );
