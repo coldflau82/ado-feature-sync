@@ -406,6 +406,28 @@
     .delivery-details__title-icon.delivery--unknown { background: #64748b;}
     .dashboard-interaction-hint { margin: 8px 0; padding: 7px 10px; border: 1px solid #dbe4ee; border-radius: 6px; background: #f8fafc; color: #475569; font-size: 11px; line-height: 1.4; }
     .dashboard-interaction-hint strong { color: #1e3a8a;}
+        .dashboard-interaction-hint { margin: 8px 0; padding: 7px 10px; border: 1px solid #dbe4ee; border-radius: 6px; background: #f8fafc; color: #475569; font-size: 11px; line-height: 1.4; }
+    .dashboard-interaction-hint strong { color: #1e3a8a; }
+    /* Estados visibles del área principal de resultados: 
+      - loading;
+      - sin resultados por filtros;
+      - sin Features disponibles;
+      - error de carga.
+      Se reutilizan tanto para Feature List como para Roadmap. */
+    .dashboard-results-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 260px;
+      margin: 8px 0; padding: 32px 24px; border: 1px dashed #cbd5e1; border-radius: 8px; background: #ffffff; color: #475569; text-align: center;}
+    .dashboard-results-state--error { border-color: #fecaca; background: #fffafa; }
+    .dashboard-results-state__icon { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; margin-bottom: 12px;
+      border-radius: 50%; background: #eff6ff; color: #1d4ed8; font-size: 20px; font-weight: 700; }
+    .dashboard-results-state--error .dashboard-results-state__icon { background: #fee2e2; color: #b91c1c; }
+    .dashboard-results-state__title { color: #1e293b; font-size: 16px; font-weight: 700; line-height: 1.35; }
+    .dashboard-results-state__description { max-width: 540px; margin-top: 8px; color: #64748b; font-size: 13px; line-height: 1.55; }
+    .dashboard-results-state__action { margin-top: 18px; padding: 8px 12px; border: 1px solid #2563eb; border-radius: 5px; background: #2563eb;
+      color: #ffffff; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 700; transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease; }
+    .dashboard-results-state__action:hover:not(:disabled) { border-color: #1d4ed8; background: #1d4ed8; }
+    .dashboard-results-state__action:active:not(:disabled) { transform: scale(0.97); }
+    .dashboard-results-state__action:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.28); outline-offset: 2px; }
+    .dashboard-results-state__action:disabled { cursor: wait; opacity: 0.7; }
     /* Franja compacta de Delivery Health. En pantallas amplias, título, icono y alertas comparten una línea. Si falta espacio, el contenido baja de forma natural sin desbordarse. */
     .delivery-details__health-line { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
     .delivery-details__health-heading { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; }
@@ -431,6 +453,7 @@
       font-family: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
     .relationship-show-all-button:hover { background: #f8fafc; border-color: #64748b; }
     .relationship-show-all-button:focus-visible { outline: 3px solid rgba(100, 116, 139, 0.24); outline-offset: 2px; }
+
     
   </style>
 </head>
@@ -973,6 +996,95 @@
         <div style={{ ...style, left: adjustedLeft }}>
           {tooltip.content}
         </div>
+      );
+    }
+
+    /* Estado reutilizable para el panel principal de resultados.
+      Se usa para Feature List y Roadmap, evitando que una vista quede vacía sin explicación mientras la otra muestra un mensaje distinto. */
+    function DashboardResultsState({
+      type,
+      onClearFilters,
+      onRetry,
+      retrying = false
+    }) {
+      const contentByType = {
+        loading: {
+          icon: '…',
+          title: 'Loading Features...',
+          description:
+            'Retrieving the latest Feature information from Azure DevOps.'
+        },
+
+        'empty-filtered': {
+          icon: '⌕',
+          title: 'No Features match the current filters.',
+          description:
+            'Try clearing one or more filters.'
+        },
+
+        'empty-global': {
+          icon: '○',
+          title: 'No Features are available at this time.',
+          description:
+            'No Features were returned from the configured Azure DevOps scope.'
+        },
+
+        error: {
+          icon: '!',
+          title: 'Features could not be loaded.',
+          description:
+            'The dashboard could not retrieve Feature information. Check your connection and try again.'
+        }
+      };
+
+      const content = contentByType[type] || contentByType.error;
+      const isError = type === 'error';
+
+      return (
+        <section
+          className={[
+            'dashboard-results-state',
+            isError ? 'dashboard-results-state--error' : ''
+          ].filter(Boolean).join(' ')}
+          role={isError ? 'alert' : 'status'}
+          aria-live="polite"
+        >
+          <span
+            className="dashboard-results-state__icon"
+            aria-hidden="true"
+          >
+            {content.icon}
+          </span>
+
+          <h2 className="dashboard-results-state__title">
+            {content.title}
+          </h2>
+
+          <p className="dashboard-results-state__description">
+            {content.description}
+          </p>
+
+          {type === 'empty-filtered' && (
+            <button
+              type="button"
+              className="dashboard-results-state__action"
+              onClick={onClearFilters}
+            >
+              Clear filters
+            </button>
+          )}
+
+          {type === 'error' && (
+            <button
+              type="button"
+              className="dashboard-results-state__action"
+              onClick={onRetry}
+              disabled={retrying}
+            >
+              {retrying ? 'Trying again...' : 'Try again'}
+            </button>
+          )}
+        </section>
       );
     }
 
@@ -2548,6 +2660,9 @@
       const { tooltip, showTooltip, moveTooltip, hideTooltip } = useTooltip();
       const [features, setFeatures] = useState([]);
       const [loading, setLoading] = useState(true);
+      /* Diferencia una respuesta válida sin Features de un fallo real al cargar /api/features. El mensaje público devuelto por el
+        backend es seguro y no contiene detalles internos de ADO. */
+      const [loadError, setLoadError] = useState('');
       const [warnings, setWarnings] = useState([]);
       const [filterAreaPath, setFilterAreaPath] = useState([]);
       const [filterIteration, setFilterIteration] = useState([]);
@@ -2868,26 +2983,18 @@
       useEffect(() => { const timer = setTimeout(() => { setSearchTitle(searchInput); }, 300); return () => clearTimeout(timer); }, [searchInput]);
       
       useEffect(() => {
-        setRoadmapPage(1);
-        setFeaturesPage(1);
-        setExpandedFeatureId(null);
-        setExpandedRoadmapFeatureId(null);
-         /* Cuando cambia el conjunto de resultados, el usuario debe empezar desde la primera fila del nuevo resultado filtrado. */
-        requestAnimationFrame(() => {
-          scrollResultsToTop('auto');
-        });
-      }, [filterAreaPath, filterIteration, filterState, filterTargetDate, filterReleaseVersion, filterAssignedTo, searchTitle, readinessKpiFilter, healthGroupKpiFilter, readinessDropdownFilter, healthRuleFilter ]);
-
-      /* Cambiar de Feature List a Roadmap también restablece el scroll interno para no dejar al usuario a mitad de una tabla distinta. */
-      useEffect(() => {
         requestAnimationFrame(() => {
           scrollResultsToTop('auto');
         });
       }, [currentPage]);
       
       async function loadFeatures(forceRefresh = false) {
+        /* Limpiar el error anterior permite que el estado visual cambie inmediatamente a loading mientras el usuario intenta de nuevo. */
+        setLoadError('');
+
         if (forceRefresh) {
           setRefreshing(true);
+
           /* Los Features fueron solicitados explícitamente de nuevo. Se invalidan también los detalles dependientes de ellos. */
           setStoriesCache({});
           setUnavailableStoriesIds({});
@@ -2902,15 +3009,41 @@
         } else {
           setLoading(true);
         }
+
         try {
-          const url = forceRefresh ? '/api/features?refresh=1' : '/api/features';
+          const url = forceRefresh
+            ? '/api/features?refresh=1'
+            : '/api/features';
+
           const res = await fetch(url);
-          const json = await res.json();
-          setFeatures(json.features || []);
-          setCacheInfo(json.cacheInfo);
-          setWarnings(json.warnings || []);
+
+          /* Un endpoint puede devolver un body vacío ante un error de infraestructura. Por eso el parse JSON también se protege. */
+          const json = await res.json().catch(() => ({}));
+
+          /* HTTP 4xx / 5xx no debe convertirse en una lista vacía. Se muestra el estado de error y se conserva en consola el
+            mensaje seguro proporcionado por el backend. */
+          if (!res.ok) {
+            throw new Error(
+              json.error ||
+              'Unable to load Features from Azure DevOps.'
+            );
+          }
+
+          setFeatures(Array.isArray(json.features) ? json.features : []);
+          setCacheInfo(json.cacheInfo || null);
+          setWarnings(Array.isArray(json.warnings) ? json.warnings : []);
         } catch (err) {
           console.error('Error loading features:', err);
+
+          /* Evita que KPIs, filtros y tablas muestren datos antiguos o interpreten el error como una respuesta válida sin Features. */
+          setFeatures([]);
+          setWarnings([]);
+          setCacheInfo(null);
+
+          setLoadError(
+            err?.message ||
+            'Unable to load Features from Azure DevOps.'
+          );
         } finally {
           setLoading(false);
           setRefreshing(false);
@@ -3144,6 +3277,58 @@
             else return valA > valB ? -1 : valA < valB ? 1 : 0;
           });
         }
+
+      /* Se usa para diferenciar:
+        - no existen Features en el alcance configurado;
+        - sí hay Features cargadas, pero ninguna coincide con los filtros. */
+      const hasActiveDashboardFilters =
+        filterAreaPath.length > 0 ||
+        filterIteration.length > 0 ||
+        filterAssignedTo.length > 0 ||
+        filterState.length > 0 ||
+        filterTargetDate.length > 0 ||
+        filterReleaseVersion.length > 0 ||
+        readinessKpiFilter !== 'All' ||
+        healthGroupKpiFilter !== 'All' ||
+        readinessDropdownFilter !== 'All' ||
+        healthRuleFilter !== 'All' ||
+        searchTitle.trim() !== '';
+
+      /* Genera el mismo estado visual en Feature List y Roadmap. No se muestran tablas vacías sin explicación. */
+      const renderDashboardResultsState = () => {
+        if (loadError) {
+          return (
+            <DashboardResultsState
+              type="error"
+              onRetry={() => loadFeatures(false)}
+              retrying={loading || refreshing}
+            />
+          );
+        }
+
+        if (loading) {
+          return (
+            <DashboardResultsState
+              type="loading"
+            />
+          );
+        }
+
+        if (sortedFiltered.length === 0) {
+          return (
+            <DashboardResultsState
+              type={
+                hasActiveDashboardFilters
+                  ? 'empty-filtered'
+                  : 'empty-global'
+              }
+              onClearFilters={clearAllFilters}
+            />
+          );
+        }
+
+        return null;
+      };
 
       /* Carga Stories/Bugs de múltiples Features con UNA llamada HTTP.
         Esta función centraliza los cuatro escenarios que antes usaban fetch('/api/feature-stories/:id') individualmente:
@@ -4292,21 +4477,15 @@
         <main ref={resultsScrollRef} className="dashboard-results-scroll" >
         {currentPage === 'features' && (
           <>
-            <div className="dashboard-interaction-hint">
-              <strong>Tip:</strong> To view Story and Bug details, click anywhere on a Feature row other than its ID.
-            </div>
-            {loading ? (
-              <div
-                style={{
-                  padding: '28px',
-                  textAlign: 'center',
-                  color: '#64748b'
-                }}
-              >
-                Loading Features...
-              </div>
+            {loadError || loading || sortedFiltered.length === 0 ? (
+              renderDashboardResultsState()
             ) : (
-              <div className="table-wrapper feature-list-table-wrapper">
+              <>
+                <div className="dashboard-interaction-hint">
+                  <strong>Tip:</strong> To view Story and Bug details, click anywhere on a Feature row other than its ID.
+                </div>
+
+                <div className="table-wrapper feature-list-table-wrapper">
                 <table className="feature-list-table">
                   <colgroup>
                     <col className="feature-list-col--priority" />
@@ -4714,22 +4893,27 @@
                       })
                     )}
                   </tbody>
-                </table>
-              </div>
-            )}
-          </>
-        )}
-
-         {currentPage === 'roadmap' && (
-          <>
-            <div className="dashboard-interaction-hint">
-              <strong>Tip:</strong> Click anywhere on a Feature row, except its ID, to view Story and Bug timelines.
+               </table>
             </div>
-        
-            <div className="table-wrapper">
-              {/* ── TABLA PRINCIPAL DEL ROADMAP ── */}
-              {/* El header permanece sticky dentro del único panel de resultados. */}
-              <div className="gantt-horizontal-scroll">
+            </>
+          )}
+        </>
+      )}
+  
+     {currentPage === 'roadmap' && (
+        <>
+          {loadError || loading || sortedFiltered.length === 0 ? (
+            renderDashboardResultsState()
+          ) : (
+            <>
+              <div className="dashboard-interaction-hint">
+                <strong>Tip:</strong> Click anywhere on a Feature row, except its ID, to view Story and Bug timelines.
+              </div>
+      
+              <div className="table-wrapper">
+                {/* ── TABLA PRINCIPAL DEL ROADMAP ── */}
+                {/* El header permanece sticky dentro del único panel de resultados. */}
+                <div className="gantt-horizontal-scroll">
                 <table className="roadmap-table" style={{ tableLayout: 'fixed', width: '100%' }}>
                   <thead>
                     <tr>
@@ -4959,11 +5143,13 @@
                 </table>
               </div>
             </div>
+           </>
+            )}
           </>
           )}
           </main>
 
-          {!loading && (
+          {!loading && !loadError && sortedFiltered.length > 0 && (
             <div className="dashboard-pagination-footer">
               {currentPage === 'features' ? (
                 <DashboardPagination
