@@ -7,7 +7,7 @@
       "use": "@vercel/node",
       "config": {
         "includeFiles": [
-          "Config/delivery-health-rules.json"
+          "config/delivery-health-rules.json"
         ]
       }
     }
