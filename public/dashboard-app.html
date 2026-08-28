@@ -17,7 +17,12 @@
     .tabs { margin-top: 12px; display: flex; gap: 10px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
     .tab-btn { padding: 8px 16px; background: white; color: black; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; }
     .tab-btn.active { background: #007bff; color: white; }
-    .warnings { background: #fff3cd; color: #856404; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffc107; }
+    .warnings { position: relative; background: #fff3cd; color: #856404; padding: 15px 46px 15px 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffc107;}
+    .warnings__close-button { position: absolute; top: 8px; right: 9px; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 4px;
+      background: transparent; color: #856404; cursor: pointer; font-family: inherit; font-size: 22px; font-weight: 700; line-height: 1; display: inline-flex;
+      align-items: center; justify-content: center; transition: background 0.15s ease, color 0.15s ease; }
+    .warnings__close-button:hover { background: rgba(133, 100, 4, 0.12); color: #5f4703; }
+    .warnings__close-button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.35); outline-offset: 2px; }
     .filters { display: grid; gap: 15px; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; overflow-x: auto; }
     .filter-div { }
     .filter-label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 13px; }
@@ -2712,6 +2717,7 @@
         backend es seguro y no contiene detalles internos de ADO. */
       const [loadError, setLoadError] = useState('');
       const [warnings, setWarnings] = useState([]);
+      const [areWarningsDismissed, setAreWarningsDismissed] = useState(false);
       const [filterAreaPath, setFilterAreaPath] = useState([]);
       const [filterIteration, setFilterIteration] = useState([]);
       const [filterAssignedTo, setFilterAssignedTo] = useState([]);
@@ -3077,9 +3083,18 @@
             );
           }
 
+             }
+
+          const receivedWarnings = Array.isArray(json.warnings)
+            ? json.warnings
+            : [];
+
           setFeatures(Array.isArray(json.features) ? json.features : []);
           setCacheInfo(json.cacheInfo || null);
-          setWarnings(Array.isArray(json.warnings) ? json.warnings : []);
+          setWarnings(receivedWarnings);
+          /* Si el usuario había cerrado una advertencia anterior, una carga nueva —especialmente Refresh cache— debe mostrar las advertencias
+            vigentes que devuelva el backend. */
+          setAreWarningsDismissed(false);
         } catch (err) {
           console.error('Error loading features:', err);
 
@@ -4016,12 +4031,34 @@
                 </nav>
               </div>
             </div>
-            {warnings.length > 0 && (
-              <div className="warnings">
+
+            {warnings.length > 0 && !areWarningsDismissed && (
+              <div className="warnings" role="alert" aria-live="polite">
+                <button
+                  type="button"
+                  className="warnings__close-button"
+                  onClick={() => setAreWarningsDismissed(true)}
+                  aria-label="Dismiss data warnings"
+                  title="Dismiss data warnings"
+                >
+                  ×
+                </button>
+
                 <strong>⚠️ Data Warnings:</strong>
-              {warnings.map((w, i) => <div key={i} style={{ fontSize: '13px', marginTop: '5px' }}>{w}</div>)}
-            </div>
-          )}
+
+                {warnings.map((warning, index) => (
+                  <div
+                    key={`${warning}-${index}`}
+                    style={{
+                      fontSize: '13px',
+                      marginTop: '5px'
+                    }}
+                  >
+                    {warning}
+                  </div>
+                ))}
+              </div>
+            )}
 
           <div className="top-filters-bar">
             <button type="button" className={`refresh-button ${
