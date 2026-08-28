@@ -23,7 +23,7 @@ if (missingAdoEnvVars.length > 0) {
   );
 }
 
-/* Reglas de negocio de Delivery Health. Ubicación: /Config/delivery-health-rules.json */
+/* Reglas de negocio de Delivery Health. Ubicación: /config/delivery-health-rules.json */
 let deliveryHealthRules;
 
 try {
