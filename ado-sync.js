@@ -23,6 +23,233 @@ if (missingAdoEnvVars.length > 0) {
   );
 }
 
+/*
+  Delivery Health usa reglas de negocio versionadas fuera del código.
+  El archivo se encuentra deliberadamente en el root del proyecto para
+  facilitar su revisión y actualización:
+    /delivery-health-rules.json
+*/
+const DELIVERY_HEALTH_RULES_PATH = path.join(
+  process.cwd(),
+  'delivery-health-rules.json'
+);
+
+let deliveryHealthRules;
+
+try {
+  deliveryHealthRules = require(DELIVERY_HEALTH_RULES_PATH);
+} catch (error) {
+  throw new Error(
+    'Unable to load delivery-health-rules.json. ' +
+    `Verify that the file exists and contains valid JSON. ` +
+    `Original error: ${error.message}`
+  );
+}
+
+/*
+  Valida la estructura mínima antes de aceptar reglas de negocio.
+  Es preferible detener el servidor durante el arranque a calcular
+  Delivery Health con una política incompleta o mal configurada.
+*/
+function validateDeliveryHealthRules(config) {
+  const allowedGroups = new Set([
+    'requires-action',
+    'requires-attention',
+    'healthy',
+    'not-started'
+  ]);
+
+  const requiredRuleKeys = [
+    'notStarted',
+    'overdue',
+    'targetDateNearUnscheduledDiscovery',
+    'targetNextMonthWithoutRelease',
+    'closedWithOpenWork',
+    'needsEstimate',
+    'noStories',
+    'noActiveWork',
+    'unestimatedWork',
+    'healthy',
+    'unableToEvaluate'
+  ];
+
+  const assertNonEmptyStringArray = (value, propertyPath) => {
+    if (
+      !Array.isArray(value) ||
+      value.length === 0 ||
+      value.some(
+        item =>
+          typeof item !== 'string' ||
+          !item.trim()
+      )
+    ) {
+      throw new Error(
+        `Delivery Health configuration "${propertyPath}" ` +
+        'must be a non-empty array of text values.'
+      );
+    }
+  };
+
+  const assertNonEmptyString = (value, propertyPath) => {
+    if (
+      typeof value !== 'string' ||
+      !value.trim()
+    ) {
+      throw new Error(
+        `Delivery Health configuration "${propertyPath}" ` +
+        'must be a non-empty text value.'
+      );
+    }
+  };
+
+  if (!config || typeof config !== 'object') {
+    throw new Error(
+      'Delivery Health configuration must be a JSON object.'
+    );
+  }
+
+  if (!Number.isInteger(config.version) || config.version < 1) {
+    throw new Error(
+      'Delivery Health configuration "version" must be a positive integer.'
+    );
+  }
+
+  assertNonEmptyStringArray(
+    config.featureStates?.execution,
+    'featureStates.execution'
+  );
+
+  assertNonEmptyStringArray(
+    config.featureStates?.closed,
+    'featureStates.closed'
+  );
+
+  assertNonEmptyStringArray(
+    config.featureStates?.notStarted,
+    'featureStates.notStarted'
+  );
+
+  assertNonEmptyStringArray(
+    config.workItemStates?.removed,
+    'workItemStates.removed'
+  );
+
+  assertNonEmptyStringArray(
+    config.workItemStates?.done,
+    'workItemStates.done'
+  );
+
+  assertNonEmptyStringArray(
+    config.workItemStates?.inProgress,
+    'workItemStates.inProgress'
+  );
+
+  assertNonEmptyStringArray(
+    config.workItemStates?.requiresEstimate,
+    'workItemStates.requiresEstimate'
+  );
+
+  if (
+    !Number.isInteger(config.thresholds?.targetDateNearDays) ||
+    config.thresholds.targetDateNearDays < 1
+  ) {
+    throw new Error(
+      'Delivery Health configuration "thresholds.targetDateNearDays" ' +
+      'must be a positive integer.'
+    );
+  }
+
+  if (
+    !config.rules ||
+    typeof config.rules !== 'object'
+  ) {
+    throw new Error(
+      'Delivery Health configuration "rules" must be an object.'
+    );
+  }
+
+  requiredRuleKeys.forEach(ruleKey => {
+    const rule = config.rules[ruleKey];
+
+    if (!rule || typeof rule !== 'object') {
+      throw new Error(
+        `Delivery Health configuration is missing rule "${ruleKey}".`
+      );
+    }
+
+    if (typeof rule.enabled !== 'boolean') {
+      throw new Error(
+        `Delivery Health rule "${ruleKey}.enabled" must be true or false.`
+      );
+    }
+
+    assertNonEmptyString(
+      rule.group,
+      `rules.${ruleKey}.group`
+    );
+
+    if (!allowedGroups.has(rule.group)) {
+      throw new Error(
+        `Delivery Health rule "${ruleKey}.group" has an invalid value: ` +
+        `"${rule.group}".`
+      );
+    }
+
+    assertNonEmptyString(
+      rule.label,
+      `rules.${ruleKey}.label`
+    );
+
+    assertNonEmptyString(
+      rule.shortLabel,
+      `rules.${ruleKey}.shortLabel`
+    );
+
+    if (!rule.reason && !rule.reasonTemplate) {
+      throw new Error(
+        `Delivery Health rule "${ruleKey}" must define ` +
+        '"reason" or "reasonTemplate".'
+      );
+    }
+
+    if (rule.reason) {
+      assertNonEmptyString(
+        rule.reason,
+        `rules.${ruleKey}.reason`
+      );
+    }
+
+    if (rule.reasonTemplate) {
+      assertNonEmptyString(
+        rule.reasonTemplate,
+        `rules.${ruleKey}.reasonTemplate`
+      );
+    }
+
+    assertNonEmptyString(
+      rule.recommendedAction,
+      `rules.${ruleKey}.recommendedAction`
+    );
+  });
+}
+
+validateDeliveryHealthRules(deliveryHealthRules);
+
+function getDeliveryHealthRule(ruleKey) {
+  return deliveryHealthRules.rules[ruleKey];
+}
+
+/* Reemplaza tokens simples de las razones dinámicas. Actualmente las reglas utilizan {count}; esta función permite agregar más tokens en el futuro sin volver a dispersar textos en server.js.*/
+function formatDeliveryHealthReason(template, values = {}) {
+  return String(template || '').replace(
+    /\{([^}]+)\}/g,
+    (match, key) =>
+      Object.prototype.hasOwnProperty.call(values, key)
+        ? String(values[key])
+        : match
+  );
+}
+
 const app = express();
 
 /* Ruta oficial, sin extensión. Mantiene visible /dashboard-app y sirve el HTML real.*/
@@ -301,54 +528,37 @@ const MAX_FEATURE_RELATIONSHIP_BATCH_IDS = 500;
 // Included in delivery = Done + In progress + Pending
 // Total work items = Included in delivery + Removed
 //
-// Cualquier Story/Bug que no sea Removed, Done o In progress se
-// clasifica automáticamente como Pending. Esto evita elementos vigentes
-// sin categoría cuando aparezcan nuevos estados en Azure DevOps.
+// Los valores se cargan desde /delivery-health-rules.json.
+// El código conserva la responsabilidad de clasificar y calcular;
+// el JSON define la política de negocio vigente.
 
-const REMOVED_WORK_STATES = [
-  'Removed'
-];
+const REMOVED_WORK_STATES =
+  deliveryHealthRules.workItemStates.removed;
 
-const DONE_WORK_STATES = [
-  'Approved for Release',
-  'Ready for Deployment',
-  'Closed'
-];
+const DONE_WORK_STATES =
+  deliveryHealthRules.workItemStates.done;
 
-const IN_PROGRESS_WORK_STATES = [
-  'In Process',
-  'QA Testing',
-  'Business Sprint Testing',
-  'Sprint Complete',
-  'User Acceptance Testing'  
-];
+const IN_PROGRESS_WORK_STATES =
+  deliveryHealthRules.workItemStates.inProgress;
 
-// Estados donde una Story o Bug debe contar con Story Points.
-// Closed y Removed se excluye: no deben generar un riesgo actual de estimación si ya se completaron.
-const ESTIMABLE_WORK_STATES = [
-  'Planned',
-  'Ready for Development',
-  'In Process',
-  'QA Testing',
-  'Business Sprint Testing',
-  'User Acceptance Testing',
-  'Approved for Release',
-  'Ready for Deployment',
-  'Sprint Complete'
-];
+/*
+  Estados donde una Story o Bug debe contar con Story Points.
+  Closed y Removed no deberían estar aquí mientras la política mantenga
+  que trabajo terminado/removido no genera un riesgo de estimación.
+*/
+const ESTIMABLE_WORK_STATES =
+  deliveryHealthRules.workItemStates.requiresEstimate;
 
 // ===== Estados del Feature usados por Delivery Health =====
-// Estas reglas antes vivían únicamente en el frontend.
-// Ahora el backend será la fuente de verdad.
 
-const FEATURE_DELIVERY_EXECUTION_STATES = [
-  'Planned',
-  'In Process'
-];
+const FEATURE_DELIVERY_EXECUTION_STATES =
+  deliveryHealthRules.featureStates.execution;
 
-const FEATURE_CLOSED_STATES = [
-  'Closed'
-];
+const FEATURE_CLOSED_STATES =
+  deliveryHealthRules.featureStates.closed;
+
+const FEATURE_NOT_STARTED_STATES =
+  deliveryHealthRules.featureStates.notStarted;
 
 /*
   Preserva la diferencia entre:
@@ -444,7 +654,14 @@ function isPastTargetDate(targetDate) {
   );
 }
 
-function isTargetDateWithinNextTwoWeeks(targetDate) {
+/*
+  El umbral se obtiene desde delivery-health-rules.json:
+    thresholds.targetDateNearDays
+
+  El nombre no queda atado a "two weeks", porque el negocio puede
+  cambiar el límite sin requerir modificaciones adicionales al código.
+*/
+function isTargetDateWithinConfiguredDays(targetDate) {
   const targetDateKey = getDateKey(targetDate);
 
   if (!targetDateKey) {
@@ -452,11 +669,18 @@ function isTargetDateWithinNextTwoWeeks(targetDate) {
   }
 
   const todayDateKey = getTodayDateKey();
-  const twoWeeksDateKey = addDaysToDateKey(todayDateKey, 14);
+
+  const targetDateNearDays =
+    deliveryHealthRules.thresholds.targetDateNearDays;
+
+  const thresholdDateKey = addDaysToDateKey(
+    todayDateKey,
+    targetDateNearDays
+  );
 
   return (
     targetDateKey >= todayDateKey &&
-    targetDateKey <= twoWeeksDateKey
+    targetDateKey <= thresholdDateKey
   );
 }
 
@@ -942,27 +1166,65 @@ function buildDeliverySummary(workItems, source = 'ok') {
 // ===== Fuente de verdad de Delivery Health =====
 //
 // El frontend debe mostrar esta información y no volver a calcular
-// las reglas de negocio. Los alertas son acumulables: un Feature puede
+// las reglas de negocio. Las alertas son acumulables: un Feature puede
 // tener más de una condición que requiera seguimiento.
-
+//
+// Las condiciones técnicas se conservan aquí. Los estados, umbrales,
+// labels, grupos, razones y acciones recomendadas viven en:
+// /delivery-health-rules.json
 function buildDeliveryHealth(feature) {
   const summary = feature.deliverySummary;
   const state = String(feature.state || '').trim();
 
+  const createRuleAlert = (
+    ruleKey,
+    {
+      reasonValues = {}
+    } = {}
+  ) => {
+    const rule = getDeliveryHealthRule(ruleKey);
+
+    return {
+      key: ruleKey
+        .replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`),
+      label: rule.label,
+      shortLabel: rule.shortLabel,
+      group: rule.group,
+      reason: rule.reasonTemplate
+        ? formatDeliveryHealthReason(
+            rule.reasonTemplate,
+            reasonValues
+          )
+        : rule.reason,
+
+      /*
+        Este campo se devolverá desde ya, pero aún no se mostrará en
+        la interfaz durante el punto 7.0. Se utilizará en el punto 7.1.
+      */
+      recommendedAction: rule.recommendedAction
+    };
+  };
+
+  const unableToEvaluateRule = getDeliveryHealthRule(
+    'unableToEvaluate'
+  );
+
   const unknownResult = {
     primary: {
       key: 'unable-to-evaluate',
-      label: 'Unable to evaluate',
-      shortLabel: 'Unavailable',
-      group: 'requires-attention',
-      reason: 'Delivery work information could not be retrieved.'
+      label: unableToEvaluateRule.label,
+      shortLabel: unableToEvaluateRule.shortLabel,
+      group: unableToEvaluateRule.group,
+      reason: unableToEvaluateRule.reason,
+      recommendedAction: unableToEvaluateRule.recommendedAction
     },
     alerts: [
       {
         key: 'unable-to-evaluate',
-        label: 'Unable to evaluate',
-        group: 'requires-attention',
-        reason: 'Delivery work information could not be retrieved.'
+        label: unableToEvaluateRule.label,
+        group: unableToEvaluateRule.group,
+        reason: unableToEvaluateRule.reason,
+        recommendedAction: unableToEvaluateRule.recommendedAction
       }
     ]
   };
@@ -974,143 +1236,173 @@ function buildDeliveryHealth(feature) {
   const totalWorkItems = Number(summary.totalWorkItems || 0);
   const openWorkItems = Number(summary.openWorkItems || 0);
   const pendingWorkItems = Number(summary.pendingWorkItems || 0);
+
   const inProgressWorkItems = Number(
     summary.inProgressWorkItems || 0
   );
+
   const unestimatedWorkItems = Number(
     summary.unestimatedWorkItems || 0
   );
+
   const discoveryWithoutSprintWorkItems = Number(
     summary.discoveryWithoutSprintWorkItems || 0
   );
 
   const isClosed = FEATURE_CLOSED_STATES.includes(state);
+
   const isExecutionState =
     FEATURE_DELIVERY_EXECUTION_STATES.includes(state);
+
+  const isNotStartedState =
+    FEATURE_NOT_STARTED_STATES.includes(state);
 
   /*
     Not started es informativo: no entra en Requires Action,
     Requires Attention ni Healthy. No representa una alerta.
   */
+  const notStartedRule = getDeliveryHealthRule('notStarted');
+
   if (
-    state === 'New' &&
+    notStartedRule.enabled &&
+    isNotStartedState &&
     !summary.hasWorkItems &&
     totalWorkItems === 0
   ) {
+    const notStartedResult = createRuleAlert('notStarted');
+
     return {
-      primary: {
-        key: 'not-started',
-        label: 'Not started',
-        shortLabel: 'Not started',
-        group: 'not-started',
-        reason:
-          'This Feature is New and does not have associated Stories or Bugs yet.'
-      },
+      primary: notStartedResult,
       alerts: []
     };
   }
 
   const alerts = [];
 
-  // Prioridad 1: Target Date vencido con trabajo aún abierto.
-  if (isPastTargetDate(feature.targetDate) && openWorkItems > 0) {
-    alerts.push({
-      key: 'overdue',
-      label: 'Overdue',
-      group: 'requires-action',
-      reason:
-        'The Target Date has passed and delivery work remains open.'
-    });
+  /*
+    Prioridad 1: Target Date vencido con trabajo aún abierto.
+  */
+  const overdueRule = getDeliveryHealthRule('overdue');
+
+  if (
+    overdueRule.enabled &&
+    isPastTargetDate(feature.targetDate) &&
+    openWorkItems > 0
+  ) {
+    alerts.push(createRuleAlert('overdue'));
   }
 
-  // Prioridad 2: Target Date muy cercana con trabajo Discovery sin Sprint.
+  /*
+    Prioridad 2: Target Date cercana con trabajo Discovery sin Sprint.
+    El umbral de días viene de thresholds.targetDateNearDays.
+  */
+  const targetDateNearRule = getDeliveryHealthRule(
+    'targetDateNearUnscheduledDiscovery'
+  );
+
   if (
-    isTargetDateWithinNextTwoWeeks(feature.targetDate) &&
+    targetDateNearRule.enabled &&
+    isTargetDateWithinConfiguredDays(feature.targetDate) &&
     discoveryWithoutSprintWorkItems > 0
   ) {
-    alerts.push({
-      key: 'target-date-near-unscheduled-discovery',
-      label: 'Target date near',
-      group: 'requires-action',
-      reason:
-        `${discoveryWithoutSprintWorkItems} Discovery work item(s) are not assigned to a Sprint, and the Target Date is within the next two weeks.`
-    });
+    alerts.push(
+      createRuleAlert(
+        'targetDateNearUnscheduledDiscovery',
+        {
+          reasonValues: {
+            count: discoveryWithoutSprintWorkItems
+          }
+        }
+      )
+    );
   }
 
-  // Prioridad 3: Fecha en el siguiente mes y sin Release Fix Version.
+  /*
+    Prioridad 3: Fecha en el siguiente mes y sin Release Fix Version.
+  */
+  const targetNextMonthWithoutReleaseRule =
+    getDeliveryHealthRule('targetNextMonthWithoutRelease');
+
   if (
+    targetNextMonthWithoutReleaseRule.enabled &&
     isTargetDateInNextCalendarMonth(feature.targetDate) &&
     !String(feature.releaseFixVersion || '').trim()
   ) {
-    alerts.push({
-      key: 'target-next-month-without-release',
-      label: 'Target date next month — no Release Fix Version',
-      group: 'requires-action',
-      reason:
-        'The Target Date falls in the next calendar month, but no Release Fix Version is defined.'
-    });
+    alerts.push(
+      createRuleAlert('targetNextMonthWithoutRelease')
+    );
   }
 
-  if (isClosed && openWorkItems > 0) {
-    alerts.push({
-      key: 'closed-with-open-work',
-      label: 'Closed w/open work',
-      group: 'requires-attention',
-      reason:
-        'The Feature is Closed, but associated delivery work is still open or in progress.'
-    });
+  const closedWithOpenWorkRule = getDeliveryHealthRule(
+    'closedWithOpenWork'
+  );
+
+  if (
+    closedWithOpenWorkRule.enabled &&
+    isClosed &&
+    openWorkItems > 0
+  ) {
+    alerts.push(createRuleAlert('closedWithOpenWork'));
   }
 
   /*
     Los controles de estimación y ejecución se aplican únicamente
-    desde Planned e In Process. Esto evita marcar Features tempranos
-    como riesgosos cuando todavía están en Shaping o Planning.
+    desde los estados configurados en featureStates.execution.
   */
-  if (isExecutionState && !hasFeatureEstimate(feature)) {
-    alerts.push({
-      key: 'needs-estimate',
-      label: 'Needs estimate',
-      group: 'requires-attention',
-      reason:
-        'The Feature is Planned or In Process and does not have BE, FE, or QA estimates.'
-    });
-  }
+  const needsEstimateRule = getDeliveryHealthRule(
+    'needsEstimate'
+  );
 
   if (
+    needsEstimateRule.enabled &&
+    isExecutionState &&
+    !hasFeatureEstimate(feature)
+  ) {
+    alerts.push(createRuleAlert('needsEstimate'));
+  }
+
+  const noStoriesRule = getDeliveryHealthRule('noStories');
+
+  if (
+    noStoriesRule.enabled &&
     isExecutionState &&
     (!summary.hasWorkItems || totalWorkItems === 0)
   ) {
-    alerts.push({
-      key: 'no-stories',
-      label: 'No Stories',
-      group: 'requires-attention',
-      reason:
-        'This Feature is in delivery execution but has no associated Stories or Bugs.'
-    });
+    alerts.push(createRuleAlert('noStories'));
   }
 
+  const noActiveWorkRule = getDeliveryHealthRule(
+    'noActiveWork'
+  );
+
   if (
+    noActiveWorkRule.enabled &&
     state === 'In Process' &&
     pendingWorkItems > 0 &&
     inProgressWorkItems === 0
   ) {
-    alerts.push({
-      key: 'no-active-work',
-      label: 'No active work',
-      group: 'requires-attention',
-      reason:
-        'There is open delivery work, but no Story or Bug is currently active.'
-    });
+    alerts.push(createRuleAlert('noActiveWork'));
   }
 
-  if (isExecutionState && unestimatedWorkItems > 0) {
-    alerts.push({
-      key: 'unestimated-work',
-      label: 'No estimated work',
-      group: 'requires-attention',
-      reason:
-        `${unestimatedWorkItems} associated work item(s) do not have an estimate.`
-    });
+  const unestimatedWorkRule = getDeliveryHealthRule(
+    'unestimatedWork'
+  );
+
+  if (
+    unestimatedWorkRule.enabled &&
+    isExecutionState &&
+    unestimatedWorkItems > 0
+  ) {
+    alerts.push(
+      createRuleAlert(
+        'unestimatedWork',
+        {
+          reasonValues: {
+            count: unestimatedWorkItems
+          }
+        }
+      )
+    );
   }
 
   /*
@@ -1120,14 +1412,10 @@ function buildDeliveryHealth(feature) {
     - Features en ejecución sin riesgos detectados.
   */
   if (alerts.length === 0) {
+    const healthyResult = createRuleAlert('healthy');
+
     return {
-      primary: {
-        key: 'healthy',
-        label: 'Healthy',
-        shortLabel: 'Healthy',
-        group: 'healthy',
-        reason: 'No delivery execution risks were detected.'
-      },
+      primary: healthyResult,
       alerts: []
     };
   }
@@ -1136,12 +1424,7 @@ function buildDeliveryHealth(feature) {
 
   return {
     primary: {
-      ...primaryAlert,
-      shortLabel:
-        primaryAlert.key === 'target-date-near-unscheduled-discovery' ||
-        primaryAlert.key === 'target-next-month-without-release'
-          ? 'At risk'
-          : primaryAlert.label
+      ...primaryAlert
     },
     alerts
   };
