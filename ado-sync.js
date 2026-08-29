@@ -3061,11 +3061,24 @@ async function fetchOldFeatures(c) {
         return;
       }
 
-      rangeCounts[rangeKey] = ids.length;
+        rangeCounts[rangeKey] = ids.length;
       rangeDetails[rangeKey] = rangeDetail;
       allIds.push(...ids);
     }
   );
+
+  /*
+    Conserva el detalle de los rangos que no se pudieron recuperar.
+    Esto permite que /api/features decida si debe:
+    - guardar un caché nuevo completo; o
+    - conservar el último caché válido de Redis.
+  */
+  const failedRanges = rangeResults
+    .filter(result => result.error)
+    .map(result => ({
+      range: `${result.range.from} to ${result.range.to}`,
+      error: result.error.message
+    }));
 
   const raw = allIds.length
     ? await fetchFeatureDetailsBatch(c, allIds)
@@ -3074,7 +3087,14 @@ async function fetchOldFeatures(c) {
   return {
     features: raw.map(mapFeature),
     rangeCounts,
-    rangeDetails
+    rangeDetails,
+
+    /*
+      true significa que todos los rangos históricos terminaron
+      correctamente y que este resultado puede reemplazar Redis.
+    */
+    complete: failedRanges.length === 0,
+    failedRanges
   };
 }
 
@@ -3504,9 +3524,23 @@ app.get('/api/features', async (req, res) => {
     const now = Date.now();
 
     // 1. Leer el caché "antiguo" desde Redis (persiste entre cold starts e instancias)
-    let oldFeaturesCache = await redis.get(CACHE_KEY); // devuelve null si no existe o ya expiró
+    let oldFeaturesCache = await redis.get(CACHE_KEY);
+
+    /*
+      Conservamos una referencia explícita al último caché válido.
+      Si una actualización histórica falla parcialmente, este objeto
+      seguirá siendo la fuente segura para el dashboard.
+    */
+    const previousOldFeaturesCache = oldFeaturesCache;
 
     const cacheExpired = !oldFeaturesCache;
+
+    /*
+      Estas advertencias se generan durante la solicitud actual.
+      No se guardan dentro de Redis porque describen un fallo transitorio
+      de sincronización, no un problema permanente de los datos cacheados.
+    */
+    const cacheRefreshWarnings = [];
 
     if (cacheExpired || forceRefresh) {
       console.log(
@@ -3517,27 +3551,81 @@ app.get('/api/features', async (req, res) => {
 
       const oldResult = await fetchOldFeatures(c);
 
-      oldFeaturesCache = {
-        data: oldResult.features,
-        rangeCounts: oldResult.rangeCounts,
+      /*
+        Un caché histórico solo puede reemplazarse cuando TODOS los
+        rangos fueron recuperados correctamente.
 
+        Nunca debemos escribir un conjunto parcial en Redis, porque
+        haría desaparecer Features que sí estaban disponibles antes.
+      */
+      if (oldResult.complete) {
+        oldFeaturesCache = {
+          data: oldResult.features,
+          rangeCounts: oldResult.rangeCounts,
+
+          /*
+            Se persiste para que el seguimiento de las divisiones WIQL
+            permanezca disponible mientras el caché histórico siga vigente.
+          */
+          rangeDetails: oldResult.rangeDetails,
+
+          timestamp: now
+        };
+
+        // Guardamos en Redis con TTL nativo de 12h (en segundos)
+        await redis.set(
+          CACHE_KEY,
+          oldFeaturesCache,
+          {
+            ex: OLD_FEATURES_CACHE_TTL_SECONDS
+          }
+        );
+      } else if (previousOldFeaturesCache) {
         /*
-          Se persiste para que el seguimiento de las divisiones WIQL
-          permanezca disponible mientras el caché histórico siga vigente.
+          Existe una versión anterior íntegra. La conservamos en memoria
+          para esta respuesta y no modificamos Redis.
+
+          El TTL de Redis no se renueva: así se evita perpetuar datos
+          antiguos indefinidamente si ADO continúa fallando.
         */
-        rangeDetails: oldResult.rangeDetails,
+        oldFeaturesCache = previousOldFeaturesCache;
 
-        timestamp: now
-      };
+        console.error(
+          'Historical Feature cache refresh was incomplete. ' +
+          'Keeping the previous valid Redis cache.',
+          {
+            failedRanges: oldResult.failedRanges
+          }
+        );
 
-      // Guardamos en Redis con TTL nativo de 12h (en segundos)
-      await redis.set(
-        CACHE_KEY,
-        oldFeaturesCache,
-        {
-          ex: OLD_FEATURES_CACHE_TTL_SECONDS
-        }
-      );
+        cacheRefreshWarnings.push(
+          'WARNING: Historical Feature cache refresh was incomplete. ' +
+          'The dashboard is showing the last successful cached data.'
+        );
+      } else {
+        /*
+          No existe un caché válido al cual volver, por ejemplo:
+          - primera ejecución después de un deploy;
+          - Redis expiró;
+          - Redis fue limpiado manualmente.
+
+          En este caso es más seguro fallar explícitamente que crear
+          un dashboard con información histórica incompleta.
+        */
+        console.error(
+          'Historical Feature cache refresh failed and no previous ' +
+          'valid cache exists.',
+          {
+            failedRanges: oldResult.failedRanges
+          }
+        );
+
+        return res.status(503).json({
+          error:
+            'Historical Features could not be fully retrieved from ' +
+            'Azure DevOps. Please try again shortly.'
+        });
+      }
     }
 
     /*
@@ -3579,9 +3667,10 @@ app.get('/api/features', async (req, res) => {
       Un conteo >= 200 ya no es warning por sí mismo: la función WIQL
       divide automáticamente los rangos saturados.
 
-      Solo se advierte si una consulta realmente no pudo completarse.
+      También agregamos advertencias transitorias si un refresh falló
+      parcialmente y fue necesario conservar el último caché válido.
     */
-    const warnings = Object.entries(rangeCounts)
+    const rangeWarnings = Object.entries(rangeCounts)
       .filter(([, count]) =>
         typeof count === 'string' &&
         count.startsWith('ERROR:')
@@ -3589,6 +3678,11 @@ app.get('/api/features', async (req, res) => {
       .map(([range]) =>
         `WARNING: Range "${range}" could not be fully retrieved from Azure DevOps.`
       );
+
+    const warnings = [
+      ...cacheRefreshWarnings,
+      ...rangeWarnings
+    ];
 
     res.json({
       rangeCounts,
