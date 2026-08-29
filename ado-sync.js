@@ -2596,16 +2596,85 @@ async function fetchIdsForSingleRange(c, range) {
     .filter(Number.isInteger);
 }
 
-/* Recupera IDs de Features para un rango de ChangedDate.
-  Si ADO devuelve exactamente 200 elementos, el resultado puede estar truncado. En ese caso el rango se divide recursivamente hasta que
-  cada subconsulta devuelva menos de 200 elementos.
-  La ejecución es secuencial de forma deliberada dentro de la recursión. Ya existe concurrencia controlada entre rangos históricos mediante
-  OLD_FEATURES_RANGE_CONCURRENCY; lanzar además ambas mitades en paralelo aumentaría innecesariamente el riesgo de throttling HTTP 429. */
+/*
+  Convierte un rango WIQL a un texto legible para logs y para el contrato
+  técnico rangeDetails.
 
-async function fetchIdsForRange(c, range) { const ids = await fetchIdsForSingleRange(c, range);
-  if (ids.length < WIQL_SATURATION_LIMIT) { return ids; }
-  const { fromDate, toDate } = getRangeDateBounds(range);
+  Los rangos originales conservan expresiones como:
+    @today - 180 to @today - 90
+
+  Los subrangos generados automáticamente usan límites UTC concretos:
+    2026-02-29T00:00:00.000Z to 2026-04-14T12:00:00.000Z
+*/
+function getWiqlRangeLabel(range) {
+  const from = range.from ||
+    (range.fromDate instanceof Date
+      ? range.fromDate.toISOString()
+      : new Date(range.fromDate).toISOString());
+
+  const to = range.to ||
+    (range.toDate instanceof Date
+      ? range.toDate.toISOString()
+      : new Date(range.toDate).toISOString());
+
+  return `${from} to ${to}`;
+}
+
+/*
+  Convierte un rango, original o subdividido, a un objeto seguro para
+  observabilidad. No contiene credenciales ni datos de Features.
+*/
+function getWiqlRangeBoundsForDetails(range) {
+  const {
+    fromDate,
+    toDate
+  } = getRangeDateBounds(range);
+
+  return {
+    from: fromDate.toISOString(),
+    to: toDate.toISOString()
+  };
+}
+
+/*
+  Ejecuta una consulta WIQL y, cuando recibe 200 elementos, divide el
+  intervalo recursivamente.
+
+  Devuelve información interna completa para que la función pública pueda:
+  - combinar IDs;
+  - contar todas las consultas realizadas;
+  - identificar si hubo partición;
+  - exponer únicamente los subrangos finales no saturados.
+*/
+async function fetchIdsForRangeInternal(c, range) {
+  const ids = await fetchIdsForSingleRange(c, range);
+  const rangeBounds = getWiqlRangeBoundsForDetails(range);
+
+  /*
+    Un resultado menor a 200 se considera completo para este subrango.
+    Es un subrango final o "leaf range".
+  */
+  if (ids.length < WIQL_SATURATION_LIMIT) {
+    return {
+      ids,
+      wasSplit: false,
+      subQueryCount: 1,
+      leafRanges: [
+        {
+          ...rangeBounds,
+          count: ids.length
+        }
+      ]
+    };
+  }
+
+  const {
+    fromDate,
+    toDate
+  } = getRangeDateBounds(range);
+
   const rangeDurationMs = toDate.getTime() - fromDate.getTime();
+
   if (rangeDurationMs <= WIQL_MINIMUM_RANGE_MS) {
     throw new Error(
       'WIQL range remained saturated with 200 items even after ' +
@@ -2613,36 +2682,119 @@ async function fetchIdsForRange(c, range) { const ids = await fetchIdsForSingleR
       'avoid returning an incomplete Feature list.'
     );
   }
-  const midpointMs = fromDate.getTime() + Math.floor(rangeDurationMs / 2);
+
+  const midpointMs =
+    fromDate.getTime() + Math.floor(rangeDurationMs / 2);
+
   const midpointDate = new Date(midpointMs);
-  /* Protección adicional: el midpoint debe quedar estrictamente entre ambos límites. Si no es posible, la consulta no puede subdividirse de forma segura. */
+
+  /*
+    El punto medio debe estar estrictamente entre ambos límites.
+    Esta protección evita una recursión infinita si el rango no puede
+    reducirse correctamente.
+  */
   if (
     midpointDate <= fromDate ||
     midpointDate >= toDate
   ) {
-    throw new Error( 'Unable to create a smaller WIQL range while resolving ' + 'a saturated result set.' );
+    throw new Error(
+      'Unable to create a smaller WIQL range while resolving ' +
+      'a saturated result set.'
+    );
   }
 
   console.warn('Splitting saturated WIQL Feature range', {
-    originalRange: {
-      from: range.from || formatWiqlDateTime(fromDate),
-      to: range.to || formatWiqlDateTime(toDate)
-    },
+    range: getWiqlRangeLabel(range),
     returnedItems: ids.length,
     midpoint: midpointDate.toISOString()
   });
 
-  const leftIds = await fetchIdsForRange(c, { fromDate, toDate: midpointDate });
+  /*
+    La ejecución de ambos lados permanece secuencial para no aumentar
+    el riesgo de throttling hacia Azure DevOps.
+  */
+  const leftResult = await fetchIdsForRangeInternal(c, {
+    fromDate,
+    toDate: midpointDate
+  });
 
-  const rightIds = await fetchIdsForRange(c, { fromDate: midpointDate, toDate });
+  const rightResult = await fetchIdsForRangeInternal(c, {
+    fromDate: midpointDate,
+    toDate
+  });
 
-  /* La deduplicación es defensiva. Los intervalos no deberían solaparse por diseño, pero evita resultados repetidos si ADO devolviera un ID duplicado inesperadamente.  */
-  return [
-    ...new Set([
-      ...leftIds,
-      ...rightIds
-    ])
-  ];
+  return {
+    /*
+      Los subrangos no se solapan por diseño:
+        izquierda: >= from y < midpoint
+        derecha:   >= midpoint y < to
+
+      La deduplicación se conserva como protección adicional.
+    */
+    ids: [
+      ...new Set([
+        ...leftResult.ids,
+        ...rightResult.ids
+      ])
+    ],
+
+    wasSplit: true,
+
+    /*
+      Incluye:
+      - la consulta original saturada;
+      - todas las subconsultas ejecutadas en ambos lados.
+    */
+    subQueryCount:
+      1 +
+      leftResult.subQueryCount +
+      rightResult.subQueryCount,
+
+    /*
+      Solo se conservan los rangos finales que devolvieron menos de 200.
+      Esto permite revisar cómo se resolvió el rango original.
+    */
+    leafRanges: [
+      ...leftResult.leafRanges,
+      ...rightResult.leafRanges
+    ]
+  };
+}
+
+/*
+  Contrato público para el resto del backend.
+
+  Antes:
+    const ids = await fetchIdsForRange(c, range);
+
+  Después:
+    const result = await fetchIdsForRange(c, range);
+    result.ids;
+    result.rangeDetail;
+
+  rangeCounts conserva únicamente el total numérico actual, mientras
+  rangeDetails agrega la trazabilidad técnica sin romper el frontend.
+*/
+async function fetchIdsForRange(c, range) {
+  const internalResult = await fetchIdsForRangeInternal(c, range);
+
+  const rangeDetail = {
+    total: internalResult.ids.length,
+    complete: true,
+    wasSplit: internalResult.wasSplit,
+    subQueryCount: internalResult.subQueryCount,
+    subRanges: internalResult.leafRanges
+  };
+
+  console.log('WIQL Feature range completed', {
+    range: getWiqlRangeLabel(range),
+    ...rangeDetail
+  });
+
+  return {
+    ids: internalResult.ids,
+    rangeDetail
+  };
 }
 
 // ===== Trae campos y relaciones de Features en lotes de 200 =====
@@ -2789,17 +2941,47 @@ async function fetchFeatureDetailsBatch(c, ids) {
 
 // ===== Features editadas en los ÚLTIMOS 10 días (SIEMPRE en vivo) =====
 async function fetchRecentFeatures(c) {
-  const range = { from: `@today - ${RECENT_DAYS_THRESHOLD}`, to: '@today + 1' };
+  const range = {
+    from: `@today - ${RECENT_DAYS_THRESHOLD}`,
+    to: '@today + 1'
+  };
+
+  const rangeKey = `${range.from} to ${range.to}`;
   const rangeCounts = {};
+  const rangeDetails = {};
   let ids = [];
+
   try {
-    ids = await fetchIdsForRange(c, range);
-    rangeCounts[`${range.from} to ${range.to}`] = ids.length;
-  } catch (e) {
-    rangeCounts[`${range.from} to ${range.to}`] = 'ERROR: ' + e.message;
+    const rangeResult = await fetchIdsForRange(c, range);
+
+    ids = rangeResult.ids;
+    rangeCounts[rangeKey] = ids.length;
+    rangeDetails[rangeKey] = rangeResult.rangeDetail;
+  } catch (error) {
+    rangeCounts[rangeKey] = `ERROR: ${error.message}`;
+
+    /*
+      El contrato de rangeDetails también comunica que no fue posible
+      confirmar la recuperación completa de ese rango.
+    */
+    rangeDetails[rangeKey] = {
+      total: null,
+      complete: false,
+      wasSplit: false,
+      subQueryCount: 0,
+      subRanges: []
+    };
   }
-  const raw = ids.length ? await fetchFeatureDetailsBatch(c, ids) : [];
-  return { features: raw.map(mapFeature), rangeCounts };
+
+  const raw = ids.length
+    ? await fetchFeatureDetailsBatch(c, ids)
+    : [];
+
+  return {
+    features: raw.map(mapFeature),
+    rangeCounts,
+    rangeDetails
+  };
 }
 
 // ===== Features editadas entre 10 y 180 días (se cachea 12h en el servidor) =====
@@ -2812,24 +2994,38 @@ async function fetchOldFeatures(c) {
     { from: '@today - 180', to: '@today - 90' }
   ];
 
-  /* Ejecuta como máximo dos WIQL en paralelo. Cada rango conserva su propio resultado o error, por lo que un fallo puntual no bloquea
-    la creación del caché histórico completo. */
+  /*
+    Ejecuta como máximo dos WIQL en paralelo. Cada rango conserva su propio
+    resultado o error, por lo que un fallo puntual no bloquea todavía la
+    creación del caché histórico completo.
+
+    En el siguiente punto reforzaremos este comportamiento para evitar que
+    un refresh parcial reemplace un caché histórico válido.
+  */
   const rangeResults = await mapWithConcurrency(
     dateRanges,
     OLD_FEATURES_RANGE_CONCURRENCY,
     async range => {
       try {
-        const ids = await fetchIdsForRange(c, range);
+        const rangeResult = await fetchIdsForRange(c, range);
 
         return {
           range,
-          ids,
+          ids: rangeResult.ids,
+          rangeDetail: rangeResult.rangeDetail,
           error: null
         };
       } catch (error) {
         return {
           range,
           ids: [],
+          rangeDetail: {
+            total: null,
+            complete: false,
+            wasSplit: false,
+            subQueryCount: 0,
+            subRanges: []
+          },
           error
         };
       }
@@ -2837,21 +3033,39 @@ async function fetchOldFeatures(c) {
   );
 
   const rangeCounts = {};
+  const rangeDetails = {};
   const allIds = [];
 
-  /* mapWithConcurrency conserva el mismo orden de dateRanges. Reconstruimos rangeCounts y la lista total de IDs después de que
-  terminen las consultas, evitando mutaciones concurrentes sobre allIds o rangeCounts. */
-  rangeResults.forEach(({ range, ids, error }) => {
-    const rangeKey = `${range.from} to ${range.to}`;
+  /*
+    mapWithConcurrency conserva el mismo orden de dateRanges.
+    Reconstruimos los objetos solo después de que terminan todas las
+    consultas, evitando mutaciones concurrentes.
+  */
+  rangeResults.forEach(
+    ({
+      range,
+      ids,
+      rangeDetail,
+      error
+    }) => {
+      const rangeKey = `${range.from} to ${range.to}`;
 
-    if (error) {
-      rangeCounts[rangeKey] = `ERROR: ${error.message}`;
-      return;
+      if (error) {
+        rangeCounts[rangeKey] = `ERROR: ${error.message}`;
+
+        rangeDetails[rangeKey] = {
+          ...rangeDetail,
+          error: error.message
+        };
+
+        return;
+      }
+
+      rangeCounts[rangeKey] = ids.length;
+      rangeDetails[rangeKey] = rangeDetail;
+      allIds.push(...ids);
     }
-
-    rangeCounts[rangeKey] = ids.length;
-    allIds.push(...ids);
-  });
+  );
 
   const raw = allIds.length
     ? await fetchFeatureDetailsBatch(c, allIds)
@@ -2859,7 +3073,8 @@ async function fetchOldFeatures(c) {
 
   return {
     features: raw.map(mapFeature),
-    rangeCounts
+    rangeCounts,
+    rangeDetails
   };
 }
 
@@ -3294,16 +3509,44 @@ app.get('/api/features', async (req, res) => {
     const cacheExpired = !oldFeaturesCache;
 
     if (cacheExpired || forceRefresh) {
-      console.log(forceRefresh ? 'Refreshing cache by manual request...' : 'Cache expired, refreshing...');
+      console.log(
+        forceRefresh
+          ? 'Refreshing cache by manual request...'
+          : 'Cache expired, refreshing...'
+      );
+
       const oldResult = await fetchOldFeatures(c);
+
       oldFeaturesCache = {
         data: oldResult.features,
         rangeCounts: oldResult.rangeCounts,
+
+        /*
+          Se persiste para que el seguimiento de las divisiones WIQL
+          permanezca disponible mientras el caché histórico siga vigente.
+        */
+        rangeDetails: oldResult.rangeDetails,
+
         timestamp: now
       };
+
       // Guardamos en Redis con TTL nativo de 12h (en segundos)
-      await redis.set(CACHE_KEY, oldFeaturesCache, { ex: OLD_FEATURES_CACHE_TTL_SECONDS });
+      await redis.set(
+        CACHE_KEY,
+        oldFeaturesCache,
+        {
+          ex: OLD_FEATURES_CACHE_TTL_SECONDS
+        }
+      );
     }
+
+    /*
+      Compatibilidad con cachés existentes creados antes de agregar
+      rangeDetails. Mientras no ocurra un refresh histórico, el API
+      responde {} en vez de producir un error.
+    */
+    oldFeaturesCache.rangeDetails =
+      oldFeaturesCache.rangeDetails || {};
 
     // 2. La consulta "reciente" SIEMPRE es en vivo (nunca se cachea)
     const recentResult = await fetchRecentFeatures(c);
@@ -3314,15 +3557,30 @@ app.get('/api/features', async (req, res) => {
 
     const allFeatures = [...recentResult.features, ...cleanOldFeatures];
 
-    // 4. rangeCounts y warnings combinados
+    // 4. rangeCounts, rangeDetails y warnings combinados
     const rangeCounts = {
       ...oldFeaturesCache.rangeCounts,
       ...recentResult.rangeCounts
     };
 
-    /* Un conteo mayor o igual a 200 ya no es una advertencia por sí solo:  fetchIdsForRange() divide automáticamente las consultas saturadas.
-      Solo se informa al usuario cuando un rango realmente falló y, por tanto, no fue posible confirmar que todos los datos se recuperaron. */
-    
+    /*
+      Nueva información técnica y aditiva.
+
+      El frontend actual no necesita consumirla todavía. Se incluye desde
+      ahora para que pueda revisarse directamente en /api/features y para
+      preparar una futura visualización opcional en el dashboard.
+    */
+    const rangeDetails = {
+      ...oldFeaturesCache.rangeDetails,
+      ...recentResult.rangeDetails
+    };
+
+    /*
+      Un conteo >= 200 ya no es warning por sí mismo: la función WIQL
+      divide automáticamente los rangos saturados.
+
+      Solo se advierte si una consulta realmente no pudo completarse.
+    */
     const warnings = Object.entries(rangeCounts)
       .filter(([, count]) =>
         typeof count === 'string' &&
@@ -3334,6 +3592,7 @@ app.get('/api/features', async (req, res) => {
 
     res.json({
       rangeCounts,
+      rangeDetails,
       warnings,
       total: allFeatures.length,
       cacheInfo: {
