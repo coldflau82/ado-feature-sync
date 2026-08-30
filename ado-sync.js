@@ -417,7 +417,67 @@ function getStateChangesFromRevisions(revisions) {
 
 const OLD_FEATURES_CACHE_TTL_SECONDS = 12 * 60 * 60;
 const RECENT_DAYS_THRESHOLD = 10;
-const CACHE_KEY = 'oldFeaturesCache';
+
+/*
+  Clave histórica anterior.
+
+  Se conserva temporalmente como fallback seguro durante la migración
+  hacia caché incremental por rangos.
+*/
+const LEGACY_OLD_FEATURES_CACHE_KEY = 'oldFeaturesCache';
+
+/*
+  Prefijo de la nueva estructura incremental.
+
+  Cada rango histórico se guarda de manera independiente, evitando que
+  una sola respuesta parcial reemplace todo el historial.
+*/
+const OLD_FEATURES_CACHE_PREFIX = 'oldFeaturesCache:v2';
+
+/*
+  Los rangos no se superponen:
+
+  - Reciente en vivo:
+      @today - 10 <= ChangedDate < @today + 1
+
+  - Histórico cacheado:
+      @today - 180 <= ChangedDate < @today - 10
+*/
+const OLD_FEATURES_DATE_RANGES = [
+  {
+    cacheSuffix: 'changed-10-to-20-days',
+    from: '@today - 20',
+    to: `@today - ${RECENT_DAYS_THRESHOLD}`
+  },
+  {
+    cacheSuffix: 'changed-20-to-30-days',
+    from: '@today - 30',
+    to: '@today - 20'
+  },
+  {
+    cacheSuffix: 'changed-30-to-60-days',
+    from: '@today - 60',
+    to: '@today - 30'
+  },
+  {
+    cacheSuffix: 'changed-60-to-90-days',
+    from: '@today - 90',
+    to: '@today - 60'
+  },
+  {
+    cacheSuffix: 'changed-90-to-180-days',
+    from: '@today - 180',
+    to: '@today - 90'
+  }
+];
+
+function getOldFeaturesRangeCacheKey(range) {
+  return `${OLD_FEATURES_CACHE_PREFIX}:${range.cacheSuffix}`;
+}
+
+function getOldFeaturesRangeLabel(range) {
+  return `${range.from} to ${range.to}`;
+}
 
 /* Un resultado de exactamente 200 IDs se trata como un rango potencialmente saturado. En vez de mostrar una advertencia y continuar con datos
 posiblemente incompletos, el rango se divide automáticamente. */
@@ -2984,117 +3044,340 @@ async function fetchRecentFeatures(c) {
   };
 }
 
-// ===== Features editadas entre 10 y 180 días (se cachea 12h en el servidor) =====
-async function fetchOldFeatures(c) {
-  const dateRanges = [
-    { from: `@today - 20`, to: `@today - ${RECENT_DAYS_THRESHOLD}` },
-    { from: '@today - 30', to: '@today - 20' },
-    { from: '@today - 60', to: '@today - 30' },
-    { from: '@today - 90', to: '@today - 60' },
-    { from: '@today - 180', to: '@today - 90' }
-  ];
+/*
+  Recupera un único rango histórico.
 
-  /*
-    Ejecuta como máximo dos WIQL en paralelo. Cada rango conserva su propio
-    resultado o error, por lo que un fallo puntual no bloquea todavía la
-    creación del caché histórico completo.
+  Este resultado se guarda de manera independiente en Redis.
+  Así, un error en un rango no obliga a descartar los demás rangos
+  históricos que sí pudieron actualizarse correctamente.
+*/
+async function fetchOldFeaturesRange(c, range) {
+  const rangeKey = getOldFeaturesRangeLabel(range);
 
-    En el siguiente punto reforzaremos este comportamiento para evitar que
-    un refresh parcial reemplace un caché histórico válido.
-  */
-  const rangeResults = await mapWithConcurrency(
-    dateRanges,
-    OLD_FEATURES_RANGE_CONCURRENCY,
-    async range => {
-      try {
-        const rangeResult = await fetchIdsForRange(c, range);
+  try {
+    const rangeResult = await fetchIdsForRange(c, range);
 
-        return {
-          range,
-          ids: rangeResult.ids,
-          rangeDetail: rangeResult.rangeDetail,
-          error: null
-        };
-      } catch (error) {
-        return {
-          range,
-          ids: [],
-          rangeDetail: {
-            total: null,
-            complete: false,
-            wasSplit: false,
-            subQueryCount: 0,
-            subRanges: []
-          },
-          error
-        };
-      }
-    }
-  );
+    const raw = rangeResult.ids.length
+      ? await fetchFeatureDetailsBatch(c, rangeResult.ids)
+      : [];
 
+    return {
+      range,
+      rangeKey,
+      features: raw.map(mapFeature),
+      rangeCount: rangeResult.ids.length,
+      rangeDetail: rangeResult.rangeDetail,
+      complete: true,
+      error: null
+    };
+  } catch (error) {
+    return {
+      range,
+      rangeKey,
+      features: [],
+      rangeCount: `ERROR: ${error.message}`,
+      rangeDetail: {
+        total: null,
+        complete: false,
+        wasSplit: false,
+        subQueryCount: 0,
+        subRanges: [],
+        error: error.message
+      },
+      complete: false,
+      error
+    };
+  }
+}
+
+/*
+  Construye el objeto persistido para un rango individual.
+
+  Cada shard contiene todo lo necesario para reconstruir la respuesta
+  histórica sin depender de los otros rangos.
+*/
+function createOldFeaturesRangeCacheEntry(result, timestamp) {
+  return {
+    data: result.features,
+    rangeCount: result.rangeCount,
+    rangeDetail: result.rangeDetail,
+    timestamp
+  };
+}
+
+/*
+  Convierte los shards incrementales en el contrato histórico que ya
+  consume /api/features.
+
+  El timestamp global se calcula usando el shard más antiguo. De ese modo,
+  cacheInfo.ageMinutes representa la antigüedad de la parte menos reciente
+  del caché histórico, evitando presentar datos viejos como si acabaran
+  de actualizarse.
+*/
+function buildOldFeaturesCacheFromRangeEntries(rangeEntries) {
+  const data = [];
   const rangeCounts = {};
   const rangeDetails = {};
-  const allIds = [];
+  const timestamps = [];
 
-  /*
-    mapWithConcurrency conserva el mismo orden de dateRanges.
-    Reconstruimos los objetos solo después de que terminan todas las
-    consultas, evitando mutaciones concurrentes.
-  */
-  rangeResults.forEach(
-    ({
-      range,
-      ids,
-      rangeDetail,
-      error
-    }) => {
-      const rangeKey = `${range.from} to ${range.to}`;
+  OLD_FEATURES_DATE_RANGES.forEach(range => {
+    const rangeKey = getOldFeaturesRangeLabel(range);
+    const entry = rangeEntries.get(range.cacheSuffix);
 
-      if (error) {
-        rangeCounts[rangeKey] = `ERROR: ${error.message}`;
-
-        rangeDetails[rangeKey] = {
-          ...rangeDetail,
-          error: error.message
-        };
-
-        return;
-      }
-
-        rangeCounts[rangeKey] = ids.length;
-      rangeDetails[rangeKey] = rangeDetail;
-      allIds.push(...ids);
+    if (!entry) {
+      return;
     }
-  );
 
-  /*
-    Conserva el detalle de los rangos que no se pudieron recuperar.
-    Esto permite que /api/features decida si debe:
-    - guardar un caché nuevo completo; o
-    - conservar el último caché válido de Redis.
-  */
-  const failedRanges = rangeResults
-    .filter(result => result.error)
-    .map(result => ({
-      range: `${result.range.from} to ${result.range.to}`,
-      error: result.error.message
-    }));
+    data.push(...(entry.data || []));
 
-  const raw = allIds.length
-    ? await fetchFeatureDetailsBatch(c, allIds)
-    : [];
+    rangeCounts[rangeKey] =
+      entry.rangeCount !== undefined
+        ? entry.rangeCount
+        : 0;
+
+    rangeDetails[rangeKey] =
+      entry.rangeDetail || {
+        total: null,
+        complete: false,
+        wasSplit: false,
+        subQueryCount: 0,
+        subRanges: []
+      };
+
+    if (Number.isFinite(Number(entry.timestamp))) {
+      timestamps.push(Number(entry.timestamp));
+    }
+  });
 
   return {
-    features: raw.map(mapFeature),
+    data,
     rangeCounts,
     rangeDetails,
 
     /*
-      true significa que todos los rangos históricos terminaron
-      correctamente y que este resultado puede reemplazar Redis.
+      Si por alguna razón no hubiera timestamp, se usa Date.now()
+      únicamente para mantener un objeto válido. En condiciones normales,
+      todos los shards recién escritos tendrán timestamp.
     */
-    complete: failedRanges.length === 0,
-    failedRanges
+    timestamp:
+      timestamps.length > 0
+        ? Math.min(...timestamps)
+        : Date.now()
+  };
+}
+
+/*
+  Lee o actualiza el caché incremental histórico.
+
+  Reglas de seguridad:
+  - Un rango se sobrescribe solo si se recuperó completamente.
+  - Si un rango falla y tiene shard previo, se conserva ese shard.
+  - Si falta un shard y falla ADO, se usa el caché legado completo
+    como fallback temporal, si existe.
+  - Si no hay shard suficiente ni caché legado válido, se devuelve 503.
+*/
+async function getIncrementalOldFeaturesCache(
+  c,
+  {
+    forceRefresh,
+    legacyOldFeaturesCache
+  }
+) {
+  const rangeEntries = new Map();
+  const cacheRefreshWarnings = [];
+  const failedRanges = [];
+  let usedLegacyFallback = false;
+
+  /*
+    Primero leemos todos los shards existentes.
+
+    Se leen antes de iniciar consultas ADO para que cada rango tenga una
+    versión previa segura disponible en caso de fallo durante refresh.
+  */
+  const existingEntries = await Promise.all(
+    OLD_FEATURES_DATE_RANGES.map(async range => {
+      const cacheKey = getOldFeaturesRangeCacheKey(range);
+      const entry = await redis.get(cacheKey);
+
+      return {
+        range,
+        entry
+      };
+    })
+  );
+
+  /* Durante esta fase, refresh=1 continúa actualizando todos los rangos históricos, igual que el comportamiento previo.
+    En el próximo punto cambiaremos ese comportamiento para que el botón Refresh sincronice únicamente datos Live. */
+  
+  const rangesToRefresh = OLD_FEATURES_DATE_RANGES.filter(range => {
+    const existing = existingEntries.find(
+      item => item.range.cacheSuffix === range.cacheSuffix
+    );
+
+    return forceRefresh || !existing?.entry;
+  });
+
+  /*
+    Los rangos existentes que no necesitan actualizarse se conservan
+    directamente en memoria.
+  */
+  existingEntries.forEach(({ range, entry }) => {
+    if (entry && !forceRefresh) {
+      rangeEntries.set(range.cacheSuffix, entry);
+    }
+  });
+
+  /*
+    Ejecutamos los rangos que faltan o que fueron solicitados mediante
+    refresh manual con la misma protección de concurrencia existente.
+  */
+  const refreshResults = await mapWithConcurrency(
+    rangesToRefresh,
+    OLD_FEATURES_RANGE_CONCURRENCY,
+    async range => {
+      const result = await fetchOldFeaturesRange(c, range);
+
+      const existingEntry = existingEntries.find(
+        item => item.range.cacheSuffix === range.cacheSuffix
+      )?.entry;
+
+      if (result.complete) {
+        const newEntry = createOldFeaturesRangeCacheEntry(
+          result,
+          Date.now()
+        );
+
+        await redis.set(
+          getOldFeaturesRangeCacheKey(range),
+          newEntry,
+          {
+            ex: OLD_FEATURES_CACHE_TTL_SECONDS
+          }
+        );
+
+        return {
+          range,
+          entry: newEntry,
+          refreshed: true,
+          failed: false
+        };
+      }
+
+      failedRanges.push({
+        range: result.rangeKey,
+        error: result.error?.message || 'Unknown error'
+      });
+
+      /*
+        Si este rango tenía una versión previa válida, se conserva.
+        No se renueva su TTL para no mantener datos históricos
+        indefinidamente si ADO continúa fallando.
+      */
+      if (existingEntry) {
+        console.error(
+          'Historical Feature range refresh was incomplete. ' +
+          'Keeping the previous valid Redis range cache.',
+          {
+            range: result.rangeKey,
+            error: result.error?.message || 'Unknown error'
+          }
+        );
+
+        cacheRefreshWarnings.push(
+          `WARNING: Historical range "${result.rangeKey}" ` +
+          'could not be refreshed. The dashboard is showing the ' +
+          'last successful cached data for that range.'
+        );
+
+        return {
+          range,
+          entry: existingEntry,
+          refreshed: false,
+          failed: true
+        };
+      }
+
+      /*
+        No existe shard previo para este rango. La migración todavía puede
+        usar el caché histórico completo anterior como fallback seguro.
+      */
+      return {
+        range,
+        entry: null,
+        refreshed: false,
+        failed: true
+      };
+    }
+  );
+
+  refreshResults.forEach(result => {
+    if (result.entry) {
+      rangeEntries.set(
+        result.range.cacheSuffix,
+        result.entry
+      );
+    }
+  });
+
+  const hasAllIncrementalRanges =
+    rangeEntries.size === OLD_FEATURES_DATE_RANGES.length;
+
+  /*
+    Durante la migración, un caché legado íntegro sigue siendo mejor que
+    responder con un subconjunto de rangos incrementales.
+
+    Esto protege el dashboard si el primer deploy con v2 coincide con
+    una indisponibilidad parcial de Azure DevOps.
+  */
+  if (!hasAllIncrementalRanges) {
+    if (legacyOldFeaturesCache) {
+      usedLegacyFallback = true;
+
+      console.error(
+        'Incremental historical cache is incomplete. ' +
+        'Using the previous legacy historical cache as fallback.',
+        {
+          availableRangeShards: rangeEntries.size,
+          expectedRangeShards: OLD_FEATURES_DATE_RANGES.length,
+          failedRanges
+        }
+      );
+
+      cacheRefreshWarnings.push(
+        'WARNING: The incremental historical cache migration is incomplete. ' +
+        'The dashboard is showing the last successful legacy cached data.'
+      );
+
+      return {
+        oldFeaturesCache: legacyOldFeaturesCache,
+        cacheRefreshWarnings,
+        failedRanges,
+        usedLegacyFallback
+      };
+    }
+
+    /*
+      No hay suficientes shards v2 y tampoco existe el caché antiguo.
+      Es más seguro responder 503 que mostrar información histórica
+      incompleta como si fuera confiable.
+    */
+    const error = new Error(
+      'Historical Features could not be fully retrieved from Azure DevOps.'
+    );
+
+    error.statusCode = 503;
+    error.failedRanges = failedRanges;
+
+    throw error;
+  }
+
+  return {
+    oldFeaturesCache: buildOldFeaturesCacheFromRangeEntries(
+      rangeEntries
+    ),
+    cacheRefreshWarnings,
+    failedRanges,
+    usedLegacyFallback
   };
 }
 
@@ -3523,109 +3806,51 @@ app.get('/api/features', async (req, res) => {
     const forceRefresh = req.query.refresh === '1';
     const now = Date.now();
 
-    // 1. Leer el caché "antiguo" desde Redis (persiste entre cold starts e instancias)
-    let oldFeaturesCache = await redis.get(CACHE_KEY);
+    /*
+      1. Leer el caché histórico legado.
+
+      Esta clave se conserva temporalmente para que el primer deploy con
+      shards incrementales no tenga riesgo de mostrar datos incompletos.
+      Cuando confirmemos que los shards v2 están estables durante varios
+      ciclos de TTL, esta lectura podrá eliminarse.
+    */
+    const legacyOldFeaturesCache = await redis.get(
+      LEGACY_OLD_FEATURES_CACHE_KEY
+    );
 
     /*
-      Conservamos una referencia explícita al último caché válido.
-      Si una actualización histórica falla parcialmente, este objeto
-      seguirá siendo la fuente segura para el dashboard.
+      2. Leer o actualizar los rangos históricos incrementales.
+
+      En esta fase refresh=1 todavía intenta refrescar todos los rangos
+      históricos, igual que antes. El siguiente punto cambiará Refresh
+      para que consulte exclusivamente el rango Live.
     */
-    const previousOldFeaturesCache = oldFeaturesCache;
-
-    const cacheExpired = !oldFeaturesCache;
-
-    /*
-      Estas advertencias se generan durante la solicitud actual.
-      No se guardan dentro de Redis porque describen un fallo transitorio
-      de sincronización, no un problema permanente de los datos cacheados.
-    */
-    const cacheRefreshWarnings = [];
-
-    if (cacheExpired || forceRefresh) {
-      console.log(
-        forceRefresh
-          ? 'Refreshing cache by manual request...'
-          : 'Cache expired, refreshing...'
-      );
-
-      const oldResult = await fetchOldFeatures(c);
-
-      /*
-        Un caché histórico solo puede reemplazarse cuando TODOS los
-        rangos fueron recuperados correctamente.
-
-        Nunca debemos escribir un conjunto parcial en Redis, porque
-        haría desaparecer Features que sí estaban disponibles antes.
-      */
-      if (oldResult.complete) {
-        oldFeaturesCache = {
-          data: oldResult.features,
-          rangeCounts: oldResult.rangeCounts,
-
-          /*
-            Se persiste para que el seguimiento de las divisiones WIQL
-            permanezca disponible mientras el caché histórico siga vigente.
-          */
-          rangeDetails: oldResult.rangeDetails,
-
-          timestamp: now
-        };
-
-        // Guardamos en Redis con TTL nativo de 12h (en segundos)
-        await redis.set(
-          CACHE_KEY,
-          oldFeaturesCache,
-          {
-            ex: OLD_FEATURES_CACHE_TTL_SECONDS
-          }
-        );
-      } else if (previousOldFeaturesCache) {
-        /*
-          Existe una versión anterior íntegra. La conservamos en memoria
-          para esta respuesta y no modificamos Redis.
-
-          El TTL de Redis no se renueva: así se evita perpetuar datos
-          antiguos indefinidamente si ADO continúa fallando.
-        */
-        oldFeaturesCache = previousOldFeaturesCache;
-
-        console.error(
-          'Historical Feature cache refresh was incomplete. ' +
-          'Keeping the previous valid Redis cache.',
-          {
-            failedRanges: oldResult.failedRanges
-          }
-        );
-
-        cacheRefreshWarnings.push(
-          'WARNING: Historical Feature cache refresh was incomplete. ' +
-          'The dashboard is showing the last successful cached data.'
-        );
-      } else {
-        /*
-          No existe un caché válido al cual volver, por ejemplo:
-          - primera ejecución después de un deploy;
-          - Redis expiró;
-          - Redis fue limpiado manualmente.
-
-          En este caso es más seguro fallar explícitamente que crear
-          un dashboard con información histórica incompleta.
-        */
-        console.error(
-          'Historical Feature cache refresh failed and no previous ' +
-          'valid cache exists.',
-          {
-            failedRanges: oldResult.failedRanges
-          }
-        );
-
-        return res.status(503).json({
-          error:
-            'Historical Features could not be fully retrieved from ' +
-            'Azure DevOps. Please try again shortly.'
-        });
+    const {
+      oldFeaturesCache,
+      cacheRefreshWarnings,
+      failedRanges,
+      usedLegacyFallback
+    } = await getIncrementalOldFeaturesCache(
+      c,
+      {
+        forceRefresh,
+        legacyOldFeaturesCache
       }
+    );
+
+    /*
+      Información adicional exclusivamente para logs.
+
+      No exponemos errores técnicos de Azure DevOps al navegador.
+    */
+    if (failedRanges.length > 0) {
+      console.warn(
+        'Historical incremental cache completed with fallback ranges.',
+        {
+          failedRanges,
+          usedLegacyFallback
+        }
+      );
     }
 
     /*
@@ -3633,8 +3858,8 @@ app.get('/api/features', async (req, res) => {
       rangeDetails. Mientras no ocurra un refresh histórico, el API
       responde {} en vez de producir un error.
     */
-    oldFeaturesCache.rangeDetails =
-      oldFeaturesCache.rangeDetails || {};
+        oldFeaturesCache.rangeDetails =
+        oldFeaturesCache.rangeDetails || {};
 
     // 2. La consulta "reciente" SIEMPRE es en vivo (nunca se cachea)
     const recentResult = await fetchRecentFeatures(c);
@@ -3690,10 +3915,29 @@ app.get('/api/features', async (req, res) => {
       warnings,
       total: allFeatures.length,
       cacheInfo: {
-        lastRefresh: new Date(oldFeaturesCache.timestamp).toISOString(),
+        /*
+          En caché incremental, lastRefresh representa el shard histórico
+          más antiguo. Es la referencia más segura para expresar la edad
+          real del conjunto histórico completo.
+        */
+        lastRefresh: new Date(
+          oldFeaturesCache.timestamp
+        ).toISOString(),
+
         ageMinutes: Math.round(
           (now - oldFeaturesCache.timestamp) / 60000
-        )
+        ),
+
+        /*
+          Información aditiva para diagnóstico técnico.
+          El dashboard actual puede ignorarla sin romperse.
+        */
+        storageMode: usedLegacyFallback
+          ? 'legacy-fallback'
+          : 'incremental-v2',
+
+        historicalRangeCount:
+          OLD_FEATURES_DATE_RANGES.length
       },
       features: allFeatures
     });
@@ -3718,8 +3962,13 @@ app.get('/api/features', async (req, res) => {
       - sin detalles de Azure DevOps;
       - sin códigos de red internos;
       - sin stack trace.  */
-    return res.status(500).json({
-      error: 'Unable to fetch Features from Azure DevOps.'
+    return res.status(
+      error.statusCode || 500
+    ).json({
+      error:
+        error.statusCode === 503
+          ? 'Historical Features could not be fully retrieved from Azure DevOps. Please try again shortly.'
+          : 'Unable to fetch Features from Azure DevOps.'
     });
   }
 });
