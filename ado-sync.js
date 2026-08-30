@@ -449,7 +449,8 @@ const ACTIVE_OLD_FEATURES_MIN_AGE_DAYS = 180;
 const ACTIVE_OLD_FEATURES_MAX_AGE_DAYS = 730;
 
 /* La clave incluye explícitamente los límites del rango.
-  Cambiar la clave evita reutilizar por error un caché creado anteriormente con la consulta desde el año 2000. La clave antigua puede expirar por su TTL normal de 12 horas sin afectar el dashboard. */
+  Cambiar la clave evita reutilizar por error un caché creado anteriormente con la consulta desde el año 2000. La clave anterior ya no es leída por
+  este código y expirará según el TTL con el que hubiera sido creada.*/
 const ACTIVE_OLD_FEATURES_CACHE_KEY =
   `${OLD_FEATURES_CACHE_PREFIX}:active-changed-180-to-730-days`;
 
