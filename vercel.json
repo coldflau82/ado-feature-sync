@@ -6,7 +6,7 @@
       "path": "/api/internal/sync-feature-caches",
       "schedule": "0 5 * * *"
     }
-  ]
+  ],
   "builds": [
     {
       "src": "ado-sync.js",
