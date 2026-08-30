@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const path = require('path');
+const crypto = require('crypto');
 
 /* Azure DevOps es una dependencia obligatoria del dashboard. Validar al iniciar evita que la aplicación arranque aparentemente bien
   y falle después durante una solicitud con una URL o credenciales inválidas. */
@@ -20,6 +21,18 @@ if (missingAdoEnvVars.length > 0) {
   throw new Error(
     `Missing required Azure DevOps environment variable(s): ` +
     missingAdoEnvVars.join(', ')
+  );
+}
+
+/* El endpoint de sincronización interna no debe quedar expuesto. En Vercel, CRON_SECRET permite que la plataforma envíe la autorización 
+automáticamente al invocar el Cron Job. También permite probar el endpoint manualmente de forma controlada. */
+const CRON_SECRET = String(
+  process.env.CRON_SECRET || ''
+).trim();
+
+if (!CRON_SECRET) {
+  throw new Error(
+    'Missing required environment variable: CRON_SECRET.'
   );
 }
 
@@ -415,11 +428,15 @@ function getStateChangesFromRevisions(revisions) {
   return stateChanges;
 }
 
-const OLD_FEATURES_CACHE_TTL_SECONDS = 12 * 60 * 60;
+/* El Cron se ejecuta diariamente. Se conservan 36 horas para que, incluso si el Cron diario llega más
+  tarde de lo esperado o ADO falla durante una actualización, exista un shard previo válido al cual volver temporalmente.
+  El Cron sigue intentando actualizar los datos cada día; este TTL sólo evita perder el fallback seguro entre ejecuciones. */
+const OLD_FEATURES_CACHE_TTL_SECONDS = 36 * 60 * 60;
 const RECENT_DAYS_THRESHOLD = 10;
 
-/* Clave histórica anterior.
-  Se conserva temporalmente como fallback seguro durante la migración hacia caché incremental por rangos. */
+/* Clave histórica heredada.
+  Se conserva únicamente como fallback durante la migración a los shards incrementales v2. No debe usarse para nuevas escrituras.
+  Podrá retirarse cuando los shards v2 hayan sido validados durante varios ciclos completos de Cron y TTL. */
 const LEGACY_OLD_FEATURES_CACHE_KEY = 'oldFeaturesCache';
 
 /* Prefijo de la nueva estructura incremental.
@@ -3287,7 +3304,8 @@ function buildOldFeaturesCacheFromRangeEntries(rangeEntries) {
 async function getIncrementalOldFeaturesCache(
   c,
   {
-    legacyOldFeaturesCache
+    legacyOldFeaturesCache,
+    forceRefresh = false
   }
 ) {
   const rangeEntries = new Map();
@@ -3313,14 +3331,23 @@ async function getIncrementalOldFeaturesCache(
     })
   );
 
-  /* Los shards históricos solo se consultan en Azure DevOps si no existen en Redis o si su TTL ya expiró.
-    El Refresh manual no se incluye aquí: los Features Live se consultan siempre mediante fetchRecentFeatures(). */
+  /* Los shards históricos se consultan cuando:
+  - no existen en Redis;
+  - su TTL expiró;
+  - el Cron interno solicita forceRefresh=true.
+  El Refresh manual del dashboard nunca usa forceRefresh: los Features Live se consultan siempre mediante fetchRecentFeatures(). */
   const rangesToRefresh = OLD_FEATURES_DATE_RANGES.filter(range => {
     const existing = existingEntries.find(
       item => item.range.cacheSuffix === range.cacheSuffix
     );
-
-    return !existing?.entry;
+  
+    /*
+      El endpoint público nunca envía forceRefresh=true.
+  
+      Sólo el Cron interno puede solicitar una actualización explícita de
+      los shards históricos ya existentes.
+    */
+    return forceRefresh || !existing?.entry;
   });
 
   /*
@@ -3333,8 +3360,11 @@ async function getIncrementalOldFeaturesCache(
     }
   });
 
-  /* Ejecutamos únicamente los shards históricos inexistentes o expirados, usando la misma protección de concurrencia existente.
-  El Refresh manual no llega a esta sección: solo vuelve a consultar Features Live mediante fetchRecentFeatures(). */
+  /*
+  Ejecutamos los shards históricos inexistentes, expirados o solicitados explícitamente por el Cron interno.
+
+  El Refresh manual del dashboard no llega aquí con forceRefresh=true: sólo vuelve a consultar Features Live mediante fetchRecentFeatures().
+  */
   const refreshResults = await mapWithConcurrency(
     rangesToRefresh,
     OLD_FEATURES_RANGE_CONCURRENCY,
@@ -3524,24 +3554,28 @@ async function fetchActiveOldFeatures(c) {
   }
 }
 
-/*
-  Lee el caché de Features activos antiguos o lo crea cuando no existe.
-  Reglas:
-  - sólo se escribe Redis tras una consulta completa;
-  - mientras el shard exista y su TTL siga vigente, se devuelve sin consultar Azure DevOps;
-  - si el shard expiró o no existe y ADO falla, se propaga un 503 controlado para no mostrar una lista parcial como confiable;
-  - refresh=1 nunca fuerza esta consulta.
-*/
-async function getActiveOldFeaturesCache(c) {
+/* Lee o actualiza el caché de Features activos con cambios entre 180 y 730 días atrás.
+  forceRefresh sólo se usa desde el Cron interno. El botón Refresh del dashboard nunca fuerza este caché. */
+async function getActiveOldFeaturesCache(
+  c,
+  {
+    forceRefresh = false
+  } = {}
+) {
   const existingEntry = await redis.get(
     ACTIVE_OLD_FEATURES_CACHE_KEY
   );
 
-  if (existingEntry) {
+  /*
+    Mientras el shard exista y no sea una sincronización interna
+    programada, se reutiliza sin consultar Azure DevOps.
+  */
+  if (existingEntry && !forceRefresh) {
     return {
       activeOldFeaturesCache: existingEntry,
       warning: null,
-      usedPreviousCache: false
+      usedPreviousCache: false,
+      refreshed: false
     };
   }
 
@@ -3559,12 +3593,40 @@ async function getActiveOldFeaturesCache(c) {
     return {
       activeOldFeaturesCache: newEntry,
       warning: null,
-      usedPreviousCache: false
+      usedPreviousCache: false,
+      refreshed: true
     };
   } catch (error) {
+    /*
+      Durante el Cron, un shard previo válido sigue siendo preferible a
+      reemplazarlo por información parcial o hacer fallar todo el proceso.
+    */
+    if (existingEntry) {
+      console.error(
+        'Active old Features cache refresh failed. ' +
+        'Keeping the previous valid Redis cache.',
+        {
+          cacheKey: ACTIVE_OLD_FEATURES_CACHE_KEY,
+          range: error.rangeKey || null,
+          adoStatus: error.response?.status || null,
+          message: error.message
+        }
+      );
+
+      return {
+        activeOldFeaturesCache: existingEntry,
+        warning:
+          'WARNING: Active historical Features could not be refreshed. ' +
+          'The dashboard is showing the last successful cached data.',
+        usedPreviousCache: true,
+        refreshed: false
+      };
+    }
+
     console.error(
       'Unable to build the active old Features cache.',
       {
+        cacheKey: ACTIVE_OLD_FEATURES_CACHE_KEY,
         range: error.rangeKey || null,
         adoStatus: error.response?.status || null,
         message: error.message
@@ -3581,7 +3643,203 @@ async function getActiveOldFeaturesCache(c) {
   }
 }
 
+/* Lock distribuido del Cron. No se elimina manualmente al terminar: expira automáticamente.
+  Esto evita que una ejecución lenta borre accidentalmente el lock de una ejecución posterior que hubiera empezado después de expirar.
+  El endpoint es idempotente: si Vercel entrega un evento duplicado, el segundo intento detecta el lock y finaliza sin ejecutar otra
+  sincronización en paralelo. */
+
+const FEATURE_CACHE_SYNC_LOCK_KEY =
+  'oldFeaturesCache:v2:scheduled-sync-lock';
+
+const FEATURE_CACHE_SYNC_LOCK_TTL_SECONDS =
+  55 * 60;
+
+/*
+  Compara secretos sin revelar diferencias de longitud o contenido por
+  el tiempo de respuesta.
+*/
+function hasValidCronAuthorization(req) {
+  const authorization = String(
+    req.get('authorization') || ''
+  );
+
+  const expectedValue = `Bearer ${CRON_SECRET}`;
+
+  const authorizationBuffer = Buffer.from(authorization);
+  const expectedBuffer = Buffer.from(expectedValue);
+
+  if (authorizationBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(
+    authorizationBuffer,
+    expectedBuffer
+  );
+}
+
+/*
+  Intenta obtener el lock sin sobrescribir un lock vigente.
+
+  Redis devuelve null cuando otro proceso ya posee la clave. El valor
+  exacto devuelto puede variar por cliente, por lo que sólo consideramos
+  adquisición exitosa cualquier respuesta distinta de null.
+*/
+async function tryAcquireFeatureCacheSyncLock() {
+  const result = await redis.set(
+    FEATURE_CACHE_SYNC_LOCK_KEY,
+    {
+      startedAt: new Date().toISOString()
+    },
+    {
+      nx: true,
+      ex: FEATURE_CACHE_SYNC_LOCK_TTL_SECONDS
+    }
+  );
+
+  return result !== null;
+}
+
 app.get('/api/health', (req, res) => res.json({ ok: 1 }));
+
+/*
+  Endpoint exclusivo para Vercel Cron.
+
+  No utiliza /api/features porque:
+  - no necesita ejecutar la consulta Live;
+  - no debe devolver la lista completa de Features;
+  - debe actualizar explícitamente los shards históricos;
+  - necesita un lock para evitar sincronizaciones concurrentes.
+*/
+app.get(
+  '/api/internal/sync-feature-caches',
+  async (req, res) => {
+    if (!hasValidCronAuthorization(req)) {
+      console.warn(
+        'Rejected unauthorized feature cache sync request.'
+      );
+
+      return res.status(401).json({
+        error: 'Unauthorized.'
+      });
+    }
+
+    let lockAcquired = false;
+
+    try {
+      lockAcquired = await tryAcquireFeatureCacheSyncLock();
+
+      if (!lockAcquired) {
+        console.warn(
+          'Feature cache sync skipped because another run is active.'
+        );
+
+        return res.status(409).json({
+          ok: false,
+          skipped: true,
+          reason: 'A feature cache synchronization is already running.'
+        });
+      }
+
+      const startedAt = Date.now();
+      const c = getAdoClient();
+
+      /*
+        El caché legado se conserva como fallback durante la migración.
+        Una vez que oldFeaturesCache deje de ser necesario, este bloque
+        podrá simplificarse junto con la retirada del fallback legado.
+      */
+      const legacyOldFeaturesCache = await redis.get(
+        LEGACY_OLD_FEATURES_CACHE_KEY
+      );
+
+      /*
+        El Cron sí fuerza una actualización histórica.
+
+        Cada shard conserva su propia protección:
+        - éxito completo => se escribe el nuevo shard;
+        - fallo + shard previo => se conserva el shard previo;
+        - shard faltante + legacy disponible => fallback legado;
+        - sin datos seguros disponibles => error 503.
+      */
+      const historicalResult =
+        await getIncrementalOldFeaturesCache(
+          c,
+          {
+            legacyOldFeaturesCache,
+            forceRefresh: true
+          }
+        );
+
+      /*
+        El rango de Features activos entre 180 y 730 días también se
+        actualiza en el Cron, no desde el Refresh manual del dashboard.
+      */
+      const activeOldResult =
+        await getActiveOldFeaturesCache(
+          c,
+          {
+            forceRefresh: true
+          }
+        );
+
+      const durationMs = Date.now() - startedAt;
+
+      console.log(
+        'Feature cache synchronization completed.',
+        {
+          durationMs,
+          storageMode:
+            historicalResult.usedLegacyFallback
+              ? 'legacy-fallback'
+              : 'incremental-v2',
+          historicalFailedRanges:
+            historicalResult.failedRanges.length,
+          activeOldUsedPreviousCache:
+            activeOldResult.usedPreviousCache,
+          activeOldRefreshed:
+            activeOldResult.refreshed
+        }
+      );
+
+      return res.status(200).json({
+        ok: true,
+        storageMode:
+          historicalResult.usedLegacyFallback
+            ? 'legacy-fallback'
+            : 'incremental-v2',
+        historicalFailedRanges:
+          historicalResult.failedRanges.length,
+        activeOldUsedPreviousCache:
+          activeOldResult.usedPreviousCache,
+        activeOldRefreshed:
+          activeOldResult.refreshed,
+        durationMs
+      });
+    } catch (error) {
+      console.error(
+        'ERROR /api/internal/sync-feature-caches',
+        {
+          errorName: error.name || 'Error',
+          message: error.message || 'Unknown error',
+          statusCode: error.statusCode || null,
+          adoStatus: error.response?.status || null,
+          errorCode: error.code || null,
+          stack: error.stack || null
+        }
+      );
+
+      return res.status(
+        error.statusCode || 500
+      ).json({
+        error:
+          error.statusCode === 503
+            ? 'Feature caches could not be fully synchronized. Please try again later.'
+            : 'Unable to synchronize Feature caches.'
+      });
+    }
+  }
+);
 
 app.get('/api/feature-history/:id', async (req, res) => {
   try {
