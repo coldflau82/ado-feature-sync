@@ -789,7 +789,7 @@
         .join(', ');
     
       const message = missingChecks.length > 0
-        ? <strong>`Data missing:`</strong>` ${missingText}`
+        ? <strong>`Data missing: ${missingText}`</strong>
         : unknownChecks.length > 0
           ? `Unable to validate: ${unknownText}`
           : '';
