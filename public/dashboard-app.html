@@ -788,11 +788,21 @@
         .map(check => readinessCheckLabels[check] || check)
         .join(', ');
     
-      const message = missingChecks.length > 0
-        ? <strong>`Data missing: ${missingText}`</strong>
+      const messageTitle = missingChecks.length > 0
+        ? 'Data missing:'
         : unknownChecks.length > 0
-          ? `Unable to validate: ${unknownText}`
+          ? 'Unable to validate:'
           : '';
+      
+      const messageText = missingChecks.length > 0
+        ? missingText
+        : unknownChecks.length > 0
+          ? unknownText
+          : '';
+      
+      const message = messageTitle && messageText
+        ? `${messageTitle} ${messageText}`
+        : '';
     
       const messageClassName = missingChecks.length > 0
         ? 'feature-readiness-summary__message--missing'
@@ -818,7 +828,8 @@
                 ].join(' ')}
                 title={message}
               >
-                {message}
+                <strong>{messageTitle}</strong>{' '}
+                {messageText}
               </span>
             )}
           </div>
