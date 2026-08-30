@@ -3179,7 +3179,6 @@ function buildOldFeaturesCacheFromRangeEntries(rangeEntries) {
 async function getIncrementalOldFeaturesCache(
   c,
   {
-    forceRefresh,
     legacyOldFeaturesCache
   }
 ) {
@@ -3206,15 +3205,14 @@ async function getIncrementalOldFeaturesCache(
     })
   );
 
-  /* Durante esta fase, refresh=1 continúa actualizando todos los rangos históricos, igual que el comportamiento previo.
-    En el próximo punto cambiaremos ese comportamiento para que el botón Refresh sincronice únicamente datos Live. */
-  
+  /* Los shards históricos solo se consultan en Azure DevOps si no existen en Redis o si su TTL ya expiró.
+    El Refresh manual no se incluye aquí: los Features Live se consultan siempre mediante fetchRecentFeatures(). */
   const rangesToRefresh = OLD_FEATURES_DATE_RANGES.filter(range => {
     const existing = existingEntries.find(
       item => item.range.cacheSuffix === range.cacheSuffix
     );
 
-    return forceRefresh || !existing?.entry;
+    return !existing?.entry;
   });
 
   /*
@@ -3222,7 +3220,7 @@ async function getIncrementalOldFeaturesCache(
     directamente en memoria.
   */
   existingEntries.forEach(({ range, entry }) => {
-    if (entry && !forceRefresh) {
+    if (entry) {
       rangeEntries.set(range.cacheSuffix, entry);
     }
   });
@@ -3803,8 +3801,16 @@ app.post('/api/features-relationship-graph-batch', async (req, res) => {
 app.get('/api/features', async (req, res) => {
   try {
     const c = getAdoClient();
-    const forceRefresh = req.query.refresh === '1';
+    /*  refresh=1 sigue siendo aceptado por compatibilidad con el botón actual del dashboard.
+      Los Features recientes siempre se consultan en vivo más abajo, por lo que no es necesario forzar una actualización histórica. */
+    const liveRefreshRequested = req.query.refresh === '1';
     const now = Date.now();
+
+    if (liveRefreshRequested) {
+      console.log(
+        'Manual refresh requested. Refreshing Live Features only.'
+      );
+    }
 
     /*
       1. Leer el caché histórico legado.
@@ -3833,7 +3839,6 @@ app.get('/api/features', async (req, res) => {
     } = await getIncrementalOldFeaturesCache(
       c,
       {
-        forceRefresh,
         legacyOldFeaturesCache
       }
     );
