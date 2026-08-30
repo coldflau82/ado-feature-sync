@@ -735,33 +735,8 @@ function hasFeatureEstimate(feature) {
 }
 
 /*
-  Convierte una fecha de ADO a YYYY-MM-DD.
-
-  Para valores como "2026-08-22", conserva exactamente la fecha indicada
-  y evita que JavaScript la desplace por diferencias de zona horaria.
-*/
-function getDateKey(value) {
-  if (!value) {
-    return null;
-  }
-
-  const rawValue = String(value).trim();
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
-    return rawValue;
-  }
-
-  const parsedDate = new Date(rawValue);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return null;
-  }
-
-  return parsedDate.toISOString().slice(0, 10);
-}
-
-/*
   Convierte un valor de Azure DevOps a una fecha de negocio YYYY-MM-DD.
+
   Reglas:
   - Si ADO devuelve YYYY-MM-DD, ese valor ya representa una fecha de
     negocio y se conserva literalmente.
@@ -796,7 +771,6 @@ function getDateKey(value) {
 
 /*
   Fecha actual del negocio en America/Chicago.
-
   Ejemplo:
   - 2026-08-31 00:00 America/Chicago => una Feature con Target Date
     2026-08-30 pasa a considerarse overdue.
