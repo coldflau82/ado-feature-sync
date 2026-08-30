@@ -497,15 +497,10 @@
     }
 
     /*
-      parseDashboardDate() fue declarado al inicio del script y usa la zona de negocio recibida desde el backend. No agregar otra versión
-      local de esta función en componentes del dashboard.
+      Interpreta YYYY-MM-DD como una fecha de negocio en Chicago.
+      No se debe usar new Date('YYYY-MM-DD'), porque JavaScript trata
+      esa forma como UTC y puede desplazar visualmente el día.
     */
-
-    /* Delivery Health es calculado exclusivamente por el backend. El frontend solo:
-      - asigna estilos, iconos y clases CSS;
-      - renderiza primary y alerts;
-      - usa group para KPI y filtros. */
-    
     function parseDashboardDate(value) {
       if (!value) {
         return null;
@@ -794,24 +789,12 @@
         shortLabel: fallbackLabel
       };
     }
-        
-    function parseDashboardDate(value) {
-      if (!value) {
-        return null;
-      }
-    
-      const normalizedValue = String(value);
-    
-      /* Una fecha pura YYYY-MM-DD se interpreta como fecha local. Así se evita que JavaScript la trate como UTC y la desplace
-        al día anterior en determinadas zonas horarias. */
-      const date = /^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)
-        ? new Date(`${normalizedValue}T00:00:00`)
-        : new Date(normalizedValue);
-    
-      return Number.isNaN(date.getTime())
-        ? null
-        : date;
-    }
+
+    /*
+      parseDashboardDate() se declara una sola vez al inicio del script.
+      Usa Luxon y dashboardTimeZone para interpretar fechas operativas
+      bajo America/Chicago.
+    */
 
     /* Delivery Health es calculado exclusivamente por el backend.
       El frontend solo:
@@ -1232,20 +1215,23 @@
         sprintLabel = sprintMatch[2];
         const monthMap = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
         const startMonth = sprintMatch[3];
-        const startDay = parseInt(sprintMatch[4]);
+        const startDay = parseInt(sprintMatch[4], 10);
         const endMonth = sprintMatch[5];
-        const endDay = parseInt(sprintMatch[6]);
-         sprintStart = createDashboardDate(
+        const endDay = parseInt(sprintMatch[6], 10);
+
+        const sprintEndYear =
+          monthMap[endMonth] < monthMap[startMonth]
+            ? year + 1
+            : year;
+
+        sprintStart = createDashboardDate(
           year,
           monthMap[startMonth],
           startDay
         );
 
         sprintEnd = createDashboardDate(
-          year,
-          monthMap[endMonth] < monthMap[startMonth]
-            ? year + 1
-            : year,
+          sprintEndYear,
           monthMap[endMonth],
           endDay
         );
@@ -5349,7 +5335,6 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {(() => {
                     {(() => {
                       const dashboardToday = getDashboardNow().startOf('day');
 
