@@ -3341,23 +3341,43 @@
         const assignedOk = filterAssignedTo.length === 0 || filterAssignedTo.includes(f.assignedTo);
 
         let dateOk = filterTargetDate.length === 0;
-      
+
         if (filterTargetDate.length > 0 && f.targetDate) {
-          const d = parseDashboardDate(f.targetDate);
-        
-          if (d) {
-            const yearMonthKey = d.getFullYear() + '-' + d.getMonth();
-            const yearKey = String(d.getFullYear());
-        
+          /*
+            No usar Date#getFullYear() ni Date#getMonth() aquí:
+            esos métodos usan la zona local del navegador.
+
+            getDashboardDateTime() conserva la interpretación oficial
+            de la fecha bajo America/Chicago.
+          */
+          const dashboardDate = getDashboardDateTime(f.targetDate);
+
+          if (dashboardDate) {
+            const yearMonthKey =
+              `${dashboardDate.year}-${dashboardDate.month - 1}`;
+
+            const yearKey = String(dashboardDate.year);
+
             dateOk =
               filterTargetDate.includes(yearMonthKey) ||
               filterTargetDate.includes(yearKey);
           }
         }
-      
+
         const normalizedSearch = searchTitle.toLowerCase();
-        const searchOk = searchTitle === '' || (f.title || '').toLowerCase().includes(normalizedSearch) || (f.tags || '').toLowerCase().includes(normalizedSearch);
-        const releaseOk = filterReleaseVersion.length === 0 || filterReleaseVersion.includes(f.releaseFixVersion);
+
+        const searchOk =
+          searchTitle === '' ||
+          (f.title || '')
+            .toLowerCase()
+            .includes(normalizedSearch) ||
+          (f.tags || '')
+            .toLowerCase()
+            .includes(normalizedSearch);
+
+        const releaseOk =
+          filterReleaseVersion.length === 0 ||
+          filterReleaseVersion.includes(f.releaseFixVersion);
       
         return (
           areaOk &&
