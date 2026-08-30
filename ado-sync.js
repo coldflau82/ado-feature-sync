@@ -418,31 +418,29 @@ function getStateChangesFromRevisions(revisions) {
 const OLD_FEATURES_CACHE_TTL_SECONDS = 12 * 60 * 60;
 const RECENT_DAYS_THRESHOLD = 10;
 
-/*
-  Clave histórica anterior.
-
-  Se conserva temporalmente como fallback seguro durante la migración
-  hacia caché incremental por rangos.
-*/
+/* Clave histórica anterior.
+  Se conserva temporalmente como fallback seguro durante la migración hacia caché incremental por rangos. */
 const LEGACY_OLD_FEATURES_CACHE_KEY = 'oldFeaturesCache';
 
-/*
-  Prefijo de la nueva estructura incremental.
-
-  Cada rango histórico se guarda de manera independiente, evitando que
-  una sola respuesta parcial reemplace todo el historial.
-*/
+/* Prefijo de la nueva estructura incremental.
+  Cada rango histórico se guarda de manera independiente, evitando que una sola respuesta parcial reemplace todo el historial. */
 const OLD_FEATURES_CACHE_PREFIX = 'oldFeaturesCache:v2';
 
-/*
-  Los rangos no se superponen:
+/* Features activos cuyo último cambio ocurrió hace más de 180 días, pero dentro de una ventana móvil máxima de aproximadamente dos años.
+  No forman parte de OLD_FEATURES_DATE_RANGES porque agregan un criterio adicional: el Feature no puede estar en un estado terminal. */
+const ACTIVE_OLD_FEATURES_MIN_AGE_DAYS = 180;
+const ACTIVE_OLD_FEATURES_MAX_AGE_DAYS = 730;
 
+/* La clave incluye explícitamente los límites del rango.
+  Cambiar la clave evita reutilizar por error un caché creado anteriormente con la consulta desde el año 2000. La clave antigua puede expirar por su TTL normal de 12 horas sin afectar el dashboard. */
+const ACTIVE_OLD_FEATURES_CACHE_KEY =
+  `${OLD_FEATURES_CACHE_PREFIX}:active-changed-180-to-730-days`;
+
+/* Los rangos no se superponen:
   - Reciente en vivo:
       @today - 10 <= ChangedDate < @today + 1
-
   - Histórico cacheado:
-      @today - 180 <= ChangedDate < @today - 10
-*/
+      @today - 180 <= ChangedDate < @today - 10 */
 const OLD_FEATURES_DATE_RANGES = [
   {
     cacheSuffix: 'changed-10-to-20-days',
@@ -477,6 +475,29 @@ function getOldFeaturesRangeCacheKey(range) {
 
 function getOldFeaturesRangeLabel(range) {
   return `${range.from} to ${range.to}`;
+}
+
+/* Escapa texto para usarlo como literal entre comillas simples en WIQL.
+  Actualmente los estados provienen de un JSON local validado al iniciar, pero este escape evita generar una consulta inválida si en el futuro un
+  estado incluye una comilla simple. */
+function escapeWiqlString(value) {
+  return String(value || '')
+    .replace(/'/g, "''");
+}
+
+/* Construye condiciones separadas en vez de depender de NOT IN.
+  Ejemplo:
+    AND [System.State] <> 'Closed'
+    AND [System.State] <> 'Done'
+  BASE_FILTER ya excluye Removed. FEATURE_CLOSED_STATES representa la
+  política configurada para estados terminales de Feature. */
+function buildActiveFeatureStateFilter() {
+  return FEATURE_CLOSED_STATES
+    .map(
+      state =>
+        `[System.State] <> '${escapeWiqlString(state)}'`
+    )
+    .join(' AND ');
 }
 
 /* Un resultado de exactamente 200 IDs se trata como un rango potencialmente saturado. En vez de mostrar una advertencia y continuar con datos
@@ -2639,7 +2660,11 @@ function getRangeDateBounds(range) {
 /* Ejecuta una consulta WIQL individual. 
 timePrecision=true es importante para las consultas subdivididas: permite trabajar con límites exactos de fecha y hora cuando un rango debe partirse en dos. */
 
-async function fetchIdsForSingleRange(c, range) {
+async function fetchIdsForSingleRange(
+  c,
+  range,
+  additionalFilter = ''
+) {
   const response = await withAdoRetry(() =>
     c.post('/wit/wiql?timePrecision=true&api-version=7.0', {
       query:
@@ -2647,7 +2672,8 @@ async function fetchIdsForSingleRange(c, range) {
         'FROM workitems ' +
         'WHERE [System.WorkItemType] = "Feature" ' +
         `AND ${buildChangedDateFilter(range)} ` +
-        `${BASE_FILTER}`
+        `${BASE_FILTER} ` +
+        `${additionalFilter ? `AND ${additionalFilter}` : ''}`
     })
   );
 
@@ -2706,8 +2732,16 @@ function getWiqlRangeBoundsForDetails(range) {
   - identificar si hubo partición;
   - exponer únicamente los subrangos finales no saturados.
 */
-async function fetchIdsForRangeInternal(c, range) {
-  const ids = await fetchIdsForSingleRange(c, range);
+async function fetchIdsForRangeInternal(
+  c,
+  range,
+  additionalFilter = ''
+) {
+  const ids = await fetchIdsForSingleRange(
+    c,
+    range,
+    additionalFilter
+  );
   const rangeBounds = getWiqlRangeBoundsForDetails(range);
 
   /*
@@ -2773,15 +2807,23 @@ async function fetchIdsForRangeInternal(c, range) {
     La ejecución de ambos lados permanece secuencial para no aumentar
     el riesgo de throttling hacia Azure DevOps.
   */
-  const leftResult = await fetchIdsForRangeInternal(c, {
-    fromDate,
-    toDate: midpointDate
-  });
+  const leftResult = await fetchIdsForRangeInternal(
+    c,
+    {
+      fromDate,
+      toDate: midpointDate
+    },
+    additionalFilter
+  );
 
-  const rightResult = await fetchIdsForRangeInternal(c, {
-    fromDate: midpointDate,
-    toDate
-  });
+  const rightResult = await fetchIdsForRangeInternal(
+    c,
+    {
+      fromDate: midpointDate,
+      toDate
+    },
+    additionalFilter
+  );
 
   return {
     /*
@@ -2835,8 +2877,16 @@ async function fetchIdsForRangeInternal(c, range) {
   rangeCounts conserva únicamente el total numérico actual, mientras
   rangeDetails agrega la trazabilidad técnica sin romper el frontend.
 */
-async function fetchIdsForRange(c, range) {
-  const internalResult = await fetchIdsForRangeInternal(c, range);
+async function fetchIdsForRange(
+  c,
+  range,
+  additionalFilter = ''
+) {
+  const internalResult = await fetchIdsForRangeInternal(
+    c,
+    range,
+    additionalFilter
+  );
 
   const rangeDetail = {
     total: internalResult.ids.length,
@@ -3435,6 +3485,102 @@ async function getIncrementalOldFeaturesCache(
   };
 }
 
+/* Recupera Features no terminales cuyo último cambio ocurrió entre 180 y 730 días atrás.
+  La ventana móvil evita consultar toda la historia del proyecto desde una fecha fija. Si la consulta alcanza el límite de 200 IDs,
+  fetchIdsForRange() la divide automáticamente en subrangos UTC. */
+async function fetchActiveOldFeatures(c) {
+  const range = {
+    from: `@today - ${ACTIVE_OLD_FEATURES_MAX_AGE_DAYS}`,
+    to: `@today - ${ACTIVE_OLD_FEATURES_MIN_AGE_DAYS}`
+  };
+
+  const rangeKey =
+    `Active Features changed from @today - ` +
+    `${ACTIVE_OLD_FEATURES_MAX_AGE_DAYS} to @today - ` +
+    `${ACTIVE_OLD_FEATURES_MIN_AGE_DAYS}`;
+
+  const activeStateFilter = buildActiveFeatureStateFilter();
+
+  try {
+    const rangeResult = await fetchIdsForRange(
+      c,
+      range,
+      activeStateFilter
+    );
+
+    const raw = rangeResult.ids.length
+      ? await fetchFeatureDetailsBatch(c, rangeResult.ids)
+      : [];
+
+    return {
+      data: raw.map(mapFeature),
+      rangeCount: rangeResult.ids.length,
+      rangeDetail: rangeResult.rangeDetail,
+      timestamp: Date.now()
+    };
+  } catch (error) {
+    error.rangeKey = rangeKey;
+    throw error;
+  }
+}
+
+/*
+  Lee el caché de Features activos antiguos o lo crea cuando no existe.
+  Reglas:
+  - sólo se escribe Redis tras una consulta completa;
+  - mientras el shard exista y su TTL siga vigente, se devuelve sin consultar Azure DevOps;
+  - si el shard expiró o no existe y ADO falla, se propaga un 503 controlado para no mostrar una lista parcial como confiable;
+  - refresh=1 nunca fuerza esta consulta.
+*/
+async function getActiveOldFeaturesCache(c) {
+  const existingEntry = await redis.get(
+    ACTIVE_OLD_FEATURES_CACHE_KEY
+  );
+
+  if (existingEntry) {
+    return {
+      activeOldFeaturesCache: existingEntry,
+      warning: null,
+      usedPreviousCache: false
+    };
+  }
+
+  try {
+    const newEntry = await fetchActiveOldFeatures(c);
+
+    await redis.set(
+      ACTIVE_OLD_FEATURES_CACHE_KEY,
+      newEntry,
+      {
+        ex: OLD_FEATURES_CACHE_TTL_SECONDS
+      }
+    );
+
+    return {
+      activeOldFeaturesCache: newEntry,
+      warning: null,
+      usedPreviousCache: false
+    };
+  } catch (error) {
+    console.error(
+      'Unable to build the active old Features cache.',
+      {
+        range: error.rangeKey || null,
+        adoStatus: error.response?.status || null,
+        message: error.message
+      }
+    );
+
+    const cacheError = new Error(
+      'Active historical Features could not be fully retrieved from Azure DevOps.'
+    );
+
+    cacheError.statusCode = 503;
+
+    throw cacheError;
+  }
+}
+
 app.get('/api/health', (req, res) => res.json({ ok: 1 }));
 
 app.get('/api/feature-history/:id', async (req, res) => {
@@ -3880,13 +4026,8 @@ app.get('/api/features', async (req, res) => {
       LEGACY_OLD_FEATURES_CACHE_KEY
     );
 
-    /*
-      2. Leer o actualizar los rangos históricos incrementales.
-
-      En esta fase refresh=1 todavía intenta refrescar todos los rangos
-      históricos, igual que antes. El siguiente punto cambiará Refresh
-      para que consulte exclusivamente el rango Live.
-    */
+   /* 2. Leer o reconstruir únicamente los shards históricos inexistentes o expirados.
+      refresh=1 no fuerza estas consultas: el botón manual actualiza sólo los Features Live mediante fetchRecentFeatures(). */
     const {
       oldFeaturesCache,
       cacheRefreshWarnings,
@@ -3914,25 +4055,48 @@ app.get('/api/features', async (req, res) => {
       );
     }
 
-    /*
-      Compatibilidad con cachés existentes creados antes de agregar
-      rangeDetails. Mientras no ocurra un refresh histórico, el API
-      responde {} en vez de producir un error.
-    */
+    /* 3. Features activos con cambios entre 180 y 730 días atrás.
+    Este caché separado conserva Features no terminales que ya quedaron fuera de los cinco rangos históricos normales, sin consultar toda la historia del proyecto. */
+    const {
+      activeOldFeaturesCache,
+      warning: activeOldFeaturesWarning,
+      usedPreviousCache: usedPreviousActiveOldCache
+    } = await getActiveOldFeaturesCache(c);
+    
+    /* Compatibilidad con cachés existentes creados antes de agregar rangeDetails. Mientras no ocurra un refresh histórico, el API
+      responde {} en vez de producir un error. */
         oldFeaturesCache.rangeDetails =
         oldFeaturesCache.rangeDetails || {};
 
-    // 2. La consulta "reciente" SIEMPRE es en vivo (nunca se cachea)
+    // 4. La consulta reciente siempre es en vivo; nunca se guarda en Redis.
     const recentResult = await fetchRecentFeatures(c);
 
-    // 3. Deduplicación: si un ID aparece en ambos lados, gana la versión reciente (fresca)
-    const recentIds = new Set(recentResult.features.map(f => f.id));
-    const cleanOldFeatures = oldFeaturesCache.data.filter(f => !recentIds.has(f.id));
+    // 5. Deduplicación: si un ID aparece en más de un origen, gana la versión más reciente.
+    /* Prioridad de datos, de más reciente a más antiguo:
+      1. Live: últimos 10 días.
+      2. Histórico incremental: entre 10 y 180 días.
+      3. Retención activa: entre 180 y 730 días, únicamente para Features que no estén en estados terminales.
+      Aunque los filtros no deberían solaparse, la deduplicación protege contra cambios de fecha, transiciones de estado o reconstrucciones de caché en momentos distintos. */
+    const featuresById = new Map();
+    [
+      ...activeOldFeaturesCache.data,
+      ...oldFeaturesCache.data,
+      ...recentResult.features
+    ].forEach(feature => {
+      featuresById.set(feature.id, feature);
+    });
 
-    const allFeatures = [...recentResult.features, ...cleanOldFeatures];
+    const allFeatures = [...featuresById.values()];
 
-    // 4. rangeCounts, rangeDetails y warnings combinados
+    // 6. Combinar conteos, detalles técnicos y advertencias.
+    const activeOldRangeKey =
+      `Active Features changed from @today - ` +
+      `${ACTIVE_OLD_FEATURES_MAX_AGE_DAYS} to @today - ` +
+      `${ACTIVE_OLD_FEATURES_MIN_AGE_DAYS}`;
+
     const rangeCounts = {
+      [activeOldRangeKey]:
+        activeOldFeaturesCache.rangeCount,
       ...oldFeaturesCache.rangeCounts,
       ...recentResult.rangeCounts
     };
@@ -3945,6 +4109,8 @@ app.get('/api/features', async (req, res) => {
       preparar una futura visualización opcional en el dashboard.
     */
     const rangeDetails = {
+      [activeOldRangeKey]:
+        activeOldFeaturesCache.rangeDetail,
       ...oldFeaturesCache.rangeDetails,
       ...recentResult.rangeDetails
     };
@@ -3967,6 +4133,9 @@ app.get('/api/features', async (req, res) => {
 
     const warnings = [
       ...cacheRefreshWarnings,
+      ...(activeOldFeaturesWarning
+        ? [activeOldFeaturesWarning]
+        : []),
       ...rangeWarnings
     ];
 
@@ -3992,6 +4161,52 @@ app.get('/api/features', async (req, res) => {
 
         historicalRangeCount:
           OLD_FEATURES_DATE_RANGES.length,
+
+       /* Estado del caché adicional que retiene Features activos cuyo último cambio ocurrió entre 180 y 730 días atrás. */
+        activeOldFeatures: {
+          cacheKey: ACTIVE_OLD_FEATURES_CACHE_KEY,
+          featureCount:
+            Array.isArray(activeOldFeaturesCache.data)
+              ? activeOldFeaturesCache.data.length
+              : 0,
+
+          wiqlCount:
+            activeOldFeaturesCache.rangeCount ?? 0,
+
+          lastRefresh:
+            Number.isFinite(
+              Number(activeOldFeaturesCache.timestamp)
+            )
+              ? new Date(
+                  Number(activeOldFeaturesCache.timestamp)
+                ).toISOString()
+              : null,
+
+          ageMinutes:
+            Number.isFinite(
+              Number(activeOldFeaturesCache.timestamp)
+            )
+              ? Math.round(
+                  (
+                    now -
+                    Number(activeOldFeaturesCache.timestamp)
+                  ) / 60000
+                )
+              : null,
+
+          wasSplit: Boolean(
+            activeOldFeaturesCache.rangeDetail?.wasSplit
+          ),
+
+          subQueryCount: Number(
+            activeOldFeaturesCache.rangeDetail?.subQueryCount || 0
+          ),
+
+          complete:
+            activeOldFeaturesCache.rangeDetail?.complete !== false,
+
+          usedPreviousCache: usedPreviousActiveOldCache
+        },
 
         /*
           Detalle individual de los shards v2.
