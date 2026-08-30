@@ -3119,6 +3119,7 @@ function buildOldFeaturesCacheFromRangeEntries(rangeEntries) {
   const rangeCounts = {};
   const rangeDetails = {};
   const timestamps = [];
+  const historicalRanges = [];
 
   OLD_FEATURES_DATE_RANGES.forEach(range => {
     const rangeKey = getOldFeaturesRangeLabel(range);
@@ -3128,25 +3129,76 @@ function buildOldFeaturesCacheFromRangeEntries(rangeEntries) {
       return;
     }
 
-    data.push(...(entry.data || []));
+    const rangeData = entry.data || [];
+    const rangeDetail = entry.rangeDetail || {
+      total: null,
+      complete: false,
+      wasSplit: false,
+      subQueryCount: 0,
+      subRanges: []
+    };
+
+    const timestamp = Number(entry.timestamp);
+
+    data.push(...rangeData);
 
     rangeCounts[rangeKey] =
       entry.rangeCount !== undefined
         ? entry.rangeCount
         : 0;
 
-    rangeDetails[rangeKey] =
-      entry.rangeDetail || {
-        total: null,
-        complete: false,
-        wasSplit: false,
-        subQueryCount: 0,
-        subRanges: []
-      };
+    rangeDetails[rangeKey] = rangeDetail;
 
-    if (Number.isFinite(Number(entry.timestamp))) {
-      timestamps.push(Number(entry.timestamp));
+    if (Number.isFinite(timestamp)) {
+      timestamps.push(timestamp);
     }
+
+    /*
+      Metadatos individuales de cada shard.
+
+      Esto permite que el dashboard muestre claramente qué rango se
+      actualizó, cuándo se actualizó y cuántos Features contiene, sin
+      tener que inferirlo desde el caché global.
+    */
+    historicalRanges.push({
+      cacheKey: getOldFeaturesRangeCacheKey(range),
+      cacheSuffix: range.cacheSuffix,
+
+      range: {
+        from: range.from,
+        to: range.to,
+        label: rangeKey
+      },
+
+      featureCount: rangeData.length,
+
+      /*
+        rangeCount representa el resultado WIQL antes de obtener los
+        detalles del Feature. Normalmente coincide con featureCount.
+      */
+      wiqlCount:
+        entry.rangeCount !== undefined
+          ? entry.rangeCount
+          : 0,
+
+      lastRefresh:
+        Number.isFinite(timestamp)
+          ? new Date(timestamp).toISOString()
+          : null,
+
+      timestamp:
+        Number.isFinite(timestamp)
+          ? timestamp
+          : null,
+
+      wasSplit: Boolean(rangeDetail.wasSplit),
+
+      subQueryCount:
+        Number(rangeDetail.subQueryCount || 0),
+
+      complete:
+        rangeDetail.complete !== false
+    });
   });
 
   return {
@@ -3155,14 +3207,20 @@ function buildOldFeaturesCacheFromRangeEntries(rangeEntries) {
     rangeDetails,
 
     /*
-      Si por alguna razón no hubiera timestamp, se usa Date.now()
-      únicamente para mantener un objeto válido. En condiciones normales,
-      todos los shards recién escritos tendrán timestamp.
+      El timestamp global sigue representando el shard más antiguo.
+      Esto evita presentar todo el histórico como reciente si solo
+      algunos rangos fueron reconstruidos más tarde.
     */
     timestamp:
       timestamps.length > 0
         ? Math.min(...timestamps)
-        : Date.now()
+        : Date.now(),
+
+    /*
+      Propiedad aditiva. El frontend actual puede ignorarla y no se
+      rompe ningún consumidor existente.
+    */
+    historicalRanges
   };
 }
 
@@ -3225,10 +3283,8 @@ async function getIncrementalOldFeaturesCache(
     }
   });
 
-  /*
-    Ejecutamos los rangos que faltan o que fueron solicitados mediante
-    refresh manual con la misma protección de concurrencia existente.
-  */
+  /* Ejecutamos únicamente los shards históricos inexistentes o expirados, usando la misma protección de concurrencia existente.
+  El Refresh manual no llega a esta sección: solo vuelve a consultar Features Live mediante fetchRecentFeatures(). */
   const refreshResults = await mapWithConcurrency(
     rangesToRefresh,
     OLD_FEATURES_RANGE_CONCURRENCY,
@@ -3920,11 +3976,8 @@ app.get('/api/features', async (req, res) => {
       warnings,
       total: allFeatures.length,
       cacheInfo: {
-        /*
-          En caché incremental, lastRefresh representa el shard histórico
-          más antiguo. Es la referencia más segura para expresar la edad
-          real del conjunto histórico completo.
-        */
+        /* En caché incremental, lastRefresh representa el shard histórico más antiguo. Es la referencia más segura para expresar la edad
+          real del conjunto histórico completo. */
         lastRefresh: new Date(
           oldFeaturesCache.timestamp
         ).toISOString(),
@@ -3933,16 +3986,35 @@ app.get('/api/features', async (req, res) => {
           (now - oldFeaturesCache.timestamp) / 60000
         ),
 
-        /*
-          Información aditiva para diagnóstico técnico.
-          El dashboard actual puede ignorarla sin romperse.
-        */
         storageMode: usedLegacyFallback
           ? 'legacy-fallback'
           : 'incremental-v2',
 
         historicalRangeCount:
-          OLD_FEATURES_DATE_RANGES.length
+          OLD_FEATURES_DATE_RANGES.length,
+
+        /*
+          Detalle individual de los shards v2.
+
+          En legacy-fallback no existe información individual confiable,
+          porque el caché heredado contiene todos los rangos juntos.
+        */
+        historicalRanges: usedLegacyFallback
+          ? []
+          : (oldFeaturesCache.historicalRanges || []).map(range => ({
+              ...range,
+
+              /*
+                La edad se calcula al responder, no se guarda en Redis.
+                Así siempre refleja el momento real de la consulta.
+              */
+              ageMinutes:
+                Number.isFinite(Number(range.timestamp))
+                  ? Math.round(
+                      (now - Number(range.timestamp)) / 60000
+                    )
+                  : null
+            }))
       },
       features: allFeatures
     });
