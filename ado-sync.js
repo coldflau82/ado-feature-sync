@@ -4,6 +4,37 @@ const express = require('express');
 const axios = require('axios');
 const path = require('path');
 const crypto = require('crypto');
+const { DateTime } = require('luxon');
+
+/*
+  Zona horaria oficial del dashboard.
+
+  Todas las reglas que trabajan con "día de negocio" usan esta zona:
+  - Overdue;
+  - Target Date near;
+  - siguiente mes calendario;
+  - rangos WIQL;
+  - snapshots futuros;
+  - fecha operativa mostrada al frontend.
+
+  No usar process.env.TZ como fuente de verdad: esa variable modifica el
+  proceso Node, pero no garantiza que el navegador ni Azure DevOps usen
+  la misma interpretación temporal.
+*/
+const DASHBOARD_TIME_ZONE = String(
+  process.env.DASHBOARD_TIME_ZONE || 'America/Chicago'
+).trim();
+
+const dashboardZoneValidation = DateTime.now().setZone(
+  DASHBOARD_TIME_ZONE
+);
+
+if (!dashboardZoneValidation.isValid) {
+  throw new Error(
+    'Invalid DASHBOARD_TIME_ZONE. Use a valid IANA timezone, ' +
+    'for example: America/Chicago.'
+  );
+}
 
 /* Azure DevOps es una dependencia obligatoria del dashboard. Validar al iniciar evita que la aplicación arranque aparentemente bien
   y falle después durante una solicitud con una URL o credenciales inválidas. */
@@ -729,18 +760,86 @@ function getDateKey(value) {
   return parsedDate.toISOString().slice(0, 10);
 }
 
+/*
+  Convierte un valor de Azure DevOps a una fecha de negocio YYYY-MM-DD.
+  Reglas:
+  - Si ADO devuelve YYYY-MM-DD, ese valor ya representa una fecha de
+    negocio y se conserva literalmente.
+  - Si ADO devuelve un timestamp, se convierte a America/Chicago antes
+    de extraer el día.
+  - Nunca se usa toISOString() para obtener la fecha operativa porque
+    toISOString() siempre convierte a UTC.
+*/
+function getDateKey(value) {
+  if (!value) {
+    return null;
+  }
+
+  const rawValue = String(value).trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
+    return rawValue;
+  }
+
+  const parsedDate = DateTime.fromISO(rawValue, {
+    setZone: true
+  });
+
+  if (!parsedDate.isValid) {
+    return null;
+  }
+
+  return parsedDate
+    .setZone(DASHBOARD_TIME_ZONE)
+    .toISODate();
+}
+
+/*
+  Fecha actual del negocio en America/Chicago.
+
+  Ejemplo:
+  - 2026-08-31 00:00 America/Chicago => una Feature con Target Date
+    2026-08-30 pasa a considerarse overdue.
+*/
 function getTodayDateKey() {
-  return new Date().toISOString().slice(0, 10);
+  return DateTime
+    .now()
+    .setZone(DASHBOARD_TIME_ZONE)
+    .toISODate();
 }
 
+/*
+  Suma días calendario de negocio, no bloques fijos de 24 horas UTC.
+
+  Esto es importante en cambios DST. Por ejemplo, America/Chicago puede
+  tener días de 23 o 25 horas; "plus({ days: 1 })" sigue significando
+  correctamente "el siguiente día calendario".
+*/
 function addDaysToDateKey(dateKey, days) {
-  const date = new Date(`${dateKey}T00:00:00.000Z`);
+  const date = DateTime.fromISO(dateKey, {
+    zone: DASHBOARD_TIME_ZONE
+  });
 
-  date.setUTCDate(date.getUTCDate() + days);
+  if (!date.isValid) {
+    throw new Error(
+      `Unable to add days to invalid date key: "${dateKey}".`
+    );
+  }
 
-  return date.toISOString().slice(0, 10);
+  return date
+    .plus({ days })
+    .toISODate();
 }
 
+/*
+  Target Date es inclusivo.
+
+  La fecha se considera vencida solamente cuando el día de negocio actual
+  es posterior al Target Date. Ejemplo:
+  - Target Date: 2026-08-30
+  - 2026-08-30 America/Chicago => vigente
+  - 2026-08-31 America/Chicago => overdue
+*/
 function isPastTargetDate(targetDate) {
   const targetDateKey = getDateKey(targetDate);
 
@@ -787,30 +886,23 @@ function isTargetDateInNextCalendarMonth(targetDate) {
     return false;
   }
 
-  const today = new Date();
-  const nextMonthStart = new Date(
-    Date.UTC(
-      today.getUTCFullYear(),
-      today.getUTCMonth() + 1,
-      1
-    )
-  );
+  /*
+    startOf('month') y endOf('month') se calculan en America/Chicago.
+    Por tanto, "next calendar month" tiene exactamente el mismo
+    significado para backend, Gantt y usuarios del dashboard.
+  */
+  const nextMonth = DateTime
+    .now()
+    .setZone(DASHBOARD_TIME_ZONE)
+    .plus({ months: 1 });
 
-  const nextMonthEnd = new Date(
-    Date.UTC(
-      today.getUTCFullYear(),
-      today.getUTCMonth() + 2,
-      0
-    )
-  );
+  const nextMonthStartKey = nextMonth
+    .startOf('month')
+    .toISODate();
 
-  const nextMonthStartKey = nextMonthStart
-    .toISOString()
-    .slice(0, 10);
-
-  const nextMonthEndKey = nextMonthEnd
-    .toISOString()
-    .slice(0, 10);
+  const nextMonthEndKey = nextMonth
+    .endOf('month')
+    .toISODate();
 
   return (
     targetDateKey >= nextMonthStartKey &&
@@ -2572,32 +2664,33 @@ async function fetchStoriesForFeaturesBatch(c, featureIds) {
   };
 }
 
-/* Convierte una fecha UTC en un literal compatible con WIQL.
-  Ejemplo: 2026-08-28T04:30:00.000Z => '2026-08-28T04:30:00Z'
-  Las comillas son necesarias porque el valor se insertará como literal de fecha/hora dentro de la consulta WIQL. */
-
 function formatWiqlDateTime(date) {
   return `'${date.toISOString().replace('.000Z', 'Z')}'`;
 }
 
-/* Convierte las expresiones actualmente usadas por el dashboard:
-  - @today
-  - @today - 10
-  - @today + 1
-  a un límite UTC concreto, únicamente cuando necesitamos subdividir una consulta que alcanzó el límite de 200 resultados.
-  La consulta inicial continúa usando las expresiones actuales de ADO.  Esto minimiza el cambio de comportamiento respecto a producción. */
+/*
+  Convierte expresiones internas basadas en @today a una medianoche real
+  en America/Chicago y devuelve el instante UTC equivalente.
 
+  Ejemplo durante CDT:
+  - @today para 2026-08-30 en America/Chicago
+  - límite UTC resultante: 2026-08-30T05:00:00Z
+
+  Cuando Chicago cambia entre CST y CDT, Luxon ajusta el offset de forma
+  automática. Por eso no se deben sumar 24 horas manualmente en UTC.
+*/
 function getUtcDateFromTodayExpression(expression) {
   const normalizedExpression = String(expression || '')
     .trim()
     .replace(/\s+/g, ' ');
 
-  const todayUtc = new Date();
-
-  todayUtc.setUTCHours(0, 0, 0, 0);
+  const todayInBusinessZone = DateTime
+    .now()
+    .setZone(DASHBOARD_TIME_ZONE)
+    .startOf('day');
 
   if (normalizedExpression === '@today') {
-    return todayUtc;
+    return todayInBusinessZone.toUTC().toJSDate();
   }
 
   const match = normalizedExpression.match(
@@ -2606,7 +2699,7 @@ function getUtcDateFromTodayExpression(expression) {
 
   if (!match) {
     throw new Error(
-      `Unable to split unsupported WIQL date expression: "${expression}".`
+      `Unable to resolve unsupported WIQL date expression: "${expression}".`
     );
   }
 
@@ -2619,28 +2712,26 @@ function getUtcDateFromTodayExpression(expression) {
     );
   }
 
-  const result = new Date(todayUtc);
+  const result = todayInBusinessZone.plus({
+    days: operator === '+' ? days : -days
+  });
 
-  result.setUTCDate(
-    result.getUTCDate() + (operator === '+' ? days : -days)
-  );
-
-  return result;
+  return result.toUTC().toJSDate();
 }
 
-/* Construye el filtro de ChangedDate.
-  Para la consulta inicial usamos los macros existentes de WIQL, por ejemplo: [System.ChangedDate] >= @today - 180
-  Para subrangos usamos fechas UTC con precisión de hora/minuto: [System.ChangedDate] >= '2026-02-28T00:00:00Z'
-  Así la mitad izquierda usa "< midpoint" y la derecha usa ">= midpoint", sin solapamientos ni huecos. */
-
+/*
+  Construye siempre límites explícitos UTC para WIQL.
+  Aunque los objetos de rango sigan usando textos como "@today - 10" internamente para logs y cache keys, Azure DevOps ya no recibe macros.
+  Así la evaluación temporal no depende de la zona horaria de ADO.
+*/
 function buildChangedDateFilter(range) {
-  const fromValue = range.fromDate
-    ? formatWiqlDateTime(range.fromDate)
-    : range.from;
+  const {
+    fromDate,
+    toDate
+  } = getRangeDateBounds(range);
 
-  const toValue = range.toDate
-    ? formatWiqlDateTime(range.toDate)
-    : range.to;
+  const fromValue = formatWiqlDateTime(fromDate);
+  const toValue = formatWiqlDateTime(toDate);
 
   return (
     `[System.ChangedDate] >= ${fromValue} ` +
@@ -2648,8 +2739,8 @@ function buildChangedDateFilter(range) {
   );
 }
 
-/* Devuelve límites Date para un rango.
-  Los rangos originales tienen from/to con macros WIQL. Los subrangos generados automáticamente tienen fromDate/toDate. */
+/* Devuelve límites Date para un rango. Los rangos originales tienen from/to con expresiones internas como
+  "@today - 10". Los subrangos generados automáticamente tienen fromDate/toDate explícitos. */
 function getRangeDateBounds(range) {
   const fromDate = range.fromDate
     ? new Date(range.fromDate)
@@ -4399,6 +4490,15 @@ app.get('/api/features', async (req, res) => {
     ];
 
     res.json({
+      /*
+        Configuración temporal compartida con el frontend.
+        businessDate representa el día operativo que el backend usó al evaluar Delivery Health durante esta respuesta.
+      */
+      dashboard: {
+        timeZone: DASHBOARD_TIME_ZONE,
+        businessDate: getTodayDateKey()
+      },
+
       rangeCounts,
       rangeDetails,
       warnings,
