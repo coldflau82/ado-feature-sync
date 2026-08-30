@@ -6,6 +6,8 @@
   <link rel="icon" type="image/png" href="/favicon.png">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Luxon se usa para que el navegador interprete todas las fechas operativas en la misma zona oficial del backend. -->
+  <script src="https://unpkg.com/luxon@3.7.2/build/global/luxon.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
     html { overflow-y: scroll; scrollbar-gutter: stable; }
@@ -476,6 +478,91 @@
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
+    const { DateTime } = luxon;
+
+    /*
+      Fallback seguro antes de recibir /api/features.
+      El backend devuelve dashboard.timeZone y reemplaza este valor durante la carga. El fallback evita que haya un render inicial inconsistente si la respuesta todavía no llegó.
+    */
+    let dashboardTimeZone = 'America/Chicago';
+
+    function getDashboardNow() {
+      return DateTime.now().setZone(dashboardTimeZone);
+    }
+
+    function getDashboardToday() {
+      return getDashboardNow()
+        .startOf('day')
+        .toJSDate();
+    }
+
+    /*
+      parseDashboardDate() fue declarado al inicio del script y usa la zona de negocio recibida desde el backend. No agregar otra versión
+      local de esta función en componentes del dashboard.
+    */
+
+    /* Delivery Health es calculado exclusivamente por el backend. El frontend solo:
+      - asigna estilos, iconos y clases CSS;
+      - renderiza primary y alerts;
+      - usa group para KPI y filtros. */
+    
+    function parseDashboardDate(value) {
+      if (!value) {
+        return null;
+      }
+
+      const normalizedValue = String(value).trim();
+
+      const parsed = /^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)
+        ? DateTime.fromISO(normalizedValue, {
+            zone: dashboardTimeZone
+          })
+        : DateTime.fromISO(normalizedValue, {
+            setZone: true
+          }).setZone(dashboardTimeZone);
+
+      return parsed.isValid
+        ? parsed.toJSDate()
+        : null;
+    }
+
+    function getDashboardDateTime(value) {
+      const date = parseDashboardDate(value);
+
+      return date
+        ? DateTime.fromJSDate(date).setZone(dashboardTimeZone)
+        : null;
+    }
+
+    function createDashboardDate(year, month, day = 1) {
+      const date = DateTime.fromObject(
+        { year, month: month + 1, day },
+        { zone: dashboardTimeZone }
+      );
+
+      return date.isValid
+        ? date.toJSDate()
+        : null;
+    }
+
+    function addDashboardDays(date, days) {
+      return DateTime
+        .fromJSDate(date)
+        .setZone(dashboardTimeZone)
+        .plus({ days })
+        .toJSDate();
+    }
+
+    function formatDashboardMonth(date, options = {}) {
+      return DateTime
+        .fromJSDate(date)
+        .setZone(dashboardTimeZone)
+        .setLocale('en-US')
+        .toLocaleString({
+          month: 'short',
+          ...options
+        });
+    }
 
     const releaseDates = {
       'CE-2026-FEB': '2026-02-09',
@@ -1102,7 +1189,7 @@
     }
 
     function StoryRow({ storyId, title, storyPoints, state, iterationPath, formatDate, timelineStart, timelineEnd, adoLink, states, loading, showTooltip, moveTooltip, hideTooltip }) {
-      const today = new Date();
+      const today = getDashboardToday();
       const timelineTotalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
       const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
       const clampedTodayPercent = Math.max(0, Math.min(100, todayPercent));
@@ -1110,8 +1197,15 @@
       const segments = [];
       if (states.length > 0) {
         states.forEach((st, idx) => {
-          const stateStart = new Date(st.changedDate);
-          const stateEnd = idx === states.length - 1 ? today : new Date(states[idx + 1].changedDate);
+          const stateStart = parseDashboardDate(st.changedDate);
+          const stateEnd = idx === states.length - 1
+            ? today
+            : parseDashboardDate(states[idx + 1].changedDate);
+
+          if (!stateStart || !stateEnd) {
+            return;
+          }
+
           const daysFromStart = (stateStart - timelineStart) / (1000 * 60 * 60 * 24);
           const daysToEnd = (stateEnd - timelineStart) / (1000 * 60 * 60 * 24);
           const rawStartPercent = (daysFromStart / timelineTotalDays) * 100;
@@ -1141,11 +1235,20 @@
         const startDay = parseInt(sprintMatch[4]);
         const endMonth = sprintMatch[5];
         const endDay = parseInt(sprintMatch[6]);
-        sprintStart = new Date(year, monthMap[startMonth], startDay);
-        sprintEnd = new Date(year, monthMap[endMonth], endDay);
-        if (monthMap[endMonth] < monthMap[startMonth]) {
-          sprintEnd = new Date(year + 1, monthMap[endMonth], endDay);
-        }
+         sprintStart = createDashboardDate(
+          year,
+          monthMap[startMonth],
+          startDay
+        );
+
+        sprintEnd = createDashboardDate(
+          year,
+          monthMap[endMonth] < monthMap[startMonth]
+            ? year + 1
+            : year,
+          monthMap[endMonth],
+          endDay
+        );
       }
 
       const getSprintPercent = (date) => {
@@ -1196,12 +1299,29 @@
                 const segEndDate = new Date(timelineStart.getTime() + ((seg.startPercent + seg.widthPercent) / 100) * (timelineEnd - timelineStart));
                 const diffDays = Math.round((segEndDate - segStartDate) / (1000 * 60 * 60 * 24));
                 const tooltipContent = (
-                  <div>
-                    <div style={{ fontWeight: 'bold', marginBottom: '4px', color: seg.color, fontSize: '12px' }}>● {seg.state}</div>
-                    <div>From: {segStartDate.toLocaleDateString('es-CO')}</div>
-                    <div>To:&nbsp;&nbsp; {segEndDate.toLocaleDateString('es-CO')}</div>
-                    <div style={{ marginTop: '4px', color: '#94a3b8' }}>{diffDays} day{diffDays !== 1 ? 's' : ''} in this state</div>
+                <div>
+                  <div style={{ fontWeight: 'bold', marginBottom: '4px', color: seg.color, fontSize: '12px' }}>
+                    ● {seg.state}
                   </div>
+
+                  <div>
+                    From: {segStartDate.toLocaleDateString(
+                      'es-CO',
+                      { timeZone: dashboardTimeZone }
+                    )}
+                  </div>
+
+                  <div>
+                    To:&nbsp;&nbsp; {segEndDate.toLocaleDateString(
+                      'es-CO',
+                      { timeZone: dashboardTimeZone }
+                    )}
+                  </div>
+
+                  <div style={{ marginTop: '4px', color: '#94a3b8' }}>
+                    {diffDays} day{diffDays !== 1 ? 's' : ''} in this state
+                  </div>
+                </div>
                 );
                 return (
                   <div
@@ -1247,14 +1367,20 @@
         'Closed': '#a78bfa'
       };
 
-      const today = new Date();
+      const today = getDashboardToday();
       const timelineTotalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
 
       const segments = [];
       if (states.length > 0) {
         states.forEach((state, idx) => {
-          const stateStart = new Date(state.changedDate);
-          const stateEnd = idx === states.length - 1 ? today : new Date(states[idx + 1].changedDate);
+          const stateStart = parseDashboardDate(state.changedDate);
+          const stateEnd = idx === states.length - 1
+            ? today
+            : parseDashboardDate(states[idx + 1].changedDate);
+
+          if (!stateStart || !stateEnd) {
+            return;
+          }
           const daysFromStart = (stateStart - timelineStart) / (1000 * 60 * 60 * 24);
           const daysToEnd = (stateEnd - timelineStart) / (1000 * 60 * 60 * 24);
           const rawStartPercent = (daysFromStart / timelineTotalDays) * 100;
@@ -2722,7 +2848,8 @@
       const [filterIteration, setFilterIteration] = useState([]);
       const [filterAssignedTo, setFilterAssignedTo] = useState([]);
       const [filterState, setFilterState] = useState([]);
-      const currentYear = String(new Date().getFullYear());
+      /* El filtro inicial de año usa la fecha operativa de Chicago, no la zona local del navegador. */
+      const currentYear = String(getDashboardNow().year);
       const [filterTargetDate, setFilterTargetDate] = useState([currentYear]);
       const [filterReleaseVersion, setFilterReleaseVersion] = useState([]);
       const [currentPage, setCurrentPage] = useState('roadmap');
@@ -2806,14 +2933,42 @@
       const applyHealthGroupKpi = (healthGroup) => { markPresetAsCustom(); clearReadinessAndHealthFilters(); 
         if (healthGroup !== 'All') { setHealthGroupKpiFilter(healthGroup); } resetResultsAfterMainFilterChange();
       };
-      const getQuarterInfo = (date = new Date()) => 
-        { const year = date.getFullYear(); const quarter = Math.floor(date.getMonth() / 3) + 1; return { year, quarter }; };
-      const getNextQuarterInfo = (date = new Date()) => { const { year, quarter } = getQuarterInfo(date);
-        return quarter === 4 ? { year: year + 1, quarter: 1 } : { year, quarter: quarter + 1 }; };
-      const getQuarterIterationPath = ({ year, quarter }) => { return `Commercial Engineering\\${year}\\Q${quarter}`; };
-      const getNextReleaseFixVersion = () => { const today = new Date(); today.setHours(0, 0, 0, 0);
-        return Object.entries(releaseDates).map(([releaseFixVersion, dateValue]) => ({ releaseFixVersion, date: parseDashboardDate(dateValue)}))
-          .filter(item => item.date && item.date >= today).sort((a, b) => a.date - b.date)[0]?.releaseFixVersion || null; };
+      const getQuarterInfo = (date = getDashboardNow()) => {
+        const dashboardDate = DateTime.isDateTime(date)
+          ? date.setZone(dashboardTimeZone)
+          : DateTime.fromJSDate(date).setZone(dashboardTimeZone);
+
+        const year = dashboardDate.year;
+        const quarter = Math.floor((dashboardDate.month - 1) / 3) + 1;
+
+        return { year, quarter };
+      };
+
+      const getNextQuarterInfo = (date = getDashboardNow()) => {
+        const { year, quarter } = getQuarterInfo(date);
+
+        return quarter === 4
+          ? { year: year + 1, quarter: 1 }
+          : { year, quarter: quarter + 1 };
+      };
+
+      const getQuarterIterationPath = ({ year, quarter }) => {
+        return `Commercial Engineering\\${year}\\Q${quarter}`;
+      };
+
+      const getNextReleaseFixVersion = () => {
+        const today = getDashboardToday();
+
+        return Object.entries(releaseDates)
+          .map(([releaseFixVersion, dateValue]) => ({
+            releaseFixVersion,
+            date: parseDashboardDate(dateValue)
+          }))
+          .filter(item => item.date && item.date >= today)
+          .sort((a, b) => a.date - b.date)[0]
+          ?.releaseFixVersion || null;
+      };
+
       const applyFilterPreset = (presetKey) => { setSelectedFilterPreset(presetKey); resetAllDashboardFilters();
         if (presetKey === 'current-quarter') { const currentQuarter = getQuarterInfo();
           setFilterIteration([ getQuarterIterationPath(currentQuarter)]); }
@@ -3087,6 +3242,16 @@
             ? json.warnings
             : [];
 
+          /*
+            El backend es la fuente de verdad de la zona de negocio. Se actualiza antes de guardar Features para que el render posterior use la misma zona que Delivery Health.
+          */
+          if (
+            json.dashboard?.timeZone &&
+            DateTime.now().setZone(json.dashboard.timeZone).isValid
+          ) {
+            dashboardTimeZone = json.dashboard.timeZone;
+          }
+
           setFeatures(Array.isArray(json.features) ? json.features : []);
           setCacheInfo(json.cacheInfo || null);
           setWarnings(receivedWarnings);
@@ -3118,17 +3283,32 @@
       const areaPaths = [...new Set(features.map(f => f.areaPath).filter(a => a))].sort();
       const iterations = [...new Set(features.map(f => f.iterationPath).filter(a => a))].sort();
       const states = [...new Set(features.map(f => f.state).filter(a => a))].sort();
-      const targetYears = [...new Set(features.map(f => parseDashboardDate(f.targetDate)?.getFullYear()) .filter(year => year !== undefined))].sort((a, b) => b - a);
+
+      const targetYears = [
+        ...new Set(
+          features
+            .map(f => getDashboardDateTime(f.targetDate)?.year)
+            .filter(year => year !== undefined)
+        )
+      ].sort((a, b) => b - a);
+
       const releaseVersions = [...new Set(features.map(f => f.releaseFixVersion).filter(v => v))].sort();
       const assignedTos = [...new Set(features.map(f => f.assignedTo).filter(a => a))].sort();
+
       const monthsByYear = {};
+
       features.forEach(f => {
-        const d = parseDashboardDate(f.targetDate);
-        if (d) {
-          const y = d.getFullYear();
-          const m = d.getMonth();
-          if (!monthsByYear[y]) { monthsByYear[y] = new Set(); }
-          monthsByYear[y].add(m);
+        const dashboardDate = getDashboardDateTime(f.targetDate);
+
+        if (dashboardDate) {
+          const year = dashboardDate.year;
+          const monthIndex = dashboardDate.month - 1;
+
+          if (!monthsByYear[year]) {
+            monthsByYear[year] = new Set();
+          }
+
+          monthsByYear[year].add(monthIndex);
         }
       });
 
@@ -3626,11 +3806,20 @@
       };
 
       const adoLink = (id) => `https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/${id}`;
-      const formatDate = (date) => { const parsedDate = parseDashboardDate(date);
+
+      const formatDate = (date) => {
+        const parsedDate = parseDashboardDate(date);
+
         if (!parsedDate || Number.isNaN(parsedDate.getTime())) {
           return '-';
         }
-        return parsedDate.toLocaleDateString('es-CO');
+
+        return parsedDate.toLocaleDateString(
+          'es-CO',
+          {
+            timeZone: dashboardTimeZone
+          }
+        );
       };
 
       const itemsPerPage = 15;
@@ -3763,22 +3952,33 @@
       
       /*─ Renderiza el header de la línea de tiempo (meses o semanas). Vive dentro de la tabla para que use exactamente el mismo ancho que las barras, marcadores y líneas del Timeline.*/
       function TimelineSubHeader({ isWeekMode, timelineOffset, weekOffset }) {
-        const today = new Date();
+        const dashboardToday = getDashboardNow().startOf('day');
 
         if (isWeekMode) {
-          const dayOfWeek = today.getDay();
-          const thisMonday = new Date(today);
-          thisMonday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+          /*
+            Luxon usa lunes como inicio de semana para startOf('week').
+            Esto elimina la lógica manual anterior basada en getDay().
+          */
+          const thisMonday = dashboardToday.startOf('week');
 
           const groups = [];
           let currentGroup = null;
           for (let i = 0; i < 12; i++) {
-            const weekStart = new Date(thisMonday);
-            weekStart.setDate(thisMonday.getDate() + (weekOffset + i) * 7);
-            const year = weekStart.getFullYear();
-            const quarter = Math.floor(weekStart.getMonth() / 3) + 1;
+            const weekStart = thisMonday.plus({
+              weeks: weekOffset + i
+            });
+
+            const year = weekStart.year;
+            const quarter = Math.floor((weekStart.month - 1) / 3) + 1;
             const quarterKey = year + '-Q' + quarter;
-            const label = weekStart.toLocaleString('default', { month: 'short', day: 'numeric' });
+
+            const label = weekStart
+              .setLocale('en-US')
+              .toLocaleString({
+                month: 'short',
+                day: 'numeric'
+              });
+
             if (!currentGroup || currentGroup.key !== quarterKey) {
               currentGroup = { key: quarterKey, label: year + ' · Q' + quarter, weeks: [] };
               groups.push(currentGroup);
@@ -3825,13 +4025,21 @@
         }
 
         // Modo meses
-        const timelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
+        const timelineStart = dashboardToday
+          .startOf('month')
+          .plus({ months: timelineOffset });
+
         const groups = [];
         let currentGroup = null;
+
         for (let i = 0; i < 12; i++) {
-          const m = new Date(timelineStart.getFullYear(), timelineStart.getMonth() + i, 1);
-          const year = m.getFullYear();
-          const monthName = m.toLocaleString('default', { month: 'short' });
+          const month = timelineStart.plus({ months: i });
+          const year = month.year;
+
+          const monthName = month
+            .setLocale('en-US')
+            .toLocaleString({ month: 'short' });
+
           if (!currentGroup || currentGroup.year !== year) {
             currentGroup = { year, months: [] };
             groups.push(currentGroup);
@@ -4486,10 +4694,19 @@
                               style={{ paddingLeft: '15px' }}
                             >
                               &nbsp;&nbsp;
-                              {new Date(2000, month, 1).toLocaleString(
-                                'default',
-                                { month: 'long' }
-                              )}
+                              {DateTime
+                                .fromObject(
+                                  {
+                                    year: 2000,
+                                    month: month + 1,
+                                    day: 1
+                                  },
+                                  { zone: dashboardTimeZone }
+                                )
+                                .setLocale('en-US')
+                                .toLocaleString({
+                                  month: 'long'
+                                })}
                             </option>
                           ))}
                       </React.Fragment>
@@ -5133,16 +5350,30 @@
                   </thead>
                   <tbody>
                     {(() => {
-                      const today = new Date();
-                      const monthTimelineStart = new Date(today.getFullYear(), today.getMonth() + timelineOffset, 1);
-                      const monthTimelineEnd = new Date(today.getFullYear(), today.getMonth() + timelineOffset + 12, 0);
-                      const dayOfWeek = today.getDay();
-                      const thisMonday = new Date(today);
-                      thisMonday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-                      const weekTimelineStart = new Date(thisMonday);
-                      weekTimelineStart.setDate(thisMonday.getDate() + weekOffset * 7);
-                      const weekTimelineEnd = new Date(weekTimelineStart);
-                      weekTimelineEnd.setDate(weekTimelineStart.getDate() + 12 * 7);
+                    {(() => {
+                      const dashboardToday = getDashboardNow().startOf('day');
+
+                      const monthTimelineStart = dashboardToday
+                        .startOf('month')
+                        .plus({ months: timelineOffset })
+                        .toJSDate();
+
+                      const monthTimelineEnd = dashboardToday
+                        .startOf('month')
+                        .plus({ months: timelineOffset + 12 })
+                        .minus({ days: 1 })
+                        .endOf('day')
+                        .toJSDate();
+
+                      const weekTimelineStart = dashboardToday
+                        .startOf('week')
+                        .plus({ weeks: weekOffset })
+                        .toJSDate();
+
+                      const weekTimelineEnd = dashboardToday
+                        .startOf('week')
+                        .plus({ weeks: weekOffset + 12 })
+                        .toJSDate();
 
                       return pageItems.map(f => {
                         const isExpanded = expandedRoadmapFeatureId === f.id;
