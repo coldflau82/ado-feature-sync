@@ -415,12 +415,7 @@
     .dashboard-interaction-hint strong { color: #1e3a8a;}
         .dashboard-interaction-hint { margin: 8px 0; padding: 7px 10px; border: 1px solid #dbe4ee; border-radius: 6px; background: #f8fafc; color: #475569; font-size: 11px; line-height: 1.4; }
     .dashboard-interaction-hint strong { color: #1e3a8a; }
-    /* Estados visibles del área principal de resultados: 
-      - loading;
-      - sin resultados por filtros;
-      - sin Features disponibles;
-      - error de carga.
-      Se reutilizan tanto para Feature List como para Roadmap. */
+    /* Estados visibles del área principal de resultados: loading; sin resultados por filtros; sin Features disponibles; error de carga. Se reutilizan tanto para Feature List como para Roadmap. */
     .dashboard-results-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 260px;
       margin: 8px 0; padding: 32px 24px; border: 1px dashed #cbd5e1; border-radius: 8px; background: #ffffff; color: #475569; text-align: center;}
     .dashboard-results-state--error { border-color: #fecaca; background: #fffafa; }
@@ -469,7 +464,99 @@
       font-family: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
     .relationship-show-all-button:hover { background: #f8fafc; border-color: #64748b; }
     .relationship-show-all-button:focus-visible { outline: 3px solid rgba(100, 116, 139, 0.24); outline-offset: 2px; }
-
+    /* ─────────────────────────────────────────────────────────────
+       MOBILE FEATURE CARDS Estas vistas sólo se muestran en pantallas de hasta 820px. Las tablas actuales se preservan para desktop/tablet.
+       ───────────────────────────────────────────────────────────── */
+    .mobile-feature-list, .mobile-roadmap-list { display: none;}
+    .mobile-roadmap-toolbar { display: none;}
+    @media (max-width: 820px) { html, body, #root { height: auto; min-height: 100%; overflow-x: hidden; overflow-y: visible; }
+      body { overscroll-behavior-y: auto; }
+      .container.dashboard-shell { display: block; height: auto; min-height: 100dvh; padding: 12px; overflow: visible; }
+      .dashboard-results-scroll { width: 100%; min-width: 0; overflow: visible; padding: 0; }
+      .dashboard-pagination-footer { margin-top: 14px; }
+      /* Oculta las tablas de escritorio únicamente en móvil. Se conservan en DOM para desktop/tablet, pero las cards son la representación visual y táctil móvil. */
+      .feature-list-table-wrapper, .gantt-horizontal-scroll { display: none; }
+      .mobile-feature-list,.mobile-roadmap-list { display: grid; grid-template-columns: 1fr; gap: 10px; width: 100%; min-width: 0; }
+      .mobile-feature-card { width: 100%; min-width: 0; overflow: hidden; border: 1px solid #dbe4ee; border-left: 4px solid var(--feature-state-color, #94a3b8); border-radius: 9px;
+        background: #ffffff; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.07); }
+      .mobile-feature-card--expanded { border-color: #93c5fd; box-shadow: 0 3px 12px rgba(37, 99, 235, 0.12); }
+      .mobile-feature-card__header { width: 100%; padding: 12px; border: 0; background: #ffffff; color: inherit; cursor: pointer; font: inherit; text-align: left; }
+      .mobile-feature-card__header:active { background: #f8fbff; }
+      .mobile-feature-card__header:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.34); outline-offset: -3px; }
+      .mobile-feature-card__meta-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+      .mobile-feature-card__identity { display: inline-flex; align-items: center; min-width: 0; gap: 7px; color: #475569; font-size: 11px; font-weight: 700; }
+      .mobile-feature-card__priority { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%;
+        background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 800; }
+      .mobile-feature-card__id-link { color: #2563eb; text-decoration: none; }
+      .mobile-feature-card__id-link:hover { text-decoration: underline; }
+      .mobile-feature-card__expand-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #f1f5f9;
+        color: #475569; font-size: 12px; flex: 0 0 24px; }
+      .mobile-feature-card__title { display: -webkit-box; margin-top: 8px; overflow: hidden; color: #0f172a; font-size: 14px; font-weight: 700; line-height: 1.35;
+        -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+      .mobile-feature-card__state-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; color: #475569; font-size: 11px; font-weight: 700; }
+      .mobile-feature-card__state-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; }
+      .mobile-feature-card__info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 11px; }
+      .mobile-feature-card__info-item { min-width: 0; padding: 7px 8px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; }
+      .mobile-feature-card__info-label { display: block; margin-bottom: 3px; color: #64748b; font-size: 9px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
+      .mobile-feature-card__info-value { display: block; overflow: hidden; color: #334155; font-size: 11px; font-weight: 700; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+      .mobile-feature-card__info-value--wrap { white-space: normal; overflow-wrap: anywhere; }
+      .mobile-feature-card__badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+      .mobile-feature-card__progress { margin-top: 11px; padding-top: 10px; border-top: 1px solid #e5e7eb; }
+      .mobile-feature-card__progress-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; color: #475569; font-size: 10px; font-weight: 700; }
+      .mobile-feature-card__progress-track { width: 100%; height: 7px; overflow: hidden; border-radius: 999px; background: #e5e7eb; }
+      .mobile-feature-card__progress-fill { height: 100%; border-radius: inherit; transition: width 0.25s ease; }
+      .mobile-feature-card__hint { display: block; margin-top: 10px; color: #2563eb; font-size: 11px; font-weight: 700; }
+      .mobile-feature-card__details { padding: 12px; border-top: 1px solid #dbe4ee; background: #f8fafc; }
+      .mobile-feature-card__details .feature-detail-panel { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+      .mobile-feature-card__details .delivery-work-grid { grid-template-columns: 1fr; }
+      .mobile-feature-card__details .delivery-inline-alert { min-width: 0; flex-basis: 100%; }
+      /* Roadmap móvil. El timeline representa una ventana de 12 meses y usa: línea vertical: Today; triángulo rosa: Target Date; diamante azul: RFV. */
+      .mobile-roadmap-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px; padding: 9px 10px; border: 1px solid #dbe4ee;
+        border-radius: 8px; background: #ffffff; }
+      .mobile-roadmap-toolbar__button { width: 36px; height: 34px; border: 0; border-radius: 5px; background: #537fbd; color: #ffffff; cursor: pointer; font-size: 14px; font-weight: 700; }
+      .mobile-roadmap-toolbar__button:active { transform: scale(0.96); }
+      .mobile-roadmap-toolbar__button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.3); outline-offset: 2px; }
+      .mobile-roadmap-toolbar__label { min-width: 0; color: #334155; font-size: 11px; font-weight: 700; text-align: center; }
+      .mobile-roadmap-timeline { position: relative; height: 42px; margin-top: 12px; overflow: hidden; border: 1px solid #dbe4ee; border-radius: 6px; background:
+          repeating-linear-gradient( to right, #f8fafc 0, #f8fafc calc(8.333% - 1px), #e2e8f0 calc(8.333% - 1px), #e2e8f0 8.333% ); }
+      .mobile-roadmap-timeline__baseline { position: absolute; top: 20px; right: 0; left: 0; height: 3px; border-radius: 999px; background: #cbd5e1; }
+      .mobile-roadmap-timeline__today { position: absolute; top: 0; bottom: 0; z-index: 3; width: 2px; background: #1e3a8a; }
+      .mobile-roadmap-timeline__target { position: absolute; top: 14px; z-index: 5; width: 0; height: 0; border-top: 11px solid #f43f5e; border-right: 7px solid transparent;
+        border-left: 7px solid transparent; transform: translateX(-50%); }
+      .mobile-roadmap-timeline__release { position: absolute; top: 16px; z-index: 6; width: 10px; height: 10px; background: #1e3a8a; transform: translateX(-50%) rotate(45deg); }
+      .mobile-roadmap-timeline__month-labels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 5px; color: #64748b; font-size: 9px; font-weight: 700; }
+      .mobile-roadmap-timeline__month-labels span:nth-child(2),.mobile-roadmap-timeline__month-labels span:nth-child(3) { text-align: center; }
+      .mobile-roadmap-timeline__month-labels span:last-child { text-align: right; }
+      .mobile-roadmap-timeline__legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; color: #64748b; font-size: 9px; font-weight: 700; }
+      .mobile-roadmap-timeline__legend-item { display: inline-flex; align-items: center; gap: 4px; }
+      .mobile-roadmap-timeline__legend-today { width: 2px; height: 11px; background: #1e3a8a; }
+      .mobile-roadmap-timeline__legend-target { width: 0; height: 0; border-top: 7px solid #f43f5e; border-right: 4px solid transparent; border-left: 4px solid transparent; }
+      .mobile-roadmap-timeline__legend-release { width: 8px; height: 8px; background: #1e3a8a; transform: rotate(45deg); }
+      .mobile-story-timeline-card { padding: 10px; border: 1px solid #dbe4ee; border-left: 3px solid var(--story-state-color, #94a3b8); border-radius: 6px; background: #ffffff; }
+      .mobile-story-timeline-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+      .mobile-story-timeline-card__title { display: -webkit-box; overflow: hidden; color: #334155; font-size: 11px; font-weight: 700; line-height: 1.35; -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2; }
+      .mobile-story-timeline-card__id { color: #2563eb; font-size: 10px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+      .mobile-story-timeline-card__metadata { display: flex; flex-wrap: wrap; gap: 5px 8px; margin-top: 7px; color: #64748b; font-size: 10px; }
+      .mobile-story-timeline-card__track { position: relative; height: 25px; margin-top: 9px; overflow: hidden; border-radius: 4px; background: #e2e8f0; }
+      .mobile-story-timeline-card__segment { position: absolute; top: 5px; height: 15px; min-width: 5px; border-radius: 3px; opacity: 0.9; }
+      .mobile-story-timeline-card__today { position: absolute; top: 0; bottom: 0; z-index: 5; width: 1px; background: #1e3a8a; }
+      .mobile-story-timeline-card__empty { display: block; padding-top: 6px; color: #94a3b8; font-size: 10px; }
+      .dashboard-interaction-hint { margin: 8px 0; font-size: 10px; }
+      .top-filters-bar { overflow-x: auto; flex-wrap: nowrap; align-items: flex-start; }
+      .top-filters-main { align-items: flex-start; }
+      .top-filter-group { flex-direction: column; align-items: stretch; gap: 3px; }
+      .top-filter-search { width: 26ch; }
+      .top-filter-group--preset { min-width: 175px; }
+      .filters-card__header { align-items: center; }
+      .filters-card__clear-all-button { min-width: 86px; }
+      .advanced-filter-summary__chip { max-width: 100%; }
+      }
+    @media (max-width: 420px) { .mobile-feature-card__info-grid { grid-template-columns: 1fr; }
+      .mobile-feature-card__title { font-size: 13px; }
+      .mobile-feature-card__header,.mobile-feature-card__details { padding: 10px; }
+      .mobile-roadmap-timeline__legend { gap: 6px; }
+    }
     
   </style>
 </head>
@@ -1494,6 +1581,777 @@
             </div>
           </td>
         </tr>
+      );
+    }
+
+    /*
+      ───────────────────────────────────────────────────────────────
+      COMPONENTES MÓVILES
+      ───────────────────────────────────────────────────────────────
+
+      Desktop/tablet conserva las tablas actuales.
+
+      En móvil se renderizan cards independientes para no depender de:
+      - tablas de 12 columnas;
+      - min-width de 1180px;
+      - scroll horizontal general;
+      - alturas internas que bloquean el scroll vertical.
+    */
+
+    function MobileDeliveryBadge({ feature }) {
+      const delivery = getDeliveryHealth(feature);
+
+      return (
+        <span
+          className={`delivery-badge ${delivery.className}`}
+          aria-label={`Delivery health: ${delivery.label}`}
+          title={`Delivery health: ${delivery.label}`}
+        >
+          <span
+            className="delivery-badge__icon"
+            aria-hidden="true"
+          >
+            {delivery.icon}
+          </span>
+
+          <span className="delivery-badge__label">
+            {delivery.shortLabel}
+          </span>
+        </span>
+      );
+    }
+
+    function getFeatureStateColor(state) {
+      return {
+        New: '#94a3b8',
+        'In Shaping': '#fbbf24',
+        'In Planning': '#fb923c',
+        Planned: '#34d399',
+        'In Process': '#60a5fa',
+        Closed: '#a78bfa'
+      }[state] || '#94a3b8';
+    }
+
+    function MobileFeatureCardHeader({
+      feature,
+      adoLink,
+      formatDate,
+      isExpanded,
+      onToggle,
+      children
+    }) {
+      const featureStateColor = getFeatureStateColor(feature.state);
+
+      return (
+        <button
+          type="button"
+          className="mobile-feature-card__header"
+          onClick={onToggle}
+          aria-expanded={isExpanded}
+          aria-label={
+            isExpanded
+              ? `Collapse details for Feature ${feature.id}`
+              : `Expand details for Feature ${feature.id}`
+          }
+        >
+          <div className="mobile-feature-card__meta-row">
+            <div className="mobile-feature-card__identity">
+              <span
+                className="mobile-feature-card__priority"
+                title="Priority"
+              >
+                {feature.priority || '—'}
+              </span>
+
+              <a
+                href={adoLink(feature.id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mobile-feature-card__id-link"
+                onClick={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
+                aria-label={`Open Feature ${feature.id} in Azure DevOps`}
+              >
+                #{feature.id}
+              </a>
+            </div>
+
+            <span
+              className="mobile-feature-card__expand-icon"
+              aria-hidden="true"
+            >
+              {isExpanded ? '⌃' : '⌄'}
+            </span>
+          </div>
+
+          <span className="mobile-feature-card__title">
+            {feature.title || 'Untitled Feature'}
+          </span>
+
+          <div className="mobile-feature-card__state-row">
+            <span
+              className="mobile-feature-card__state-dot"
+              style={{
+                background: featureStateColor
+              }}
+            />
+
+            <span>{feature.state || 'No state'}</span>
+          </div>
+
+          <div className="mobile-feature-card__info-grid">
+            <div className="mobile-feature-card__info-item">
+              <span className="mobile-feature-card__info-label">
+                Target Date
+              </span>
+
+              <span className="mobile-feature-card__info-value">
+                {formatDate(feature.targetDate)}
+              </span>
+            </div>
+
+            <div className="mobile-feature-card__info-item">
+              <span className="mobile-feature-card__info-label">
+                Release Fix Version
+              </span>
+
+              <span className="mobile-feature-card__info-value">
+                {feature.releaseFixVersion || '—'}
+              </span>
+            </div>
+
+            <div className="mobile-feature-card__info-item">
+              <span className="mobile-feature-card__info-label">
+                Owner
+              </span>
+
+              <span className="mobile-feature-card__info-value">
+                {getShortAssignedToName(feature.assignedTo)}
+              </span>
+            </div>
+
+            <div className="mobile-feature-card__info-item">
+              <span className="mobile-feature-card__info-label">
+                Estimates
+              </span>
+
+              <span className="mobile-feature-card__info-value">
+                BE {feature.estimation?.be || '—'} · FE{' '}
+                {feature.estimation?.fe || '—'} · QA{' '}
+                {feature.estimation?.qa || '—'}
+              </span>
+            </div>
+          </div>
+
+          <div className="mobile-feature-card__badges">
+            <ReadinessBadge
+              readiness={getFeatureReadiness(feature)}
+            />
+
+            <MobileDeliveryBadge feature={feature} />
+          </div>
+
+          {children}
+        </button>
+      );
+    }
+
+    function MobileFeatureProgress({
+      featureId,
+      storiesCache,
+      loadingStoriesIds,
+      unavailableStoriesIds
+    }) {
+      if (loadingStoriesIds[featureId]) {
+        return (
+          <div className="mobile-feature-card__progress">
+            <div className="mobile-feature-card__progress-heading">
+              <span>Progress</span>
+              <span>Loading Stories and Bugs...</span>
+            </div>
+          </div>
+        );
+      }
+
+      if (unavailableStoriesIds[featureId]) {
+        return (
+          <div className="mobile-feature-card__progress">
+            <div className="mobile-feature-card__progress-heading">
+              <span>Progress</span>
+              <span>Unavailable</span>
+            </div>
+          </div>
+        );
+      }
+
+      if (!storiesCache[featureId]) {
+        return (
+          <div className="mobile-feature-card__progress">
+            <div className="mobile-feature-card__progress-heading">
+              <span>Progress</span>
+              <span>—</span>
+            </div>
+          </div>
+        );
+      }
+
+      const summary = getWorkItemsDeliverySummary(
+        storiesCache[featureId]
+      );
+
+      const done = summary.doneWorkItems;
+      const total = summary.includedWorkItems;
+
+      const percent = total === 0
+        ? 0
+        : Math.round((done / total) * 100);
+
+      const barColor = percent === 100
+        ? '#34d399'
+        : percent >= 50
+          ? '#60a5fa'
+          : '#fbbf24';
+
+      return (
+        <div className="mobile-feature-card__progress">
+          <div className="mobile-feature-card__progress-heading">
+            <span>Progress</span>
+            <span>
+              {done}/{total} ({percent}%)
+            </span>
+          </div>
+
+          <div className="mobile-feature-card__progress-track">
+            <div
+              className="mobile-feature-card__progress-fill"
+              style={{
+                width: `${percent}%`,
+                background: barColor
+              }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    function MobileFeatureListCard({
+      feature,
+      adoLink,
+      formatDate,
+      isExpanded,
+      onToggle,
+      storiesCache,
+      loadingStoriesIds,
+      unavailableStoriesIds,
+      relationshipGraph,
+      relationshipLoading,
+      relationshipUnavailable,
+      onLoadRelationships,
+      onRetryRelationships
+    }) {
+      const featureStateColor = getFeatureStateColor(feature.state);
+
+      return (
+        <article
+          className={[
+            'mobile-feature-card',
+            isExpanded
+              ? 'mobile-feature-card--expanded'
+              : ''
+          ].filter(Boolean).join(' ')}
+          style={{
+            '--feature-state-color': featureStateColor
+          }}
+        >
+          <MobileFeatureCardHeader
+            feature={feature}
+            adoLink={adoLink}
+            formatDate={formatDate}
+            isExpanded={isExpanded}
+            onToggle={onToggle}
+          >
+            <MobileFeatureProgress
+              featureId={feature.id}
+              storiesCache={storiesCache}
+              loadingStoriesIds={loadingStoriesIds}
+              unavailableStoriesIds={unavailableStoriesIds}
+            />
+
+            <span className="mobile-feature-card__hint">
+              {isExpanded
+                ? 'Tap to collapse details'
+                : 'Tap to view Readiness, Delivery Health and Stories'}
+            </span>
+          </MobileFeatureCardHeader>
+
+          {isExpanded && (
+            <div className="mobile-feature-card__details">
+              <div className="feature-detail-panel">
+                <FeatureReadinessDetails feature={feature} />
+
+                <div className="feature-detail-panel__divider" />
+
+                {loadingStoriesIds[feature.id] ? (
+                  <div className="feature-detail-panel-message">
+                    Loading Stories and Bugs...
+                  </div>
+                ) : unavailableStoriesIds[feature.id] ? (
+                  <div className="feature-detail-panel-warning">
+                    Stories and Bugs could not be fully retrieved from
+                    Azure DevOps. Delivery Health remains based on the
+                    server-provided Feature summary.
+                  </div>
+                ) : (
+                  <FeatureDeliveryDetails
+                    feature={feature}
+                    stories={storiesCache[feature.id] || []}
+                    adoLink={adoLink}
+                    relationshipGraph={relationshipGraph}
+                    relationshipLoading={relationshipLoading}
+                    relationshipUnavailable={relationshipUnavailable}
+                    onLoadRelationships={onLoadRelationships}
+                    onRetryRelationships={onRetryRelationships}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+        </article>
+      );
+    }
+
+    function getMobileTimelinePercentage(
+      date,
+      timelineStart,
+      timelineEnd
+    ) {
+      if (!date) {
+        return null;
+      }
+
+      const startMs = timelineStart.toMillis();
+      const endMs = timelineEnd.toMillis();
+      const dateMs = date.toMillis();
+
+      if (dateMs < startMs || dateMs > endMs) {
+        return null;
+      }
+
+      const total = endMs - startMs;
+
+      if (total <= 0) {
+        return null;
+      }
+
+      return Math.max(
+        0,
+        Math.min(
+          100,
+          ((dateMs - startMs) / total) * 100
+        )
+      );
+    }
+
+    function MobileRoadmapTimeline({
+      feature,
+      timelineOffset,
+      formatDate
+    }) {
+      const timelineStart = getDashboardNow()
+        .startOf('month')
+        .plus({ months: timelineOffset });
+
+      const timelineEnd = timelineStart
+        .plus({ months: 12 });
+
+      const today = getDashboardNow().startOf('day');
+
+      const targetDate = getDashboardDateTime(
+        feature.targetDate
+      );
+
+      const releaseDate = feature.releaseFixVersion
+        ? getDashboardDateTime(
+            releaseDates[feature.releaseFixVersion]
+          )
+        : null;
+
+      const todayPercent = getMobileTimelinePercentage(
+        today,
+        timelineStart,
+        timelineEnd
+      );
+
+      const targetPercent = getMobileTimelinePercentage(
+        targetDate,
+        timelineStart,
+        timelineEnd
+      );
+
+      const releasePercent = getMobileTimelinePercentage(
+        releaseDate,
+        timelineStart,
+        timelineEnd
+      );
+
+      const middleDate = timelineStart.plus({ months: 4 });
+      const laterDate = timelineStart.plus({ months: 8 });
+      const finalDate = timelineEnd.minus({ days: 1 });
+
+      return (
+        <>
+          <div
+            className="mobile-roadmap-timeline"
+            aria-label={
+              `Roadmap timeline. Target Date: ${
+                formatDate(feature.targetDate)
+              }. Release Fix Version: ${
+                feature.releaseFixVersion || 'not assigned'
+              }.`
+            }
+          >
+            <div className="mobile-roadmap-timeline__baseline" />
+
+            {todayPercent !== null && (
+              <div
+                className="mobile-roadmap-timeline__today"
+                style={{
+                  left: `${todayPercent}%`
+                }}
+                title="Today"
+              />
+            )}
+
+            {targetPercent !== null && (
+              <div
+                className="mobile-roadmap-timeline__target"
+                style={{
+                  left: `${targetPercent}%`
+                }}
+                title={`Target Date: ${formatDate(feature.targetDate)}`}
+              />
+            )}
+
+            {releasePercent !== null && (
+              <div
+                className="mobile-roadmap-timeline__release"
+                style={{
+                  left: `${releasePercent}%`
+                }}
+                title={
+                  `${feature.releaseFixVersion}: ${
+                    formatDate(
+                      releaseDates[feature.releaseFixVersion]
+                    )
+                  }`
+                }
+              />
+            )}
+          </div>
+
+          <div className="mobile-roadmap-timeline__month-labels">
+            <span>
+              {timelineStart
+                .setLocale('en-US')
+                .toLocaleString({ month: 'short', year: '2-digit' })}
+            </span>
+
+            <span>
+              {middleDate
+                .setLocale('en-US')
+                .toLocaleString({ month: 'short' })}
+            </span>
+
+            <span>
+              {laterDate
+                .setLocale('en-US')
+                .toLocaleString({ month: 'short' })}
+            </span>
+
+            <span>
+              {finalDate
+                .setLocale('en-US')
+                .toLocaleString({ month: 'short', year: '2-digit' })}
+            </span>
+          </div>
+
+          <div className="mobile-roadmap-timeline__legend">
+            <span className="mobile-roadmap-timeline__legend-item">
+              <span className="mobile-roadmap-timeline__legend-today" />
+              Today
+            </span>
+
+            <span className="mobile-roadmap-timeline__legend-item">
+              <span className="mobile-roadmap-timeline__legend-target" />
+              Target Date
+            </span>
+
+            <span className="mobile-roadmap-timeline__legend-item">
+              <span className="mobile-roadmap-timeline__legend-release" />
+              RFV
+            </span>
+          </div>
+        </>
+      );
+    }
+
+    function MobileStoryTimelineCard({
+      story,
+      states,
+      loading,
+      adoLink,
+      timelineStart,
+      timelineEnd
+    }) {
+      const stateColor =
+        storyStateColors[story.state] || '#94a3b8';
+
+      const today = getDashboardToday();
+
+      const totalTimelineDays =
+        (timelineEnd - timelineStart) /
+        (1000 * 60 * 60 * 24);
+
+      const getPercent = (date) => {
+        const daysFromStart =
+          (date - timelineStart) /
+          (1000 * 60 * 60 * 24);
+
+        return (daysFromStart / totalTimelineDays) * 100;
+      };
+
+      const segments = [];
+
+      if (!loading && Array.isArray(states) && states.length > 0) {
+        states.forEach((stateChange, index) => {
+          const stateStart = parseDashboardDate(
+            stateChange.changedDate
+          );
+
+          const stateEnd = index === states.length - 1
+            ? today
+            : parseDashboardDate(
+                states[index + 1].changedDate
+              );
+
+          if (!stateStart || !stateEnd) {
+            return;
+          }
+
+          const startPercent = getPercent(stateStart);
+          const endPercent = getPercent(stateEnd);
+
+          if (startPercent < 100 && endPercent > 0) {
+            const clampedStart = Math.max(0, startPercent);
+            const clampedEnd = Math.min(100, endPercent);
+
+            segments.push({
+              state: stateChange.state,
+              color:
+                storyStateColors[stateChange.state] ||
+                '#94a3b8',
+              startPercent: clampedStart,
+              widthPercent: Math.max(
+                1,
+                clampedEnd - clampedStart
+              )
+            });
+          }
+        });
+      }
+
+      const todayPercent = getPercent(today);
+      const clampedTodayPercent = Math.max(
+        0,
+        Math.min(100, todayPercent)
+      );
+
+      const sprintLabel = story.iterationPath
+        ? story.iterationPath.split('\\').pop()
+        : 'No Sprint';
+
+      return (
+        <article
+          className="mobile-story-timeline-card"
+          style={{
+            '--story-state-color': stateColor
+          }}
+        >
+          <div className="mobile-story-timeline-card__top">
+            <div className="mobile-story-timeline-card__title">
+              {story.workItemType === 'Bug' ? 'BUG · ' : ''}
+              {story.title || 'Untitled work item'}
+            </div>
+
+            <a
+              href={adoLink(story.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mobile-story-timeline-card__id"
+              aria-label={`Open work item ${story.id} in Azure DevOps`}
+            >
+              #{story.id}
+            </a>
+          </div>
+
+          <div className="mobile-story-timeline-card__metadata">
+            <span>{story.state || 'No state'}</span>
+            <span>•</span>
+            <span>{sprintLabel}</span>
+            <span>•</span>
+            <span>
+              {story.storyPoints ?? 'No data'}
+              {story.storyPoints !== null &&
+              story.storyPoints !== undefined
+                ? ' pts'
+                : ''}
+            </span>
+          </div>
+
+          <div className="mobile-story-timeline-card__track">
+            {segments.map((segment, index) => (
+              <span
+                key={`${segment.state}-${index}`}
+                className="mobile-story-timeline-card__segment"
+                style={{
+                  left: `${segment.startPercent}%`,
+                  width: `${segment.widthPercent}%`,
+                  background: segment.color
+                }}
+                title={segment.state}
+              />
+            ))}
+
+            {!loading && (
+              <span
+                className="mobile-story-timeline-card__today"
+                style={{
+                  left: `${clampedTodayPercent}%`
+                }}
+                title="Today"
+              />
+            )}
+          </div>
+
+          {loading ? (
+            <span className="mobile-story-timeline-card__empty">
+              Loading timeline...
+            </span>
+          ) : segments.length === 0 ? (
+            <span className="mobile-story-timeline-card__empty">
+              No timeline history available.
+            </span>
+          ) : null}
+        </article>
+      );
+    }
+
+    function MobileRoadmapCard({
+      feature,
+      adoLink,
+      formatDate,
+      isExpanded,
+      onToggle,
+      timelineOffset,
+      stories,
+      loadingStories,
+      storiesUnavailable,
+      storyHistoryCache,
+      loadingStoryHistory,
+      weekOffset
+    }) {
+      const featureStateColor = getFeatureStateColor(feature.state);
+
+      const weekTimelineStart = getDashboardNow()
+        .startOf('week')
+        .plus({ weeks: weekOffset })
+        .toJSDate();
+
+      const weekTimelineEnd = getDashboardNow()
+        .startOf('week')
+        .plus({ weeks: weekOffset + 12 })
+        .toJSDate();
+
+      return (
+        <article
+          className={[
+            'mobile-feature-card',
+            isExpanded
+              ? 'mobile-feature-card--expanded'
+              : ''
+          ].filter(Boolean).join(' ')}
+          style={{
+            '--feature-state-color': featureStateColor
+          }}
+        >
+          <MobileFeatureCardHeader
+            feature={feature}
+            adoLink={adoLink}
+            formatDate={formatDate}
+            isExpanded={isExpanded}
+            onToggle={onToggle}
+          >
+            <MobileRoadmapTimeline
+              feature={feature}
+              timelineOffset={timelineOffset}
+              formatDate={formatDate}
+            />
+
+            <span className="mobile-feature-card__hint">
+              {isExpanded
+                ? 'Tap to collapse Story timelines'
+                : 'Tap to view Story and Bug timelines'}
+            </span>
+          </MobileFeatureCardHeader>
+
+          {isExpanded && (
+            <div className="mobile-feature-card__details">
+              {loadingStories ? (
+                <div className="feature-detail-panel-message">
+                  Loading Stories and Bugs...
+                </div>
+              ) : storiesUnavailable ? (
+                <div className="feature-detail-panel-warning">
+                  Stories and Bugs could not be fully retrieved from
+                  Azure DevOps. Refresh the dashboard and try again.
+                </div>
+              ) : stories.length === 0 ? (
+                <div className="delivery-work-group__empty">
+                  No Stories or Bugs are associated with this Feature.
+                </div>
+              ) : (
+                <section
+                  aria-label={`Story timelines for Feature ${feature.id}`}
+                >
+                  <strong className="delivery-work-group__title">
+                    Story and Bug timelines ({stories.length})
+                  </strong>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr',
+                      gap: '8px',
+                      marginTop: '8px'
+                    }}
+                  >
+                    {sortFeatureWorkItems(stories).map(story => (
+                      <MobileStoryTimelineCard
+                        key={story.id}
+                        story={story}
+                        states={storyHistoryCache[story.id] || []}
+                        loading={loadingStoryHistory}
+                        adoLink={adoLink}
+                        timelineStart={weekTimelineStart}
+                        timelineEnd={weekTimelineEnd}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+          )}
+        </article>
       );
     }
 
@@ -3807,11 +4665,16 @@
 
         setExpandedRoadmapFeatureId(featureId);
 
-        /* Si el Feature no pertenece a la página actual de Feature List o todavía no fue precargado, se usa el mismo endpoint batch. */
+        /*
+          En móvil, el navegador conserva scroll natural. No hacemos
+          scroll automático aquí para evitar que la card expandida se
+          desplace inesperadamente mientras cargan Stories o timelines.
+        */
         loadStoriesForFeatures([featureId]);
       };
 
-      const adoLink = (id) => `https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/${id}`;
+      const adoLink = (id) =>
+        `https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/${id}`;
 
       const formatDate = (date) => {
         const parsedDate = parseDashboardDate(date);
@@ -4789,9 +5652,56 @@
             ) : (
               <>
                 <div className="dashboard-interaction-hint">
-                  <strong>Tip:</strong> To view Story and Bug details, click anywhere on a Feature row other than its ID.
+                  <strong>Tip:</strong> Tap a Feature card to view
+                  Readiness, Delivery Health, Stories and Bugs.
                 </div>
 
+                {/* Vista exclusiva para móvil. En desktop/tablet se oculta
+                    mediante CSS y se conserva la tabla actual. */}
+                <section
+                  className="mobile-feature-list"
+                  aria-label="Feature List mobile cards"
+                >
+                  {featuresPageItems.map(feature => (
+                    <MobileFeatureListCard
+                      key={feature.id}
+                      feature={feature}
+                      adoLink={adoLink}
+                      formatDate={formatDate}
+                      isExpanded={
+                        expandedFeatureId === feature.id
+                      }
+                      onToggle={() =>
+                        toggleFeatureDetails(feature.id)
+                      }
+                      storiesCache={storiesCache}
+                      loadingStoriesIds={loadingStoriesIds}
+                      unavailableStoriesIds={unavailableStoriesIds}
+                      relationshipGraph={
+                        relationshipGraphCache[feature.id]
+                      }
+                      relationshipLoading={
+                        !!loadingRelationshipIds[feature.id]
+                      }
+                      relationshipUnavailable={
+                        !!unavailableRelationshipIds[feature.id]
+                      }
+                      onLoadRelationships={() =>
+                        loadRelationshipGraphForFeatures([
+                          feature.id
+                        ])
+                      }
+                      onRetryRelationships={() =>
+                        loadRelationshipGraphForFeatures(
+                          [feature.id],
+                          { retry: true }
+                        )
+                      }
+                    />
+                  ))}
+                </section>
+
+                {/* Tabla exclusiva para desktop/tablet. */}
                 <div className="table-wrapper feature-list-table-wrapper">
                 <table className="feature-list-table">
                   <colgroup>
@@ -5214,9 +6124,90 @@
           ) : (
             <>
               <div className="dashboard-interaction-hint">
-                <strong>Tip:</strong> Click anywhere on a Feature row, except its ID, to view Story and Bug timelines.
+                <strong>Tip:</strong> Tap a Feature card to view Story
+                and Bug timelines. The Roadmap line shows Today, Target
+                Date and Release Fix Version.
               </div>
-      
+
+              {/* ── ROADMAP MÓVIL ─────────────────────────────── */}
+              <div className="mobile-roadmap-toolbar">
+                <button
+                  type="button"
+                  className="mobile-roadmap-toolbar__button"
+                  onClick={() =>
+                    setTimelineOffset(timelineOffset - 1)
+                  }
+                  aria-label="Show previous Roadmap month"
+                  title="Previous month"
+                >
+                  ◄
+                </button>
+
+                <span className="mobile-roadmap-toolbar__label">
+                  {getDashboardNow()
+                    .startOf('month')
+                    .plus({ months: timelineOffset })
+                    .setLocale('en-US')
+                    .toLocaleString({
+                      month: 'short',
+                      year: 'numeric'
+                    })}
+                  {' — '}
+                  {getDashboardNow()
+                    .startOf('month')
+                    .plus({ months: timelineOffset + 11 })
+                    .setLocale('en-US')
+                    .toLocaleString({
+                      month: 'short',
+                      year: 'numeric'
+                    })}
+                </span>
+
+                <button
+                  type="button"
+                  className="mobile-roadmap-toolbar__button"
+                  onClick={() =>
+                    setTimelineOffset(timelineOffset + 1)
+                  }
+                  aria-label="Show next Roadmap month"
+                  title="Next month"
+                >
+                  ►
+                </button>
+              </div>
+
+              <section
+                className="mobile-roadmap-list"
+                aria-label="Roadmap mobile cards"
+              >
+                {pageItems.map(feature => (
+                  <MobileRoadmapCard
+                    key={feature.id}
+                    feature={feature}
+                    adoLink={adoLink}
+                    formatDate={formatDate}
+                    isExpanded={
+                      expandedRoadmapFeatureId === feature.id
+                    }
+                    onToggle={() =>
+                      toggleRoadmapFeature(feature.id)
+                    }
+                    timelineOffset={timelineOffset}
+                    stories={storiesCache[feature.id] || []}
+                    loadingStories={
+                      !!loadingStoriesIds[feature.id]
+                    }
+                    storiesUnavailable={
+                      !!unavailableStoriesIds[feature.id]
+                    }
+                    storyHistoryCache={storyHistoryCache}
+                    loadingStoryHistory={loadingStoryHistory}
+                    weekOffset={weekOffset}
+                  />
+                ))}
+              </section>
+
+              {/* ── ROADMAP DESKTOP/TABLET ─────────────────────── */}
               <div className="table-wrapper">
                 {/* ── TABLA PRINCIPAL DEL ROADMAP ── */}
                 {/* El header permanece sticky dentro del único panel de resultados. */}
