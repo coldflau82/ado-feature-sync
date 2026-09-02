@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
 
   "featureStates": {
     "execution": [
@@ -14,34 +14,46 @@
     ]
   },
 
-  "workItemStates": {
-    "removed": [
-      "Removed"
-    ],
-    "done": [
-      "Approved for Release",
-      "Ready for Deployment",
-      "Closed"
-    ],
-    "inProgress": [
-      "In Process",
-      "QA Testing",
-      "Business Sprint Testing",
-      "Sprint Complete",
-      "User Acceptance Testing"
-    ],
-    "requiresEstimate": [
-      "Planned",
-      "Ready for Development",
-      "In Process",
-      "QA Testing",
-      "Business Sprint Testing",
-      "User Acceptance Testing",
-      "Approved for Release",
-      "Ready for Deployment",
-      "Sprint Complete"
-    ]
-  },
+"workItemStates": {
+  "removed": [
+    "Removed"
+  ],
+
+  "inPlanning": [
+    "New",
+    "Business Refinement",
+    "Technical Refinement",
+    "Ready for Development"
+  ],
+
+  "inProgress": [
+    "In Process",
+    "QA Testing",
+    "Business Sprint Testing",
+    "User Acceptance Testing"
+  ],
+
+  "toRelease": [
+    "Ready for Deployment",
+    "Sprint Complete",
+    "Approved for Release"
+  ],
+
+  "completed": [
+    "Closed"
+  ],
+
+  "requiresEstimate": [
+    "Ready for Development",
+    "In Process",
+    "QA Testing",
+    "Business Sprint Testing",
+    "User Acceptance Testing",
+    "Ready for Deployment",
+    "Sprint Complete",
+    "Approved for Release"
+  ]
+},
 
   "thresholds": {
     "targetDateNearDays": 14
@@ -112,7 +124,7 @@
     },
 
     "noActiveWork": {
-      "enabled": true,
+      "enabled": false,
       "group": "requires-attention",
       "label": "No active work",
       "shortLabel": "No active work",
