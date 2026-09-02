@@ -651,29 +651,21 @@
         });
     }
 
-    const releaseDates = {
-      'CE-2026-FEB': '2026-02-09',
-      'CE-2026-FEB-SEMIMONTHLY': '2026-02-23',
-      'CE-2026-MAR': '2026-03-09',
-      'CE-2026-MAR-SEMIMONTHLY': '2026-03-23',
-      'CE-2026-APR': '2026-04-12',
-      'CE-2026-APR-SEMIMONTHLY': '2026-04-27',
-      'CE-2026-MAY': '2026-05-11',
-      'CE-2026-MAY-SEMIMONTHLY': '2026-05-25',
-      'CE-2026-JUN': '2026-06-08',
-      'CE-2026-JUN-SEMIMONTHLY': '2026-06-22',
-      'CE-2026-JUL': '2026-07-13',
-      'CE-2026-JUL-SEMIMONTHLY': '2026-07-27',
-      'CE-2026-AUG': '2026-08-10',
-      'CE-2026-AUG-SEMIMONTHLY': '2026-08-24',
-      'CE-2026-SEP': '2026-09-14',
-      'CE-2026-SEP-SEMIMONTHLY': '2026-09-28',
-      'CE-2026-OCT': '2026-10-12',
-      'CE-2026-OCT-SEMIMONTHLY': '2026-10-26',
-      'CE-2026-NOV': '2026-11-09',
-      'CE-2026-NOV-SEMIMONTHLY': '2026-11-23',
-      'CE-2026-DEC': '2026-12-14'
-    };
+    /* El backend entrega el calendario validado en: /api/features -> dashboard.releaseCalendar.
+    Se inicializa vacío para evitar errores durante el primer render, antes de que termine la carga. */
+    let releaseCalendar = {};
+
+    function getReleaseDate(releaseFixVersion) {
+      return releaseCalendar?.[releaseFixVersion]?.date || null;
+    }
+    
+    function getReleaseSequence(releaseFixVersion) {
+      const sequence = releaseCalendar?.[releaseFixVersion]?.sequence;
+    
+      return Number.isInteger(sequence)
+        ? sequence
+        : null;
+    }
 
     const storyStateColors = {
       'New': '#94a3b8',
@@ -1458,7 +1450,7 @@
       );
     }
 
-    function FeatureRow({ featureId, title,  assignedTo, targetDate, releaseFixVersion, estimation, priority, formatDate, timelineStart, timelineEnd, adoLink, isExpanded, onToggleExpand, states, loading, showTooltip, moveTooltip, hideTooltip }) {
+    function FeatureRow({ featureId, title,  assignedTo, targetDate, releaseFixVersion, techGoLiveRFV, estimation, priority, formatDate, timelineStart, timelineEnd, adoLink, isExpanded, onToggleExpand, states, loading, showTooltip, moveTooltip, hideTooltip }) {
       const stateColors = {
         'New': '#94a3b8',
         'In Shaping': '#fbbf24',
@@ -1544,6 +1536,7 @@
                 <div style={{ color: '#94a3b8', fontSize: '10px' }}>👤 Assigned to: {getShortAssignedToName(assignedTo)}</div>
                 {targetDate && <div style={{ color: '#94a3b8', fontSize: '10px', marginTop: '2px' }}>🎯 Target: {formatDate(targetDate)}</div>}
                 {releaseFixVersion && <div style={{ color: '#94a3b8', fontSize: '10px', marginTop: '2px' }}>🚀 RFV: {releaseFixVersion}</div>}
+                {techGoLiveRFV && ( <div style={{ color: '#94a3b8', fontSize: '10px', marginTop: '2px' }}>📣 Tech Go Live: {techGoLiveRFV}</div>)}
               </div>
             ))}
             onMouseMove={(e) => moveTooltip && moveTooltip(e)}
@@ -1566,14 +1559,14 @@
                   <div style={{ position: 'absolute', top: '-4px', left: targetPercent + '%', transform: 'translateX(-50%)', zIndex: 11, width: '0', height: '0', borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '12px solid #f43f5e' }} title={'Target: ' + formatDate(targetDate)} />
                 );
               })()}
-              {!loading && releaseFixVersion && releaseDates[releaseFixVersion] && (() => {
-                const releaseDate = parseDashboardDate( releaseDates[releaseFixVersion] );
+              {!loading && releaseFixVersion && getReleaseDate(releaseFixVersion) && (() => {
+                const releaseDate = parseDashboardDate( getReleaseDate(releaseFixVersion) );
                   if (!releaseDate) { return null; }
           
                 const releasePercent = ((releaseDate - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
                 if (releasePercent < 0 || releasePercent > 100) return null;
                 return (
-                  <div style={{ position: 'absolute', top: '50%', left: releasePercent + '%', transform: 'translate(-50%, -50%) rotate(45deg)', zIndex: 12, width: '10px', height: '10px', background: '#1e3a8a' }} title={releaseFixVersion + ': ' + formatDate(releaseDates[releaseFixVersion])} />
+                  <div style={{ position: 'absolute', top: '50%', left: releasePercent + '%', transform: 'translate(-50%, -50%) rotate(45deg)', zIndex: 12, width: '10px', height: '10px', background: '#1e3a8a' }} title={releaseFixVersion + ': ' + formatDate(getReleaseDate(releaseFixVersion))} />
                 );
               })()}
               {loading ? (
@@ -1769,6 +1762,17 @@
                 {feature.estimation?.qa || '—'}
               </span>
             </div>
+
+            <div className="mobile-feature-card__info-item">
+                <span className="mobile-feature-card__info-label">
+                  Tech Go Live RFV
+                </span>
+              
+                <span className="mobile-feature-card__info-value">
+                  {feature.techGoLiveRFV || '—'}
+                </span>
+              </div>
+            
           </div>
 
           <div className="mobile-feature-card__badges">
@@ -1999,7 +2003,7 @@
 
       const releaseDate = feature.releaseFixVersion
         ? getDashboardDateTime(
-            releaseDates[feature.releaseFixVersion]
+            getReleaseDate(feature.releaseFixVersion)
           )
         : null;
 
@@ -2068,7 +2072,7 @@
                 title={
                   `${feature.releaseFixVersion}: ${
                     formatDate(
-                      releaseDates[feature.releaseFixVersion]
+                      getReleaseDate(feature.releaseFixVersion)
                     )
                   }`
                 }
@@ -3921,11 +3925,11 @@
       const getNextReleaseFixVersion = () => {
         const today = getDashboardToday();
 
-        return Object.entries(releaseDates)
-          .map(([releaseFixVersion, dateValue]) => ({
-            releaseFixVersion,
-            date: parseDashboardDate(dateValue)
-          }))
+      return Object.entries(releaseCalendar)
+        .map(([releaseFixVersion, release]) => ({
+          releaseFixVersion,
+          date: parseDashboardDate(release?.date)
+        }))
           .filter(item => item.date && item.date >= today)
           .sort((a, b) => a.date - b.date)[0]
           ?.releaseFixVersion || null;
@@ -4213,7 +4217,13 @@
           ) {
             dashboardTimeZone = json.dashboard.timeZone;
           }
-
+          if (
+            json.dashboard?.releaseCalendar &&
+            typeof json.dashboard.releaseCalendar === 'object'
+          ) {
+            releaseCalendar = json.dashboard.releaseCalendar;
+          }
+          
           setFeatures(Array.isArray(json.features) ? json.features : []);
           setCacheInfo(json.cacheInfo || null);
           setWarnings(receivedWarnings);
@@ -4903,9 +4913,21 @@
             <strong>
               #{feature.id} — {feature.title || 'Untitled Feature'}
             </strong>
-            <div>Area Path: {shortArea}</div>
-            <div>Iteration Path: {shortIteration}</div>
-            <div>Assigned to: {feature.assignedTo || '—'}</div>
+            <div>
+                Area Path: {shortArea}
+            </div>
+            <div>
+              Iteration Path: {shortIteration}
+            </div>
+            <div>
+              Assigned to: {feature.assignedTo || '—'}
+            </div>
+            <div>
+              Release Fix Version: {feature.releaseFixVersion || '—'}
+            </div>
+            <div>
+              Tech Go Live RFV: {feature.techGoLiveRFV || '—'}
+            </div>
           </div>
         );
       }
@@ -6497,6 +6519,7 @@
                               assignedTo={f.assignedTo}
                               targetDate={f.targetDate}
                               releaseFixVersion={f.releaseFixVersion}
+                              techGoLiveRFV={f.techGoLiveRFV}
                               estimation={f.estimation}
                               priority={f.priority}
                               formatDate={formatDate}
