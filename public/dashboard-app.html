@@ -528,12 +528,12 @@
       .mobile-roadmap-timeline__today { position: absolute; top: 0; bottom: 0; z-index: 3; width: 2px; background: #1e3a8a; }
       .mobile-roadmap-timeline__target { position: absolute; top: 14px; z-index: 5; width: 0; height: 0; border-top: 11px solid #f43f5e; border-right: 7px solid transparent;
         border-left: 7px solid transparent; transform: translateX(-50%); }
-      .mobile-roadmap-timeline__release { position: absolute; top: 16px; z-index: 6; width: 10px; height: 10px; background: #1e3a8a; transform: translateX(-50%) rotate(45deg); }
-      .mobile-roadmap-timeline__tech-go-live { position: absolute; top: 21px; z-index: 7; color: #f59e0b; font-size: 17px; font-weight: 700;
+      .mobile-roadmap-timeline__release { position: absolute; top: 18px; z-index: 6; width: 10px; height: 10px; background: #1e3a8a; transform: translateX(-50%) rotate(45deg); }
+      .mobile-roadmap-timeline__tech-go-live { position: absolute; top: 23px; z-index: 7; color: #f59e0b; font-size: 17px; font-weight: 700;
         line-height: 1; text-shadow: 0 0 1px #78350f, 0 1px 2px rgba(15, 23, 42, 0.45); transform: translate(-50%, -50%); pointer-events: auto;}
       .mobile-roadmap-timeline__tech-go-live--same-release {
         /* Desplaza la estrella cuando comparte fecha con RFV. El diamante queda abajo/izquierda y la estrella arriba/derecha. */
-        transform: translate(calc(-50% + 10px), calc(-50% - 9px)); }
+        transform: translate(calc(-50% + 10px), calc(-50% - 7px)); }
       .mobile-roadmap-timeline__month-labels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 5px; color: #64748b; font-size: 9px; font-weight: 700; }
       .mobile-roadmap-timeline__month-labels span:nth-child(2),.mobile-roadmap-timeline__month-labels span:nth-child(3) { text-align: center; }
       .mobile-roadmap-timeline__month-labels span:last-child { text-align: right; }
@@ -1563,7 +1563,9 @@
                 const targetPercent = ((target - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
                 if (targetPercent < 0 || targetPercent > 100) return null;
                 return (
-                  <div style={{ position: 'absolute', top: '-4px', left: targetPercent + '%', transform: 'translateX(-50%)', zIndex: 11, width: '0', height: '0', borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '12px solid #f43f5e' }} title={'Target: ' + formatDate(targetDate)} />
+                  <div style={{ position: 'absolute', top: '-4px', left: targetPercent + '%', transform: 'translateX(-50%)', zIndex: 11, 
+                    width: '0', height: '0', borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '12px solid #f43f5e' }} 
+                    title={'Target: ' + formatDate(targetDate)} />
                 );
               })()}
               {/* Release Fix Version: diamante azul */}
@@ -1593,7 +1595,7 @@
                     <div
                       style={{
                         position: 'absolute',
-                        top: '50%',
+                        top: '55%',
                         left: `${releasePercent}%`,
                         transform: 'translate(-50%, -50%) rotate(45deg)',
                         zIndex: 12,
@@ -1645,10 +1647,10 @@
                     <span
                       style={{
                         position: 'absolute',
-                        top: '50%',
+                        top: '55%',
                         left: `${techGoLivePercent}%`,
                         transform: isSameDateAsRelease
-                          ? 'translate(calc(-50% + 11px), calc(-50% - 10px))'
+                          ? 'translate(calc(-50% + 11px), calc(-50% - 7px))'
                           : 'translate(-50%, -50%)',
                         zIndex: 13,
                         color: '#f59e0b',
