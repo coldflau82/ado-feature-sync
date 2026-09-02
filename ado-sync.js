@@ -80,6 +80,19 @@ try {
   );
 }
 
+/* Calendario técnico de Release Fix Versions. Ubicación: /config/release-calendar.json */
+let releaseCalendar;
+
+try {
+  releaseCalendar = require('./config/release-calendar.json');
+} catch (error) {
+  throw new Error(
+    'Unable to load config/release-calendar.json. ' +
+    'Verify that the file exists in the deployment and contains valid JSON. ' +
+    `Original error: ${error.message}`
+  );
+}
+
 /*
   Valida la estructura mínima antes de aceptar reglas de negocio.
   Es preferible detener el servidor durante el arranque a calcular
@@ -263,6 +276,125 @@ function validateDeliveryHealthRules(config) {
 }
 
 validateDeliveryHealthRules(deliveryHealthRules);
+validateReleaseCalendar(releaseCalendar);
+
+/* Proyección del calendario para el navegador.
+  El backend conserva la configuración completa y validada; el frontend recibe únicamente lo que necesita para:
+  - Roadmap;
+  - filtros/presets de RFV;
+  - tooltips;
+  - futuras comparaciones visuales. */
+const releaseCalendarByRfv = Object.fromEntries(
+  releaseCalendar.releases.map(release => [
+    release.rfv,
+    {
+      date: release.date,
+      sequence: release.sequence,
+      label: release.label || release.rfv
+    }
+  ])
+);
+
+function validateReleaseCalendar(config) {
+  if (!config || typeof config !== 'object') {
+    throw new Error(
+      'Release calendar configuration must be a JSON object.'
+    );
+  }
+
+  if (!Number.isInteger(config.version) || config.version < 1) {
+    throw new Error(
+      'Release calendar configuration "version" must be a positive integer.'
+    );
+  }
+
+  if (
+    typeof config.timeZone !== 'string' ||
+    !config.timeZone.trim()
+  ) {
+    throw new Error(
+      'Release calendar configuration "timeZone" must be a non-empty string.'
+    );
+  }
+
+  const calendarZone = DateTime.now().setZone(config.timeZone);
+
+  if (!calendarZone.isValid) {
+    throw new Error(
+      'Release calendar configuration "timeZone" must be a valid IANA timezone.'
+    );
+  }
+
+  if (!Array.isArray(config.releases) || config.releases.length === 0) {
+    throw new Error(
+      'Release calendar configuration "releases" must be a non-empty array.'
+    );
+  }
+
+  const seenRfv = new Set();
+  const seenSequence = new Set();
+
+  config.releases.forEach((release, index) => {
+    const prefix = `release-calendar.releases[${index}]`;
+
+    if (
+      !release ||
+      typeof release !== 'object'
+    ) {
+      throw new Error(`${prefix} must be an object.`);
+    }
+
+    if (
+      typeof release.rfv !== 'string' ||
+      !release.rfv.trim()
+    ) {
+      throw new Error(`${prefix}.rfv must be a non-empty string.`);
+    }
+
+    if (
+      typeof release.date !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(release.date)
+    ) {
+      throw new Error(
+        `${prefix}.date must use YYYY-MM-DD format.`
+      );
+    }
+
+    const parsedDate = DateTime.fromISO(release.date, {
+      zone: config.timeZone
+    });
+
+    if (!parsedDate.isValid) {
+      throw new Error(
+        `${prefix}.date is not a valid calendar date.`
+      );
+    }
+
+    if (
+      !Number.isInteger(release.sequence) ||
+      release.sequence < 1
+    ) {
+      throw new Error(
+        `${prefix}.sequence must be a positive integer.`
+      );
+    }
+
+    if (seenRfv.has(release.rfv)) {
+      throw new Error(
+        `Release calendar contains duplicate RFV "${release.rfv}".`
+      );
+    }
+
+    if (seenSequence.has(release.sequence)) {
+      throw new Error(
+        `Release calendar contains duplicate sequence "${release.sequence}".`
+      );
+    }
+
+    seenRfv.add(release.rfv);
+    seenSequence.add(release.sequence);
+  });
+}
 
 function getDeliveryHealthRule(ruleKey) {
   return deliveryHealthRules.rules[ruleKey];
@@ -590,6 +722,7 @@ const FEATURE_FIELDS = [
   'Custom.FEEstimates',
   'Custom.QASizing',
   'Custom.ReleaseFixVersion',
+  'Custom.TechGoLiveRFV',
   'System.Tags',
   'System.AssignedTo',
   'Microsoft.VSTS.Common.AcceptanceCriteria',
@@ -1008,6 +1141,7 @@ function mapFeature(i) {
     targetDate: fields['Microsoft.VSTS.Scheduling.TargetDate'] || '',
     plannedMonth: fields['Custom.PlannedMonth'] || '',
     releaseFixVersion: fields['Custom.ReleaseFixVersion'] || '',
+    techGoLiveRFV: fields['Custom.TechGoLiveRFV'] || '',
     tags: fields['System.Tags'] || '',
     assignedTo: fields['System.AssignedTo']?.displayName || '',
 
@@ -4522,7 +4656,9 @@ app.get('/api/features', async (req, res) => {
       */
       dashboard: {
         timeZone: DASHBOARD_TIME_ZONE,
-        businessDate: getTodayDateKey()
+        businessDate: getTodayDateKey(),
+        /* El calendario se publica con la respuesta principal para evitar una segunda llamada HTTP desde el frontend. */
+        releaseCalendar: releaseCalendarByRfv
       },
 
       rangeCounts,
