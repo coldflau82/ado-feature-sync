@@ -149,35 +149,30 @@ function validateDeliveryHealthRules(config) {
   }
 
   assertNonEmptyStringArray(
-    config.featureStates?.execution,
-    'featureStates.execution'
-  );
-
-  assertNonEmptyStringArray(
-    config.featureStates?.closed,
-    'featureStates.closed'
-  );
-
-  assertNonEmptyStringArray(
-    config.featureStates?.notStarted,
-    'featureStates.notStarted'
-  );
-
-  assertNonEmptyStringArray(
     config.workItemStates?.removed,
     'workItemStates.removed'
   );
-
+  
   assertNonEmptyStringArray(
-    config.workItemStates?.done,
-    'workItemStates.done'
+    config.workItemStates?.inPlanning,
+    'workItemStates.inPlanning'
   );
-
+  
   assertNonEmptyStringArray(
     config.workItemStates?.inProgress,
     'workItemStates.inProgress'
   );
-
+  
+  assertNonEmptyStringArray(
+    config.workItemStates?.toRelease,
+    'workItemStates.toRelease'
+  );
+  
+  assertNonEmptyStringArray(
+    config.workItemStates?.completed,
+    'workItemStates.completed'
+  );
+  
   assertNonEmptyStringArray(
     config.workItemStates?.requiresEstimate,
     'workItemStates.requiresEstimate'
@@ -608,6 +603,7 @@ const DELIVERY_WORK_ITEM_FIELDS = [
   'System.Id',
   'System.WorkItemType',
   'System.State',
+  'System.AreaPath',
   'System.IterationPath',
   'Microsoft.VSTS.Scheduling.StoryPoints',
   'System.AssignedTo'
@@ -662,11 +658,17 @@ const MAX_FEATURE_RELATIONSHIP_BATCH_IDS = 500;
 const REMOVED_WORK_STATES =
   deliveryHealthRules.workItemStates.removed;
 
-const DONE_WORK_STATES =
-  deliveryHealthRules.workItemStates.done;
+const IN_PLANNING_WORK_STATES =
+  deliveryHealthRules.workItemStates.inPlanning;
 
 const IN_PROGRESS_WORK_STATES =
   deliveryHealthRules.workItemStates.inProgress;
+
+const TO_RELEASE_WORK_STATES =
+  deliveryHealthRules.workItemStates.toRelease;
+
+const COMPLETED_WORK_STATES =
+  deliveryHealthRules.workItemStates.completed;
 
 /*
   Estados donde una Story o Bug debe contar con Story Points.
@@ -1021,26 +1023,30 @@ function mapFeature(i) {
     deliverySummary: i.deliverySummary || {
       source: 'unknown',
       hasWorkItems: null,
-
+    
       totalWorkItems: null,
       includedWorkItems: null,
       removedWorkItems: null,
-
-      doneWorkItems: null,
+    
+      inPlanningWorkItems: null,
       inProgressWorkItems: null,
-      pendingWorkItems: null,
+      toReleaseWorkItems: null,
+      completedWorkItems: null,
+    
+      completedForProgressWorkItems: null,
       openWorkItems: null,
-
+      progressPercent: null,
+    
       unestimatedWorkItems: null,
       discoveryWithoutSprintWorkItems: null,
       workItemsPendingDelivery: null,
-
+    
       /*
-        Alias de compatibilidad temporal para cualquier consumidor
-        existente que aún use los nombres anteriores.
+        Aliases temporales para frontend antiguo.
       */
+      doneWorkItems: null,
+      pendingWorkItems: null,
       excludedWorkItems: null,
-      completedWorkItems: null,
       activeWorkItems: null,
       pendingNonActiveWorkItems: null
     },
@@ -1205,18 +1211,26 @@ function buildDeliverySummary(workItems, source = 'ok') {
     includedWorkItems: null,
     removedWorkItems: null,
 
-    doneWorkItems: null,
+    inPlanningWorkItems: null,
     inProgressWorkItems: null,
-    pendingWorkItems: null,
+    toReleaseWorkItems: null,
+    completedWorkItems: null,
+
+    completedForProgressWorkItems: null,
     openWorkItems: null,
+    progressPercent: null,
 
     unestimatedWorkItems: null,
     discoveryWithoutSprintWorkItems: null,
     workItemsPendingDelivery: null,
-    
-    // Alias de compatibilidad temporal.
+
+    /*
+      Alias temporales para no romper consumidores existentes
+      mientras actualizamos el frontend.
+    */
+    doneWorkItems: null,
+    pendingWorkItems: null,
     excludedWorkItems: null,
-    completedWorkItems: null,
     activeWorkItems: null,
     pendingNonActiveWorkItems: null
   };
@@ -1225,8 +1239,10 @@ function buildDeliverySummary(workItems, source = 'ok') {
     return unknownSummary;
   }
 
-  // Delivery Health considera exclusivamente hijos directos de tipo
-  // User Story o Bug.
+  /*
+    Delivery Health y progreso consideran exclusivamente hijos
+    directos de tipo User Story o Bug.
+  */
   const relevantWorkItems = workItems.filter(
     item =>
       item.workItemType === 'User Story' ||
@@ -1234,94 +1250,142 @@ function buildDeliverySummary(workItems, source = 'ok') {
   );
 
   let removedWorkItems = 0;
-  let doneWorkItems = 0;
+  let inPlanningWorkItems = 0;
   let inProgressWorkItems = 0;
-  let pendingWorkItems = 0;
+  let toReleaseWorkItems = 0;
+  let completedWorkItems = 0;
   let unestimatedWorkItems = 0;
   let discoveryWithoutSprintWorkItems = 0;
 
   relevantWorkItems.forEach(item => {
-    const state = item.state || '';
+    const state = String(item.state || '').trim();
 
-    // Removed aparece por separado y nunca entra en las categorías
-    // de delivery ni en el cálculo de elementos no estimados.
+    /*
+      Removed queda fuera de:
+      - denominador de progreso;
+      - trabajo abierto;
+      - reglas de estimación.
+    */
     if (REMOVED_WORK_STATES.includes(state)) {
       removedWorkItems += 1;
       return;
     }
 
-    let isDiscoveryWork = false;
-
-    if (DONE_WORK_STATES.includes(state)) {
-      doneWorkItems += 1;
-    } else if (IN_PROGRESS_WORK_STATES.includes(state)) {
-      inProgressWorkItems += 1;
-    } else {
-      /* Cualquier estado vigente que no sea Done ni In progress se considera trabajo en Discovery / pendiente. */
-      pendingWorkItems += 1;
-      isDiscoveryWork = true;
-    }
-    
-    /* Para esta regla, "sin Sprint" significa que el Work Item no tiene Iteration Path informado. Los elementos Removed ya salieron antes. */
-      const hasIterationPath =
+    const hasIterationPath =
       typeof item.iterationPath === 'string' &&
       item.iterationPath.trim().length > 0;
-    
-    if (isDiscoveryWork && !hasIterationPath) {
-      discoveryWithoutSprintWorkItems += 1;
+
+    if (IN_PLANNING_WORK_STATES.includes(state)) {
+      inPlanningWorkItems += 1;
+
+      if (!hasIterationPath) {
+        discoveryWithoutSprintWorkItems += 1;
+      }
+    } else if (IN_PROGRESS_WORK_STATES.includes(state)) {
+      inProgressWorkItems += 1;
+    } else if (TO_RELEASE_WORK_STATES.includes(state)) {
+      toReleaseWorkItems += 1;
+    } else if (COMPLETED_WORK_STATES.includes(state)) {
+      completedWorkItems += 1;
+    } else {
+      /*
+        Protección para estados nuevos o no configurados:
+        se consideran In Planning hasta que se agreguen al JSON.
+        Así no inflan progreso ni desaparecen del delivery.
+      */
+      inPlanningWorkItems += 1;
+
+      if (!hasIterationPath) {
+        discoveryWithoutSprintWorkItems += 1;
+      }
+
+      console.warn(
+        'Unmapped User Story/Bug state treated as In Planning',
+        {
+          workItemId: item.id,
+          workItemType: item.workItemType,
+          state
+        }
+      );
     }
-    
-    /* Un work item cuenta como "unestimated" únicamente si su estado
-      requiere estimación y no tiene puntos válidos o tiene 0 puntos.    
-      La misma función se expondrá al frontend mediante isUnestimated,
-      para que el detalle gris y Delivery Health siempre coincidan. */
+
     if (isWorkItemUnestimated(item)) {
       unestimatedWorkItems += 1;
     }
   });
 
   const includedWorkItems =
-    doneWorkItems +
+    inPlanningWorkItems +
     inProgressWorkItems +
-    pendingWorkItems;
+    toReleaseWorkItems +
+    completedWorkItems;
 
   const totalWorkItems = relevantWorkItems.length;
 
+  /*
+    To Release cuenta como completado para porcentaje de progreso,
+    aunque todavía sea trabajo abierto dentro del workflow.
+  */
+  const completedForProgressWorkItems =
+    toReleaseWorkItems +
+    completedWorkItems;
+
+  /*
+    Open significa que el work item no está cerrado ni removido.
+  */
   const openWorkItems =
+    inPlanningWorkItems +
     inProgressWorkItems +
-    pendingWorkItems;
+    toReleaseWorkItems;
+
+  const progressPercent =
+    includedWorkItems > 0
+      ? Math.round(
+          (completedForProgressWorkItems / includedWorkItems) * 100
+        )
+      : 0;
 
   return {
     source: 'ok',
 
     hasWorkItems: includedWorkItems > 0,
 
-    // Nuevo modelo unificado.
     totalWorkItems,
     includedWorkItems,
     removedWorkItems,
 
-    doneWorkItems,
+    inPlanningWorkItems,
     inProgressWorkItems,
-    pendingWorkItems,
+    toReleaseWorkItems,
+    completedWorkItems,
+
+    completedForProgressWorkItems,
     openWorkItems,
+    progressPercent,
 
     unestimatedWorkItems,
     discoveryWithoutSprintWorkItems,
 
-    // Overdue debe depender de trabajo vigente no terminado.
+    /*
+      Overdue sigue aplicando mientras exista trabajo no cerrado,
+      incluyendo To Release.
+    */
     workItemsPendingDelivery: openWorkItems > 0,
 
     /*
-      Alias de compatibilidad temporal.
-
-      Pueden eliminarse cuando confirmemos que ningún consumidor usa
-      los nombres antiguos.
+      Aliases temporales:
+      - done ahora significa "completo para progreso";
+      - pending significa "In Planning + In Progress";
+      - discovery conserva compatibilidad visual hasta editar HTML.
     */
+    doneWorkItems: completedForProgressWorkItems,
+    pendingWorkItems:
+      inPlanningWorkItems +
+      inProgressWorkItems,
+
     excludedWorkItems: removedWorkItems,
-    completedWorkItems: doneWorkItems,
     activeWorkItems: inProgressWorkItems,
-    pendingNonActiveWorkItems: pendingWorkItems
+    pendingNonActiveWorkItems: inPlanningWorkItems
   };
 }
 
@@ -1394,30 +1458,17 @@ function buildDeliveryHealth(feature) {
   if (!summary || summary.source !== 'ok') {
     return unknownResult;
   }
-
+  
   const totalWorkItems = Number(summary.totalWorkItems || 0);
+  const inPlanningWorkItems = Number( summary.inPlanningWorkItems || 0 );
+  const inProgressWorkItems = Number( summary.inProgressWorkItems || 0 );
+  const toReleaseWorkItems = Number( summary.toReleaseWorkItems || 0 );
   const openWorkItems = Number(summary.openWorkItems || 0);
-  const pendingWorkItems = Number(summary.pendingWorkItems || 0);
-
-  const inProgressWorkItems = Number(
-    summary.inProgressWorkItems || 0
-  );
-
-  const unestimatedWorkItems = Number(
-    summary.unestimatedWorkItems || 0
-  );
-
-  const discoveryWithoutSprintWorkItems = Number(
-    summary.discoveryWithoutSprintWorkItems || 0
-  );
-
+  const unestimatedWorkItems = Number(summary.unestimatedWorkItems || 0 );
+  const discoveryWithoutSprintWorkItems = Number( summary.discoveryWithoutSprintWorkItems || 0 );
   const isClosed = FEATURE_CLOSED_STATES.includes(state);
-
-  const isExecutionState =
-    FEATURE_DELIVERY_EXECUTION_STATES.includes(state);
-
-  const isNotStartedState =
-    FEATURE_NOT_STARTED_STATES.includes(state);
+  const isExecutionState = FEATURE_DELIVERY_EXECUTION_STATES.includes(state);
+  const isNotStartedState = FEATURE_NOT_STARTED_STATES.includes(state);
 
   /*
     Not started es informativo: no entra en Requires Action,
@@ -1541,7 +1592,7 @@ function buildDeliveryHealth(feature) {
   if (
     noActiveWorkRule.enabled &&
     state === 'In Process' &&
-    pendingWorkItems > 0 &&
+    inPlanningWorkItems > 0 &&
     inProgressWorkItems === 0
   ) {
     alerts.push(createRuleAlert('noActiveWork'));
@@ -1624,6 +1675,7 @@ async function fetchDeliveryWorkItemsBatch(c, ids) {
           id: workItem.id,
           workItemType: fields['System.WorkItemType'] || '',
           state: fields['System.State'] || '',
+          areaPath: fields['System.AreaPath'] || '',
           iterationPath: fields['System.IterationPath'] || '',
           storyPoints: normalizeStoryPoints(
             fields['Microsoft.VSTS.Scheduling.StoryPoints']
