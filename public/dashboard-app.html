@@ -2410,7 +2410,6 @@
     /* Debe coincidir con ESTIMABLE_WORK_STATES del backend. Sólo estos estados requieren que el work item tenga estimación.
       Los elementos Closed, Removed u otros estados tempranos no generan la alerta actual "No estimated work". */
     const estimateRequiredStates = [
-      'Planned',
       'Ready for Development',
       'In Process',
       'QA Testing',
