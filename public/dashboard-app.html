@@ -516,10 +516,10 @@
       font-family: inherit; font-size: 11px; font-weight: 700; cursor: pointer;}
     .relationship-retry-button:hover { background: #eff6ff; border-color: #1d4ed8;}
     .relationship-retry-button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.28); outline-offset: 2px;}
-    .story-linked-bugs-button { margin-top: 7px; padding: 4px 7px; border: 1px solid #bfdbfe; border-radius: 4px; background: #eff6ff; color: #1d4ed8;
+    .story-linked-items-button { margin-top: 7px; padding: 4px 7px; border: 1px solid #bfdbfe; border-radius: 4px; background: #eff6ff; color: #1d4ed8;
       font-family: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
-    .story-linked-bugs-button:hover { background: #dbeafe; border-color: #60a5fa; }
-    .story-linked-bugs-button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.28); outline-offset: 2px; }
+    .story-linked-items-button:hover { background: #dbeafe; border-color: #60a5fa; }
+    .story-linked-items-button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.28); outline-offset: 2px; }
     .relationship-show-all-button { margin-top: 10px; padding: 5px 9px; border: 1px solid #94a3b8; border-radius: 5px; background: #ffffff; color: #334155;
       font-family: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
     .relationship-show-all-button:hover { background: #f8fafc; border-color: #64748b; }
@@ -2990,59 +2990,151 @@
       });
     }
 
-    function DeliveryWorkItemCard({ 
+    function DeliveryWorkItemCard({
       story,
       adoLink,
-      linkedBugCount,
+      linkedItemCount,
       relationshipLoading,
       relationshipUnavailable,
-      onShowLinkedBugs
+      onShowLinkedItems
     }) {
-      const storyDotColor = storyStateColors[story.state] || '#94a3b8';
+      const storyDotColor =
+        storyStateColors[story.state] || '#94a3b8';
+
       const isBug = story.workItemType === 'Bug';
+
       const sprintLabel = (() => {
-        const match = story.iterationPath && story.iterationPath.match(/(\d{4})_(S\d+)_/);
+        const match =
+          story.iterationPath &&
+          story.iterationPath.match(/(\d{4})_(S\d+)_/);
 
         if (match) {
           return `${match[1]} ${match[2]}`;
         }
+
         return story.iterationPath
           ? story.iterationPath.split('\\').pop()
           : '—';
       })();
 
-      const isUserStory = story.workItemType === 'User Story';
+      /*
+        Incluye User Story y Simple User Story.
+        Si en el futuro ADO usa otro nombre que contenga "Story",
+        también conservará la interacción de Linked Items.
+      */
+      const isStoryLikeWorkItem =
+        /story/i.test(
+          String(story.workItemType || '')
+        );
 
-      const canShowLinkedBugButton =
-        isUserStory &&
-        typeof onShowLinkedBugs === 'function';
+      const canShowLinkedItemsButton =
+        isStoryLikeWorkItem &&
+        typeof onShowLinkedItems === 'function';
 
       return (
-        <div style={{ padding: '8px 12px', background: 'white', borderLeft: `3px solid ${storyDotColor}`, borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+        <div
+          style={{
+            padding: '8px 12px',
+            background: 'white',
+            borderLeft: `3px solid ${storyDotColor}`,
+            borderRadius: '4px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginBottom: '5px'
+            }}
+          >
             {isBug && (
-              <span style={{ fontSize: '9px', background: '#fee2e2', color: '#dc2626', padding: '1px 5px', borderRadius: '3px', fontWeight: 'bold', flexShrink: 0 }}>
+              <span
+                style={{
+                  fontSize: '9px',
+                  background: '#fee2e2',
+                  color: '#dc2626',
+                  padding: '1px 5px',
+                  borderRadius: '3px',
+                  fontWeight: 'bold',
+                  flexShrink: 0
+                }}
+              >
                 BUG
               </span>
             )}
-            <a href={adoLink(story.id)} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', fontWeight: 'bold', color: '#007bff', flexShrink: 0 }}>
+
+            <a
+              href={adoLink(story.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontSize: '11px',
+                fontWeight: 'bold',
+                color: '#007bff',
+                flexShrink: 0
+              }}
+            >
               #{story.id}
             </a>
-            <span title={story.title} style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#333', fontSize: '11px' }}>
+
+            <span
+              title={story.title}
+              style={{
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                color: '#333',
+                fontSize: '11px'
+              }}
+            >
               {story.title}
             </span>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '7px'}}>
-            <span style={{ fontSize: '10px', background: storyDotColor, color: 'white', padding: '1px 6px', borderRadius: '3px', whiteSpace: 'nowrap' }}>
+
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: '7px'
+            }}
+          >
+            <span
+              style={{
+                fontSize: '10px',
+                background: storyDotColor,
+                color: 'white',
+                padding: '1px 6px',
+                borderRadius: '3px',
+                whiteSpace: 'nowrap'
+              }}
+            >
               {story.state}
             </span>
+
             <span style={{ fontSize: '10px', color: '#666' }}>
               📍 {sprintLabel}
             </span>
 
-            <span style={{ fontSize: '10px', color: isWorkItemUnestimated(story) ? '#b45309' : '#666', fontWeight: isWorkItemUnestimated(story) ? 'bold' : 'normal' }}>
+            <span
+              style={{
+                fontSize: '10px',
+                color: isWorkItemUnestimated(story)
+                  ? '#b45309'
+                  : '#666',
+                fontWeight: isWorkItemUnestimated(story)
+                  ? 'bold'
+                  : 'normal'
+              }}
+            >
               🎯 {story.storyPoints ?? 'No data'}
-              {story.storyPoints !== null && story.storyPoints !== undefined ? ' pts' : ''}
+              {story.storyPoints !== null &&
+              story.storyPoints !== undefined
+                ? ' pts'
+                : ''}
             </span>
 
             <span className="feature-story-card__assigned-to">
@@ -3058,16 +3150,25 @@
               </span>
             )}
 
-            {canShowLinkedBugButton && (
-              <button type="button" className="story-linked-bugs-button" onClick={onShowLinkedBugs}
-                title= {`Show Bugs linked to User Story #${story.id}`}>
+            {canShowLinkedItemsButton && (
+              <button
+                type="button"
+                className="story-linked-items-button"
+                onClick={onShowLinkedItems}
+                title={
+                  `Show work items linked to ${story.workItemType} ` +
+                  `#${story.id}`
+                }
+              >
                 {relationshipLoading
-                  ? 'Loading linked Bugs...'
+                  ? 'Loading Linked Items...'
                   : relationshipUnavailable
-                    ? 'Linked Bugs unavailable'
-                    : typeof linkedBugCount === 'number'
-                      ? `${linkedBugCount} Linked Bug${linkedBugCount === 1 ? '' : 's'}`
-                      : 'Linked Bugs'}
+                    ? 'Linked Items unavailable'
+                    : typeof linkedItemCount === 'number'
+                      ? `${linkedItemCount} Linked Item${
+                          linkedItemCount === 1 ? '' : 's'
+                        }`
+                      : 'Linked Items'}
               </button>
             )}
           </div>
@@ -3079,10 +3180,10 @@
       title,
       stories,
       adoLink,
-      getLinkedBugCount,
+      getLinkedItemCount,
       relationshipLoading,
       relationshipUnavailable,
-      onShowStoryLinkedBugs
+      onShowStoryLinkedItems
     }) {
       return (
         <section className="delivery-work-group">
@@ -3101,16 +3202,18 @@
                   key={story.id}
                   story={story}
                   adoLink={adoLink}
-                  linkedBugCount={
-                    typeof getLinkedBugCount === 'function'
-                      ? getLinkedBugCount(story.id)
+                  linkedItemCount={
+                    typeof getLinkedItemCount === 'function'
+                      ? getLinkedItemCount(story.id)
                       : undefined
                   }
                   relationshipLoading={relationshipLoading}
-                  relationshipUnavailable={relationshipUnavailable}
-                  onShowLinkedBugs={
-                    typeof onShowStoryLinkedBugs === 'function'
-                      ? () => onShowStoryLinkedBugs(story.id)
+                  relationshipUnavailable={
+                    relationshipUnavailable
+                  }
+                  onShowLinkedItems={
+                    typeof onShowStoryLinkedItems === 'function'
+                      ? () => onShowStoryLinkedItems(story.id)
                       : undefined
                   }
                 />
@@ -3301,58 +3404,68 @@
           ? normalizeRelationshipGraph(relationshipGraph)
           : null;
      
-      const linkedBugs =
+      /* Los nombres del payload de backend todavía contienen "Bugs", pero la interfaz los trata como Linked Items porque el grafo completo también puede incluir Stories relacionadas. */
+      const linkedItems =
         normalizedRelationshipGraph?.linkedBugs || [];
-      
-      const storyLinkedBugs =
+
+      const storyLinkedItems =
         normalizedRelationshipGraph?.storyLinkedBugs || [];
-      
+
       const linkedStories =
         normalizedRelationshipGraph?.linkedStories || [];
-      
+
       const relationshipTotal =
         normalizedRelationshipGraph?.total || 0;
 
-      const linkedBugsForSelectedStory = linkedStoryFilterId
-        ? storyLinkedBugs.filter(bug =>
-            (bug.relatedFromStoryIds || [])
+      const linkedItemsForSelectedStory = linkedStoryFilterId
+        ? storyLinkedItems.filter(item =>
+             (item.relatedFromStoryIds || [])
               .map(Number)
               .includes(Number(linkedStoryFilterId))
           )
-        : linkedBugs;
+        : linkedItems;
 
-      const getLinkedBugCountForStory = (storyId) => {
+      const getLinkedItemCountForStory = (storyId) => {
         const numericStoryId = Number(storyId);
-      
-        return storyLinkedBugs.filter(bug =>
-          (bug.relatedFromStoryIds || [])
+
+        return storyLinkedItems.filter(item =>
+          (item.relatedFromStoryIds || [])
             .map(Number)
             .includes(numericStoryId)
         ).length;
       };
 
+      /* Debug temporal. Si ya no necesitas investigar la Feature #1165429, puedes eliminar este bloque completo después de validar relaciones. */
       if (Number(feature.id) === 1165429) {
         console.log('[Relationship debug]', {
           featureId: feature.id,
           directFeatureChildBugs:
             normalizedRelationshipGraph?.directFeatureChildBugs,
-          linkedBugs,
-          storyLinkedBugs,
+          linkedItems,
+          storyLinkedItems,
           linkedStories
         });
       }
-      
-      const showLinkedBugsForStory = (storyId) => {
+
+      const showLinkedItemsForStory = (storyId) => {
         setLinkedStoryFilterId(Number(storyId));
         setWorkItemSubfilter('linkedBugs');
         onLoadRelationships();
       };
-      
+
       const showAllLinkedRelationships = () => {
         setLinkedStoryFilterId(null);
         setWorkItemSubfilter('linkedBugs');
         onLoadRelationships();
       };
+
+      /* Al montar el detalle expandido se solicita el grafo de relaciones. loadRelationshipGraphForFeatures ya evita consultas duplicadas si:
+        - la Feature está en caché;
+        - la solicitud está en progreso;
+        - ocurrió un fallo previo y no es un retry explícito. */
+      React.useEffect(() => {
+        onLoadRelationships();
+      }, [feature.id]);
       
       React.useEffect(() => {
         setWorkItemSubfilter('all');
@@ -3769,7 +3882,7 @@
                   title="In Planning"
                   stories={inPlanningStories}
                   adoLink={adoLink}
-                  getLinkedBugCount={getLinkedBugCountForStory}
+                  getLinkedItemCount={getLinkedItemCountForStory}
                   relationshipLoading={relationshipLoading}
                   relationshipUnavailable={relationshipUnavailable}
                   onShowStoryLinkedBugs={showLinkedBugsForStory}
@@ -3781,7 +3894,7 @@
                   title="In Progress"
                   stories={inProgressStories}
                   adoLink={adoLink}
-                  getLinkedBugCount={getLinkedBugCountForStory}
+                  getLinkedItemCount={getLinkedItemCountForStory}
                   relationshipLoading={relationshipLoading}
                   relationshipUnavailable={relationshipUnavailable}
                   onShowStoryLinkedBugs={showLinkedBugsForStory}
@@ -3793,7 +3906,7 @@
                   title="To Release"
                   stories={toReleaseStories}
                   adoLink={adoLink}
-                  getLinkedBugCount={getLinkedBugCountForStory}
+                  getLinkedItemCount={getLinkedItemCountForStory}
                   relationshipLoading={relationshipLoading}
                   relationshipUnavailable={relationshipUnavailable}
                   onShowStoryLinkedBugs={showLinkedBugsForStory}
@@ -3805,7 +3918,7 @@
                   title="Completed"
                   stories={completedStories}
                   adoLink={adoLink}
-                  getLinkedBugCount={getLinkedBugCountForStory}
+                  getLinkedItemCount={getLinkedItemCountForStory}
                   relationshipLoading={relationshipLoading}
                   relationshipUnavailable={relationshipUnavailable}
                   onShowStoryLinkedBugs={showLinkedBugsForStory}
@@ -3849,21 +3962,21 @@
                     </div>
                   ) : (
                     linkedStoryFilterId
-                      ? linkedBugsForSelectedStory.length === 0
+                      ? linkedItemsForSelectedStory.length === 0
                       : relationshipTotal === 0
                   ) ? (
                     <div className="delivery-work-group__empty">
                       {linkedStoryFilterId
                         ? `No linked items were found for Story #${linkedStoryFilterId}.`
-                        : 'No linked work items.'}
+                        : 'No linked work items were found for this Feature.'}
                     </div>
                   ) : (
                     <>
-                      {linkedBugsForSelectedStory.length > 0 && (
+                      {linkedItemsForSelectedStory.length > 0 && (
                         <DeliveryWorkItemGroup
                           title="Linked Items"
                           stories={sortDeliveryWorkItemsByTypeAndId(
-                            linkedBugsForSelectedStory
+                            linkedItemsForSelectedStory
                           )}
                           adoLink={adoLink}
                         />
@@ -4542,11 +4655,12 @@
       const [storiesCache, setStoriesCache] = useState({});
       const [loadingStoriesIds, setLoadingStoriesIds] = useState({});
       const [unavailableStoriesIds, setUnavailableStoriesIds] = useState({});
-      /* Caché independiente para el grafo de relaciones. Importante:
+      /* Caché independiente para el grafo de Linked items. Importante:
       - No se mezcla con storiesCache.
       - No afecta Delivery Health.
       - No afecta Progress.
-      - Sólo se consulta cuando el usuario solicita Linked Bugs.*/
+      - Se consulta al expandir una Feature en Feature List.
+      - La caché evita repetir solicitudes al reabrir la misma Feature. */
       const [relationshipGraphCache, setRelationshipGraphCache] = useState({});
       const [loadingRelationshipIds, setLoadingRelationshipIds] = useState({});
       const [unavailableRelationshipIds, setUnavailableRelationshipIds] = useState({});
@@ -5435,15 +5549,21 @@
 
       const toggleFeatureDetails = (featureId) => {
         const isAlreadyOpen = expandedFeatureId === featureId;
-      
+
         if (isAlreadyOpen) {
           setExpandedFeatureId(null);
           return;
         }
+
         setExpandedFeatureId(featureId);
-        /* Las Stories/Bugs normalmente ya están precargadas para la página visible. Este fallback evita que abrir una Feature sin precargar
-          rompa el detalle. */
+
+        /* Ambas solicitudes son independientes y pueden ejecutarse en paralelo. Cada función ya tiene protección contra:
+          - datos existentes en caché;
+          - solicitudes en progreso;
+          - duplicados generados por renders consecutivos. */
         loadStoriesForFeatures([featureId]);
+
+        loadRelationshipGraphForFeatures([featureId]);
       };
 
       const deliveryHealthRuleOptions = [
