@@ -435,6 +435,26 @@
     .dashboard-results-state__action:disabled { cursor: wait; opacity: 0.7; }
     /* Franja compacta de Delivery Health. En pantallas amplias, título, icono y alertas comparten una línea. Si falta espacio, el contenido baja de forma natural sin desbordarse. */
     .delivery-details__health-line { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+    /* Layout compacto de la parte superior de Delivery Details. En desktop/tablet:
+    - Delivery Health ocupa la columna principal.
+    - Delivery Activity ocupa una columna lateral.
+    - Los botones de estados y las cards siguen debajo, usando todo el ancho.
+    En móvil ambos bloques vuelven a una sola columna. */
+    .delivery-details__overview-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(290px, 0.8fr); gap: 10px; align-items: start; margin-bottom: 10px;}
+    .delivery-details__overview-grid .delivery-details__health-line { min-width: 0; margin-bottom: 0; padding: 10px; border: 1px solid #dbe4ee; border-radius: 6px; background: #ffffff;}
+    .delivery-activity { min-width: 0; padding: 10px; border: 1px solid #dbe4ee; border-radius: 6px; background: #ffffff; }
+    .delivery-activity__title { display: block; margin-bottom: 7px; color: #334155; font-size: 12px; }
+    .delivery-activity__responsible-team { margin-bottom: 8px; color: #475569; font-size: 11px; }
+    .delivery-activity__teams { display: flex; flex-wrap: wrap; gap: 6px; }
+    .delivery-activity__team { appearance: none; display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 4px 7px; border: 1px solid transparent;
+      border-radius: 999px; background: #eff6ff; color: #1d4ed8; cursor: pointer; font-family: inherit; font-size: 10px; font-weight: 700; ine-height: 1.25; }
+    .delivery-activity__team:hover { border-color: #93c5fd; background: #dbeafe; }
+    .delivery-activity__team--active { border-color: #2563eb; background: #2563eb; color: #ffffff; }
+    .delivery-activity__team:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+    .delivery-activity__empty { color: #64748b; font-size: 11px; }
+    .delivery-activity__sprint { margin-top: 8px; color: #475569; font-size: 11px; }
+    .delivery-activity__viewing { margin-top: 8px; color: #1d4ed8; font-size: 10px; font-weight: 700; }
+    @media (max-width: 980px) { .delivery-details__overview-grid { grid-template-columns: 1fr;}}
     .delivery-details__health-heading { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; }
     .delivery-details__inline-alerts { display: flex; flex: 1 1 360px; flex-wrap: wrap; align-items: stretch; gap: 4px; min-width:0; }
     .delivery-details__inline-reason { color: #64748b; font-size: 11px; line-height: 1.4; }
@@ -2034,6 +2054,7 @@
                   <FeatureDeliveryDetails
                     feature={feature}
                     stories={storiesCache[feature.id] || []}
+                    deliveryTeamFilter={filterDeliveryTeam}
                     adoLink={adoLink}
                     relationshipGraph={relationshipGraph}
                     relationshipLoading={relationshipLoading}
@@ -2766,7 +2787,28 @@
           .toLowerCase() === normalizedAreaPath
       );
     }
+
+    function workItemMatchesDeliveryTeam(
+      workItem,
+      areaPath
+    ) {
+      const normalizedWorkItemAreaPath = String(
+        workItem?.areaPath || ''
+      )
+        .trim()
+        .toLowerCase();
     
+      const normalizedTeamAreaPath = String(areaPath || '')
+        .trim()
+        .toLowerCase();
+    
+      return Boolean(
+        normalizedWorkItemAreaPath &&
+        normalizedTeamAreaPath &&
+        normalizedWorkItemAreaPath === normalizedTeamAreaPath
+      );
+    }
+        
     function getWorkItemDisplayOrder(workItem) {
       /*
         Bugs primero; después las User Stories.
@@ -2987,7 +3029,8 @@
       
     function FeatureDeliveryDetails({ 
       feature, 
-      stories, 
+      stories,
+      deliveryTeamFilter = [],
       adoLink, 
       relationshipGraph,
       relationshipLoading,
@@ -2995,17 +3038,48 @@
       onLoadRelationships,
       onRetryRelationships }) {
       
-      const [workItemSubfilter, setWorkItemSubfilter] =
-        React.useState('all');
+      const [workItemSubfilter, setWorkItemSubfilter] = React.useState('all');
       
       /* null = muestra todos los Bugs relacionados con el Feature. Un ID = muestra únicamente Bugs relacionados desde esa Story. */
-      const [linkedStoryFilterId, setLinkedStoryFilterId] =
-        React.useState(null);
+      const [linkedStoryFilterId, setLinkedStoryFilterId] = React.useState(null);
 
+      /* null: usa el filtro global Delivery Team, si existe. Si no hay filtro global, muestra todos los equipos.    
+      Un Area Path: permite cambiar temporalmente el detalle a otro equipo desde los botones de Delivery Activity, sin alterar el filtro global. */
+      const [ selectedExecutionTeamAreaPath, setSelectedExecutionTeamAreaPath ] = React.useState(null);
+          
       const delivery = getDeliveryHealth(feature);
       const alerts = getDeliveryHealthAlerts(feature);
-      const summary = getWorkItemsDeliverySummary(stories);
       const executionTeams = getFeatureExecutionTeams(feature);
+      
+      /* Los equipos que pertenecen al Feature según el resumen del backend. Se usan para evitar aplicar un filtro global a un equipo que no
+        participa realmente en esta Feature. */
+      const featureExecutionTeamAreaPaths = executionTeams.map( team => team.areaPath );
+      
+      /* Si se pulsó un equipo dentro de Delivery Activity, ese equipo tiene prioridad sólo dentro de este detalle.      
+        Si no se pulsó ninguno:
+        - con Delivery Team global: muestra únicamente los equipos filtrados;
+        - sin Delivery Team global: muestra Stories/Bugs de todos los equipos. */
+      const effectiveDeliveryTeamAreaPaths =
+        selectedExecutionTeamAreaPath
+          ? [selectedExecutionTeamAreaPath]
+          : deliveryTeamFilter.length > 0
+            ? deliveryTeamFilter.filter(areaPath =>
+                featureExecutionTeamAreaPaths.includes(areaPath)
+              )
+            : [];
+      
+      /* Vacío significa "todos los equipos". */
+      const teamFilteredStories =
+        effectiveDeliveryTeamAreaPaths.length === 0
+          ? stories
+          : stories.filter(story =>
+              effectiveDeliveryTeamAreaPaths.some(areaPath =>
+                workItemMatchesDeliveryTeam(story, areaPath)
+              )
+            );
+      
+      /* Los contadores de Included, In Progress, Completed, etc. ahora corresponden al equipo visible, no a todos los equipos de la Feature. */
+      const summary = getWorkItemsDeliverySummary( teamFilteredStories );
 
       const currentSprintWorkItems =
         feature?.deliverySummary?.currentSprintWorkItems;
@@ -3072,16 +3146,21 @@
         onLoadRelationships();
       };
       
-      /* Si el usuario abre Delivery Health en otra Feature, el detalle vuelve a mostrar todos sus Stories, Bugs y Relaciones. */
       React.useEffect(() => {
-        setWorkItemSubfilter('all');  setLinkedStoryFilterId(null);
-      }, [feature.id]);
+        setWorkItemSubfilter('all');
+        setLinkedStoryFilterId(null);
+      
+        /* Al abrir otra Feature o cambiar el filtro global Delivery Team, volvemos al comportamiento inicial:
+          - el filtro global controla los Stories/Bugs visibles;
+          - no queda seleccionado temporalmente un equipo de otra Feature. */
+        setSelectedExecutionTeamAreaPath(null);
+      }, [
+        feature.id,
+        deliveryTeamFilter.join('|')
+      ]);
 
-      /*
-        Removed queda incluido en el resumen, pero no se incluye
-        en ninguno de los tres grupos de cards.
-      */
-      const visibleStories = stories.filter(story => {
+      /* Removed queda incluido en el resumen, pero no se incluye en ninguno de los tres grupos de cards. */
+      const visibleStories = teamFilteredStories.filter(story => {
         /* Linked Bugs proviene de otro endpoint y no pertenece a storiesCache. Por eso no mostramos hijos directos
           mientras ese subfiltro está seleccionado. */
         if (workItemSubfilter === 'linkedBugs') {
@@ -3152,125 +3231,120 @@
 
       return (
         <div className="delivery-details">
-          <div className="delivery-details__health-line">
-            <div className="delivery-details__health-heading">
-              <strong className="delivery-details__title">
-                Delivery Health
-              </strong>
-
-              <span
-                className={`delivery-details__title-icon ${delivery.className}`}
-                aria-label={`Delivery health: ${delivery.label}`}
-                title={`Delivery health: ${delivery.label}`}
-              >
-                {delivery.icon}
-              </span>
-            </div>
-
-            <div
-              className="delivery-details__inline-alerts"
-              aria-label="Delivery Health alerts"
-            >
-              {alerts.map(alert => (
-                <DeliveryHealthAlert
-                  key={alert.key}
-                  alert={alert}
-                  assignedTo={feature.assignedTo}
-                />
-              ))}
-            </div>
-          </div>
-
-          <section
-            style={{
-              marginBottom: '12px',
-              padding: '10px',
-              border: '1px solid #dbe4ee',
-              borderRadius: '6px',
-              background: '#ffffff'
-            }}
-            aria-label="Delivery execution activity"
-          >
-            <strong
-              style={{
-                display: 'block',
-                color: '#334155',
-                fontSize: '12px',
-                marginBottom: '7px'
-              }}
-            >
-              Delivery Activity
-            </strong>
+          <div className="delivery-details__overview-grid">
+            <div className="delivery-details__health-line">
+              <div className="delivery-details__health-heading">
+                <strong className="delivery-details__title">
+                  Delivery Health
+                </strong>
           
-            <div
-              style={{
-                color: '#475569',
-                fontSize: '11px',
-                marginBottom: '7px'
-              }}
-            >
-              <strong>Responsible team:</strong>{' '}
-              {responsibleTeam || '—'}
-            </div>
-          
-            {executionTeams.length === 0 ? (
-              <div
-                style={{
-                  color: '#64748b',
-                  fontSize: '11px'
-                }}
-              >
-                No execution teams were identified from child Stories or Bugs.
+                <span
+                  className={`delivery-details__title-icon ${delivery.className}`}
+                  aria-label={`Delivery health: ${delivery.label}`}
+                  title={`Delivery health: ${delivery.label}`}
+                >
+                  {delivery.icon}
+                </span>
               </div>
-            ) : (
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '6px'
-                }}
-              >
-                {executionTeams.map(team => (
-                  <span
-                    key={team.areaPath}
-                    title={team.areaPath}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '4px 7px',
-                      borderRadius: '999px',
-                      background: '#eff6ff',
-                      color: '#1d4ed8',
-                      fontSize: '10px',
-                      fontWeight: '700'
-                    }}
-                  >
-                    {team.name}{' '}
-                    · {team.totalWorkItems} item
-                    {team.totalWorkItems === 1 ? '' : 's'}
           
-                    {team.currentSprintWorkItems > 0 &&
-                      ` · ${team.currentSprintWorkItems} current sprint`}
-                  </span>
+              <div
+                className="delivery-details__inline-alerts"
+                aria-label="Delivery Health alerts"
+              >
+                {alerts.map(alert => (
+                  <DeliveryHealthAlert
+                    key={alert.key}
+                    alert={alert}
+                    assignedTo={feature.assignedTo}
+                  />
                 ))}
               </div>
-            )}
+            </div>
           
-            {typeof currentSprintWorkItems === 'number' && (
-              <div
-                style={{
-                  marginTop: '8px',
-                  color: '#475569',
-                  fontSize: '11px'
-                }}
-              >
-                <strong>Current Sprint activity:</strong>{' '}
-                {currentSprintWorkItems} work item
-                {currentSprintWorkItems === 1 ? '' : 's'}
+            <section
+              className="delivery-activity"
+              aria-label="Delivery execution activity"
+            >
+              <strong className="delivery-activity__title">
+                Delivery Activity
+              </strong>
+          
+              <div className="delivery-activity__responsible-team">
+                <strong>Responsible team:</strong>{' '}
+                {responsibleTeam || '—'}
               </div>
-            )}
-          </section>
+          
+              {executionTeams.length === 0 ? (
+                <div className="delivery-activity__empty">
+                  No execution teams were identified from child Stories or Bugs.
+                </div>
+              ) : (
+                <div className="delivery-activity__teams">
+                  {executionTeams.map(team => {
+                    const isActive =
+                      effectiveDeliveryTeamAreaPaths.length === 1 &&
+                      effectiveDeliveryTeamAreaPaths[0] === team.areaPath;
+          
+                    return (
+                      <button
+                        key={team.areaPath}
+                        type="button"
+                        className={[
+                          'delivery-activity__team',
+                          isActive
+                            ? 'delivery-activity__team--active'
+                            : ''
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        title={
+                          `${team.areaPath}. ` +
+                          `Show ${team.totalWorkItems} direct Story/Bug item(s) for this team.`
+                        }
+                        onClick={() => {
+                          setWorkItemSubfilter('all');
+                          setLinkedStoryFilterId(null);
+          
+                          /*
+                            Un segundo clic sobre el mismo equipo vuelve al
+                            comportamiento determinado por el filtro global.
+                          */
+                          setSelectedExecutionTeamAreaPath(currentValue =>
+                            currentValue === team.areaPath
+                              ? null
+                              : team.areaPath
+                          );
+                        }}
+                      >
+                        {team.name} · {team.totalWorkItems} item
+                        {team.totalWorkItems === 1 ? '' : 's'}
+          
+                        {team.currentSprintWorkItems > 0 &&
+                          ` · ${team.currentSprintWorkItems} current sprint`}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+          
+              {effectiveDeliveryTeamAreaPaths.length > 0 && (
+                <div className="delivery-activity__viewing">
+                  Viewing work for:{' '}
+                  {effectiveDeliveryTeamAreaPaths
+                    .map(areaPath => getAreaPathDisplayName(areaPath))
+                    .join(', ')}
+                </div>
+              )}
+          
+              {typeof currentSprintWorkItems === 'number' && (
+                <div className="delivery-activity__sprint">
+                  <strong>Feature total current Sprint activity:</strong>{' '}
+                  {currentSprintWorkItems} work item
+                  {currentSprintWorkItems === 1 ? '' : 's'}
+                </div>
+              )}
+            </section>
+          </div>
                     
           <div className="delivery-details__summary">
             <button type="button" className={['delivery-details__metric', workItemSubfilter === 'all' ? 'delivery-details__metric--active' : '' ].filter(Boolean).join(' ')}
@@ -4139,8 +4213,8 @@
       const [searchInput, setSearchInput] = useState('');
       const [sortColumn, setSortColumn] = useState('priority');
       const [sortOrder, setSortOrder] = useState('asc');
-      const activeAdvancedFiltersCount = [ filterAreaPath, filterIteration, filterAssignedTo, filterState, filterTargetDate, filterReleaseVersion].filter(values => Array.isArray(values) && values.length > 0).length;
-      const totalAdvancedFilterSelections = [ filterAreaPath, filterIteration, filterAssignedTo, filterState, filterTargetDate, filterReleaseVersion].reduce( (total, values) => total + (Array.isArray(values) ? values.length : 0),  0);
+      const activeAdvancedFiltersCount = [ filterAreaPath, filterDeliveryTeam, filterIteration, filterAssignedTo, filterState, filterTargetDate, filterReleaseVersion].filter(values => Array.isArray(values) && values.length > 0).length;
+      const totalAdvancedFilterSelections = [ filterAreaPath, filterDeliveryTeam, filterIteration, filterAssignedTo, filterState, filterTargetDate, filterReleaseVersion].reduce( (total, values) => total + (Array.isArray(values) ? values.length : 0),  0);
       const [roadmapPage, setRoadmapPage] = useState(1);
       const [timelineOffset, setTimelineOffset] = useState(-8);
       const [weekOffset, setWeekOffset] = useState(-8);
@@ -4857,6 +4931,7 @@
         filterAreaPath.length > 0 ||
         filterIteration.length > 0 ||
         filterAssignedTo.length > 0 ||
+        filterDeliveryTeam.length > 0 ||
         filterState.length > 0 ||
         filterTargetDate.length > 0 ||
         filterReleaseVersion.length > 0 ||
@@ -5118,6 +5193,7 @@
           filterTargetDate.join(','),
           filterReleaseVersion.join(','),
           filterAssignedTo.join(','),
+          filterDeliveryTeam.join(','),
           readinessKpiFilter,
           healthGroupKpiFilter,
           readinessDropdownFilter,
@@ -5789,6 +5865,7 @@
                   filterAreaPath.length === 0 &&
                   filterIteration.length === 0 &&
                   filterAssignedTo.length === 0 &&
+                  filterDeliveryTeam.length === 0 &&
                   filterState.length === 0 &&
                   filterTargetDate.length === 0 &&
                   filterReleaseVersion.length === 0 &&
@@ -5826,7 +5903,17 @@
                       moveTooltip={moveTooltip}
                       hideTooltip={hideTooltip}
                     />
-                    
+
+                    <AdvancedFilterSummaryChip
+                      label="Delivery team"
+                      values={filterDeliveryTeam.map(
+                        getAreaPathDisplayName
+                      )}
+                      showTooltip={showTooltip}
+                      moveTooltip={moveTooltip}
+                      hideTooltip={hideTooltip}
+                    />
+                                        
                     <AdvancedFilterSummaryChip
                       label="Iteration"
                       values={filterIteration}
@@ -6599,6 +6686,7 @@
                                       <FeatureDeliveryDetails
                                         feature={f}
                                         stories={storiesCache[f.id] || []}
+                                        deliveryTeamFilter={filterDeliveryTeam}
                                         adoLink={adoLink}
                                         relationshipGraph={relationshipGraphCache[f.id]}
                                         relationshipLoading={!!loadingRelationshipIds[f.id]}
