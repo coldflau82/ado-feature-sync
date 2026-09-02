@@ -331,7 +331,7 @@
     .filters-card__clear-all-button:active:not(:disabled) { transform: scale(0.97); }
     .filters-card__clear-all-button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.28); outline-offset: 2px; }
     .filters-card__clear-all-button:disabled { background: #dbeafe; border-color: #bfdbfe; color: #64748b; cursor: not-allowed; opacity: 0.8; }
-    .filters-card__content { display: grid; grid-template-columns: 0.7fr 1.8fr 0.8fr 0.5fr 0.6fr 0.8fr; gap: 12px; padding: 12px; overflow-x: auto; background: #ffffff; }
+    .filters-card__content { display: grid; grid-template-columns: 0.6fr 0.8fr 1.6fr 0.6fr 0.4fr 0.5fr 0.8fr; gap: 12px; padding: 12px; overflow-x: auto; background: #ffffff; }
     .filters-card__content .filter-label { color: #334155; font-size: 12px; font-weight: 700; }
     .filters-card__footer { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 34px; padding: 8px 12px; border-top: 1px solid #e5edf5;
       background: #f8fafc; box-sizing: border-box; }
@@ -2731,6 +2731,42 @@
         .trim();
     }
 
+    function getAreaPathDisplayName(areaPath) {
+      const parts = String(areaPath || '')
+        .split('\\')
+        .map(part => part.trim())
+        .filter(Boolean);
+    
+      return parts.length > 0
+        ? parts[parts.length - 1]
+        : '—';
+    }
+    
+    function getFeatureExecutionTeams(feature) {
+      const executionTeams =
+        feature?.deliverySummary?.executionTeams;
+    
+      return Array.isArray(executionTeams)
+        ? executionTeams
+        : [];
+    }
+    
+    function featureHasExecutionTeam(feature, areaPath) {
+      const normalizedAreaPath = String(areaPath || '')
+        .trim()
+        .toLowerCase();
+    
+      if (!normalizedAreaPath) {
+        return false;
+      }
+    
+      return getFeatureExecutionTeams(feature).some(team =>
+        String(team.areaPath || '')
+          .trim()
+          .toLowerCase() === normalizedAreaPath
+      );
+    }
+    
     function getWorkItemDisplayOrder(workItem) {
       /*
         Bugs primero; después las User Stories.
@@ -2969,6 +3005,14 @@
       const delivery = getDeliveryHealth(feature);
       const alerts = getDeliveryHealthAlerts(feature);
       const summary = getWorkItemsDeliverySummary(stories);
+      const executionTeams = getFeatureExecutionTeams(feature);
+
+      const currentSprintWorkItems =
+        feature?.deliverySummary?.currentSprintWorkItems;
+      
+      const responsibleTeam =
+        feature?.responsibleTeam?.name ||
+        getAreaPathDisplayName(feature.areaPath);
 
       const normalizedRelationshipGraph =
         relationshipGraph?.source === 'ok'
@@ -3136,7 +3180,98 @@
               ))}
             </div>
           </div>
-  
+
+          <section
+            style={{
+              marginBottom: '12px',
+              padding: '10px',
+              border: '1px solid #dbe4ee',
+              borderRadius: '6px',
+              background: '#ffffff'
+            }}
+            aria-label="Delivery execution activity"
+          >
+            <strong
+              style={{
+                display: 'block',
+                color: '#334155',
+                fontSize: '12px',
+                marginBottom: '7px'
+              }}
+            >
+              Delivery Activity
+            </strong>
+          
+            <div
+              style={{
+                color: '#475569',
+                fontSize: '11px',
+                marginBottom: '7px'
+              }}
+            >
+              <strong>Responsible team:</strong>{' '}
+              {responsibleTeam || '—'}
+            </div>
+          
+            {executionTeams.length === 0 ? (
+              <div
+                style={{
+                  color: '#64748b',
+                  fontSize: '11px'
+                }}
+              >
+                No execution teams were identified from child Stories or Bugs.
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '6px'
+                }}
+              >
+                {executionTeams.map(team => (
+                  <span
+                    key={team.areaPath}
+                    title={team.areaPath}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 7px',
+                      borderRadius: '999px',
+                      background: '#eff6ff',
+                      color: '#1d4ed8',
+                      fontSize: '10px',
+                      fontWeight: '700'
+                    }}
+                  >
+                    {team.name}{' '}
+                    · {team.totalWorkItems} item
+                    {team.totalWorkItems === 1 ? '' : 's'}
+          
+                    {team.currentSprintWorkItems > 0 &&
+                      ` · ${team.currentSprintWorkItems} current sprint`}
+                  </span>
+                ))}
+              </div>
+            )}
+          
+            {typeof currentSprintWorkItems === 'number' && (
+              <div
+                style={{
+                  marginTop: '8px',
+                  color: '#475569',
+                  fontSize: '11px'
+                }}
+              >
+                <strong>Current Sprint activity:</strong>{' '}
+                {currentSprintWorkItems} work item
+                {currentSprintWorkItems === 1 ? '' : 's'}
+              </div>
+            )}
+          </section>
+                    
           <div className="delivery-details__summary">
             <button type="button" className={['delivery-details__metric', workItemSubfilter === 'all' ? 'delivery-details__metric--active' : '' ].filter(Boolean).join(' ')}
               onClick={() => setWorkItemSubfilter('all')}
@@ -3991,6 +4126,7 @@
       const [filterAreaPath, setFilterAreaPath] = useState([]);
       const [filterIteration, setFilterIteration] = useState([]);
       const [filterAssignedTo, setFilterAssignedTo] = useState([]);
+      const [filterDeliveryTeam, setFilterDeliveryTeam] = useState([]);
       const [filterState, setFilterState] = useState([]);
       /* El filtro inicial de año usa la fecha operativa de Chicago, no la zona local del navegador. */
       const currentYear = String(getDashboardNow().year);
@@ -4050,6 +4186,7 @@
         setFilterAreaPath([]);
         setFilterIteration([]);
         setFilterAssignedTo([]);
+        setFilterDeliveryTeam([]);
         setFilterState([]);
         setFilterTargetDate([]);
         setFilterReleaseVersion([]);
@@ -4129,6 +4266,7 @@
               setFilterAreaPath(parsed.filterAreaPath || []);
               setFilterIteration(parsed.filterIteration || []);
               setFilterAssignedTo(parsed.filterAssignedTo || []);
+              setFilterDeliveryTeam( parsed.filterDeliveryTeam || []);
               setFilterState(parsed.filterState || []);
               setFilterTargetDate(parsed.filterTargetDate || []);
               setFilterReleaseVersion(parsed.filterReleaseVersion || []);
@@ -4320,15 +4458,16 @@
     };
           
       const saveMyFilter = () => { const filtersToSave = {
-          filterAreaPath,
-          filterIteration,
-          filterAssignedTo,
-          filterState,
-          filterTargetDate,
-          filterReleaseVersion,
-          readinessDropdownFilter,
-          healthRuleFilter,
-        };
+         filterAreaPath,
+         filterIteration,
+         filterAssignedTo,
+         filterDeliveryTeam,
+         filterState,
+         filterTargetDate,
+         filterReleaseVersion,
+         readinessDropdownFilter,
+         healthRuleFilter,
+      };
         localStorage.setItem( FILTER_STORAGE_KEY, JSON.stringify(filtersToSave) );
         setSelectedFilterPreset('my-filter');
       };
@@ -4444,7 +4583,31 @@
 
       const releaseVersions = [...new Set(features.map(f => f.releaseFixVersion).filter(v => v))].sort();
       const assignedTos = [...new Set(features.map(f => f.assignedTo).filter(a => a))].sort();
-
+    
+      /* Lista de equipos ejecutores obtenida desde Stories/Bugs.
+      No se toma del Area Path del Feature: una Feature puede ser responsable de Cart and Checkout y tener ejecución en Service-Online. */
+      const deliveryTeams = [
+        ...new Map(
+          features
+            .flatMap(feature => getFeatureExecutionTeams(feature))
+            .filter(team => team?.areaPath)
+            .map(team => [
+              team.areaPath,
+              {
+                areaPath: team.areaPath,
+                name: team.name ||
+                  getAreaPathDisplayName(team.areaPath)
+              }
+            ])
+        ).values()
+      ].sort((a, b) =>
+        a.name.localeCompare(
+          b.name,
+          undefined,
+          { sensitivity: 'base' }
+        )
+      );
+          
       const monthsByYear = {};
 
       features.forEach(f => {
@@ -4483,6 +4646,7 @@
           setFilterAreaPath(parsed.filterAreaPath || []);
           setFilterIteration(parsed.filterIteration || []);
           setFilterAssignedTo(parsed.filterAssignedTo || []);
+          setFilterDeliveryTeam( parsed.filterDeliveryTeam || []);
           setFilterState(parsed.filterState || []);
           setFilterTargetDate(parsed.filterTargetDate || []);
           setFilterReleaseVersion(parsed.filterReleaseVersion || []);
@@ -4503,17 +4667,13 @@
         const iterOk = filterIteration.length === 0 || filterIteration.includes(f.iterationPath);
         const stateOk = filterState.length === 0 || filterState.includes(f.state);
         const assignedOk = filterAssignedTo.length === 0 || filterAssignedTo.includes(f.assignedTo);
+        const deliveryTeamOk = filterDeliveryTeam.length === 0 || filterDeliveryTeam.some(areaPath => featureHasExecutionTeam(f, areaPath) );
 
         let dateOk = filterTargetDate.length === 0;
 
         if (filterTargetDate.length > 0 && f.targetDate) {
-          /*
-            No usar Date#getFullYear() ni Date#getMonth() aquí:
-            esos métodos usan la zona local del navegador.
-
-            getDashboardDateTime() conserva la interpretación oficial
-            de la fecha bajo America/Chicago.
-          */
+          /* No usar Date#getFullYear() ni Date#getMonth() aquí: esos métodos usan la zona local del navegador.
+            getDashboardDateTime() conserva la interpretación oficial de la fecha bajo America/Chicago. */
           const dashboardDate = getDashboardDateTime(f.targetDate);
 
           if (dashboardDate) {
@@ -4550,7 +4710,8 @@
           dateOk &&
           searchOk &&
           releaseOk &&
-          assignedOk
+          assignedOk && 
+          deliveryTeamOk
         );
       });
       
@@ -5748,7 +5909,46 @@
                     </p>
                   )}
                 </div>
-          
+
+                <div>
+                  <label className="filter-label">
+                    Delivery Team
+                  </label>
+                
+                  <select
+                    multiple
+                    className="filter-select"
+                    value={filterDeliveryTeam}
+                    onChange={(e) => {
+                      markPresetAsCustom();
+                
+                      setFilterDeliveryTeam(
+                        [...e.target.selectedOptions].map(
+                          option => option.value
+                        )
+                      );
+                    }}
+                    title={
+                      'Filter Features by the Area Path of their child Stories and Bugs'
+                    }
+                  >
+                    {deliveryTeams.map(team => (
+                      <option
+                        key={team.areaPath}
+                        value={team.areaPath}
+                      >
+                        {team.name}
+                      </option>
+                    ))}
+                  </select>
+                
+                  {filterDeliveryTeam.length > 0 && (
+                    <p className="filter-count">
+                      {filterDeliveryTeam.length} selected
+                    </p>
+                  )}
+                </div>
+                
                 <div>
                   <label className="filter-label">
                     Iteration Path
