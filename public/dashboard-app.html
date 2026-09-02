@@ -1827,12 +1827,11 @@
         storiesCache[featureId]
       );
 
-      const done = summary.doneWorkItems;
+      const completedForProgress = summary.completedForProgressWorkItems;
+      
       const total = summary.includedWorkItems;
-
-      const percent = total === 0
-        ? 0
-        : Math.round((done / total) * 100);
+      
+      const percent = summary.progressPercent;
 
       const barColor = percent === 100
         ? '#34d399'
@@ -1845,7 +1844,7 @@
           <div className="mobile-feature-card__progress-heading">
             <span>Progress</span>
             <span>
-              {done}/{total} ({percent}%)
+              {completedForProgress}/{total} ({percent}%)
             </span>
           </div>
 
@@ -2384,18 +2383,28 @@
     }
 
     /* ── Clasificación única de Features & Stories ── */
-    const deliveryDoneStates = [
-      'Approved for Release',
-      'Ready for Deployment',
-      'Closed'
+    const deliveryInPlanningStates = [
+      'New',
+      'Business Refinement',
+      'Technical Refinement',
+      'Ready for Development'
     ];
-
+    
     const deliveryInProgressStates = [
       'In Process',
       'QA Testing',
       'Business Sprint Testing',
-      'Sprint Complete',
       'User Acceptance Testing'
+    ];
+    
+    const deliveryToReleaseStates = [
+      'Ready for Deployment',
+      'Sprint Complete',
+      'Approved for Release'
+    ];
+    
+    const deliveryCompletedStates = [
+      'Closed'
     ];
 
     /* Debe coincidir con ESTIMABLE_WORK_STATES del backend. Sólo estos estados requieren que el work item tenga estimación.
@@ -2440,27 +2449,33 @@
     }
 
     function getWorkItemDeliveryCategory(workItem) {
-      if (workItem?.state === 'Removed') {
+      const state = String(workItem?.state || '').trim();
+    
+      if (state === 'Removed') {
         return 'removed';
       }
-
-      if (deliveryDoneStates.includes(workItem?.state)) {
-        return 'done';
+    
+      if (deliveryInPlanningStates.includes(state)) {
+        return 'inPlanning';
       }
-
-      if (deliveryInProgressStates.includes(workItem?.state)) {
+    
+      if (deliveryInProgressStates.includes(state)) {
         return 'inProgress';
       }
-
+    
+      if (deliveryToReleaseStates.includes(state)) {
+        return 'toRelease';
+      }
+    
+      if (deliveryCompletedStates.includes(state)) {
+        return 'completed';
+      }
+    
       /*
-        Cualquier Story/Bug vigente que no esté Done ni In progress
-        debe entrar en Discovery. Esto incluye, por ejemplo:
-        - New
-        - Business Refinement
-        - Technical Refinement
-        - Ready for Development
+        Mismo criterio defensivo del backend:
+        un estado no configurado se muestra como In Planning.
       */
-      return 'pending';
+      return 'inPlanning';
     }
 
     function getWorkItemsDeliverySummary(workItems = []) {
@@ -2468,51 +2483,86 @@
         totalWorkItems: workItems.length,
         includedWorkItems: 0,
         removedWorkItems: 0,
-        doneWorkItems: 0,
+    
+        inPlanningWorkItems: 0,
         inProgressWorkItems: 0,
-        pendingWorkItems: 0,
+        toReleaseWorkItems: 0,
+        completedWorkItems: 0,
+    
+        completedForProgressWorkItems: 0,
         openWorkItems: 0,
+        progressPercent: 0,
+    
         unestimatedWorkItems: 0,
-        discoveryWithoutSprintWorkItems: 0
+        discoveryWithoutSprintWorkItems: 0,
+    
+        /*
+          Aliases temporales.
+        */
+        doneWorkItems: 0,
+        pendingWorkItems: 0
       };
-
+    
       workItems.forEach(workItem => {
         const category = getWorkItemDeliveryCategory(workItem);
-
+    
         if (category === 'removed') {
           summary.removedWorkItems += 1;
           return;
         }
-
+    
         summary.includedWorkItems += 1;
-
-        if (category === 'done') {
-          summary.doneWorkItems += 1;
+    
+        if (category === 'inPlanning') {
+          summary.inPlanningWorkItems += 1;
         } else if (category === 'inProgress') {
           summary.inProgressWorkItems += 1;
-        } else {
-          summary.pendingWorkItems += 1;
+        } else if (category === 'toRelease') {
+          summary.toReleaseWorkItems += 1;
+        } else if (category === 'completed') {
+          summary.completedWorkItems += 1;
         }
-
-        /*
-          Removed queda fuera de este cálculo por definición:
-          no debe afectar la cobertura de estimación de delivery.
-        */
-        if (!hasWorkItemEstimate(workItem)) {
+    
+        if (isWorkItemUnestimated(workItem)) {
           summary.unestimatedWorkItems += 1;
         }
-
-        const hasIterationPath = typeof workItem.iterationPath === 'string' && workItem.iterationPath.trim() !== '';
-        
-        if (category === 'pending' && !hasIterationPath) {
+    
+        const hasIterationPath =
+          typeof workItem.iterationPath === 'string' &&
+          workItem.iterationPath.trim() !== '';
+    
+        if (category === 'inPlanning' && !hasIterationPath) {
           summary.discoveryWithoutSprintWorkItems += 1;
-        }      
+        }
       });
-
-        summary.openWorkItems =
+    
+      summary.completedForProgressWorkItems =
+        summary.toReleaseWorkItems +
+        summary.completedWorkItems;
+    
+      summary.openWorkItems =
+        summary.inPlanningWorkItems +
         summary.inProgressWorkItems +
-        summary.pendingWorkItems;
-
+        summary.toReleaseWorkItems;
+    
+      summary.progressPercent =
+        summary.includedWorkItems === 0
+          ? 0
+          : Math.round(
+              (summary.completedForProgressWorkItems /
+                summary.includedWorkItems) * 100
+            );
+    
+      /*
+        Compatibilidad temporal con usos existentes.
+      */
+      summary.doneWorkItems =
+        summary.completedForProgressWorkItems;
+    
+      summary.pendingWorkItems =
+        summary.inPlanningWorkItems +
+        summary.inProgressWorkItems;
+    
       return summary;
     }
 
@@ -2844,16 +2894,20 @@
           return getWorkItemDeliveryCategory(story) !== 'removed';
         }
       
-        if (workItemSubfilter === 'pending') {
-          return getWorkItemDeliveryCategory(story) === 'pending';
+        if (workItemSubfilter === 'inPlanning') {
+          return getWorkItemDeliveryCategory(story) === 'inPlanning';
         }
       
         if (workItemSubfilter === 'inProgress') {
           return getWorkItemDeliveryCategory(story) === 'inProgress';
         }
       
-        if (workItemSubfilter === 'done') {
-          return getWorkItemDeliveryCategory(story) === 'done';
+        if (workItemSubfilter === 'toRelease') {
+          return getWorkItemDeliveryCategory(story) === 'toRelease';
+        }
+        
+        if (workItemSubfilter === 'completed') {
+          return getWorkItemDeliveryCategory(story) === 'completed';
         }
       
         if (workItemSubfilter === 'unestimated') {
@@ -2866,7 +2920,7 @@
             story.iterationPath.trim() !== '';
       
           return (
-            getWorkItemDeliveryCategory(story) === 'pending' &&
+            getWorkItemDeliveryCategory(story) === 'inPlanning' &&
             !hasIterationPath
           );
         }
@@ -2874,21 +2928,27 @@
         return true;
       });
 
-      const pendingStories = sortDeliveryWorkItemsByTypeAndId(
+      const inPlanningStories = sortDeliveryWorkItemsByTypeAndId(
         visibleStories.filter(
-          story => getWorkItemDeliveryCategory(story) === 'pending'
+          story => getWorkItemDeliveryCategory(story) === 'inPlanning'
         )
       );
-
+      
       const inProgressStories = sortDeliveryWorkItemsByTypeAndId(
         visibleStories.filter(
           story => getWorkItemDeliveryCategory(story) === 'inProgress'
         )
       );
-
-      const doneStories = sortDeliveryWorkItemsByTypeAndId(
+      
+      const toReleaseStories = sortDeliveryWorkItemsByTypeAndId(
         visibleStories.filter(
-          story => getWorkItemDeliveryCategory(story) === 'done'
+          story => getWorkItemDeliveryCategory(story) === 'toRelease'
+        )
+      );
+      
+      const completedStories = sortDeliveryWorkItemsByTypeAndId(
+        visibleStories.filter(
+          story => getWorkItemDeliveryCategory(story) === 'completed'
         )
       );
 
@@ -2932,13 +2992,14 @@
 
             <button type="button" className={[
                 'delivery-details__metric',
-                workItemSubfilter === 'pending'
+                workItemSubfilter === 'inPlanning'
                   ? 'delivery-details__metric--active'
                   : ''
               ].filter(Boolean).join(' ')}
-              onClick={() => setWorkItemSubfilter('pending')}
-              title="Show Discovery Stories and Bugs" >
-              {summary.pendingWorkItems} Discovery
+              onClick={() => setWorkItemSubfilter('inPlanning')}
+              title="Show In Planning Stories and Bugs"
+            >
+              {summary.inPlanningWorkItems} In Planning
             </button>
 
             <button type="button" className={[
@@ -2954,13 +3015,26 @@
 
             <button type="button" className={[
                 'delivery-details__metric',
-                workItemSubfilter === 'done'
+                workItemSubfilter === 'toRelease'
                   ? 'delivery-details__metric--active'
                   : ''
               ].filter(Boolean).join(' ')}
-              onClick={() => setWorkItemSubfilter('done')}
-              title="Show completed Stories and Bugs" >
-              {summary.doneWorkItems} Done
+              onClick={() => setWorkItemSubfilter('toRelease')}
+              title="Show Stories and Bugs pending release"
+            >
+              {summary.toReleaseWorkItems} To Release
+            </button>
+            
+            <button type="button" className={[
+                'delivery-details__metric',
+                workItemSubfilter === 'completed'
+                  ? 'delivery-details__metric--active'
+                  : ''
+              ].filter(Boolean).join(' ')}
+              onClick={() => setWorkItemSubfilter('completed')}
+              title="Show closed Stories and Bugs"
+            >
+              {summary.completedWorkItems} Completed
             </button>
 
             {summary.unestimatedWorkItems > 0 && (
@@ -2991,10 +3065,10 @@
                 onClick={() =>
                   setWorkItemSubfilter('discoveryWithoutSprint')
                 }
-                title="Show Discovery work items without a Sprint"
+                title="Show In Planning work items without a Sprint"
               >
                 {summary.discoveryWithoutSprintWorkItems}
-                {' '}Discovery without Sprint
+                {' '}In Planning without Sprint
               </button>        
             )}
 
@@ -3017,10 +3091,10 @@
             
           </div>
 
-          {pendingStories.length > 0 && (
+          {inPlanningStories.length > 0 && (
             <DeliveryWorkItemGroup
-              title="Discovery"
-              stories={pendingStories}
+              title="In Planning"
+              stories={inPlanningStories}
               adoLink={adoLink}
               getLinkedBugCount={getLinkedBugCountForStory}
               relationshipLoading={relationshipLoading}
@@ -3041,10 +3115,22 @@
             />
           )}
 
-          {doneStories.length > 0 && (
+          {toReleaseStories.length > 0 && (
             <DeliveryWorkItemGroup
-              title="Done"
-              stories={doneStories}
+              title="To Release"
+              stories={toReleaseStories}
+              adoLink={adoLink}
+              getLinkedBugCount={getLinkedBugCountForStory}
+              relationshipLoading={relationshipLoading}
+              relationshipUnavailable={relationshipUnavailable}
+              onShowStoryLinkedBugs={showLinkedBugsForStory}
+            />
+          )}
+          
+          {completedStories.length > 0 && (
+            <DeliveryWorkItemGroup
+              title="Completed"
+              stories={completedStories}
               adoLink={adoLink}
               getLinkedBugCount={getLinkedBugCountForStory}
               relationshipLoading={relationshipLoading}
@@ -6045,13 +6131,9 @@
                                       storiesCache[f.id]
                                     );
         
-                                    const done = summary.doneWorkItems;
+                                    const completedForProgress = summary.completedForProgressWorkItems;
                                     const total = summary.includedWorkItems;
-        
-                                    const pct =
-                                      total === 0
-                                        ? 0
-                                        : Math.round((done / total) * 100);
+                                    const pct = summary.progressPercent;
         
                                     const barColor =
                                       pct === 100
@@ -6062,10 +6144,10 @@
         
                                     return (
                                       <div
-                                        title={`${done} of ${total} stories and bugs done`}
+                                        title={`${completedForProgress} of ${total} Stories and Bugs completed for delivery progress`}
                                       >
                                         <div className="feature-list-progress-label">
-                                          {done}/{total} ({pct}%)
+                                          {completedForProgress}/{total} ({pct}%)
                                         </div>
         
                                         <div className="feature-list-progress-track">
