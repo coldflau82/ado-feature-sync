@@ -140,16 +140,41 @@
    /* .feature-stories-panel__divider { height: 1px; background: #dbe4ee; margin: 14px 0 12px; } */
     .feature-story-card__assigned-to { color: #475569; font-size: 10px; }
     .delivery-details { margin: 0; } 
-    .delivery-details__title { color: #1e293b; font-size: 13px; } 
-    .delivery-details__summary { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 12px; }
-    .delivery-details__metric { appearance: none; padding: 4px 7px; border: 1px solid transparent; border-radius: 999px; background: #f1f5f9; color: #475569; cursor: pointer; font-family: inherit; font-size: 10px; font-weight: 700; line-height: 1.2; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
-    .delivery-details__metric:hover { background: #e2e8f0; border-color: #cbd5e1; }
-    .delivery-details__metric--active { background: #dbeafe; border-color: #60a5fa; color: #1d4ed8; }
+    .delivery-details__title { color: #1e293b; font-size: 13px; }
+    /* Contenedor de Stories and Bugs:Agrupa filtros y resultados directos de una Feature en una misma superficie visual, separada de Feature Status y Delivery Activity. */
+    .feature-work-items-panel { min-width: 0; padding: 12px; border: 1px solid #dbe4ee; border-radius: 7px; background: #ffffff;}
+    .feature-work-items-panel__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0;}
+    .feature-work-items-panel__heading { min-width: 0;}
+    .feature-work-items-panel__title { display: block; color: #1e293b; font-size: 13px; font-weight: 700; line-height: 1.35;}
+    .feature-work-items-panel__description { display: block; margin-top: 3px; color: #64748b; font-size: 11px; line-height: 1.4;}
+    /* Muestra el equipo temporalmente aplicado dentro del panel de resultados, evitando que el usuario pierda contexto al filtrar desde Delivery Activity. */
+    .feature-work-items-panel__team-context { flex: 0 0 auto; max-width: 42%; padding: 4px 7px; border: 1px solid #bfdbfe; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font-size: 10px;
+      font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; text-align: right;}
+    .feature-work-items-panel__filters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px;}
+    .delivery-details__summary { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+    .delivery-details__metric { appearance: none; display: inline-flex; align-items: center; justify-content: center; min-height: 27px; padding: 5px 8px; border: 1px solid #dbe4ee; border-radius: 999px;
+        background: #f8fafc; color: #475569; cursor: pointer; font-family: inherit; font-size: 10px; font-weight: 700; line-height: 1.2; text-align: center;
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+    .delivery-details__metric:hover { border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; }
+    .delivery-details__metric--active { background: #2563eb; border-color: #2563eb; color: #ffffff; }
     .delivery-details__metric:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+    /* Linked Items representa una fuente de relaciones diferente de los hijos directos. Por eso conserva una variante neutral para no competir con el filtro activo de Stories/Bugs. */
+    .delivery-details__metric--relationships { border-color: #cbd5e1; background: #ffffff; color: #334155;}
+    .delivery-details__metric--relationships:hover { border-color: #94a3b8; background: #f8fafc; color: #1e3a8a;}
+    .delivery-details__metric--relationships.delivery-details__metric--active { border-color: #475569; background: #475569; color: #ffffff;}
+    .feature-work-items-panel__divider { height: 1px; margin: 12px 0 0; background: #e5edf5;}
+    .feature-work-items-panel__results { min-width: 0;}
     .delivery-work-group { margin-top: 14px; } 
-    .delivery-work-group__title { margin-bottom: 8px; color: #334155; font-size: 12px; } 
-    .delivery-work-group__empty { padding: 8px 10px; border: 1px dashed #cbd5e1; border-radius: 5px; color: #64748b; font-size: 11px; }
+    .delivery-work-group:first-child { margin-top: 12px; }
+    .delivery-work-group__title { display: block; margin-bottom: 8px; color: #334155; font-size: 12px;  line-height: 1.35; } 
+    .delivery-work-group__empty { padding: 9px 10px; border: 1px dashed #cbd5e1; border-radius: 5px; color: #64748b; font-size: 11px; line-height: 1.45; }
     .delivery-work-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
+    @media (max-width: 560px) {.feature-work-items-panel { padding: 10px;}
+    .feature-work-items-panel__header { flex-direction: column; gap: 7px;}
+    .feature-work-items-panel__team-context { max-width: 100%; text-align: left;}
+    .feature-work-items-panel__filters { gap: 5px; margin-top: 10px;}
+    .delivery-details__metric { min-height: 28px; padding: 5px 7px; font-size: 10px;}}
+    @media (max-width: 380px) {.delivery-details__metric { flex: 1 1 auto;}}
     .refresh-button { width: 40px; height: 40px; min-width: 40px; border: 0; border-radius: 6px; background: #4f7fc4; color: #fff; cursor: pointer;  display: inline-flex; align-items: center; justify-content: center;  transition: background 0.15s ease, transform 0.15s ease; }
     .refresh-button span { font-size: 23px; line-height: 1; font-weight: 500; }
     .refresh-button:hover:not(:disabled) { background: #3e6eaf; }
@@ -3102,7 +3127,37 @@
         </article>
       );
     }
-      
+
+  function FeatureWorkItemsPanelHeader({
+      activeTeamAreaPaths
+    }) {
+      const activeTeamNames = Array.isArray(activeTeamAreaPaths)
+        ? activeTeamAreaPaths
+            .map(getAreaPathDisplayName)
+            .filter(Boolean)
+        : [];
+
+      return (
+        <header className="feature-work-items-panel__header">
+          <div className="feature-work-items-panel__heading">
+            <strong className="feature-work-items-panel__title">
+              Stories and Bugs
+            </strong>
+
+            <span className="feature-work-items-panel__description">
+              Filter direct work items associated with this Feature.
+            </span>
+          </div>
+
+          {activeTeamNames.length > 0 && (
+            <span className="feature-work-items-panel__team-context">
+              Team view: {activeTeamNames.join(', ')}
+            </span>
+          )}
+        </header>
+      );
+    }
+       
     function FeatureDeliveryDetails({ 
       feature, 
       stories,
@@ -3400,250 +3455,331 @@
             </section>
           </div>
                     
-          <div className="delivery-details__summary">
-            <button type="button" className={['delivery-details__metric', workItemSubfilter === 'all' ? 'delivery-details__metric--active' : '' ].filter(Boolean).join(' ')}
-              onClick={() => setWorkItemSubfilter('all')}
-              title="Show all included Stories and Bugs" >
-              {summary.includedWorkItems} Included
-            </button>
-
-            <button type="button" className={[
-                'delivery-details__metric',
-                workItemSubfilter === 'inPlanning'
-                  ? 'delivery-details__metric--active'
-                  : ''
-              ].filter(Boolean).join(' ')}
-              onClick={() => setWorkItemSubfilter('inPlanning')}
-              title="Show In Planning Stories and Bugs"
-            >
-              {summary.inPlanningWorkItems} In Planning
-            </button>
-
-            <button type="button" className={[
-                'delivery-details__metric',
-                workItemSubfilter === 'inProgress'
-                  ? 'delivery-details__metric--active'
-                  : ''
-              ].filter(Boolean).join(' ')}
-              onClick={() => setWorkItemSubfilter('inProgress')}
-              title="Show Stories and Bugs currently in progress" >
-              {summary.inProgressWorkItems} In Progress
-            </button>
-
-            <button type="button" className={[
-                'delivery-details__metric',
-                workItemSubfilter === 'toRelease'
-                  ? 'delivery-details__metric--active'
-                  : ''
-              ].filter(Boolean).join(' ')}
-              onClick={() => setWorkItemSubfilter('toRelease')}
-              title="Show Stories and Bugs pending release"
-            >
-              {summary.toReleaseWorkItems} To Release
-            </button>
-            
-            <button type="button" className={[
-                'delivery-details__metric',
-                workItemSubfilter === 'completed'
-                  ? 'delivery-details__metric--active'
-                  : ''
-              ].filter(Boolean).join(' ')}
-              onClick={() => setWorkItemSubfilter('completed')}
-              title="Show closed Stories and Bugs"
-            >
-              {summary.completedWorkItems} Completed
-            </button>
-
-            {summary.unestimatedWorkItems > 0 && (
-              <button
-                type="button"
-                className={[
-                  'delivery-details__metric',
-                  workItemSubfilter === 'unestimated'
-                    ? 'delivery-details__metric--active'
-                    : ''
-                ].filter(Boolean).join(' ')}
-                onClick={() => setWorkItemSubfilter('unestimated')}
-                title="Show work items that currently need an estimate"
-              >
-                {summary.unestimatedWorkItems} Needs Estimate
-              </button>
-            )}
-
-            {summary.discoveryWithoutSprintWorkItems > 0 && (
-              <button
-                type="button"
-                className={[
-                  'delivery-details__metric',
-                  workItemSubfilter === 'discoveryWithoutSprint'
-                    ? 'delivery-details__metric--active'
-                    : ''
-                ].filter(Boolean).join(' ')}
-                onClick={() =>
-                  setWorkItemSubfilter('discoveryWithoutSprint')
-                }
-                title="Show In Planning work items without a Sprint"
-              >
-                {summary.discoveryWithoutSprintWorkItems}
-                {' '}In Planning without Sprint
-              </button>        
-            )}
-
-            <button type="button" className={[
-                'delivery-details__metric',
-                workItemSubfilter === 'linkedBugs'
-                  ? 'delivery-details__metric--active'
-                  : ''
-              ].filter(Boolean).join(' ')}
-              onClick={showAllLinkedRelationships}
-              title="Show Bugs and work items linked through Feature relationships" >
-              {relationshipLoading
-                ? 'Loading Linked items...'
-                : normalizedRelationshipGraph
-                  ? `${linkedBugs.length} Linked Items`
-                  : relationshipUnavailable
-                    ? 'Linked Items unavailable'
-                    : 'Linked Items'}
-            </button>
-            
-          </div>
-
-          {inPlanningStories.length > 0 && (
-            <DeliveryWorkItemGroup
-              title="In Planning"
-              stories={inPlanningStories}
-              adoLink={adoLink}
-              getLinkedBugCount={getLinkedBugCountForStory}
-              relationshipLoading={relationshipLoading}
-              relationshipUnavailable={relationshipUnavailable}
-              onShowStoryLinkedBugs={showLinkedBugsForStory}
+                    <section
+            className="feature-work-items-panel"
+            aria-label={`Stories and Bugs for Feature ${feature.id}`}
+          >
+            <FeatureWorkItemsPanelHeader
+              activeTeamAreaPaths={
+                effectiveDeliveryTeamAreaPaths
+              }
             />
-          )}
 
-          {inProgressStories.length > 0 && (
-            <DeliveryWorkItemGroup
-              title="In Progress"
-              stories={inProgressStories}
-              adoLink={adoLink}
-              getLinkedBugCount={getLinkedBugCountForStory}
-              relationshipLoading={relationshipLoading}
-              relationshipUnavailable={relationshipUnavailable}
-              onShowStoryLinkedBugs={showLinkedBugsForStory}
-            />
-          )}
+            <div className="feature-work-items-panel__filters">
+              <div className="delivery-details__summary">
+                <button
+                  type="button"
+                  className={[
+                    'delivery-details__metric',
+                    workItemSubfilter === 'all'
+                      ? 'delivery-details__metric--active'
+                      : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => {
+                    setLinkedStoryFilterId(null);
+                    setWorkItemSubfilter('all');
+                  }}
+                  title="Show all included Stories and Bugs"
+                >
+                  {summary.includedWorkItems} Included
+                </button>
 
-          {toReleaseStories.length > 0 && (
-            <DeliveryWorkItemGroup
-              title="To Release"
-              stories={toReleaseStories}
-              adoLink={adoLink}
-              getLinkedBugCount={getLinkedBugCountForStory}
-              relationshipLoading={relationshipLoading}
-              relationshipUnavailable={relationshipUnavailable}
-              onShowStoryLinkedBugs={showLinkedBugsForStory}
-            />
-          )}
-          
-          {completedStories.length > 0 && (
-            <DeliveryWorkItemGroup
-              title="Completed"
-              stories={completedStories}
-              adoLink={adoLink}
-              getLinkedBugCount={getLinkedBugCountForStory}
-              relationshipLoading={relationshipLoading}
-              relationshipUnavailable={relationshipUnavailable}
-              onShowStoryLinkedBugs={showLinkedBugsForStory}
-            />
-          )}
+                <button
+                  type="button"
+                  className={[
+                    'delivery-details__metric',
+                    workItemSubfilter === 'inPlanning'
+                      ? 'delivery-details__metric--active'
+                      : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => {
+                    setLinkedStoryFilterId(null);
+                    setWorkItemSubfilter('inPlanning');
+                  }}
+                  title="Show In Planning Stories and Bugs"
+                >
+                  {summary.inPlanningWorkItems} In Planning
+                </button>
 
-          {workItemSubfilter === 'linkedBugs' && (
-            <section className="delivery-work-group">
-              <strong className="delivery-work-group__title">
-                {linkedStoryFilterId
-                  ? `Bugs linked to Story #${linkedStoryFilterId}`
-                  : 'Relationships'}
-                
-                {!linkedStoryFilterId && normalizedRelationshipGraph
-                  ? ` (${relationshipTotal})`
-                  : ''}
-              </strong>
-          
-              {relationshipLoading ? (
-                <div className="delivery-work-group__empty">
-                  Loading relationship information...
-                </div>
-              ) : relationshipUnavailable ? (
-                <div className="delivery-work-group__empty">
-                  <div>
-                    Relationship information is temporarily unavailable.
-                  </div>
-          
+                <button
+                  type="button"
+                  className={[
+                    'delivery-details__metric',
+                    workItemSubfilter === 'inProgress'
+                      ? 'delivery-details__metric--active'
+                      : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => {
+                    setLinkedStoryFilterId(null);
+                    setWorkItemSubfilter('inProgress');
+                  }}
+                  title="Show Stories and Bugs currently in progress"
+                >
+                  {summary.inProgressWorkItems} In Progress
+                </button>
+
+                <button
+                  type="button"
+                  className={[
+                    'delivery-details__metric',
+                    workItemSubfilter === 'toRelease'
+                      ? 'delivery-details__metric--active'
+                      : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => {
+                    setLinkedStoryFilterId(null);
+                    setWorkItemSubfilter('toRelease');
+                  }}
+                  title="Show Stories and Bugs pending release"
+                >
+                  {summary.toReleaseWorkItems} To Release
+                </button>
+
+                <button
+                  type="button"
+                  className={[
+                    'delivery-details__metric',
+                    workItemSubfilter === 'completed'
+                      ? 'delivery-details__metric--active'
+                      : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => {
+                    setLinkedStoryFilterId(null);
+                    setWorkItemSubfilter('completed');
+                  }}
+                  title="Show closed Stories and Bugs"
+                >
+                  {summary.completedWorkItems} Completed
+                </button>
+
+                {summary.unestimatedWorkItems > 0 && (
                   <button
                     type="button"
-                    className="relationship-retry-button"
-                    onClick={onRetryRelationships}
+                    className={[
+                      'delivery-details__metric',
+                      workItemSubfilter === 'unestimated'
+                        ? 'delivery-details__metric--active'
+                        : ''
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    onClick={() => {
+                      setLinkedStoryFilterId(null);
+                      setWorkItemSubfilter('unestimated');
+                    }}
+                    title="Show work items that currently need an estimate"
                   >
-                    Retry
+                    {summary.unestimatedWorkItems} Needs Estimate
                   </button>
-                </div>
-              ) : !normalizedRelationshipGraph ? (
-                <div className="delivery-work-group__empty">
-                  Relationship information is temporarily unavailable.
-                </div>
-              ) : (
-                linkedStoryFilterId
-                  ? linkedBugsForSelectedStory.length === 0
-                  : relationshipTotal === 0
-              ) ? (
-                <div className="delivery-work-group__empty">
-                  {linkedStoryFilterId
-                    ? `No linked Bugs were found for Story #${linkedStoryFilterId}.`
-                    : 'No linked work items.'}
-                </div>
-              ) : (
-                <>
-                  {linkedBugsForSelectedStory.length > 0 && (
-                    <DeliveryWorkItemGroup
-                      title={
-                        linkedStoryFilterId
-                          ? 'Linked Items'
-                          : 'Linked Items'
-                      }
-                      stories={sortDeliveryWorkItemsByTypeAndId(
-                        linkedBugsForSelectedStory
-                      )}
-                      adoLink={adoLink}
-                    />
-                  )}
-                  
-                  {linkedStoryFilterId && (
-                    <button type="button" className="relationship-show-all-button"
-                      onClick={showAllLinkedRelationships}>
-                      Show all Feature relationships
-                    </button>
-                  )}
-                  
-                  {!linkedStoryFilterId && linkedStories.length > 0 && (
-                    <DeliveryWorkItemGroup
-                      title="Related User Stories"
-                      stories={sortDeliveryWorkItemsByTypeAndId(linkedStories)}
-                      adoLink={adoLink}
-                    />
-                  )}
-                </>
-              )}
-            </section>
-          )}
+                )}
 
-         {workItemSubfilter !== 'linkedBugs' && visibleStories.length === 0 && (
-            <div className="delivery-work-group">
-              <div className="delivery-work-group__empty">
-                No Stories or Bugs match the selected filter.
+                {summary.discoveryWithoutSprintWorkItems > 0 && (
+                  <button
+                    type="button"
+                    className={[
+                      'delivery-details__metric',
+                      workItemSubfilter === 'discoveryWithoutSprint'
+                        ? 'delivery-details__metric--active'
+                        : ''
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    onClick={() => {
+                      setLinkedStoryFilterId(null);
+                      setWorkItemSubfilter(
+                        'discoveryWithoutSprint'
+                      );
+                    }}
+                    title="Show In Planning work items without a Sprint"
+                  >
+                    {summary.discoveryWithoutSprintWorkItems}{' '}
+                    Without Sprint
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className={[
+                    'delivery-details__metric',
+                    'delivery-details__metric--relationships',
+                    workItemSubfilter === 'linkedBugs'
+                      ? 'delivery-details__metric--active'
+                      : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={showAllLinkedRelationships}
+                  title={
+                    'Show Bugs and work items linked through ' +
+                    'Feature relationships'
+                  }
+                >
+                  {relationshipLoading
+                    ? 'Loading Linked Items...'
+                    : normalizedRelationshipGraph
+                      ? `${relationshipTotal} Linked Items`
+                      : relationshipUnavailable
+                        ? 'Linked Items unavailable'
+                        : 'Linked Items'}
+                </button>
               </div>
             </div>
-          )}
+
+            <div className="feature-work-items-panel__divider" />
+
+            <div className="feature-work-items-panel__results">
+              {inPlanningStories.length > 0 && (
+                <DeliveryWorkItemGroup
+                  title="In Planning"
+                  stories={inPlanningStories}
+                  adoLink={adoLink}
+                  getLinkedBugCount={getLinkedBugCountForStory}
+                  relationshipLoading={relationshipLoading}
+                  relationshipUnavailable={relationshipUnavailable}
+                  onShowStoryLinkedBugs={showLinkedBugsForStory}
+                />
+              )}
+
+              {inProgressStories.length > 0 && (
+                <DeliveryWorkItemGroup
+                  title="In Progress"
+                  stories={inProgressStories}
+                  adoLink={adoLink}
+                  getLinkedBugCount={getLinkedBugCountForStory}
+                  relationshipLoading={relationshipLoading}
+                  relationshipUnavailable={relationshipUnavailable}
+                  onShowStoryLinkedBugs={showLinkedBugsForStory}
+                />
+              )}
+
+              {toReleaseStories.length > 0 && (
+                <DeliveryWorkItemGroup
+                  title="To Release"
+                  stories={toReleaseStories}
+                  adoLink={adoLink}
+                  getLinkedBugCount={getLinkedBugCountForStory}
+                  relationshipLoading={relationshipLoading}
+                  relationshipUnavailable={relationshipUnavailable}
+                  onShowStoryLinkedBugs={showLinkedBugsForStory}
+                />
+              )}
+
+              {completedStories.length > 0 && (
+                <DeliveryWorkItemGroup
+                  title="Completed"
+                  stories={completedStories}
+                  adoLink={adoLink}
+                  getLinkedBugCount={getLinkedBugCountForStory}
+                  relationshipLoading={relationshipLoading}
+                  relationshipUnavailable={relationshipUnavailable}
+                  onShowStoryLinkedBugs={showLinkedBugsForStory}
+                />
+              )}
+
+              {workItemSubfilter === 'linkedBugs' && (
+                <section className="delivery-work-group">
+                  <strong className="delivery-work-group__title">
+                    {linkedStoryFilterId
+                      ? `Linked Items for Story #${linkedStoryFilterId}`
+                      : 'Feature Relationships'}
+
+                    {!linkedStoryFilterId &&
+                    normalizedRelationshipGraph
+                      ? ` (${relationshipTotal})`
+                      : ''}
+                  </strong>
+
+                  {relationshipLoading ? (
+                    <div className="delivery-work-group__empty">
+                      Loading relationship information...
+                    </div>
+                  ) : relationshipUnavailable ? (
+                    <div className="delivery-work-group__empty">
+                      <div>
+                        Relationship information is temporarily unavailable.
+                      </div>
+
+                      <button
+                        type="button"
+                        className="relationship-retry-button"
+                        onClick={onRetryRelationships}
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  ) : !normalizedRelationshipGraph ? (
+                    <div className="delivery-work-group__empty">
+                      Relationship information is temporarily unavailable.
+                    </div>
+                  ) : (
+                    linkedStoryFilterId
+                      ? linkedBugsForSelectedStory.length === 0
+                      : relationshipTotal === 0
+                  ) ? (
+                    <div className="delivery-work-group__empty">
+                      {linkedStoryFilterId
+                        ? `No linked items were found for Story #${linkedStoryFilterId}.`
+                        : 'No linked work items.'}
+                    </div>
+                  ) : (
+                    <>
+                      {linkedBugsForSelectedStory.length > 0 && (
+                        <DeliveryWorkItemGroup
+                          title="Linked Items"
+                          stories={sortDeliveryWorkItemsByTypeAndId(
+                            linkedBugsForSelectedStory
+                          )}
+                          adoLink={adoLink}
+                        />
+                      )}
+
+                      {linkedStoryFilterId && (
+                        <button
+                          type="button"
+                          className="relationship-show-all-button"
+                          onClick={showAllLinkedRelationships}
+                        >
+                          Show all Feature relationships
+                        </button>
+                      )}
+
+                      {!linkedStoryFilterId &&
+                      linkedStories.length > 0 && (
+                        <DeliveryWorkItemGroup
+                          title="Related User Stories"
+                          stories={sortDeliveryWorkItemsByTypeAndId(
+                            linkedStories
+                          )}
+                          adoLink={adoLink}
+                        />
+                      )}
+                    </>
+                  )}
+                </section>
+              )}
+
+              {workItemSubfilter !== 'linkedBugs' &&
+              visibleStories.length === 0 && (
+                <div className="delivery-work-group">
+                  <div className="delivery-work-group__empty">
+                    No Stories or Bugs match the selected filter.
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
         </div>
-      ); 
+      );
     }
 
    /* Leyenda exclusiva del Roadmap. Se renderiza fuera del panel de resultados para permanecer visible mientras el usuario navega mediante el scroll interno. */
