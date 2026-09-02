@@ -1992,12 +1992,14 @@
       storiesCache,
       loadingStoriesIds,
       unavailableStoriesIds,
+      deliveryTeamFilter,
       relationshipGraph,
       relationshipLoading,
       relationshipUnavailable,
       onLoadRelationships,
       onRetryRelationships
     }) {
+      
       const featureStateColor = getFeatureStateColor(feature.state);
 
       return (
@@ -2054,7 +2056,7 @@
                   <FeatureDeliveryDetails
                     feature={feature}
                     stories={storiesCache[feature.id] || []}
-                    deliveryTeamFilter={filterDeliveryTeam}
+                    deliveryTeamFilter={deliveryTeamFilter}
                     adoLink={adoLink}
                     relationshipGraph={relationshipGraph}
                     relationshipLoading={relationshipLoading}
@@ -6273,6 +6275,7 @@
                       feature={feature}
                       adoLink={adoLink}
                       formatDate={formatDate}
+                      deliveryTeamFilter={filterDeliveryTeam}
                       isExpanded={
                         expandedFeatureId === feature.id
                       }
