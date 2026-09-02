@@ -1818,6 +1818,16 @@
             <span>{feature.state || 'No state'}</span>
           </div>
 
+          <div className="mobile-feature-card__info-item">
+            <span className="mobile-feature-card__info-label">
+              Owner
+            </span>
+
+            <span className="mobile-feature-card__info-value">
+              {getShortAssignedToName(feature.assignedTo)}
+            </span>
+          </div>
+          
           <div className="mobile-feature-card__info-grid">
             <div className="mobile-feature-card__info-item">
               <span className="mobile-feature-card__info-label">
@@ -1826,26 +1836,6 @@
 
               <span className="mobile-feature-card__info-value">
                 {formatDate(feature.targetDate)}
-              </span>
-            </div>
-
-            <div className="mobile-feature-card__info-item">
-              <span className="mobile-feature-card__info-label">
-                Release Fix Version
-              </span>
-
-              <span className="mobile-feature-card__info-value">
-                {feature.releaseFixVersion || '—'}
-              </span>
-            </div>
-
-            <div className="mobile-feature-card__info-item">
-              <span className="mobile-feature-card__info-label">
-                Owner
-              </span>
-
-              <span className="mobile-feature-card__info-value">
-                {getShortAssignedToName(feature.assignedTo)}
               </span>
             </div>
 
@@ -1861,6 +1851,16 @@
               </span>
             </div>
 
+            <div className="mobile-feature-card__info-item">
+              <span className="mobile-feature-card__info-label">
+                Release Fix Version
+              </span>
+
+              <span className="mobile-feature-card__info-value">
+                {feature.releaseFixVersion || '—'}
+              </span>
+            </div>
+            
             <div className="mobile-feature-card__info-item">
                 <span className="mobile-feature-card__info-label">
                   Tech Go Live RFV
