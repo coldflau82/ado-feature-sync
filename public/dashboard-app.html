@@ -529,6 +529,11 @@
       .mobile-roadmap-timeline__target { position: absolute; top: 14px; z-index: 5; width: 0; height: 0; border-top: 11px solid #f43f5e; border-right: 7px solid transparent;
         border-left: 7px solid transparent; transform: translateX(-50%); }
       .mobile-roadmap-timeline__release { position: absolute; top: 16px; z-index: 6; width: 10px; height: 10px; background: #1e3a8a; transform: translateX(-50%) rotate(45deg); }
+      .mobile-roadmap-timeline__tech-go-live { position: absolute; top: 21px; z-index: 7; color: #f59e0b; font-size: 17px; font-weight: 700;
+        line-height: 1; text-shadow: 0 0 1px #78350f, 0 1px 2px rgba(15, 23, 42, 0.45); transform: translate(-50%, -50%); pointer-events: auto;}
+      .mobile-roadmap-timeline__tech-go-live--same-release {
+        /* Desplaza la estrella cuando comparte fecha con RFV. El diamante queda abajo/izquierda y la estrella arriba/derecha. */
+        transform: translate(calc(-50% + 10px), calc(-50% - 9px)); }
       .mobile-roadmap-timeline__month-labels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 5px; color: #64748b; font-size: 9px; font-weight: 700; }
       .mobile-roadmap-timeline__month-labels span:nth-child(2),.mobile-roadmap-timeline__month-labels span:nth-child(3) { text-align: center; }
       .mobile-roadmap-timeline__month-labels span:last-child { text-align: right; }
@@ -537,6 +542,7 @@
       .mobile-roadmap-timeline__legend-today { width: 2px; height: 11px; background: #1e3a8a; }
       .mobile-roadmap-timeline__legend-target { width: 0; height: 0; border-top: 7px solid #f43f5e; border-right: 4px solid transparent; border-left: 4px solid transparent; }
       .mobile-roadmap-timeline__legend-release { width: 8px; height: 8px; background: #1e3a8a; transform: rotate(45deg); }
+      .mobile-roadmap-timeline__legend-tech-go-live { color: #f59e0b; font-size: 15px; font-weight: 700; line-height: 9px; text-shadow: 0 0 1px #78350f; }
       .mobile-story-timeline-card { padding: 10px; border: 1px solid #dbe4ee; border-left: 3px solid var(--story-state-color, #94a3b8); border-radius: 6px; background: #ffffff; }
       .mobile-story-timeline-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
       .mobile-story-timeline-card__title { display: -webkit-box; overflow: hidden; color: #334155; font-size: 11px; font-weight: 700; line-height: 1.35; -webkit-box-orient: vertical;
@@ -562,6 +568,7 @@
       .mobile-feature-card__header,.mobile-feature-card__details { padding: 10px; }
       .mobile-roadmap-timeline__legend { gap: 6px; }
     }
+    
     
   </style>
 </head>
@@ -1563,10 +1570,55 @@
                 const releaseDate = parseDashboardDate( getReleaseDate(releaseFixVersion) );
                   if (!releaseDate) { return null; }
           
-                const releasePercent = ((releaseDate - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
-                if (releasePercent < 0 || releasePercent > 100) return null;
+                const techGoLivePercent =
+                  ((techGoLiveDate - timelineStart) /
+                    (1000 * 60 * 60 * 24) /
+                    timelineTotalDays) * 100;
+              
+                if (
+                  techGoLivePercent < 0 ||
+                  techGoLivePercent > 100
+                ) {
+                  return null;
+                }
+              
+                const isSameDateAsRelease =
+                  releaseFixVersion &&
+                  getReleaseDate(releaseFixVersion) ===
+                    getReleaseDate(techGoLiveRFV);
                 return (
-                  <div style={{ position: 'absolute', top: '50%', left: releasePercent + '%', transform: 'translate(-50%, -50%) rotate(45deg)', zIndex: 12, width: '10px', height: '10px', background: '#1e3a8a' }} title={releaseFixVersion + ': ' + formatDate(getReleaseDate(releaseFixVersion))} />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: techGoLivePercent + '%',
+              
+                      /*
+                        Si coincide con RFV, la estrella se desplaza para que
+                        no tape el diamante azul:
+                              ★
+                            ◆
+                      */
+                      transform: isSameDateAsRelease
+                        ? 'translate(calc(-50% + 11px), calc(-50% - 10px))'
+                        : 'translate(-50%, -50%)',
+              
+                      zIndex: 13,
+                      color: '#f59e0b',
+                      fontSize: '17px',
+                      fontWeight: '700',
+                      lineHeight: '1',
+                      textShadow:
+                        '0 0 1px #78350f, 0 1px 2px rgba(15, 23, 42, 0.45)',
+                      cursor: 'help'
+                    }}
+                    title={
+                      `Tech Go Live RFV: ${techGoLiveRFV} · ` +
+                      formatDate(getReleaseDate(techGoLiveRFV))
+                    }
+                  >
+                    ★
+                  </span>
                 );
               })()}
               {loading ? (
@@ -2007,6 +2059,12 @@
           )
         : null;
 
+      const techGoLiveDate = feature.techGoLiveRFV
+        ? getDashboardDateTime(
+            getReleaseDate(feature.techGoLiveRFV)
+          )
+        : null;
+
       const todayPercent = getMobileTimelinePercentage(
         today,
         timelineStart,
@@ -2025,6 +2083,18 @@
         timelineEnd
       );
 
+      const techGoLivePercent = getMobileTimelinePercentage(
+        techGoLiveDate,
+        timelineStart,
+        timelineEnd
+      );
+      
+      const isTechGoLiveOnSameReleaseDate =
+        feature.releaseFixVersion &&
+        feature.techGoLiveRFV &&
+        getReleaseDate(feature.releaseFixVersion) ===
+          getReleaseDate(feature.techGoLiveRFV);
+      
       const middleDate = timelineStart.plus({ months: 4 });
       const laterDate = timelineStart.plus({ months: 8 });
       const finalDate = timelineEnd.minus({ days: 1 });
@@ -2033,13 +2103,15 @@
         <>
           <div
             className="mobile-roadmap-timeline"
-            aria-label={
-              `Roadmap timeline. Target Date: ${
-                formatDate(feature.targetDate)
-              }. Release Fix Version: ${
-                feature.releaseFixVersion || 'not assigned'
-              }.`
-            }
+              aria-label={
+                `Roadmap timeline. Target Date: ${
+                  formatDate(feature.targetDate)
+                }. Release Fix Version: ${
+                  feature.releaseFixVersion || 'not assigned'
+                }. Tech Go Live RFV: ${
+                  feature.techGoLiveRFV || 'not assigned'
+                }.`
+              }
           >
             <div className="mobile-roadmap-timeline__baseline" />
 
@@ -2078,6 +2150,32 @@
                 }
               />
             )}
+
+            {techGoLivePercent !== null && (
+              <span
+                className={[
+                  'mobile-roadmap-timeline__tech-go-live',
+                  isTechGoLiveOnSameReleaseDate
+                    ? 'mobile-roadmap-timeline__tech-go-live--same-release'
+                    : ''
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                style={{
+                  left: `${techGoLivePercent}%`
+                }}
+                title={
+                  `Tech Go Live RFV: ${feature.techGoLiveRFV} · ${
+                    formatDate(
+                      getReleaseDate(feature.techGoLiveRFV)
+                    )
+                  }`
+                }
+              >
+                ★
+              </span>
+            )}
+            
           </div>
 
           <div className="mobile-roadmap-timeline__month-labels">
@@ -2120,6 +2218,13 @@
             <span className="mobile-roadmap-timeline__legend-item">
               <span className="mobile-roadmap-timeline__legend-release" />
               RFV
+            </span>
+
+            <span className="mobile-roadmap-timeline__legend-item">
+              <span className="mobile-roadmap-timeline__legend-tech-go-live">
+                ★
+              </span>
+              Tech Go Live
             </span>
           </div>
         </>
@@ -3368,6 +3473,30 @@
                 <span style={{ fontSize: '10px' }}>
                   Release Fix Version
                 </span>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  <span
+                    style={{
+                      color: '#f59e0b',
+                      fontSize: '16px',
+                      fontWeight: '700',
+                      lineHeight: '10px',
+                      textShadow: '0 0 1px #78350f'
+                    }}
+                  >
+                    ★
+                  </span>
+                  <span style={{ fontSize: '10px' }}>
+                    Tech Go Live RFV
+                  </span>
+                  
+                </div>
               </div>
             </div>
           </div>
