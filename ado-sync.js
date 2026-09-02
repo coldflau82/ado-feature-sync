@@ -612,11 +612,17 @@ const ACTIVE_OLD_FEATURES_MAX_AGE_DAYS = 730;
 const ACTIVE_OLD_FEATURES_CACHE_KEY =
   `${OLD_FEATURES_CACHE_PREFIX}:active-changed-180-to-730-days`;
 
+/* Calendario global de Iterations del proyecto. No depende de una configuración manual de Azure DevOps Teams.
+  Se utiliza para identificar si el Iteration Path de cada Story/Bug corresponde a un Sprint vigente según startDate y finishDate.*/
+const ITERATION_CALENDAR_CACHE_KEY =
+  'iterationCalendar:v1';
+
+const ITERATION_CALENDAR_CACHE_TTL_SECONDS =
+  15 * 60;
+
 /* Los rangos no se superponen:
-  - Reciente en vivo:
-      @today - 10 <= ChangedDate < @today + 1
-  - Histórico cacheado:
-      @today - 180 <= ChangedDate < @today - 10 */
+  - Reciente en vivo: @today - 10 <= ChangedDate < @today + 1
+  - Histórico cacheado: @today - 180 <= ChangedDate < @today - 10 */
 const OLD_FEATURES_DATE_RANGES = [
   {
     cacheSuffix: 'changed-10-to-20-days',
@@ -904,12 +910,265 @@ function getDateKey(value) {
     .toISODate();
 }
 
+/* Normaliza Area Paths e Iteration Paths para comparaciones seguras. Azure DevOps puede entregar rutas con o sin "\" inicial según el
+  endpoint. El dashboard conserva la ruta original para mostrarla, pero usa esta versión normalizada al comparar. */
+function normalizeAdoPath(value) {
+  return String(value || '')
+    .trim()
+    .replace(/^\\+/, '')
+    .replace(/\/+/g, '\\')
+    .replace(/\\+/g, '\\')
+    .toLowerCase();
+}
+
+/* Convierte un Area Path en un nombre corto visible. 
+Ejemplo: Commercial Engineering\Digital\Acquisition\Cart and Checkout => Cart and Checkout */
+function getAdoPathDisplayName(areaPath) {
+  const parts = String(areaPath || '')
+    .split('\\')
+    .map(part => part.trim())
+    .filter(Boolean);
+
+  return parts.length > 0
+    ? parts[parts.length - 1]
+    : '';
+}
+
 /*
-  Fecha actual del negocio en America/Chicago.
-  Ejemplo:
-  - 2026-08-31 00:00 America/Chicago => una Feature con Target Date
-    2026-08-30 pasa a considerarse overdue.
+  Recorre el árbol de Iterations devuelto por Azure DevOps y crea
+  un índice por Iteration Path.
+
+  El endpoint puede devolver nodos anidados:
+  Commercial Engineering
+    └── 2026
+        └── Q3
+            └── 2026_S17_Aug12-Aug25
 */
+function flattenIterationNodes(
+  node,
+  iterationsByPath = {}
+) {
+  if (!node || typeof node !== 'object') {
+    return iterationsByPath;
+  }
+
+  const path = String(node.path || '').trim();
+  const normalizedPath = normalizeAdoPath(path);
+
+  if (normalizedPath) {
+    const startDate = node.attributes?.startDate || null;
+    const finishDate = node.attributes?.finishDate || null;
+
+    iterationsByPath[normalizedPath] = {
+      path,
+      name: node.name || getAdoPathDisplayName(path),
+      startDate,
+      finishDate,
+      startDateKey: getIterationDateKey(startDate),
+      finishDateKey: getIterationDateKey(finishDate)
+    };
+  }
+
+  (node.children || []).forEach(child => {
+    flattenIterationNodes(child, iterationsByPath);
+  });
+
+  return iterationsByPath;
+}
+
+/* Obtiene el árbol global de Iterations del proyecto. No usa Azure DevOps Teams ni nombres manuales de equipos.
+  El valor $depth=10 es suficiente para una jerarquía típica: root > year > quarter > sprint. */
+async function getIterationCalendar(c) {
+  const cachedCalendar = await redis.get(
+    ITERATION_CALENDAR_CACHE_KEY
+  );
+
+  if (cachedCalendar) {
+    return cachedCalendar;
+  }
+
+  try {
+    const response = await withAdoRetry(() =>
+      c.get(
+        '/wit/classificationnodes/Iterations' +
+        '?$depth=10&api-version=7.1'
+      )
+    );
+
+    const iterationsByPath = flattenIterationNodes(
+      response.data,
+      {}
+    );
+
+    await redis.set(
+      ITERATION_CALENDAR_CACHE_KEY,
+      iterationsByPath,
+      {
+        ex: ITERATION_CALENDAR_CACHE_TTL_SECONDS
+      }
+    );
+
+    return iterationsByPath;
+  } catch (error) {
+    console.error(
+      'Unable to retrieve Azure DevOps Iteration calendar.',
+      {
+        adoStatus: error.response?.status || null,
+        adoStatusText: error.response?.statusText || null,
+        message: error.message
+      }
+    );
+
+    /* La Fase 3 no debe impedir que el dashboard cargue. Si Iterations falla, la actividad de Sprint se marcará
+    como unknown, pero Delivery Health seguirá funcionando. */
+    return null;
+  }
+}
+
+function getCurrentSprintForIterationPath(
+  iterationPath,
+  iterationsByPath
+) {
+  if (!iterationsByPath) {
+    return null;
+  }
+
+  const normalizedPath = normalizeAdoPath(iterationPath);
+
+  if (!normalizedPath) {
+    return null;
+  }
+
+  const iteration = iterationsByPath[normalizedPath];
+
+  if (!iteration) {
+    return null;
+  }
+
+  /*
+    Un Sprint sólo se considera vigente si tiene ambas fechas.
+    Si Azure DevOps no tiene fechas configuradas, no asumimos
+    incorrectamente que es actual.
+  */
+  if (
+    !iteration.startDateKey ||
+    !iteration.finishDateKey
+  ) {
+    return null;
+  }
+
+  const todayDateKey = getTodayDateKey();
+
+  const isCurrent =
+    iteration.startDateKey <= todayDateKey &&
+    todayDateKey <= iteration.finishDateKey;
+
+  return isCurrent
+    ? iteration
+    : null;
+}
+
+/* Crea un resumen de ejecución por Area Path de Stories/Bugs. No confunde: - responsible team: Area Path del Feature;
+  - execution team: Area Path real de cada Story/Bug. */
+function buildExecutionTeamsSummary(
+  workItems,
+  iterationsByPath
+) {
+  const teamsByAreaPath = new Map();
+
+  workItems.forEach(item => {
+    const areaPath = String(item.areaPath || '').trim();
+
+    /* Si no hay Area Path, no hay equipo ejecutor identificable. El Story/Bug continúa contando para Delivery Health. */
+    if (!areaPath) {
+      return;
+    }
+
+    const state = String(item.state || '').trim();
+
+    /* Removed no es trabajo de delivery activo y no debe aparecer como actividad ejecutora. */
+    if (REMOVED_WORK_STATES.includes(state)) {
+      return;
+    }
+
+    const key = normalizeAdoPath(areaPath);
+
+    const currentSprint = getCurrentSprintForIterationPath(
+      item.iterationPath,
+      iterationsByPath
+    );
+
+    const existing = teamsByAreaPath.get(key) || {
+      areaPath,
+      name: getAdoPathDisplayName(areaPath),
+      totalWorkItems: 0,
+      inPlanningWorkItems: 0,
+      inProgressWorkItems: 0,
+      toReleaseWorkItems: 0,
+      completedWorkItems: 0,
+      currentSprintWorkItems: 0,
+      currentSprints: {}
+    };
+
+    existing.totalWorkItems += 1;
+
+    if (IN_PLANNING_WORK_STATES.includes(state)) {
+      existing.inPlanningWorkItems += 1;
+    } else if (IN_PROGRESS_WORK_STATES.includes(state)) {
+      existing.inProgressWorkItems += 1;
+    } else if (TO_RELEASE_WORK_STATES.includes(state)) {
+      existing.toReleaseWorkItems += 1;
+    } else if (COMPLETED_WORK_STATES.includes(state)) {
+      existing.completedWorkItems += 1;
+    } else {
+      existing.inPlanningWorkItems += 1;
+    }
+
+    if (currentSprint) {
+      existing.currentSprintWorkItems += 1;
+
+      const sprintKey = normalizeAdoPath(
+        currentSprint.path
+      );
+
+      const existingSprint =
+        existing.currentSprints[sprintKey] || {
+          iterationPath: currentSprint.path,
+          name: currentSprint.name,
+          startDate: currentSprint.startDateKey,
+          finishDate: currentSprint.finishDateKey,
+          workItems: 0
+        };
+
+      existingSprint.workItems += 1;
+
+      existing.currentSprints[sprintKey] = existingSprint;
+    }
+
+    teamsByAreaPath.set(key, existing);
+  });
+
+  return [...teamsByAreaPath.values()]
+    .map(team => ({
+      ...team,
+      currentSprints: Object.values(team.currentSprints)
+    }))
+    .sort((a, b) =>
+      a.name.localeCompare(
+        b.name,
+        undefined,
+        { sensitivity: 'base' }
+      )
+    );
+}
+
+/* Convierte el timestamp de Azure DevOps a fecha operativa del dashboard. Reutiliza getDateKey(), que ya respeta DASHBOARD_TIME_ZONE. */
+function getIterationDateKey(value) {
+  return getDateKey(value);
+}
+
+/* Fecha actual del negocio en America/Chicago. Ejemplo: - 2026-08-31 00:00 America/Chicago => una Feature con Target Date
+    2026-08-30 pasa a considerarse overdue. */
 function getTodayDateKey() {
   return DateTime
     .now()
@@ -917,13 +1176,8 @@ function getTodayDateKey() {
     .toISODate();
 }
 
-/*
-  Suma días calendario de negocio, no bloques fijos de 24 horas UTC.
-
-  Esto es importante en cambios DST. Por ejemplo, America/Chicago puede
-  tener días de 23 o 25 horas; "plus({ days: 1 })" sigue significando
-  correctamente "el siguiente día calendario".
-*/
+/* Suma días calendario de negocio, no bloques fijos de 24 horas UTC. Esto es importante en cambios DST. Por ejemplo, America/Chicago puede
+  tener días de 23 o 25 horas; "plus({ days: 1 })" sigue significando correctamente "el siguiente día calendario". */
 function addDaysToDateKey(dateKey, days) {
   const date = DateTime.fromISO(dateKey, {
     zone: DASHBOARD_TIME_ZONE
@@ -940,15 +1194,10 @@ function addDaysToDateKey(dateKey, days) {
     .toISODate();
 }
 
-/*
-  Target Date es inclusivo.
-
-  La fecha se considera vencida solamente cuando el día de negocio actual
-  es posterior al Target Date. Ejemplo:
+/* Target Date es inclusivo. La fecha se considera vencida solamente cuando el día de negocio actual es posterior al Target Date. Ejemplo:
   - Target Date: 2026-08-30
   - 2026-08-30 America/Chicago => vigente
-  - 2026-08-31 America/Chicago => overdue
-*/
+  - 2026-08-31 America/Chicago => overdue */
 function isPastTargetDate(targetDate) {
   const targetDateKey = getDateKey(targetDate);
 
@@ -1136,6 +1385,13 @@ function mapFeature(i) {
     title: fields['System.Title'] || '',
     state: fields['System.State'] || '',
     areaPath: fields['System.AreaPath'] || '',
+    /* Equipo responsable de la iniciativa: se deriva exclusivamente del Area Path del Feature. */
+    responsibleTeam: {
+      areaPath: fields['System.AreaPath'] || '',
+      name: getAdoPathDisplayName(
+        fields['System.AreaPath'] || ''
+      )
+    },
     iterationPath: fields['System.IterationPath'] || '',
     priority: fields['Microsoft.VSTS.Common.Priority'] || '',
     targetDate: fields['Microsoft.VSTS.Scheduling.TargetDate'] || '',
@@ -1336,7 +1592,7 @@ function mapRelationshipGraphWorkItem(workItem) {
 // includedWorkItems = doneWorkItems + inProgressWorkItems + pendingWorkItems
 // openWorkItems = inProgressWorkItems + pendingWorkItems
 // Removed no participa en delivery, progreso ni cobertura de estimación.
-function buildDeliverySummary(workItems, source = 'ok') {
+function buildDeliverySummary(workItems, source = 'ok', iterationsByPath = null) {
   const unknownSummary = {
     source: 'unknown',
     hasWorkItems: null,
@@ -1357,26 +1613,24 @@ function buildDeliverySummary(workItems, source = 'ok') {
     unestimatedWorkItems: null,
     discoveryWithoutSprintWorkItems: null,
     workItemsPendingDelivery: null,
+    
+    /* Fase 3: executionTeams representa los equipos que realmente ejecutan Stories/Bugs, basado en System.AreaPath de cada hijo directo. */
+    executionTeams: null,
+    currentSprintWorkItems: null,
 
-    /*
-      Alias temporales para no romper consumidores existentes
-      mientras actualizamos el frontend.
-    */
+    /* Alias temporales para no romper consumidores existentes mientras actualizamos el frontend. */
     doneWorkItems: null,
     pendingWorkItems: null,
     excludedWorkItems: null,
     activeWorkItems: null,
     pendingNonActiveWorkItems: null
   };
-
+  
   if (source !== 'ok') {
     return unknownSummary;
   }
 
-  /*
-    Delivery Health y progreso consideran exclusivamente hijos
-    directos de tipo User Story o Bug.
-  */
+  /* Delivery Health y progreso consideran exclusivamente hijos directos de tipo User Story o Bug. */
   const relevantWorkItems = workItems.filter(
     item =>
       item.workItemType === 'User Story' ||
@@ -1394,12 +1648,10 @@ function buildDeliverySummary(workItems, source = 'ok') {
   relevantWorkItems.forEach(item => {
     const state = String(item.state || '').trim();
 
-    /*
-      Removed queda fuera de:
+    /* Removed queda fuera de:
       - denominador de progreso;
       - trabajo abierto;
-      - reglas de estimación.
-    */
+      - reglas de estimación.  */
     if (REMOVED_WORK_STATES.includes(state)) {
       removedWorkItems += 1;
       return;
@@ -1422,11 +1674,8 @@ function buildDeliverySummary(workItems, source = 'ok') {
     } else if (COMPLETED_WORK_STATES.includes(state)) {
       completedWorkItems += 1;
     } else {
-      /*
-        Protección para estados nuevos o no configurados:
-        se consideran In Planning hasta que se agreguen al JSON.
-        Así no inflan progreso ni desaparecen del delivery.
-      */
+      /* Protección para estados nuevos o no configurados: se consideran In Planning hasta que se agreguen al JSON.
+        Así no inflan progreso ni desaparecen del delivery. */
       inPlanningWorkItems += 1;
 
       if (!hasIterationPath) {
@@ -1479,6 +1728,15 @@ function buildDeliverySummary(workItems, source = 'ok') {
         )
       : 0;
 
+  const executionTeams = buildExecutionTeamsSummary(
+    relevantWorkItems,
+    iterationsByPath
+  );
+
+  const currentSprintWorkItems = executionTeams.reduce(
+    (total, team) => total + Number(team.currentSprintWorkItems || 0), 0
+  );
+
   return {
     source: 'ok',
 
@@ -1500,18 +1758,15 @@ function buildDeliverySummary(workItems, source = 'ok') {
     unestimatedWorkItems,
     discoveryWithoutSprintWorkItems,
 
-    /*
-      Overdue sigue aplicando mientras exista trabajo no cerrado,
-      incluyendo To Release.
-    */
+    /* Overdue sigue aplicando mientras exista trabajo no cerrado, incluyendo To Release. */
     workItemsPendingDelivery: openWorkItems > 0,
+      executionTeams,
+      currentSprintWorkItems,
 
-    /*
-      Aliases temporales:
+    /* Aliases temporales:
       - done ahora significa "completo para progreso";
       - pending significa "In Planning + In Progress";
-      - discovery conserva compatibilidad visual hasta editar HTML.
-    */
+      - discovery conserva compatibilidad visual hasta editar HTML.  */
     doneWorkItems: completedForProgressWorkItems,
     pendingWorkItems:
       inPlanningWorkItems +
@@ -1853,7 +2108,7 @@ async function fetchDeliveryWorkItemsBatch(c, ids) {
 // ===== Adjunta deliverySummary a Features ya obtenidos en un batch =====
 // Reutiliza las relaciones directas que fetchFeatureDetailsBatch ya pidió.
 // Solo añade una consulta masiva de campos mínimos para los hijos únicos.
-async function enrichFeaturesWithDeliverySummary(c, features) {
+async function enrichFeaturesWithDeliverySummary(c, features, iterationsByPath = null) {
   const childIdsByFeature = new Map();
   const allChildIds = new Set();
 
@@ -1889,7 +2144,7 @@ async function enrichFeaturesWithDeliverySummary(c, features) {
     if (childIds === null) {
       return {
         ...feature,
-        deliverySummary: buildDeliverySummary([], 'unknown')
+        deliverySummary: buildDeliverySummary( [], 'unknown', iterationsByPath )
       };
     }
 
@@ -1902,7 +2157,7 @@ async function enrichFeaturesWithDeliverySummary(c, features) {
     if (hasUnavailableChild) {
       return {
         ...feature,
-        deliverySummary: buildDeliverySummary([], 'unknown')
+        deliverySummary: buildDeliverySummary([], 'unknown', iterationsByPath )
       };
     }
 
@@ -1912,7 +2167,7 @@ async function enrichFeaturesWithDeliverySummary(c, features) {
 
     return {
       ...feature,
-      deliverySummary: buildDeliverySummary(deliveryWorkItems, 'ok')
+      deliverySummary: buildDeliverySummary(deliveryWorkItems, 'ok', iterationsByPath)
     };
   });
 }
@@ -3181,6 +3436,8 @@ async function fetchIdsForRange(
 // - dato consultado correctamente ("ok")
 // - dato que no se pudo obtener ("unknown")
 async function fetchFeatureDetailsBatch(c, ids) {
+  /* Se consulta una sola vez por ejecución de fetchFeatureDetailsBatch. Redis evita una llamada adicional a Azure DevOps durante 15 minutos. */
+  const iterationsByPath = await getIterationCalendar(c);
   const batchSize = 200;
   let allFeatures = [];
 
@@ -3297,7 +3554,8 @@ async function fetchFeatureDetailsBatch(c, ids) {
     try {
       enrichedFeatures = await enrichFeaturesWithDeliverySummary(
         c,
-        mergedFeatures
+        mergedFeatures,
+        iterationsByPath
       );
     } catch (error) {
       console.error('ERROR enriching Features with Delivery Health summary', {
