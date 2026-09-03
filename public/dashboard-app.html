@@ -6514,8 +6514,7 @@
           .finally(() => {
             setLoadingHistory(false);
           });
-          .catch(() => { setLoadingHistory(false); });
-      }, [pageItemIds, currentPage]);
+       }, [pageItemIds, currentPage]);
 
    /*   useEffect(() => {
         if (currentPage !== 'roadmap') return;
