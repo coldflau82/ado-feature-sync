@@ -871,6 +871,36 @@ function workItemRequiresEstimate(state) {
   return ESTIMABLE_WORK_STATES.includes(String(state || '').trim());
 }
 
+function getDeliveryWorkItemCategory(state) {
+  const normalizedState = String(state || '').trim();
+
+  if (REMOVED_WORK_STATES.includes(normalizedState)) {
+    return 'removed';
+  }
+
+  if (IN_PLANNING_WORK_STATES.includes(normalizedState)) {
+    return 'inPlanning';
+  }
+
+  if (IN_PROGRESS_WORK_STATES.includes(normalizedState)) {
+    return 'inProgress';
+  }
+
+  if (TO_RELEASE_WORK_STATES.includes(normalizedState)) {
+    return 'toRelease';
+  }
+
+  if (COMPLETED_WORK_STATES.includes(normalizedState)) {
+    return 'completed';
+  }
+
+  /*
+    Política defensiva consistente con buildDeliverySummary():
+    estados no configurados se tratan como In Planning.
+  */
+  return 'inPlanning';
+}
+
 function isWorkItemUnestimated(workItem) {
   const storyPoints = normalizeStoryPoints(workItem.storyPoints);
 
@@ -2221,7 +2251,7 @@ function mapFeatureStoryWorkItem(workItem) {
     storyPoints
   };
 
-    return {
+  return {
     id: workItem.id,
     title: fields['System.Title'] || '',
     storyPoints,
@@ -2232,7 +2262,9 @@ function mapFeatureStoryWorkItem(workItem) {
     releaseFixVersion: fields['Custom.ReleaseFixVersion'] || '',
     tags: fields['System.Tags'] || '',
     assignedTo,
-    /* Estas propiedades ya son utilizadas por el frontend para mostrar el detalle, sin reinterpretar la regla de estimación. */
+  
+    deliveryCategory: getDeliveryWorkItemCategory(state),
+  
     requiresEstimate: workItemRequiresEstimate(state),
     isUnestimated: isWorkItemUnestimated(deliveryWorkItem)
   };
