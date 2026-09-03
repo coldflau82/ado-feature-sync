@@ -43,7 +43,7 @@
     "Closed"
   ],
 
-  "noActiveWork": ["In Process"]
+  "noActiveWork": ["In Process"],
 
   "requiresEstimate": [
     "Ready for Development",
