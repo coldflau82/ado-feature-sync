@@ -206,6 +206,11 @@ function validateDeliveryHealthRules(config) {
     'featureStates.notStarted'
   );
 
+  assertNonEmptyStringArray(
+    config.featureStates?.noActiveWork,
+    'featureStates.noActiveWork'
+  );
+
   if (
     !Number.isInteger(config.thresholds?.targetDateNearDays) ||
     config.thresholds.targetDateNearDays < 1
