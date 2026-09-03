@@ -191,6 +191,21 @@ function validateDeliveryHealthRules(config) {
     'workItemStates.requiresEstimate'
   );
 
+    assertNonEmptyStringArray(
+    config.featureStates?.execution,
+    'featureStates.execution'
+  );
+
+  assertNonEmptyStringArray(
+    config.featureStates?.closed,
+    'featureStates.closed'
+  );
+
+  assertNonEmptyStringArray(
+    config.featureStates?.notStarted,
+    'featureStates.notStarted'
+  );
+
   if (
     !Number.isInteger(config.thresholds?.targetDateNearDays) ||
     config.thresholds.targetDateNearDays < 1
@@ -827,6 +842,9 @@ const FEATURE_CLOSED_STATES =
 
 const FEATURE_NOT_STARTED_STATES =
   deliveryHealthRules.featureStates.notStarted;
+
+const FEATURE_NO_ACTIVE_WORK_STATES =
+  deliveryHealthRules.featureStates.noActiveWork;
 
 /*
   Preserva la diferencia entre:
@@ -1980,7 +1998,7 @@ function buildDeliveryHealth(feature) {
 
   if (
     noActiveWorkRule.enabled &&
-    state === 'In Process' &&
+    FEATURE_NO_ACTIVE_WORK_STATES.includes(state) &&
     inPlanningWorkItems > 0 &&
     inProgressWorkItems === 0
   ) {
