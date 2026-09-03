@@ -669,7 +669,7 @@
       html, body,#root { overflow-x: clip !important; overflow-y: visible !important; }
       .container.dashboard-shell { overflow: visible !important; }
       /* El control ya está correctamente renderizado como hermano de dashboard-fixed-content y dashboard-results-scroll.*/
-      .mobile-workspace-controls { position: -webkit-sticky; position: sticky; top: 0; z-index: 1000; width: calc(100% + 24px); margin: 0 -12px 8px;
+      .mobile-workspace-controls { display: block; position: -webkit-sticky; position: sticky; top: 0; z-index: 1000; width: calc(100% + 24px); margin: 0 -12px 8px;
         padding: 8px 12px; border-top: 1px solid #dbe4ee; border-bottom: 1px solid #cbd5e1; background: rgba(248, 250, 252, 0.99);
         box-shadow: 0 3px 8px rgba(15, 23, 42, 0.12); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
       /* Evita que una tarjeta enfocada mediante paginación o navegación programática termine oculta debajo de los controles sticky. */
