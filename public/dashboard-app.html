@@ -3306,6 +3306,26 @@
     }
 
     function getWorkItemDeliveryCategory(workItem) {
+      const backendCategory = String(
+        workItem?.deliveryCategory || ''
+      ).trim();
+    
+      const allowedCategories = new Set([
+        'removed',
+        'inPlanning',
+        'inProgress',
+        'toRelease',
+        'completed'
+      ]);
+    
+      if (allowedCategories.has(backendCategory)) {
+        return backendCategory;
+      }
+    
+      /*
+        Fallback temporal para respuestas antiguas que todavía no incluyan
+        deliveryCategory.
+      */
       const state = String(workItem?.state || '').trim();
     
       if (state === 'Removed') {
@@ -3328,10 +3348,6 @@
         return 'completed';
       }
     
-      /*
-        Mismo criterio defensivo del backend:
-        un estado no configurado se muestra como In Planning.
-      */
       return 'inPlanning';
     }
 
