@@ -89,10 +89,6 @@
     .delivery--unknown .delivery-badge__icon { background: #64748b; }
     .feature-list-tooltip { min-width: 220px; max-width: 340px;font-size: 12px; line-height: 1.45; }
     .feature-list-tooltip strong { display: block; margin-bottom: 3px; font-size: 12px; }
-    .feature-list-tooltip__detail { padding-left: 12px; }
-    .feature-list-tooltip__subdetail { padding-left: 24px; }
-    .feature-list-tooltip__metric { margin-top: 3px; padding-left: 12px; color: #cbd5e1; font-size: 11px; }
-    .feature-list-tooltip__warning { padding-left: 12px; color: #b45309; font-size: 11px; }
     /* FEATURE LIST Esta tabla debe ocupar el ancho disponible del dashboard, sin necesitar scroll horizontal. */
     .feature-list-table-wrapper { width: 100%; margin-bottom: 0; overflow: visible; font-size: 11px}
     .feature-list-table { width: 100%;  min-width: 0; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
@@ -173,12 +169,6 @@
     .refresh-button:disabled { opacity: 0.65; cursor: wait; }
     .refresh-button--loading span { animation: refresh-spin 0.85s linear infinite; }
     @keyframes refresh-spin { to { transform: rotate(360deg); }}
-    .clear-filters-button { width: 68px; min-width: 68px; height: 40px; padding: 4px 6px; border: 0; border-radius: 6px; background: #dc3545; color: white; cursor: pointer;
-      display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; font-size: 11px; font-weight: 700; line-height: 12px; text-align: center; 
-      transition: background 0.15s ease, transform 0.15s ease; }
-    .clear-filters-button:hover { background: #bd2130; }
-    .clear-filters-button:active { transform: scale(0.97); }
-    .clear-filters-button:focus-visible { outline: 3px solid rgba(220, 53, 69, 0.28); outline-offset: 2px; }
     .top-filters-bar  { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;  overflow-x: auto; overflow-y: hidden; background: #fff; padding: 10px 14px; border-radius: 8px; margin-bottom: 0px; }
     .top-filters-main { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 auto; }
     .top-filter-group { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; min-width: 0; }
@@ -204,10 +194,6 @@
     /* ── Header del dashboard y KPI cards ── */
     .dashboard-header { display: grid; grid-template-columns: 145px minmax(0, 1fr) 336px; grid-template-areas: "title kpis navigation"; align-items: center; column-gap: 16px; margin-bottom: 12px; }
     .dashboard-title { grid-area: title; margin: 0; min-width: 0; white-space: nowrap; font-size: 22px; line-height: 1.05; letter-spacing: 0.5px; }
-    /* El bloque central ocupa únicamente el espacio disponible entre el título y los botones de navegación. */
-    .dashboard-kpis { grid-area: kpis; display: grid; grid-template-columns: repeat( var(--kpi-card-count), minmax(0, 1fr) );  gap: 9px; min-width: 0; align-items: stretch; }
-    .dashboard-kpis--6 { --kpi-card-count: 6; }
-    .dashboard-kpis--7 { --kpi-card-count: 7; }
     /* ReadinessOverview y DeliveryHealthOverview no agregan una capa visual dentro del header: sus cards son celdas directas de la grilla. */
     .dashboard-kpis .readiness-overview, .dashboard-kpis .health-overview { margin: 0 }
     /* Fuente única de verdad para las KPI cards.
@@ -372,7 +358,8 @@
     .top-filter-group--preset .filters-card__save-my-filter { min-height: 32px; height: 32px; white-space: nowrap; }
     /* ── KPI groups: Readiness / Delivery Health / All Features ── */
     /* Tres zonas principales: 1. Readiness 2. Delivery Health 3. All Features */
-    .dashboard-kpis { display: grid; grid-template-columns: minmax(205px, 2fr) minmax(310px, 3fr) minmax(112px, 0.85fr); gap: 10px; align-items: stretch; min-width: 0; }
+    .dashboard-kpis { display: grid; grid-template-columns: minmax(205px, 2fr) minmax(310px, 3fr) minmax(112px, 0.85fr); gap: 10px; 
+      align-items: stretch; min-width: 0; }
     /* Contenedor tenue para hacer explícita la categoría de las tarjetas. */
     .dashboard-kpi-group { position: relative; min-width: 0; padding: 19px 6px 6px; border: 1px solid #dbe4ee; border-radius: 8px; background: #f8fafc;}
     /* Título pequeño, integrado en la parte superior del contenedor. */
@@ -498,7 +485,6 @@
     .relationship-show-all-button:focus-visible { outline: 3px solid rgba(100, 116, 139, 0.24); outline-offset: 2px; }
     /* MOBILE FEATURE CARDS Estas vistas sólo se muestran en pantallas de hasta 820px. Las tablas actuales se preservan para desktop/tablet.*/
     .mobile-feature-list, .mobile-roadmap-list { display: none;}
-    .mobile-roadmap-toolbar { display: none;}
     @media (max-width: 820px) { body { overscroll-behavior-y: auto; }
       .container.dashboard-shell { display: block; height: auto; min-height: 100dvh; padding: 12px; overflow: visible; }
       .dashboard-results-scroll { width: 100%; min-width: 0; overflow: visible; padding: 0; }
@@ -536,9 +522,6 @@
       .mobile-feature-card__details .feature-detail-panel { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
       .mobile-feature-card__details .delivery-work-grid { grid-template-columns: 1fr; }
       .mobile-feature-card__details .delivery-inline-alert { min-width: 0; flex-basis: 100%; }
-      /* Roadmap móvil. El timeline representa una ventana de 12 meses y usa: línea vertical: Today; triángulo rosa: Target Date; diamante azul: RFV. */
-      .mobile-roadmap-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px; padding: 9px 10px; border: 1px solid #dbe4ee;
-        border-radius: 8px; background: #ffffff; }
       .mobile-roadmap-timeline { position: relative; height: 42px; margin-top: 12px; overflow: hidden; border: 1px solid #dbe4ee; border-radius: 6px; background:
           repeating-linear-gradient( to right, #f8fafc 0, #f8fafc calc(8.333% - 1px), #e2e8f0 calc(8.333% - 1px), #e2e8f0 8.333% ); }
       .mobile-roadmap-timeline__baseline { position: absolute; top: 20px; right: 0; left: 0; height: 3px; border-radius: 999px; background: #cbd5e1; }
@@ -579,12 +562,12 @@
       .filters-card__clear-all-button { min-width: 86px; }
       .advanced-filter-summary__chip { max-width: 100%; }
       }
-    @media (max-width: 420px) { .mobile-feature-card__info-grid { grid-template-columns: 1fr; }
+    @media (max-width: 420px) {
       .mobile-feature-card__title { font-size: 13px; }
       .mobile-feature-card__header,.mobile-feature-card__details { padding: 10px; }
       .mobile-roadmap-timeline__legend { gap: 6px; }
     }
-    @media (max-width: 820px) { .mobile-feature-card__header { width: 100%; padding: 12px; background: #ffffff; color: inherit; }
+    @media (max-width: 820px) {
       .mobile-feature-card__info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
       .mobile-feature-card__info-item { min-height: 52px; }
       .mobile-feature-card__action-button { appearance: none; display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 42px;
