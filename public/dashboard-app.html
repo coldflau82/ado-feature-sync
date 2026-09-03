@@ -19,21 +19,15 @@
     .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
     .header { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
     .header h1 { font-size: 24px; }
-    .tabs { margin-top: 12px; display: flex; gap: 10px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-    .tab-btn { padding: 8px 16px; background: white; color: black; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; }
-    .tab-btn.active { background: #007bff; color: white; }
     .warnings { position: relative; background: #fff3cd; color: #856404; padding: 15px 46px 15px 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffc107;}
     .warnings__close-button { position: absolute; top: 8px; right: 9px; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 4px;
       background: transparent; color: #856404; cursor: pointer; font-family: inherit; font-size: 22px; font-weight: 700; line-height: 1; display: inline-flex;
       align-items: center; justify-content: center; transition: background 0.15s ease, color 0.15s ease; }
     .warnings__close-button:hover { background: rgba(133, 100, 4, 0.12); color: #5f4703; }
     .warnings__close-button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.35); outline-offset: 2px; }
-    .filters { display: grid; gap: 15px; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; overflow-x: auto; }
-    .filter-div { }
     .filter-label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 13px; }
     .filter-select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
     .filter-count { font-size: 11px; color: #666; margin-top: 5px; }
-    .clear-btn { width: 100%; padding: 10px 16px; background: #dc3545; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 13px; margin-bottom: 12px; }
     .table-wrapper { background: white; border-radius: 8px; overflow: visible; }
     table { width: 100%; border-collapse: collapse; }
     th { background: #f9f9f9; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #eee; font-size: 13px; }
@@ -66,7 +60,6 @@
     .health-overview-card:hover { border-color: #94a3b8; transform: translateY(-1px); }
     .health-overview-card--selected { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18); }
     .health-overview-card:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
-    .readiness-filter { min-width: 165px; }
     /* Base compartida de los badges de Readiness y Delivery Health. Las clases readiness--* y delivery--* sólo definen colores específicos por estado; 
     estas clases definen la forma, espaciado y alineación visual. */
     .readiness-badge, .delivery-badge { display: inline-flex; align-items: center; justify-content: center; gap: 4px; max-width: 100%; padding: 3px 6px 3px 4px;
@@ -120,8 +113,6 @@
     .feature-list-table td { white-space: nowrap; }
     /* El título puede reducirse con ellipsis, pero el texto completo queda disponible en el tooltip que ya usa FeatureTooltipContent.*/
     .feature-list-title-cell { min-width: 0; }
-    /* El header permanece visible al hacer scroll vertical dentro de: .dashboard-results-scroll */
-    .dashboard-results-scroll .feature-list-table thead th { position: sticky; top: 0; z-index: 50; background: #f9f9f9; box-shadow: 0 2px 4px rgba(15, 23, 42, 0.12); }
     /* Estado: punto de color + nombre del estado. Además de esta indicación, la fila conserva su línea de color izquierda según el estado. */
     .feature-state-cell { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
     .feature-state-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; display: inline-block; }
@@ -140,7 +131,6 @@
     .feature-story-card__assigned-to { color: #475569; font-size: 10px; }
     .feature-story-card__release-fix-version { min-width: 0; max-width: 100%; color: #475569; font-size: 10px; line-height: 1.3; overflow-wrap: anywhere; }
     .delivery-details { margin: 0; } 
-    .delivery-details__title { color: #1e293b; font-size: 13px; }
     /* Contenedor de Stories and Bugs:Agrupa filtros y resultados directos de una Feature en una misma superficie visual, separada de Feature Status y Delivery Activity. */
     .feature-work-items-panel { min-width: 0; padding: 12px; border: 1px solid #dbe4ee; border-radius: 7px; background: #ffffff;}
     .feature-work-items-panel__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0;}
@@ -201,9 +191,6 @@
     .cache-info strong { display: block; color: #64748b; font-size: 10px; font-weight: 700; }
     @media (max-width: 1150px) { .top-filters-bar { justify-content: flex-start; }}
     /* Navegación principal: Feature List / Roadmap */
-    .view-switcher { display: inline-flex; grid-template-columns: repeat(2, minmax(128px, 1fr)); gap: 8px; align-items: stretch; }
-    /* ── Navegación principal: Feature List / Roadmap ── */
-    /* Esta regla define solamente la apariencia compartida. Los tamaños se definen exclusivamente dentro de .dashboard-navigation para evitar contradicciones. */
     .view-switcher { display: inline-flex; gap: 8px; align-items: stretch; }
     .view-switcher__button { appearance: none; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 7px; background: #ffffff; color: #475569; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; line-height: 1.2;
       text-align: left; display: inline-flex; align-items: center; justify-content: flex-start; gap: 8px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); 
@@ -298,7 +285,6 @@
       .dashboard-pagination-footer { flex: 0 0 auto; margin-top: 8px; }}
     /* Wrapper horizontal exclusivo para las tablas. No agrega scroll vertical. Sólo aparece scroll horizontal cuando el ancho mínimo del Gantt no cabe en la pantalla.*/
       .gantt-horizontal-scroll { width: 100%; overflow: visible; }
-    .feature-list-horizontal-scroll { overflow: visible; }
     /* La tabla conserva un ancho mínimo para que no comprima la línea de tiempo y sus barras Gantt sean utilizables. Puedes aumentar este valor si quieres más espacio para el timeline.*/
     .roadmap-table { min-width: 1180px; }
     /* Si Feature List también posee columnas que deban conservar ancho, aplica la misma protección. */
@@ -311,10 +297,8 @@
     .dashboard-results-scroll .table-wrapper { overflow: visible; }
     /* La tabla debe mantener separación entre bordes para evitar artefactos visuales cuando el encabezado queda sticky. */
     .dashboard-results-scroll .feature-list-table, .dashboard-results-scroll .roadmap-table { border-collapse: separate; border-spacing: 0; }
-    /* Header fijo para Feature List. El scroll real sucede dentro de .dashboard-results-scroll. */
-    .dashboard-results-scroll .feature-list-table thead th { position: sticky; top: 0; z-index: 30; background: #f9f9f9; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.10); }
     /* Header fijo para Roadmap */
-    .dashboard-results-scroll .roadmap-table thead th { position: sticky; top: 0; z-index: 60; background: #f9f9f9; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.10); }
+    .dashboard-results-scroll .feature-list-table thead th, .dashboard-results-scroll .roadmap-table thead th { position: sticky; top: 0; z-index: 60; background: #f9f9f9; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.10); }
     /* Evita que el contenido de la línea de tiempo aparezca por encima del encabezado al hacer scroll. */
     .dashboard-results-scroll .roadmap-table thead { z-index: 30; }
     /* Compactación vertical: más espacio para Features / Gantt */
@@ -429,19 +413,8 @@
     .feature-readiness-summary__message--missing { color: #b91c1c; }
     .feature-readiness-summary__message--unknown { color: #475569; }
     .feature-detail-panel__divider { height: 1px; margin: 14px 0; background: #dbe4ee; }
-    .delivery-details__title-row { display: inline-flex; align-items: center; gap: 7px;}
-    .delivery-details__title-icon { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 16px; border-radius: 50%; color: white; font-size: 10px; font-weight: 700; line-height: 1; }
-    /* El icono que acompaña el título usa el tono fuerte de cada estado. Esto evita que se vea demasiado pálido sobre el panel claro. */
-    .delivery-details__title-icon.delivery--overdue { background: #dc2626;}
-    .delivery-details__title-icon.delivery--needs-info { background: #ea580c;}
-    .delivery-details__title-icon.delivery--attention { background: #ca8a04;}
-    .delivery-details__title-icon.delivery--healthy { background: #16a34a;}
-    .delivery-details__title-icon.delivery--not-started { background: #2563eb;}
-    .delivery-details__title-icon.delivery--unknown { background: #64748b;}
     .dashboard-interaction-hint { margin: 8px 0; padding: 7px 10px; border: 1px solid #dbe4ee; border-radius: 6px; background: #f8fafc; color: #475569; font-size: 11px; line-height: 1.4; }
     .dashboard-interaction-hint strong { color: #1e3a8a;}
-        .dashboard-interaction-hint { margin: 8px 0; padding: 7px 10px; border: 1px solid #dbe4ee; border-radius: 6px; background: #f8fafc; color: #475569; font-size: 11px; line-height: 1.4; }
-    .dashboard-interaction-hint strong { color: #1e3a8a; }
     /* Estados visibles del área principal de resultados: loading; sin resultados por filtros; sin Features disponibles; error de carga. Se reutilizan tanto para Feature List como para Roadmap. */
     .dashboard-results-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 260px;
       margin: 8px 0; padding: 32px 24px; border: 1px dashed #cbd5e1; border-radius: 8px; background: #ffffff; color: #475569; text-align: center;}
@@ -526,8 +499,7 @@
     /* MOBILE FEATURE CARDS Estas vistas sólo se muestran en pantallas de hasta 820px. Las tablas actuales se preservan para desktop/tablet.*/
     .mobile-feature-list, .mobile-roadmap-list { display: none;}
     .mobile-roadmap-toolbar { display: none;}
-    @media (max-width: 820px) { html, body, #root { height: auto; min-height: 100%; overflow-x: clip; overflow-y: visible; }
-      body { overscroll-behavior-y: auto; }
+    @media (max-width: 820px) { body { overscroll-behavior-y: auto; }
       .container.dashboard-shell { display: block; height: auto; min-height: 100dvh; padding: 12px; overflow: visible; }
       .dashboard-results-scroll { width: 100%; min-width: 0; overflow: visible; padding: 0; }
       .dashboard-pagination-footer { margin-top: 14px; }
@@ -546,8 +518,6 @@
         background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 800; }
       .mobile-feature-card__id-link { color: #2563eb; text-decoration: none; }
       .mobile-feature-card__id-link:hover { text-decoration: underline; }
-      .mobile-feature-card__expand-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #f1f5f9;
-        color: #475569; font-size: 12px; flex: 0 0 24px; }
       .mobile-feature-card__title { display: -webkit-box; margin-top: 8px; overflow: hidden; color: #0f172a; font-size: 14px; font-weight: 700; line-height: 1.35;
         -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
       .mobile-feature-card__state-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; color: #475569; font-size: 11px; font-weight: 700; }
@@ -562,7 +532,6 @@
       .mobile-feature-card__progress-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; color: #475569; font-size: 10px; font-weight: 700; }
       .mobile-feature-card__progress-track { width: 100%; height: 7px; overflow: hidden; border-radius: 999px; background: #e5e7eb; }
       .mobile-feature-card__progress-fill { height: 100%; border-radius: inherit; transition: width 0.25s ease; }
-      .mobile-feature-card__hint { display: block; margin-top: 10px; color: #2563eb; font-size: 11px; font-weight: 700; }
       .mobile-feature-card__details { padding: 12px; border-top: 1px solid #dbe4ee; background: #f8fafc; }
       .mobile-feature-card__details .feature-detail-panel { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
       .mobile-feature-card__details .delivery-work-grid { grid-template-columns: 1fr; }
@@ -570,10 +539,6 @@
       /* Roadmap móvil. El timeline representa una ventana de 12 meses y usa: línea vertical: Today; triángulo rosa: Target Date; diamante azul: RFV. */
       .mobile-roadmap-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px; padding: 9px 10px; border: 1px solid #dbe4ee;
         border-radius: 8px; background: #ffffff; }
-      .mobile-roadmap-toolbar__button { width: 36px; height: 34px; border: 0; border-radius: 5px; background: #537fbd; color: #ffffff; cursor: pointer; font-size: 14px; font-weight: 700; }
-      .mobile-roadmap-toolbar__button:active { transform: scale(0.96); }
-      .mobile-roadmap-toolbar__button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.3); outline-offset: 2px; }
-      .mobile-roadmap-toolbar__label { min-width: 0; color: #334155; font-size: 11px; font-weight: 700; text-align: center; }
       .mobile-roadmap-timeline { position: relative; height: 42px; margin-top: 12px; overflow: hidden; border: 1px solid #dbe4ee; border-radius: 6px; background:
           repeating-linear-gradient( to right, #f8fafc 0, #f8fafc calc(8.333% - 1px), #e2e8f0 calc(8.333% - 1px), #e2e8f0 8.333% ); }
       .mobile-roadmap-timeline__baseline { position: absolute; top: 20px; right: 0; left: 0; height: 3px; border-radius: 999px; background: #cbd5e1; }
@@ -605,7 +570,6 @@
       .mobile-story-timeline-card__segment { position: absolute; top: 5px; height: 15px; min-width: 5px; border-radius: 3px; opacity: 0.9; }
       .mobile-story-timeline-card__today { position: absolute; top: 0; bottom: 0; z-index: 5; width: 1px; background: #1e3a8a; }
       .mobile-story-timeline-card__empty { display: block; padding-top: 6px; color: #94a3b8; font-size: 10px; }
-      .dashboard-interaction-hint { margin: 8px 0; font-size: 10px; }
       .top-filters-bar { overflow-x: auto; flex-wrap: nowrap; align-items: flex-start; }
       .top-filters-main { align-items: flex-start; }
       .top-filter-group { flex-direction: column; align-items: stretch; gap: 3px; }
@@ -657,8 +621,7 @@
       .mobile-feature-card__info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .mobile-feature-card__info-item { min-height: 50px; padding: 7px; } 
       .mobile-feature-card__info-value { font-size: 10px; } }
-    @media (max-width: 820px) {
-      /* Header móvil compacto */
+    @media (max-width: 820px) { /* Header móvil compacto */
       .header.dashboard-header { padding: 12px; margin-bottom: 8px; }
       .dashboard-title { font-size: 20px; line-height: 1.05; letter-spacing: 0.2px; }
       /* El <br> de "ADO DEC / Dashboard" se elimina visualmente en móvil para reducir la altura del header.*/
@@ -676,14 +639,8 @@
         padding: 6px 8px; border-radius: 6px; }
       .dashboard-kpis .readiness-overview-card__count,.dashboard-kpis .health-overview-card__count { margin-top: 3px; font-size: 18px; line-height: 18px; }
       .dashboard-kpis .readiness-overview-card--all { grid-column: auto; min-height: 45px; height: 45px; }
-      /* El toolbar antiguo contenía la navegación mensual del roadmap. Se elimina del layout móvil. */
-      .mobile-roadmap-toolbar { display: none !important; }
       /* El toolbar desktop original se conserva dentro de top-filters-bar, pero en móvil se sustituye por los controles sticky compactos. */
       .top-filters-bar { display: none; }
-      /* Barra sticky móvil: navegación + filtros compactos */
-      /*.mobile-workspace-controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 500; isolation: isolate; margin: 0 -12px 8px; 
-        padding: 8px 12px; border-top: 1px solid #dbe4ee; border-bottom: 1px solid #cbd5e1;  background: rgba(248, 250, 252, 0.98); 
-        box-shadow: 0 3px 8px rgba(15, 23, 42, 0.10); backdrop-filter: blur(8px); }*/
       .mobile-workspace-controls__navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
       .mobile-workspace-controls__nav-button { appearance: none; display: inline-flex; align-items: center; justify-content: center; min-height: 34px; 
         padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 5px; background: #ffffff; color: #475569; cursor: pointer; font-family: inherit;
@@ -723,6 +680,7 @@
       .mobile-feature-timeline-alert--delivery-overdue { border-left-color: #dc2626; background: #fef2f2; color: #991b1b; }
       .mobile-feature-timeline-alert--delivery-attention { border-left-color: #ca8a04; background: #fef9c3; color: #854d0e; }
       .mobile-feature-timeline-alert--delivery-needs-info { border-left-color: #ea580c; background: #fff7ed; color: #9a3412; }}
+    .mobile-workspace-controls { display: none; }
     @media (max-width: 820px) {/* overflow-x: hidden puede crear un contenedor de scroll implícito y hacer que position: sticky deje de seguir el 
       scroll real de la página. clip evita scroll horizontal sin crear ese contenedor.*/
       html, body,#root { overflow-x: clip !important; overflow-y: visible !important; }
