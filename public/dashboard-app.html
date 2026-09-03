@@ -4625,7 +4625,8 @@
       );
     }
 
-   /* Leyenda exclusiva del Roadmap. Se renderiza fuera del panel de resultados para permanecer visible mientras el usuario navega mediante el scroll interno. */
+   /* Leyenda exclusiva del Roadmap. Se renderiza fuera del panel de resultados para permanecer visible mientras el usuario navega mediante el 
+   scroll interno. */
     function RoadmapLegend({
       legendExpanded,
       onToggle
@@ -5396,6 +5397,28 @@
         </section>
       );
     }
+
+    async function parseApiJsonResponse( response, fallbackErrorMessage ) {
+      const responseText = await response.text();
+    
+      let data = {};
+    
+      try {
+        data = responseText
+          ? JSON.parse(responseText)
+          : {};
+      } catch {
+        data = {};
+      }
+    
+      if (!response.ok) {
+        throw new Error(
+          data.error || fallbackErrorMessage
+        );
+      }
+    
+      return data;
+    }
           
     function Dashboard() {
       const { tooltip, showTooltip, moveTooltip, hideTooltip } = useTooltip();
@@ -5642,18 +5665,12 @@
         },
         body: JSON.stringify({ ids })
       })
-        .then(async response => {
-          const data = await response.json();
-    
-          if (!response.ok) {
-            throw new Error(
-              data.error ||
-              'Unable to load relationship information.'
-            );
-          }
-    
-          return data;
-        })
+      .then(response =>
+        parseApiJsonResponse(
+          response,
+          'Unable to load Stories/Bugs for the selected Features.'
+        )
+      )
         .then(data => {
           const results = data.results || {};
     
@@ -6237,18 +6254,12 @@
           },
           body: JSON.stringify({ ids })
         })
-          .then(async response => {
-            const data = await response.json();
-
-            if (!response.ok) {
-              throw new Error(
-                data.error ||
-                'Unable to load Stories/Bugs for the selected Features.'
-              );
-            }
-
-            return data;
-          })
+        .then(response =>
+          parseApiJsonResponse(
+            response,
+            'Unable to load Stories/Bugs for the selected Features.'
+          )
+        )
           .then(data => {
             const results = data.results || {};
             const unavailableIds = new Set(
@@ -6482,11 +6493,27 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ids })
         })
-          .then(r => r.json())
-          .then(d => {
-            setHistoryCache(prev => ({ ...prev, ...(d.results || {}) }));
-            setLoadingHistory(false);
+          .then(response =>
+            parseApiJsonResponse(
+              response,
+              'Unable to load Feature timeline history.'
+            )
+          )
+          .then(data => {
+            setHistoryCache(previous => ({
+              ...previous,
+              ...(data.results || {})
+            }));
           })
+          .catch(error => {
+            console.error(
+              'Error loading Feature timeline history:',
+              error
+            );
+          })
+          .finally(() => {
+            setLoadingHistory(false);
+          });
           .catch(() => { setLoadingHistory(false); });
       }, [pageItemIds, currentPage]);
 
@@ -6551,18 +6578,12 @@
         },
         body: JSON.stringify({ ids })
       })
-        .then(async response => {
-          const data = await response.json();
-    
-          if (!response.ok) {
-            throw new Error(
-              data.error ||
-              'Unable to load Story timeline history.'
-            );
-          }
-    
-          return data;
-        })
+      .then(response =>
+        parseApiJsonResponse(
+          response,
+          'Unable to load Stories/Bugs for the selected Features.'
+        )
+      )
         .then(data => {
           const results = data.results || {};
     
