@@ -401,7 +401,7 @@
     /* Las cards bajan ligeramente de altura para dar espacio al título del grupo. */
     .dashboard-kpis .readiness-overview-card,.dashboard-kpis .health-overview-card { width: 100%; min-width: 0; height: 56px; min-height: 56px; margin: 0; padding: 7px 8px; border-radius: 6px;}
     /* Conserva el label compacto y legible. */
-    .dashboard-kpis .readiness-overview-card__label,.dashboard-kpis .health-overview-card__label { min-height: 25px; font-size: 10px; line-height: 12px;}
+    .dashboard-kpis .readiness-overview-card__label,.dashboard-kpis .health-overview-card__label { min-height: 0; font-size: 9px; line-height: 11px;}
     /* El número sigue siendo el elemento visual más importante. */
     .dashboard-kpis .readiness-overview-card__count,.dashboard-kpis .health-overview-card__count { font-size: 21px; line-height: 21px;}
     /* All Features tiene una apariencia neutra: no pertenece a Readiness ni a Delivery Health; representa el retorno a la vista completa. */
@@ -683,8 +683,9 @@
       /* El toolbar desktop original se conserva dentro de top-filters-bar, pero en móvil se sustituye por los controles sticky compactos. */
       .top-filters-bar { display: none; }
       /* Barra sticky móvil: navegación + filtros compactos */
-      .mobile-workspace-controls { position: sticky; top: 0; z-index: 150; margin: 0 -12px 8px; padding: 8px 12px; border-top: 1px solid #dbe4ee; border-bottom: 1px solid #cbd5e1;
-      background: rgba(248, 250, 252, 0.97); box-shadow: 0 3px 8px rgba(15, 23, 42, 0.10); backdrop-filter: blur(8px); }
+      .mobile-workspace-controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 500; isolation: isolate; margin: 0 -12px 8px; 
+        padding: 8px 12px; border-top: 1px solid #dbe4ee; border-bottom: 1px solid #cbd5e1;  background: rgba(248, 250, 252, 0.98); 
+        box-shadow: 0 3px 8px rgba(15, 23, 42, 0.10); backdrop-filter: blur(8px); }
       .mobile-workspace-controls__navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
       .mobile-workspace-controls__nav-button { appearance: none; display: inline-flex; align-items: center; justify-content: center; min-height: 34px; 
         padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 5px; background: #ffffff; color: #475569; cursor: pointer; font-family: inherit;
@@ -724,6 +725,15 @@
       .mobile-feature-timeline-alert--delivery-overdue { border-left-color: #dc2626; background: #fef2f2; color: #991b1b; }
       .mobile-feature-timeline-alert--delivery-attention { border-left-color: #ca8a04; background: #fef9c3; color: #854d0e; }
       .mobile-feature-timeline-alert--delivery-needs-info { border-left-color: #ea580c; background: #fff7ed; color: #9a3412; }}
+    @media (max-width: 820px) {/* En móvil, display: contents elimina la caja visual/intermedia de .dashboard-fixed-content. 
+      Así MobileWorkspaceControls deja de estar limitado por la altura del header + filtros avanzados y puede 
+      mantenerse sticky durante todo el scroll de resultados. */
+      .dashboard-fixed-content { display: contents; }
+      .mobile-workspace-controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 500; }
+      /* Evita que, al navegar mediante paginación o al enfocar una tarjeta, el inicio de la card quede completamente debajo de la barra sticky. */
+      .mobile-feature-card { scroll-margin-top: 100px; }
+      /* Reserva una separación visual al comenzar resultados. También evita que el primer resultado parezca pegado o escondido bajo la barra. */
+      .dashboard-results-scroll { scroll-padding-top: 100px; } }
           
   </style>
 </head>
@@ -3237,8 +3247,6 @@
             timelineEnd={weekTimelineEnd}
           />
           
-          <MobileFeatureTimelineAlerts feature={feature} />
-
           </MobileFeatureCardHeader>
 
           {isExpanded && (
