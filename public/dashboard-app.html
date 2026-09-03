@@ -526,7 +526,7 @@
     /* MOBILE FEATURE CARDS Estas vistas sólo se muestran en pantallas de hasta 820px. Las tablas actuales se preservan para desktop/tablet.*/
     .mobile-feature-list, .mobile-roadmap-list { display: none;}
     .mobile-roadmap-toolbar { display: none;}
-    @media (max-width: 820px) { html, body, #root { height: auto; min-height: 100%; overflow-x: hidden; overflow-y: visible; }
+    @media (max-width: 820px) { html, body, #root { height: auto; min-height: 100%; overflow-x: clip; overflow-y: visible; }
       body { overscroll-behavior-y: auto; }
       .container.dashboard-shell { display: block; height: auto; min-height: 100dvh; padding: 12px; overflow: visible; }
       .dashboard-results-scroll { width: 100%; min-width: 0; overflow: visible; padding: 0; }
@@ -723,14 +723,16 @@
       .mobile-feature-timeline-alert--delivery-overdue { border-left-color: #dc2626; background: #fef2f2; color: #991b1b; }
       .mobile-feature-timeline-alert--delivery-attention { border-left-color: #ca8a04; background: #fef9c3; color: #854d0e; }
       .mobile-feature-timeline-alert--delivery-needs-info { border-left-color: #ea580c; background: #fff7ed; color: #9a3412; }}
-    @media (max-width: 820px) { /* MobileWorkspaceControls es hermano de los resultados, no hijo del bloque fijo superior. Por eso puede permanecer
-        pegado durante todo el scroll natural de la página. */
-      .mobile-workspace-controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 500; isolation: isolate;
-        margin: 0 -12px 8px; padding: 8px 12px; border-top: 1px solid #dbe4ee; border-bottom: 1px solid #cbd5e1; background: rgba(248, 250, 252, 0.98);
-        box-shadow: 0 3px 8px rgba(15, 23, 42, 0.10); backdrop-filter: blur(8px); }
-      /* Deja suficiente espacio al navegar a una tarjeta mediante paginación, foco o scroll programático. */
-      .mobile-feature-card { scroll-margin-top: 102px; }
-      .dashboard-results-scroll { scroll-padding-top: 102px; }}
+    @media (max-width: 820px) {/* overflow-x: hidden puede crear un contenedor de scroll implícito y hacer que position: sticky deje de seguir el 
+      scroll real de la página. clip evita scroll horizontal sin crear ese contenedor.*/
+      html, body,#root { overflow-x: clip !important; overflow-y: visible !important; }
+      .container.dashboard-shell { overflow: visible !important; }
+      /* El control ya está correctamente renderizado como hermano de dashboard-fixed-content y dashboard-results-scroll.*/
+      .mobile-workspace-controls { position: -webkit-sticky; position: sticky; top: 0; z-index: 1000; width: calc(100% + 24px); margin: 0 -12px 8px;
+        padding: 8px 12px; border-top: 1px solid #dbe4ee; border-bottom: 1px solid #cbd5e1; background: rgba(248, 250, 252, 0.99);
+        box-shadow: 0 3px 8px rgba(15, 23, 42, 0.12); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+      /* Evita que una tarjeta enfocada mediante paginación o navegación programática termine oculta debajo de los controles sticky. */
+      .mobile-feature-card { scroll-margin-top: 105px; }}
           
   </style>
 </head>
