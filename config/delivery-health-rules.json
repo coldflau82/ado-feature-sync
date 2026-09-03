@@ -11,6 +11,9 @@
     ],
     "notStarted": [
       "New"
+    ],
+    "noActiveWork": [
+      "In Process"
     ]
   },
 
@@ -42,8 +45,6 @@
   "completed": [
     "Closed"
   ],
-
-  "noActiveWork": ["In Process"],
 
   "requiresEstimate": [
     "Ready for Development",
