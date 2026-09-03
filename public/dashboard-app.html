@@ -639,6 +639,7 @@
       .mobile-feature-card__action-icon svg { transform: rotate(180deg); }
       .mobile-story-timeline-card__metadata { gap: 4px 7px; line-height: 1.35; }
       .mobile-story-timeline-card__sprint { color: #1e3a8a; font-weight: 800; }
+      .mobile-story-timeline-card__rfv { color: #475569; font-weight: 700; }
       .mobile-story-timeline-card__timeline { position: relative; min-width: 0; margin-top: 10px; padding-bottom: 18px; }
       .mobile-story-timeline-card__scale { position: relative; display: flex; align-items: center; justify-content: space-between; height: 17px; color: #64748b;
         font-size: 9px; font-weight: 700; line-height: 1; }
@@ -2741,6 +2742,19 @@
                 ? ' pts'
                 : ''}
             </span>
+            
+            {story.releaseFixVersion && (
+              <>
+                <span>·</span>
+            
+                <span
+                  className="mobile-story-timeline-card__rfv"
+                  title={`Release Fix Version: ${story.releaseFixVersion}`}
+                >
+                  RFV {story.releaseFixVersion}
+                </span>
+              </>
+            )}
           </div>
     
           <div className="mobile-story-timeline-card__timeline">
