@@ -236,7 +236,6 @@
     .dashboard-kpis .health-overview-card { cursor: pointer; }
     .dashboard-kpis .health-overview-card:hover { border-color: #94a3b8; transform: translateY(-1px); }
     .dashboard-kpis .health-overview-card:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
-    .dashboard-kpis .readiness-overview-card__label, .dashboard-kpis .health-overview-card__label { display: block; min-height: 28px; margin: 0; font-size: 11px; line-height: 14px; font-weight: 700; white-space: normal; overflow-wrap: anywhere; }
     .dashboard-kpis .readiness-overview-card__count, .dashboard-kpis .health-overview-card__count { display: block; margin-top: 0; font-size: 22px; line-height: 22px; font-weight: 700; color: #1e293b; }
     .dashboard-kpis .readiness-overview-card--active { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.16); }
     .dashboard-kpis .readiness-overview-card--ready { background: #f0fdf4; border-color: #86efac; }
@@ -675,17 +674,16 @@
       .dashboard-kpi-group__title { display: none; }
       .dashboard-kpis .readiness-overview-card,.dashboard-kpis .health-overview-card { width: 100%; min-width: 0; height: 45px; min-height: 45px;
         padding: 6px 8px; border-radius: 6px; }
-      .dashboard-kpis .readiness-overview-card__label,.dashboard-kpis .health-overview-card__label { in-height: 0; font-size: 9px; line-height: 11px; }
       .dashboard-kpis .readiness-overview-card__count,.dashboard-kpis .health-overview-card__count { margin-top: 3px; font-size: 18px; line-height: 18px; }
-      .dashboard-kpis .readiness-overview-card--all { grid-column: span 2; min-height: 42px; height: 42px; }
+      .dashboard-kpis .readiness-overview-card--all { grid-column: auto; min-height: 45px; height: 45px; }
       /* El toolbar antiguo contenía la navegación mensual del roadmap. Se elimina del layout móvil. */
       .mobile-roadmap-toolbar { display: none !important; }
       /* El toolbar desktop original se conserva dentro de top-filters-bar, pero en móvil se sustituye por los controles sticky compactos. */
       .top-filters-bar { display: none; }
       /* Barra sticky móvil: navegación + filtros compactos */
-      .mobile-workspace-controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 500; isolation: isolate; margin: 0 -12px 8px; 
+      /*.mobile-workspace-controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 500; isolation: isolate; margin: 0 -12px 8px; 
         padding: 8px 12px; border-top: 1px solid #dbe4ee; border-bottom: 1px solid #cbd5e1;  background: rgba(248, 250, 252, 0.98); 
-        box-shadow: 0 3px 8px rgba(15, 23, 42, 0.10); backdrop-filter: blur(8px); }
+        box-shadow: 0 3px 8px rgba(15, 23, 42, 0.10); backdrop-filter: blur(8px); }*/
       .mobile-workspace-controls__navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
       .mobile-workspace-controls__nav-button { appearance: none; display: inline-flex; align-items: center; justify-content: center; min-height: 34px; 
         padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 5px; background: #ffffff; color: #475569; cursor: pointer; font-family: inherit;
@@ -725,15 +723,14 @@
       .mobile-feature-timeline-alert--delivery-overdue { border-left-color: #dc2626; background: #fef2f2; color: #991b1b; }
       .mobile-feature-timeline-alert--delivery-attention { border-left-color: #ca8a04; background: #fef9c3; color: #854d0e; }
       .mobile-feature-timeline-alert--delivery-needs-info { border-left-color: #ea580c; background: #fff7ed; color: #9a3412; }}
-    @media (max-width: 820px) {/* En móvil, display: contents elimina la caja visual/intermedia de .dashboard-fixed-content. 
-      Así MobileWorkspaceControls deja de estar limitado por la altura del header + filtros avanzados y puede 
-      mantenerse sticky durante todo el scroll de resultados. */
-      .dashboard-fixed-content { display: contents; }
-      .mobile-workspace-controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 500; }
-      /* Evita que, al navegar mediante paginación o al enfocar una tarjeta, el inicio de la card quede completamente debajo de la barra sticky. */
-      .mobile-feature-card { scroll-margin-top: 100px; }
-      /* Reserva una separación visual al comenzar resultados. También evita que el primer resultado parezca pegado o escondido bajo la barra. */
-      .dashboard-results-scroll { scroll-padding-top: 100px; } }
+    @media (max-width: 820px) { /* MobileWorkspaceControls es hermano de los resultados, no hijo del bloque fijo superior. Por eso puede permanecer
+        pegado durante todo el scroll natural de la página. */
+      .mobile-workspace-controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 500; isolation: isolate;
+        margin: 0 -12px 8px; padding: 8px 12px; border-top: 1px solid #dbe4ee; border-bottom: 1px solid #cbd5e1; background: rgba(248, 250, 252, 0.98);
+        box-shadow: 0 3px 8px rgba(15, 23, 42, 0.10); backdrop-filter: blur(8px); }
+      /* Deja suficiente espacio al navegar a una tarjeta mediante paginación, foco o scroll programático. */
+      .mobile-feature-card { scroll-margin-top: 102px; }
+      .dashboard-results-scroll { scroll-padding-top: 102px; }}
           
   </style>
 </head>
@@ -7046,51 +7043,6 @@
               </div>
             )}
 
-            <MobileWorkspaceControls
-              currentPage={currentPage}
-              onChangePage={setCurrentPage}
-              refreshing={refreshing}
-              onRefresh={() => loadFeatures(true)}
-              selectedFilterPreset={selectedFilterPreset}
-              onPresetChange={applyFilterPreset}
-              onSaveMyFilter={saveMyFilter}
-              searchInput={searchInput}
-              onSearchChange={(value) => {
-                markPresetAsCustom();
-                setSearchInput(value);
-              }}
-              readinessValue={readinessDropdownFilter}
-              onReadinessChange={(value) => {
-                markPresetAsCustom();
-            
-                setReadinessKpiFilter('All');
-                setHealthGroupKpiFilter('All');
-                setReadinessDropdownFilter(value);
-            
-                setFeaturesPage(1);
-                setRoadmapPage(1);
-                setExpandedFeatureId(null);
-                setExpandedRoadmapFeatureId(null);
-              }}
-              healthValue={healthRuleFilter}
-              onHealthChange={(value) => {
-                markPresetAsCustom();
-            
-                setReadinessKpiFilter('All');
-                setHealthGroupKpiFilter('All');
-                setHealthRuleFilter(value);
-            
-                setFeaturesPage(1);
-                setRoadmapPage(1);
-                setExpandedFeatureId(null);
-                setExpandedRoadmapFeatureId(null);
-              }}
-              activeAdvancedFiltersCount={activeAdvancedFiltersCount}
-              onOpenAdvancedFilters={() =>
-                setAreAdvancedFiltersOpen(true)
-              }
-            />
-
           <div className="top-filters-bar">
             <button type="button" className={`refresh-button ${
                 refreshing ? 'refresh-button--loading' : ''
@@ -7647,7 +7599,52 @@
               </span>
             </div>
           </div>
-        </div>
+        </div>   
+    
+       <MobileWorkspaceControls
+        currentPage={currentPage}
+        onChangePage={setCurrentPage}
+        refreshing={refreshing}
+        onRefresh={() => loadFeatures(true)}
+        selectedFilterPreset={selectedFilterPreset}
+        onPresetChange={applyFilterPreset}
+        onSaveMyFilter={saveMyFilter}
+        searchInput={searchInput}
+        onSearchChange={(value) => {
+          markPresetAsCustom();
+          setSearchInput(value);
+        }}
+        readinessValue={readinessDropdownFilter}
+        onReadinessChange={(value) => {
+          markPresetAsCustom();
+      
+          setReadinessKpiFilter('All');
+          setHealthGroupKpiFilter('All');
+          setReadinessDropdownFilter(value);
+      
+          setFeaturesPage(1);
+          setRoadmapPage(1);
+          setExpandedFeatureId(null);
+          setExpandedRoadmapFeatureId(null);
+        }}
+        healthValue={healthRuleFilter}
+        onHealthChange={(value) => {
+          markPresetAsCustom();
+      
+          setReadinessKpiFilter('All');
+          setHealthGroupKpiFilter('All');
+          setHealthRuleFilter(value);
+      
+          setFeaturesPage(1);
+          setRoadmapPage(1);
+          setExpandedFeatureId(null);
+          setExpandedRoadmapFeatureId(null);
+        }}
+        activeAdvancedFiltersCount={activeAdvancedFiltersCount}
+        onOpenAdvancedFilters={() =>
+          setAreAdvancedFiltersOpen(true)
+        }
+      />
         
         {/* Única zona con scroll vertical en desktop/tablet. El ref hace que scrollResultsToTop() funcione al paginar, cambiar filtros o cambiar entre Feature List / Roadmap. */}
         <main ref={resultsScrollRef} className="dashboard-results-scroll" >
