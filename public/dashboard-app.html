@@ -8148,7 +8148,6 @@
                     onToggle={() =>
                       toggleRoadmapFeature(feature.id)
                     }
-                    timelineOffset={timelineOffset}
                     stories={storiesCache[feature.id] || []}
                     loadingStories={
                       !!loadingStoriesIds[feature.id]
@@ -8158,6 +8157,8 @@
                     }
                     storyHistoryCache={storyHistoryCache}
                     loadingStoryHistoryIds={loadingStoryHistoryIds}
+                    featureHistory={historyCache[feature.id] || []}
+                    loadingFeatureHistory={loadingHistory}
                     weekOffset={weekOffset}
                   />
                 ))}
