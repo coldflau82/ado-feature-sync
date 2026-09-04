@@ -1943,7 +1943,7 @@ function buildDeliveryHealth(feature) {
   if (
     overdueRule.enabled &&
     isPastTargetDate(feature.targetDate) &&
-    openWorkItems > 0
+    inProgressWorkItems > 0
   ) {
     alerts.push(createRuleAlert('overdue'));
   }
