@@ -1639,12 +1639,13 @@ function mapRelationshipGraphWorkItem(workItem) {
 };
 }
 
-// ===== Crea un resumen unificado de Stories/Bugs para Delivery Health =====
-// Reglas:
-// totalWorkItems = includedWorkItems + removedWorkItems
-// includedWorkItems = doneWorkItems + inProgressWorkItems + pendingWorkItems
-// openWorkItems = inProgressWorkItems + pendingWorkItems
-// Removed no participa en delivery, progreso ni cobertura de estimación.
+/* ===== Crea un resumen unificado de Stories/Bugs para Delivery Health =====
+Reglas:
+totalWorkItems = includedWorkItems + removedWorkItems
+includedWorkItems = doneWorkItems + inProgressWorkItems + pendingWorkItems
+openWorkItems = inPlanningWorkItems + inProgressWorkItems
+Removed no participa en delivery, progreso ni cobertura de estimación.
+To Release cuenta como completado para porcentaje de progreso, aunque todavía sea trabajo abierto dentro del workflow.*/
 function buildDeliverySummary(workItems, source = 'ok', iterationsByPath = null) {
   const unknownSummary = {
     source: 'unknown',
@@ -1758,21 +1759,25 @@ function buildDeliverySummary(workItems, source = 'ok', iterationsByPath = null)
 
   const totalWorkItems = relevantWorkItems.length;
 
-  /*
-    To Release cuenta como completado para porcentaje de progreso,
-    aunque todavía sea trabajo abierto dentro del workflow.
-  */
+  /* To Release cuenta como completado para porcentaje de progreso, aunque todavía sea trabajo abierto dentro del workflow. */
   const completedForProgressWorkItems =
     toReleaseWorkItems +
     completedWorkItems;
 
-  /*
-    Open significa que el work item no está cerrado ni removido.
-  */
+  /* Open work significa que aún requiere planificación, desarrollo, pruebas o validación. To Release queda fuera porque representa
+  trabajo terminado, pendiente únicamente de despliegue. */
   const openWorkItems =
     inPlanningWorkItems +
     inProgressWorkItems;
-    /*toReleaseWorkItems;*/
+
+  /*Pending Release significa el trabajo que ya está completo por el equipo pero que sólo está esperando a ser movido a Producción*/
+  const pendingReleaseWorkItems =
+    toReleaseWorkItems;
+
+  /*No Close Work items, sera el trabajo que está pendiene por cerrar, ya sea Open o Pending to Release.*/
+  const nonClosedWorkItems =
+    openWorkItems +
+    pendingReleaseWorkItems;
 
   const progressPercent =
     includedWorkItems > 0
@@ -1811,7 +1816,7 @@ function buildDeliverySummary(workItems, source = 'ok', iterationsByPath = null)
     unestimatedWorkItems,
     discoveryWithoutSprintWorkItems,
 
-    /* Overdue sigue aplicando mientras exista trabajo no cerrado, incluyendo To Release. */
+    /* Indica trabajo pendiente de planificación o ejecución. To Release no participa porque no representa trabajo abierto. */
     workItemsPendingDelivery: openWorkItems > 0,
       executionTeams,
       currentSprintWorkItems,
