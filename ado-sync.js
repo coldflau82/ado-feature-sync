@@ -2388,7 +2388,9 @@ async function enrichFeaturesWithDeliverySummary(c, features, iterationsByPath =
       deliverySummary: buildDeliverySummary(deliveryWorkItems, 'ok', iterationsByPath)
     };
   });
-  /* Enriquecimiento de Aging para Features.
+ }
+
+/* Enriquecimiento de Aging para Features.
   Reglas:
   - Si Redis tiene el mismo estado actual y una fecha válida de entrada, no se consulta Azure DevOps.
   - Si el estado cambió o falta la entrada, se consulta /revisions.
