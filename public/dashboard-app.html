@@ -1369,7 +1369,6 @@
    /* Delivery Health:
       La fuente de verdad preferida es feature.deliveryHealth, calculada por el backend. El frontend solamente asigna color, icono y clases
       CSS para renderizarla.
-
       La lógica antigua basada en deliverySummary se conserva por ahora como fallback temporal para respuestas cacheadas antiguas. */
 
     function getDeliveryVisualMeta(key) {
@@ -1434,12 +1433,8 @@
       };
     }
 
-    /*
-      parseDashboardDate() se declara una sola vez al inicio del script.
-      Usa Luxon y dashboardTimeZone para interpretar fechas operativas
-      bajo America/Chicago.
-    */
-
+    /* parseDashboardDate() se declara una sola vez al inicio del script. Usa Luxon y dashboardTimeZone para interpretar fechas operativas
+      bajo America/Chicago.*/
     /* Delivery Health es calculado exclusivamente por el backend.
       El frontend solo:
       - asigna estilos, iconos y clases CSS;
@@ -4134,11 +4129,7 @@
           : '—';
       })();
 
-      /*
-        Incluye User Story y Simple User Story.
-        Si en el futuro ADO usa otro nombre que contenga "Story",
-        también conservará la interacción de Linked Items.
-      */
+      /* Incluye User Story y Simple User Story. Si en el futuro ADO usa otro nombre que contenga "Story", también conservará la interacción de Linked Items. */
       const isStoryLikeWorkItem =
         /story/i.test(
           String(story.workItemType || '')
@@ -7173,8 +7164,7 @@
     ]);
 
         function FeatureTooltipContent({ feature }) {
-        /*
-          Reutilizamos exactamente la lógica de display ya utilizada en la columna Iteration: tomar el último segmento del path.
+        /* Reutilizamos exactamente la lógica de display ya utilizada en la columna Iteration: tomar el último segmento del path.
           Area: Commercial Engineering\Digital\Acquisition\Global Product 1 → Global Product 1
           Iteration: Commercial Engineering\2026\Q4  → Q4 */
         const shortArea = feature.areaPath
