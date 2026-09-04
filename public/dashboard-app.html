@@ -189,11 +189,6 @@
     .feature-list-date-cell { font-size: 11px; }
     .feature-list-centered-cell { text-align: center; padding: 8px !important; }
     .feature-list-progress-cell { text-align: center; padding: 8px !important; white-space: normal !important; }
-    .feature-list-progress-label { font-size: 10px; color: #666; margin-bottom: 3px; white-space: nowrap; }
-    .feature-list-progress-track { height: 6px; width: 100%; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
-    .feature-list-progress-bar { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
-    .feature-list-progress-loading { font-size: 10px; color: #aaa; font-style: italic; }
-    .feature-list-progress-empty { font-size: 10px; color: #bbb; }
     /* Paneles de Readiness y Delivery Health. History ya no forma parte de Feature List. */
     .feature-detail-panel {   background: var(--surface-sunken); border: 1px solid var(--line-hairline);}
     .feature-detail-panel-message { padding: 10px 0; font-size: 12px; color: var(--text-tertiary); }
@@ -813,9 +808,26 @@
     @media (prefers-reduced-motion: reduce) {.mobile-workspace-controls__nav-button:active,.mobile-workspace-controls__refresh:active:not(:disabled),.mobile-workspace-controls__more-filters:active,
       .filters-card__clear-all-button:active:not(:disabled),.filters-card__save-my-filter:active,.relationship-retry-button:active,.relationship-show-all-button:active,
       .story-linked-items-button:active,.dashboard-results-state__action:active:not(:disabled) { transform: none; }}
-    
-
-    
+    /* ── Barra de progreso segmentada ───────────────────────────── */
+    .delivery-progress { display: grid; gap: 4px; min-width: 0; }
+    .delivery-progress__header { display: flex; align-items: baseline; justify-content: center; gap: 5px; }
+    .delivery-progress__percent { color: var(--text-primary); font-size: var(--step--1); font-weight: 700; }
+    .delivery-progress__ratio { color: var(--text-tertiary); font-size: var(--step--2); }
+    .delivery-progress__track { display: flex; gap: 1px; height: 7px; overflow: hidden; border-radius: var(--radius-chip); background: var(--line-hairline); }
+    .delivery-progress__segment { min-width: 3px; /* Cuando llega storiesCache, el backend summary puede ser refinado.
+      La transición hace que el cambio se perciba como el mismo objeto actualizándose, no como una barra completamente reemplazada. */
+      transition: flex-grow var(--response-ui) var(--ease-ui); }
+    /* Colores alineados con los estados ya utilizados por el Gantt: Closed = violeta; To Release = verde; In Progress = azul.
+    In Planning es gris estructural porque todavía no representa ejecución activa. */
+    .delivery-progress__segment--completed { background: #a78bfa; }
+    .delivery-progress__segment--to-release { background: #34d399; }
+    .delivery-progress__segment--in-progress { background: #60a5fa; }
+    .delivery-progress__segment--in-planning { background: var(--line-strong); }
+    .delivery-progress__flags { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+    .delivery-progress__flag { font-size: var(--step--2); font-weight: 700; line-height: 1.2; }
+    .delivery-progress__flag--warn { color: var(--warn); }
+    .delivery-progress__none { color: var(--text-tertiary); font-size: var(--step--2); }
+      
   </style>
 </head>
 <body>
@@ -3621,6 +3633,125 @@
       }
 
       return null;
+    }
+
+    /* Barra de entrega segmentada. Los segmentos conservan el mismo lenguaje visual del Gantt:
+    - Closed: violeta.
+    - To Release: verde.
+    - In Progress: azul.
+    - In Planning: gris.
+    La fuente puede cambiar silenciosamente de deliverySummary del backend a storiesCache, y flex-grow anima la proporción ajustada. */
+    function DeliveryProgressBar({
+      summary,
+      compact = false,
+      showFlags = true
+    }) {
+      /* Normalmente este caso sólo ocurrirá si el backend no envió deliverySummary o si los Stories/Bugs todavía no están disponibles. */
+      if (!summary) {
+        return (
+          <span className="delivery-progress__none">
+            Progress unavailable
+          </span>
+        );
+      }
+
+      if (!summary.includedWorkItems) {
+        return (
+          <span className="delivery-progress__none">
+            No work items
+          </span>
+        );
+      }
+
+      const total = summary.includedWorkItems;
+
+      const segments = [
+        {
+          key: 'completed',
+          label: 'Closed',
+          count: summary.completedWorkItems || 0
+        },
+        {
+          key: 'to-release',
+          label: 'Ready to release',
+          count: summary.toReleaseWorkItems || 0
+        },
+        {
+          key: 'in-progress',
+          label: 'In progress',
+          count: summary.inProgressWorkItems || 0
+        },
+        {
+          key: 'in-planning',
+          label: 'In planning',
+          count: summary.inPlanningWorkItems || 0
+        }
+      ].filter(segment => segment.count > 0);
+
+      const percent = Number.isInteger(summary.progressPercent)
+        ? summary.progressPercent
+        : 0;
+
+      const completedForProgress =
+        Number(summary.completedForProgressWorkItems) || 0;
+
+      const description = segments.length > 0
+        ? segments
+            .map(segment => `${segment.count} ${segment.label}`)
+            .join(', ')
+        : 'No categorized work items';
+
+      return (
+        <div className="delivery-progress">
+          {!compact && (
+            <div className="delivery-progress__header">
+              <span className="delivery-progress__percent">
+                {percent}%
+              </span>
+
+              <span className="delivery-progress__ratio">
+                {completedForProgress}/{total}
+              </span>
+            </div>
+          )}
+
+          <div
+            className="delivery-progress__track"
+            role="img"
+            aria-label={`Delivery progress: ${description}`}
+          >
+            {segments.map(segment => (
+              <span
+                key={segment.key}
+                className={[
+                  'delivery-progress__segment',
+                  `delivery-progress__segment--${segment.key}`
+                ].join(' ')}
+                style={{
+                  flexGrow: segment.count
+                }}
+                title={`${segment.count} ${segment.label}`}
+              />
+            ))}
+          </div>
+
+          {showFlags && (
+            <div className="delivery-progress__flags">
+              {summary.unestimatedWorkItems > 0 && (
+                <span className="delivery-progress__flag delivery-progress__flag--warn">
+                  {summary.unestimatedWorkItems} unestimated
+                </span>
+              )}
+
+              {summary.discoveryWithoutSprintWorkItems > 0 && (
+                <span className="delivery-progress__flag delivery-progress__flag--warn">
+                  {summary.discoveryWithoutSprintWorkItems} without Sprint
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      );
     }
 
     function getShortAssignedToName(value) {
@@ -8159,88 +8290,13 @@
                                   );
                                 })()}
                               </td>
-        
                               <td className="feature-list-progress-cell">
-                                {(() => {
-                                  /* Primero usa storiesCache si ya existe; de lo contrario usa f.deliverySummary, que llegó junto con /api/features. */
-                                  const summary =
-                                    getFeatureDeliverySummary(
-                                      f,
-                                      storiesCache
-                                    );
-
-                                  /* Sólo se muestra Loading si el backend no entregó deliverySummary y tampoco existe detalle local. Con el payload nuevo este
-                                    caso debería ser excepcional. */
-                                  if (!summary) {
-                                    if (loadingStoriesIds[f.id]) {
-                                      return (
-                                        <span className="feature-list-progress-loading">
-                                          Loading...
-                                        </span>
-                                      );
-                                    }
-
-                                    if (unavailableStoriesIds[f.id]) {
-                                      return (
-                                        <span className="feature-list-progress-empty">
-                                          Unavailable
-                                        </span>
-                                      );
-                                    }
-
-                                    return (
-                                      <span className="feature-list-progress-empty">
-                                        —
-                                      </span>
-                                    );
-                                  }
-
-                                  const completedForProgress =
-                                    Number(
-                                      summary.completedForProgressWorkItems
-                                    ) || 0;
-
-                                  const total =
-                                    Number(summary.includedWorkItems) || 0;
-
-                                  const pct = Math.max(
-                                    0,
-                                    Math.min(
-                                      100,
-                                      Number(summary.progressPercent) || 0
-                                    )
-                                  );
-
-                                  const barColor =
-                                    pct === 100
-                                      ? '#34d399'
-                                      : pct >= 50
-                                        ? '#60a5fa'
-                                        : '#fbbf24';
-
-                                  return (
-                                    <div
-                                      title={
-                                        `${completedForProgress} of ${total} ` +
-                                        'Stories and Bugs completed for delivery progress'
-                                      }
-                                    >
-                                      <div className="feature-list-progress-label">
-                                        {completedForProgress}/{total} ({pct}%)
-                                      </div>
-
-                                      <div className="feature-list-progress-track">
-                                        <div
-                                          className="feature-list-progress-bar"
-                                          style={{
-                                            width: `${pct}%`,
-                                            background: barColor
-                                          }}
-                                        />
-                                      </div>
-                                    </div>
-                                  );
-                                })()}
+                                <DeliveryProgressBar
+                                  summary={getFeatureDeliverySummary(
+                                    f,
+                                    storiesCache
+                                  )}
+                                />
                               </td>
                             </tr>
         
