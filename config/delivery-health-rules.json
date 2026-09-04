@@ -77,8 +77,8 @@
       "group": "requires-action",
       "label": "Overdue",
       "shortLabel": "Overdue",
-      "reason": "The Target Date has passed and delivery work remains open.",
-      "recommendedAction": "Review delivery plan, remaining scope, dependencies, and Target Date."
+      "reason": "The Target Date has passed and one or more Stories or Bugs are still in progress.",
+      "recommendedAction": "Review active delivery work, remaining scope, dependencies, and Target Date."
     },
 
     "targetDateNearUnscheduledDiscovery": {
@@ -104,8 +104,8 @@
       "group": "requires-attention",
       "label": "Closed w/open work",
       "shortLabel": "Closed w/open work",
-      "reason": "The Feature is Closed, but associated delivery work is still open or in progress.",
-      "recommendedAction": "Reconcile Feature status with remaining open Stories and Bugs."
+      "reason": "The Feature is Closed, but associated delivery work is still in planning or in progress.",
+      "recommendedAction": "Reconcile the Feature status with the remaining Stories and Bugs requiring delivery work."
     },
 
     "needsEstimate": {
