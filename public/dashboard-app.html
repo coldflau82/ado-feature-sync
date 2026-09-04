@@ -844,7 +844,7 @@
     .feature-list-date-cell:has(.target-cell--overdue) { overflow: visible; }
     /* ── Release Fix Version compacto en Feature List ──────────── */
     .release-fix-version-cell { display: grid; gap: 1px; min-width: 0; color: var(--text-secondary); font-size: var(--step--2); font-weight: 700; line-height: 1.2; text-align: left; }
-    /* Cada tramo no se vuelve a cortar: ReleaseFixVersionCell ya divide el valor exactamente después de los primeros 13 caracteres. */
+    /* Cada tramo no se vuelve a cortar: ReleaseFixVersionCell ya divide el valor exactamente después de los primeros 12 caracteres. */
     .release-fix-version-cell__line { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .release-fix-version-cell__empty { color: var(--text-tertiary); font-size: var(--step--1); }
     /* ── Target Date compacto en cards móviles ─────────────────── */
@@ -1086,8 +1086,8 @@
         );
       }
 
-      const firstLine = releaseFixVersion.slice(0, 13);
-      const secondLine = releaseFixVersion.slice(13);
+      const firstLine = releaseFixVersion.slice(0, 12);
+      const secondLine = releaseFixVersion.slice(12);
 
       return (
         <span
