@@ -1771,8 +1771,8 @@ function buildDeliverySummary(workItems, source = 'ok', iterationsByPath = null)
   */
   const openWorkItems =
     inPlanningWorkItems +
-    inProgressWorkItems +
-    toReleaseWorkItems;
+    inProgressWorkItems;
+    /*toReleaseWorkItems;*/
 
   const progressPercent =
     includedWorkItems > 0
