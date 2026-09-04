@@ -171,10 +171,10 @@
     .feature-list-col--id { width: 7%; }
     .feature-list-col--title { width: 26%; }
     .feature-list-col--priority { width: 5%; }
-    .feature-list-col--target-date { width: 7%; }
-    .feature-list-col--planned-month { width: 8%; }
+    .feature-list-col--target-date { width:11%; }
+    .feature-list-col--release-fix-version { width: 8%; }
     .feature-list-col--estimate { width: 4%; }
-    .feature-list-col--state { width: 10%; }
+    .feature-list-col--state { width: 8%; }
     .feature-list-col--readiness { width: 11%; }
     .feature-list-col--delivery { width: 12%; }
     .feature-list-col--progress { width: 10%; }
@@ -842,7 +842,28 @@
     .target-cell--overdue::before { content: ''; position: absolute; top: -6px; bottom: -6px; left: -9px; width: 2px; border-radius: 1px; background: var(--risk); }
     /* Permite que el marcador de atraso se proyecte fuera de la celda sin afectar el resto de las columnas de la tabla. */
     .feature-list-date-cell:has(.target-cell--overdue) { overflow: visible; }
-    
+    /* ── Release Fix Version compacto en Feature List ──────────── */
+    .release-fix-version-cell { display: grid; gap: 1px; min-width: 0; color: var(--text-secondary); font-size: var(--step--2); font-weight: 700; line-height: 1.2; text-align: left; }
+    /* Cada tramo no se vuelve a cortar: ReleaseFixVersionCell ya divide el valor exactamente después de los primeros 13 caracteres. */
+    .release-fix-version-cell__line { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .release-fix-version-cell__empty { color: var(--text-tertiary); font-size: var(--step--1); }
+    /* ── Target Date compacto en cards móviles ─────────────────── */
+    .mobile-target-date { display: inline-flex; align-items: baseline; flex-wrap: wrap; column-gap: 4px; row-gap: 1px; min-width: 0; white-space: normal; }
+    .mobile-target-date__date { color: var(--text-secondary); font-size: var(--step--1); font-weight: 700; line-height: 1.2; white-space: nowrap; }
+    .mobile-target-date__separator { color: var(--text-tertiary); font-size: var(--step--2); font-weight: 700; line-height: 1; }
+    .mobile-target-date__delta { font-size: var(--step--2); font-weight: 800; line-height: 1.25; white-space: nowrap; }
+    .mobile-target-date--overdue .mobile-target-date__delta,.mobile-target-date--today .mobile-target-date__delta { color: var(--risk); }
+    .mobile-target-date--near .mobile-target-date__delta { color: var(--warn); }
+    .mobile-target-date--ok .mobile-target-date__delta { color: var(--text-tertiary); }
+    .mobile-target-date--done .mobile-target-date__delta { color: var(--ok); }
+    .mobile-target-date--none { color: var(--text-tertiary); }
+    /* ── Grilla compacta de información en Mobile Feature Card ─── */
+    .mobile-feature-card__info-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); gap: 10px 14px; }
+    .mobile-feature-card__info-item { min-width: 0; }
+    .mobile-feature-card__info-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    /* RFV puede contener identificadores largos. En móvil se permite partir en puntos naturales sin ensanchar o romper la card.*/
+    .mobile-feature-card__rfv { display: block; overflow: hidden; text-overflow: ellipsis; overflow-wrap: anywhere; white-space: normal; }
+            
   </style>
 </head>
 <body>
@@ -1000,6 +1021,90 @@
             </span>
           )}
         </div>
+      );
+    }
+
+    /* Versión compacta de Target Date para cards móviles. Reutiliza exactamente getTargetDateStatus(), por lo que desktop y
+      móvil no pueden calcular distinto el estado de una misma fecha. */
+    /* Target Date compacto para cards móviles. La fecha absoluta y el estado relativo comparten la misma línea:
+      10/03/2026 · 3 days overdue
+      getTargetDateStatus() sigue siendo la única fuente de verdad para desktop y móvil; sólo cambia la presentación visual. */
+    function MobileTargetDateValue({
+      targetDate,
+      featureState,
+      formatDate
+    }) {
+      const status = getTargetDateStatus(
+        targetDate,
+        featureState
+      );
+
+      if (status.days === null) {
+        return (
+          <span className="mobile-feature-card__info-value mobile-target-date--none">
+            No target date
+          </span>
+        );
+      }
+
+      return (
+        <span
+          className={[
+            'mobile-feature-card__info-value',
+            'mobile-target-date',
+            `mobile-target-date--${status.tone}`
+          ].join(' ')}
+          title={`${formatDate(targetDate)} · ${status.text}`}
+        >
+          <span className="mobile-target-date__date">
+            {formatDate(targetDate)}
+          </span>
+
+          <span
+            className="mobile-target-date__separator"
+            aria-hidden="true"
+          >
+            ·
+          </span>
+
+          <span className="mobile-target-date__delta">
+            {status.text}
+          </span>
+        </span>
+      );
+    }
+
+    /* La columna de Release Fix Version está diseñada para permanecer compacta.*/
+    function ReleaseFixVersionCell({ value }) {
+      const releaseFixVersion = String(value || '').trim();
+
+      if (!releaseFixVersion) {
+        return (
+          <span className="release-fix-version-cell__empty">
+            —
+          </span>
+        );
+      }
+
+      const firstLine = releaseFixVersion.slice(0, 13);
+      const secondLine = releaseFixVersion.slice(13);
+
+      return (
+        <span
+          className="release-fix-version-cell"
+          title={releaseFixVersion}
+          aria-label={`Release Fix Version: ${releaseFixVersion}`}
+        >
+          <span className="release-fix-version-cell__line">
+            {firstLine}
+          </span>
+
+          {secondLine && (
+            <span className="release-fix-version-cell__line">
+              {secondLine}
+            </span>
+          )}
+        </span>
       );
     }
 
@@ -2350,19 +2455,6 @@
     
             <div className="mobile-feature-card__info-item">
               <span className="mobile-feature-card__info-label">
-                Planned Month
-              </span>
-    
-              <span
-                className="mobile-feature-card__info-value"
-                title={feature.plannedMonth || 'Not assigned'}
-              >
-                {feature.plannedMonth || '—'}
-              </span>
-            </div>
-    
-            <div className="mobile-feature-card__info-item">
-              <span className="mobile-feature-card__info-label">
                 Estimates
               </span>
     
@@ -2377,23 +2469,12 @@
               <span className="mobile-feature-card__info-label">
                 Target Date
               </span>
-    
-              <span className="mobile-feature-card__info-value">
-                {formatDate(feature.targetDate)}
-              </span>
-            </div>
-    
-            <div className="mobile-feature-card__info-item">
-              <span className="mobile-feature-card__info-label">
-                Tech Go Live RFV
-              </span>
-    
-              <span
-                className="mobile-feature-card__info-value"
-                title={feature.techGoLiveRFV || 'Not assigned'}
-              >
-                {feature.techGoLiveRFV || '—'}
-              </span>
+
+              <MobileTargetDateValue
+                targetDate={feature.targetDate}
+                featureState={feature.state}
+                formatDate={formatDate}
+              />
             </div>
     
             <div className="mobile-feature-card__info-item">
@@ -8116,7 +8197,7 @@
                     <col className="feature-list-col--priority" />
                     <col className="feature-list-col--id" />
                     <col className="feature-list-col--title" />
-                    <col className="feature-list-col--target-date" />
+                    <col className="feature-list-col--release-fix-version" />
                     <col className="feature-list-col--planned-month" />
                     <col className="feature-list-col--estimate" />
                     <col className="feature-list-col--estimate" />
@@ -8209,7 +8290,7 @@
                           : ''}
                       </th>
         
-                      <th>Planned Month</th>
+                      <thth title="Release Fix Version">RFV</th>
                       <th>BE</th>
                       <th>FE</th>
                       <th>QA</th>
@@ -8367,7 +8448,8 @@
                               </td>
         
                               <td className="feature-list-date-cell">
-                                {f.plannedMonth || '-'}
+                                <ReleaseFixVersionCell value={f.releaseFixVersion}
+                                />
                               </td>
         
                               <td>{f.estimation?.be || '-'}</td>
