@@ -202,7 +202,7 @@
     .feature-story-card__release-fix-version { min-width: 0; max-width: 100%; color: #475569; font-size: 10px; line-height: 1.3; overflow-wrap: anywhere; }
     .delivery-details { margin: 0; } 
     /* Contenedor de Stories and Bugs:Agrupa filtros y resultados directos de una Feature en una misma superficie visual, separada de Feature Status y Delivery Activity. */
-    .feature-work-items-panel { min-width: 0; padding: 12px; border: 1px solid #dbe4ee; border-radius: 7px; background: #ffffff;}
+    .feature-work-items-panel { min-width: 0; padding: 12px; border-radius: 7px; background: var(--surface-raised); border: 1px solid var(--line-hairline); }
     .feature-work-items-panel__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0;}
     .feature-work-items-panel__heading { min-width: 0;}
     .feature-work-items-panel__title { display: block; color: #1e293b; font-size: 13px; font-weight: 700; line-height: 1.35;}
@@ -474,7 +474,8 @@
     .feature-readiness-summary__message--missing { color: #b91c1c; }
     .feature-readiness-summary__message--unknown { color: #475569; }
     .feature-detail-panel__divider { height: 1px; margin: 14px 0; background: #dbe4ee; }
-    .dashboard-interaction-hint { margin: 8px 0; padding: 7px 10px; border: 1px solid #dbe4ee; border-radius: 6px; background: #f8fafc; color: #475569; font-size: 11px; line-height: 1.4; }
+    .dashboard-interaction-hint { margin: 8px 0; padding: 7px 10px; border-radius: 6px; font-size: 11px; line-height: 1.4; background: var(--surface-sunken);
+      color: var(--text-secondary); border: 1px solid var(--line-hairline); }
     .dashboard-interaction-hint strong { color: #1e3a8a;}
     /* Estados visibles del área principal de resultados: loading; sin resultados por filtros; sin Features disponibles; error de carga. Se reutilizan tanto para Feature List como para Roadmap. */
     .dashboard-results-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 260px;
@@ -496,7 +497,7 @@
        2. Delivery Activity: equipos y actividad de Sprint. */
     .delivery-details__overview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: stretch; margin-bottom: 12px; }
     /* Tarjeta unificada de Readiness y Delivery Health. */
-    .feature-status-details { min-width: 0; padding: 12px; border: 1px solid #dbe4ee; border-radius: 7px; background: #ffffff;}
+    .feature-status-details { min-width: 0; padding: 12px; border-radius: 7px; background: var(--surface-raised); border: 1px solid var(--line-hairline); }
     .feature-status-details__section { min-width: 0;}
     .feature-status-details__section + .feature-status-details__section { margin-top: 11px; padding-top: 11px; border-top: 1px solid #e5edf5;}
     /* El título y el status viven en una misma línea. */
@@ -510,7 +511,7 @@
     .feature-status-details .readiness-badge__label,.feature-status-details .delivery-badge__label { overflow: visible; text-overflow: clip; white-space: normal;}
     .feature-status-details .readiness-badge__icon,.feature-status-details .delivery-badge__icon { width: 16px; height: 16px; flex: 0 0 16px; font-size: 10px;}
     /* Delivery Activity conserva su propia tarjeta y ahora tiene el mismo peso visual que Feature Status. */
-    .delivery-activity { min-width: 0; padding: 12px; border: 1px solid #dbe4ee; border-radius: 7px; background: #ffffff;}
+    .delivery-activity { min-width: 0; padding: 12px; border-radius: 7px; background: var(--surface-raised); border: 1px solid var(--line-hairline); }
     .delivery-activity__title { display: block; margin-bottom: 9px; color: #1e293b; font-size: 12px; font-weight: 700;}
     .delivery-activity__responsible-team { margin-bottom: 9px; color: #475569; font-size: 11px; line-height: 1.45; overflow-wrap: anywhere;}
     .delivery-activity__teams { display: flex; flex-wrap: wrap; gap: 6px;}
