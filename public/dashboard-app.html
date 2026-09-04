@@ -6652,7 +6652,31 @@
             else if (sortColumn === 'state') { valA = (a.state || '').toLowerCase(); valB = (b.state || '').toLowerCase(); }
             else if (sortColumn === 'targetDate') { valA = (a.targetDate || ''); valB = (b.targetDate || ''); }
             else if (sortColumn === 'assignedTo') { valA = (a.assignedTo || '').toLowerCase(); valB = (b.assignedTo || '').toLowerCase(); }
-            else if (sortColumn === 'readiness') { const readinessOrder = { 'Incomplete': 1, 'Unknown': 2, 'Healthy': 3 }; valA = readinessOrder[getFeatureReadiness(a)] || 4; valB = readinessOrder[getFeatureReadiness(b)] || 4; }
+            else if (sortColumn === 'readiness') { const readinessOrder = 
+              { 'Incomplete': 1, 'Unknown': 2, 'Healthy': 3 }; 
+              valA = readinessOrder[getFeatureReadiness(a)] || 4; 
+              valB = readinessOrder[getFeatureReadiness(b)] || 4; 
+            }
+            else if (sortColumn === 'deliveryHealth') {
+            /* Orden operativo, de mayor a menor urgencia:
+              1. Requires Action
+              2. Requires Attention
+              3. Unable to evaluate
+              4. Not started
+              5. Healthy
+              Una Feature puede tener múltiples alertas. Por eso se usa getDeliveryHealthGroups(), no sólo el badge primary. */
+              const getDeliveryHealthSortRank = (feature) => {
+                const groups = getDeliveryHealthGroups(feature);
+                if (groups.has('requires-action')) { return 1; }
+                if (groups.has('requires-attention')) { return 2; }
+                if (groups.has('unable-to-evaluate')) { return 3; }
+                if (groups.has('not-started')) { return 4; }
+                if (groups.has('healthy')) { return 5; }
+                return 6;
+              };
+              valA = getDeliveryHealthSortRank(a);
+              valB = getDeliveryHealthSortRank(b);
+            }
             if (sortOrder === 'asc') return valA < valB ? -1 : valA > valB ? 1 : 0;
             else return valA > valB ? -1 : valA < valB ? 1 : 0;
           });
@@ -8197,11 +8221,14 @@
                     <col className="feature-list-col--priority" />
                     <col className="feature-list-col--id" />
                     <col className="feature-list-col--title" />
+
+                    <col className="feature-list-col--target-date" />
                     <col className="feature-list-col--release-fix-version" />
-                    <col className="feature-list-col--planned-month" />
+
                     <col className="feature-list-col--estimate" />
                     <col className="feature-list-col--estimate" />
                     <col className="feature-list-col--estimate" />
+
                     <col className="feature-list-col--state" />
                     <col className="feature-list-col--readiness" />
                     <col className="feature-list-col--delivery" />
@@ -8338,8 +8365,31 @@
                           : ''}
                       </th>
         
-                      <th style={{ textAlign: 'center' }}>
-                        Delivery Health
+                      <th
+                        style={{
+                          textAlign: 'center',
+                          cursor: 'pointer'
+                        }}
+                        title="Sort by Delivery Health priority"
+                        onClick={() => {
+                          setSortColumn('deliveryHealth');
+
+                          setSortOrder(
+                            sortColumn === 'deliveryHealth' &&
+                            sortOrder === 'asc'
+                              ? 'desc'
+                              : 'asc'
+                          );
+
+                          setFeaturesPage(1);
+                        }}
+                      >
+                        Delivery Health{' '}
+                        {sortColumn === 'deliveryHealth'
+                          ? sortOrder === 'asc'
+                            ? '▲'
+                            : '▼'
+                          : ''}
                       </th>
         
                       <th style={{ textAlign: 'center' }}>
