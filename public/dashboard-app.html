@@ -797,7 +797,7 @@
     .disclosure-button,.sortable-header__button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     .disclosure-button:active,.sortable-header__button:active { transform: scale(0.985); transition: transform var(--press) ease-out; }
     /* Preparación para migrar RoadmapLegend, que hoy utiliza estilos inline. Esta clase no tendrá efecto hasta que RoadmapLegend use: <div className="gantt-legend"> */
-    .gantt-legend { margin-bottom: 8px; padding: px 12px; background: var(--surface-chrome); border: 1px solid var(--line-hairline); border-radius: var(--radius-card); box-shadow: var(--shadow-card);
+    .gantt-legend { margin-bottom: 8px; padding: 7px 12px; background: var(--surface-chrome); border: 1px solid var(--line-hairline); border-radius: var(--radius-card); box-shadow: var(--shadow-card);
       backdrop-filter: blur(18px) saturate(180%); -webkit-backdrop-filter: blur(18px) saturate(180%); }
     /* Variante sólida para usuarios que solicitan menos transparencia. Se mantiene aunque .gantt-legend todavía no esté montado. */
     @media (prefers-reduced-transparency: reduce) { .gantt-legend { background: var(--surface-raised); backdrop-filter: none; -webkit-backdrop-filter: none; }}
@@ -2329,34 +2329,44 @@
     }
 
     function MobileFeatureProgress({
-      featureId,
+      feature,
       storiesCache,
       loadingStoriesIds,
       unavailableStoriesIds
     }) {
-      if (loadingStoriesIds[featureId]) {
-        return (
-          <div className="mobile-feature-card__progress">
-            <div className="mobile-feature-card__progress-heading">
-              <span>Progress</span>
-              <span>Loading Stories and Bugs...</span>
-            </div>
-          </div>
-        );
-      }
+      const featureId = feature.id;
 
-      if (unavailableStoriesIds[featureId]) {
-        return (
-          <div className="mobile-feature-card__progress">
-            <div className="mobile-feature-card__progress-heading">
-              <span>Progress</span>
-              <span>Unavailable</span>
-            </div>
-          </div>
-        );
-      }
+      /* El resumen del servidor permite pintar Progress desde el primer render. Si después llega storiesCache, getFeatureDeliverySummary()
+        prioriza ese detalle local y refina el valor sin parpadeos. */
+      const summary = getFeatureDeliverySummary(
+        feature,
+        storiesCache
+      );
 
-      if (!storiesCache[featureId]) {
+      /* Si no existe ni detalle local ni deliverySummary del backend, sí conservamos los estados anteriores como fallback visual. */
+      if (!summary) {
+        if (loadingStoriesIds[featureId]) {
+          return (
+            <div className="mobile-feature-card__progress">
+              <div className="mobile-feature-card__progress-heading">
+                <span>Progress</span>
+                <span>Loading Stories and Bugs...</span>
+              </div>
+            </div>
+          );
+        }
+
+        if (unavailableStoriesIds[featureId]) {
+          return (
+            <div className="mobile-feature-card__progress">
+              <div className="mobile-feature-card__progress-heading">
+                <span>Progress</span>
+                <span>Unavailable</span>
+              </div>
+            </div>
+          );
+        }
+
         return (
           <div className="mobile-feature-card__progress">
             <div className="mobile-feature-card__progress-heading">
@@ -2367,15 +2377,19 @@
         );
       }
 
-      const summary = getWorkItemsDeliverySummary(
-        storiesCache[featureId]
-      );
+      const completedForProgress =
+        Number(summary.completedForProgressWorkItems) || 0;
 
-      const completedForProgress = summary.completedForProgressWorkItems;
-      
-      const total = summary.includedWorkItems;
-      
-      const percent = summary.progressPercent;
+      const total =
+        Number(summary.includedWorkItems) || 0;
+
+      const percent = Math.max(
+        0,
+        Math.min(
+          100,
+          Number(summary.progressPercent) || 0
+        )
+      );
 
       const barColor = percent === 100
         ? '#34d399'
@@ -2387,6 +2401,7 @@
         <div className="mobile-feature-card__progress">
           <div className="mobile-feature-card__progress-heading">
             <span>Progress</span>
+
             <span>
               {completedForProgress}/{total} ({percent}%)
             </span>
@@ -2406,257 +2421,257 @@
     }
 
     function MobileFeatureActivityTimeline({
-  feature,
-  states,
-  loading,
-  timelineStart,
-  timelineEnd
-}) {
-  const stateColors = {
-    New: '#94a3b8',
-    'In Shaping': '#fbbf24',
-    'In Planning': '#fb923c',
-    Planned: '#34d399',
-    'In Process': '#60a5fa',
-    Closed: '#a78bfa'
-  };
-
-  const today = getDashboardToday();
-
-  const totalTimelineDays =
-    (timelineEnd - timelineStart) /
-    (1000 * 60 * 60 * 24);
-
-  const getPercent = (date) => {
-    const daysFromStart =
-      (date - timelineStart) /
-      (1000 * 60 * 60 * 24);
-
-    return (daysFromStart / totalTimelineDays) * 100;
-  };
-
-  const formatTimelineDate = (date) =>
-    DateTime
-      .fromJSDate(date)
-      .setZone(dashboardTimeZone)
-      .setLocale('en-US')
-      .toLocaleString({
-        month: 'short',
-        day: 'numeric'
-      });
-
-  const segments = [];
-
-  if (!loading && Array.isArray(states) && states.length > 0) {
-    states.forEach((stateChange, index) => {
-      const stateStart = parseDashboardDate(
-        stateChange.changedDate
-      );
-
-      const stateEnd = index === states.length - 1
-        ? today
-        : parseDashboardDate(
-            states[index + 1].changedDate
+      feature,
+      states,
+      loading,
+      timelineStart,
+      timelineEnd
+    }) {
+      const stateColors = {
+        New: '#94a3b8',
+        'In Shaping': '#fbbf24',
+        'In Planning': '#fb923c',
+        Planned: '#34d399',
+        'In Process': '#60a5fa',
+        Closed: '#a78bfa'
+      };
+    
+      const today = getDashboardToday();
+    
+      const totalTimelineDays =
+        (timelineEnd - timelineStart) /
+        (1000 * 60 * 60 * 24);
+    
+      const getPercent = (date) => {
+        const daysFromStart =
+          (date - timelineStart) /
+          (1000 * 60 * 60 * 24);
+    
+        return (daysFromStart / totalTimelineDays) * 100;
+      };
+    
+      const formatTimelineDate = (date) =>
+        DateTime
+          .fromJSDate(date)
+          .setZone(dashboardTimeZone)
+          .setLocale('en-US')
+          .toLocaleString({
+            month: 'short',
+            day: 'numeric'
+          });
+    
+      const segments = [];
+    
+      if (!loading && Array.isArray(states) && states.length > 0) {
+        states.forEach((stateChange, index) => {
+          const stateStart = parseDashboardDate(
+            stateChange.changedDate
           );
-
-      if (!stateStart || !stateEnd) {
-        return;
-      }
-
-      const rawStart = getPercent(stateStart);
-      const rawEnd = getPercent(stateEnd);
-
-      if (rawStart < 100 && rawEnd > 0) {
-        const startPercent = Math.max(0, rawStart);
-        const endPercent = Math.min(100, rawEnd);
-
-        segments.push({
-          state: stateChange.state,
-          color:
-            stateColors[stateChange.state] || '#94a3b8',
-          startPercent,
-          widthPercent: Math.max(
-            1,
-            endPercent - startPercent
-          )
+    
+          const stateEnd = index === states.length - 1
+            ? today
+            : parseDashboardDate(
+                states[index + 1].changedDate
+              );
+    
+          if (!stateStart || !stateEnd) {
+            return;
+          }
+    
+          const rawStart = getPercent(stateStart);
+          const rawEnd = getPercent(stateEnd);
+    
+          if (rawStart < 100 && rawEnd > 0) {
+            const startPercent = Math.max(0, rawStart);
+            const endPercent = Math.min(100, rawEnd);
+    
+            segments.push({
+              state: stateChange.state,
+              color:
+                stateColors[stateChange.state] || '#94a3b8',
+              startPercent,
+              widthPercent: Math.max(
+                1,
+                endPercent - startPercent
+              )
+            });
+          }
         });
       }
-    });
-  }
-
-  const rawTodayPercent = getPercent(today);
-
-  const todayPercent = Math.max(
-    0,
-    Math.min(100, rawTodayPercent)
-  );
-
-  const todayLabelPercent = Math.max(
-    8,
-    Math.min(92, todayPercent)
-  );
-
-  const visibleTimelineEnd = DateTime
-    .fromJSDate(timelineEnd)
-    .setZone(dashboardTimeZone)
-    .minus({ days: 1 })
-    .toJSDate();
-
-  return (
-    <section
-      className="mobile-feature-activity"
-      aria-label={`Feature activity timeline for Feature ${feature.id}`}
-    >
-      <strong className="mobile-feature-activity__heading">
-        Feature activity
-      </strong>
-
-      <div className="mobile-feature-activity__timeline">
-        <div className="mobile-feature-activity__scale">
-          <span>{formatTimelineDate(timelineStart)}</span>
-          <span>{formatTimelineDate(visibleTimelineEnd)}</span>
-        </div>
-
-        <div className="mobile-feature-activity__track">
-          {!loading &&
-            segments.map((segment, index) => (
+    
+      const rawTodayPercent = getPercent(today);
+    
+      const todayPercent = Math.max(
+        0,
+        Math.min(100, rawTodayPercent)
+      );
+    
+      const todayLabelPercent = Math.max(
+        8,
+        Math.min(92, todayPercent)
+      );
+    
+      const visibleTimelineEnd = DateTime
+        .fromJSDate(timelineEnd)
+        .setZone(dashboardTimeZone)
+        .minus({ days: 1 })
+        .toJSDate();
+    
+      return (
+        <section
+          className="mobile-feature-activity"
+          aria-label={`Feature activity timeline for Feature ${feature.id}`}
+        >
+          <strong className="mobile-feature-activity__heading">
+            Feature activity
+          </strong>
+    
+          <div className="mobile-feature-activity__timeline">
+            <div className="mobile-feature-activity__scale">
+              <span>{formatTimelineDate(timelineStart)}</span>
+              <span>{formatTimelineDate(visibleTimelineEnd)}</span>
+            </div>
+    
+            <div className="mobile-feature-activity__track">
+              {!loading &&
+                segments.map((segment, index) => (
+                  <span
+                    key={`${segment.state}-${index}`}
+                    className="mobile-feature-activity__segment"
+                    style={{
+                      left: `${segment.startPercent}%`,
+                      width: `${segment.widthPercent}%`,
+                      background: segment.color
+                    }}
+                    title={segment.state}
+                  />
+                ))}
+    
+              {!loading && (
+                <span
+                  className="mobile-feature-activity__today"
+                  style={{
+                    left: `${todayPercent}%`
+                  }}
+                  title="Today"
+                />
+              )}
+            </div>
+    
+            {!loading && (
               <span
-                key={`${segment.state}-${index}`}
-                className="mobile-feature-activity__segment"
+                className="mobile-feature-activity__today-label"
                 style={{
-                  left: `${segment.startPercent}%`,
-                  width: `${segment.widthPercent}%`,
-                  background: segment.color
+                  left: `${todayLabelPercent}%`
                 }}
-                title={segment.state}
-              />
-            ))}
-
-          {!loading && (
-            <span
-              className="mobile-feature-activity__today"
-              style={{
-                left: `${todayPercent}%`
-              }}
-              title="Today"
-            />
-          )}
-        </div>
-
-        {!loading && (
-          <span
-            className="mobile-feature-activity__today-label"
-            style={{
-              left: `${todayLabelPercent}%`
-            }}
-          >
-            Today
-          </span>
-        )}
-      </div>
-
-      {loading ? (
-        <span className="mobile-feature-activity__empty">
-          Loading Feature activity...
-        </span>
-      ) : segments.length === 0 ? (
-        <span className="mobile-feature-activity__empty">
-          No Feature timeline history available.
-        </span>
-      ) : null}
-    </section>
-  );
-}
-
-  function MobileFeatureTimelineAlerts({ feature }) {
-    const readiness = getFeatureReadiness(feature);
-  
-    const missingChecks =
-      getFeatureReadinessMissingChecks(feature);
-  
-    const unknownChecks =
-      getFeatureReadinessUnknownChecks(feature);
-  
-    const readinessDetails =
-      readiness === 'Incomplete'
-        ? missingChecks
-            .map(check => readinessCheckLabels[check] || check)
-            .join(', ')
-        : readiness === 'Unknown'
-          ? unknownChecks
-              .map(check => readinessCheckLabels[check] || check)
-              .join(', ')
-          : '';
-  
-    const deliveryAlerts = getDeliveryHealthAlerts(feature)
-      .filter(alert => {
-        /*
-          Healthy y Not started son estados informativos:
-          no agregan ruido debajo del timeline.
-        */
-        return (
-          alert.key !== 'healthy' &&
-          alert.key !== 'not-started'
-        );
-      });
-  
-    const hasReadinessAlert =
-      readiness === 'Incomplete' ||
-      readiness === 'Unknown';
-  
-    if (!hasReadinessAlert && deliveryAlerts.length === 0) {
-      return null;
-    }
-  
-    return (
-      <div
-        className="mobile-feature-timeline-alerts"
-        aria-label="Feature alerts"
-      >
-        {hasReadinessAlert && (
-          <div className="mobile-feature-timeline-alert mobile-feature-timeline-alert--readiness">
-            <strong>
-              {readiness === 'Incomplete'
-                ? 'Not Ready'
-                : 'Unable to validate'}
-            </strong>
-  
-            {readinessDetails && (
-              <>
-                {' — '}
-                {readiness === 'Incomplete'
-                  ? 'Data missing: '
-                  : 'Unable to validate: '}
-                {readinessDetails}
-              </>
+              >
+                Today
+              </span>
             )}
           </div>
-        )}
-  
-        {deliveryAlerts.map(alert => {
-          const className =
-            alert.key === 'overdue'
-              ? 'mobile-feature-timeline-alert--delivery-overdue'
-              : alert.key === 'needs-estimate'
-                ? 'mobile-feature-timeline-alert--delivery-needs-info'
-                : 'mobile-feature-timeline-alert--delivery-attention';
-  
+    
+          {loading ? (
+            <span className="mobile-feature-activity__empty">
+              Loading Feature activity...
+            </span>
+          ) : segments.length === 0 ? (
+            <span className="mobile-feature-activity__empty">
+              No Feature timeline history available.
+            </span>
+          ) : null}
+        </section>
+      );
+    }
+
+    function MobileFeatureTimelineAlerts({ feature }) {
+      const readiness = getFeatureReadiness(feature);
+    
+      const missingChecks =
+        getFeatureReadinessMissingChecks(feature);
+    
+      const unknownChecks =
+        getFeatureReadinessUnknownChecks(feature);
+    
+      const readinessDetails =
+        readiness === 'Incomplete'
+          ? missingChecks
+              .map(check => readinessCheckLabels[check] || check)
+              .join(', ')
+          : readiness === 'Unknown'
+            ? unknownChecks
+                .map(check => readinessCheckLabels[check] || check)
+                .join(', ')
+            : '';
+    
+      const deliveryAlerts = getDeliveryHealthAlerts(feature)
+        .filter(alert => {
+          /*
+            Healthy y Not started son estados informativos:
+            no agregan ruido debajo del timeline.
+          */
           return (
-            <div
-              key={alert.key}
-              className={[
-                'mobile-feature-timeline-alert',
-                className
-              ].join(' ')}
-            >
-              <strong>{alert.label}</strong>
-              {alert.reason ? ` — ${alert.reason}` : ''}
-            </div>
+            alert.key !== 'healthy' &&
+            alert.key !== 'not-started'
           );
-        })}
-      </div>
-    );
-  }
+        });
+    
+      const hasReadinessAlert =
+        readiness === 'Incomplete' ||
+        readiness === 'Unknown';
+    
+      if (!hasReadinessAlert && deliveryAlerts.length === 0) {
+        return null;
+      }
+    
+      return (
+        <div
+          className="mobile-feature-timeline-alerts"
+          aria-label="Feature alerts"
+        >
+          {hasReadinessAlert && (
+            <div className="mobile-feature-timeline-alert mobile-feature-timeline-alert--readiness">
+              <strong>
+                {readiness === 'Incomplete'
+                  ? 'Not Ready'
+                  : 'Unable to validate'}
+              </strong>
+    
+              {readinessDetails && (
+                <>
+                  {' — '}
+                  {readiness === 'Incomplete'
+                    ? 'Data missing: '
+                    : 'Unable to validate: '}
+                  {readinessDetails}
+                </>
+              )}
+            </div>
+          )}
+    
+          {deliveryAlerts.map(alert => {
+            const className =
+              alert.key === 'overdue'
+                ? 'mobile-feature-timeline-alert--delivery-overdue'
+                : alert.key === 'needs-estimate'
+                  ? 'mobile-feature-timeline-alert--delivery-needs-info'
+                  : 'mobile-feature-timeline-alert--delivery-attention';
+    
+            return (
+              <div
+                key={alert.key}
+                className={[
+                  'mobile-feature-timeline-alert',
+                  className
+                ].join(' ')}
+              >
+                <strong>{alert.label}</strong>
+                {alert.reason ? ` — ${alert.reason}` : ''}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
       
     function MobileFeatureListCard({
       feature,
@@ -2699,7 +2714,7 @@
               collapseLabel="Collapse Feature details"
             >
             <MobileFeatureProgress
-              featureId={feature.id}
+              feature={feature}
               storiesCache={storiesCache}
               loadingStoriesIds={loadingStoriesIds}
               unavailableStoriesIds={unavailableStoriesIds}
@@ -3510,9 +3525,7 @@
         unestimatedWorkItems: 0,
         discoveryWithoutSprintWorkItems: 0,
     
-        /*
-          Aliases temporales.
-        */
+        /* Aliases temporales. */
         doneWorkItems: 0,
         pendingWorkItems: 0
       };
@@ -3578,6 +3591,36 @@
         summary.inProgressWorkItems;
     
       return summary;
+    }
+
+    /* Resumen listo para pintar en el primer frame. Prioridad:
+    1. El detalle ya cargado en storiesCache, porque es la información más fresca y permite recalcular el resumen con los mismos campos.
+    2. feature.deliverySummary, enviado por /api/features y disponible antes de que termine la precarga de Stories/Bugs.
+    Ninguna celda de Progress debería depender de una petición posterior para mostrar información. */
+    function getFeatureDeliverySummary(feature, storiesCache) {
+      const cached = storiesCache?.[feature?.id];
+
+      if (Array.isArray(cached)) {
+        return {
+          ...getWorkItemsDeliverySummary(cached),
+          source: 'stories'
+        };
+      }
+
+      const server = feature?.deliverySummary;
+
+      if (
+        server &&
+        server.source !== 'unknown' &&
+        Number.isInteger(server.includedWorkItems)
+      ) {
+        return {
+          ...server,
+          source: 'server'
+        };
+      }
+
+      return null;
     }
 
     function getShortAssignedToName(value) {
@@ -8118,52 +8161,86 @@
                               </td>
         
                               <td className="feature-list-progress-cell">
-                                {loadingStoriesIds[f.id] ? (
-                                  <span className="feature-list-progress-loading">
-                                    Loading...
-                                  </span>
-                                ) : storiesCache[f.id] ? (
-                                  (() => {
-                                    const summary = getWorkItemsDeliverySummary(
-                                      storiesCache[f.id]
+                                {(() => {
+                                  /* Primero usa storiesCache si ya existe; de lo contrario usa f.deliverySummary, que llegó junto con /api/features. */
+                                  const summary =
+                                    getFeatureDeliverySummary(
+                                      f,
+                                      storiesCache
                                     );
-        
-                                    const completedForProgress = summary.completedForProgressWorkItems;
-                                    const total = summary.includedWorkItems;
-                                    const pct = summary.progressPercent;
-        
-                                    const barColor =
-                                      pct === 100
-                                        ? '#34d399'
-                                        : pct >= 50
-                                          ? '#60a5fa'
-                                          : '#fbbf24';
-        
+
+                                  /* Sólo se muestra Loading si el backend no entregó deliverySummary y tampoco existe detalle local. Con el payload nuevo este
+                                    caso debería ser excepcional. */
+                                  if (!summary) {
+                                    if (loadingStoriesIds[f.id]) {
+                                      return (
+                                        <span className="feature-list-progress-loading">
+                                          Loading...
+                                        </span>
+                                      );
+                                    }
+
+                                    if (unavailableStoriesIds[f.id]) {
+                                      return (
+                                        <span className="feature-list-progress-empty">
+                                          Unavailable
+                                        </span>
+                                      );
+                                    }
+
                                     return (
-                                      <div
-                                        title={`${completedForProgress} of ${total} Stories and Bugs completed for delivery progress`}
-                                      >
-                                        <div className="feature-list-progress-label">
-                                          {completedForProgress}/{total} ({pct}%)
-                                        </div>
-        
-                                        <div className="feature-list-progress-track">
-                                          <div
-                                            className="feature-list-progress-bar"
-                                            style={{
-                                              width: `${pct}%`,
-                                              background: barColor
-                                            }}
-                                          />
-                                        </div>
-                                      </div>
+                                      <span className="feature-list-progress-empty">
+                                        —
+                                      </span>
                                     );
-                                  })()
-                                ) : (
-                                  <span className="feature-list-progress-empty">
-                                    —
-                                  </span>
-                                )}
+                                  }
+
+                                  const completedForProgress =
+                                    Number(
+                                      summary.completedForProgressWorkItems
+                                    ) || 0;
+
+                                  const total =
+                                    Number(summary.includedWorkItems) || 0;
+
+                                  const pct = Math.max(
+                                    0,
+                                    Math.min(
+                                      100,
+                                      Number(summary.progressPercent) || 0
+                                    )
+                                  );
+
+                                  const barColor =
+                                    pct === 100
+                                      ? '#34d399'
+                                      : pct >= 50
+                                        ? '#60a5fa'
+                                        : '#fbbf24';
+
+                                  return (
+                                    <div
+                                      title={
+                                        `${completedForProgress} of ${total} ` +
+                                        'Stories and Bugs completed for delivery progress'
+                                      }
+                                    >
+                                      <div className="feature-list-progress-label">
+                                        {completedForProgress}/{total} ({pct}%)
+                                      </div>
+
+                                      <div className="feature-list-progress-track">
+                                        <div
+                                          className="feature-list-progress-bar"
+                                          style={{
+                                            width: `${pct}%`,
+                                            background: barColor
+                                          }}
+                                        />
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
                               </td>
                             </tr>
         
