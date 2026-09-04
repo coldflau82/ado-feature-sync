@@ -827,7 +827,22 @@
     .delivery-progress__flag { font-size: var(--step--2); font-weight: 700; line-height: 1.2; }
     .delivery-progress__flag--warn { color: var(--warn); }
     .delivery-progress__none { color: var(--text-tertiary); font-size: var(--step--2); }
-      
+    /* ── Target Date: fecha absoluta + urgencia operativa ───────── */
+    .target-cell { display: grid; gap: 1px; line-height: 1.25; min-width: 0; }
+    .target-cell__date { color: var(--text-secondary); font-size: var(--step--1); }
+    .target-cell__delta { font-size: var(--step--2); font-weight: 700; white-space: nowrap; }
+    .target-cell--overdue .target-cell__delta,.target-cell--today .target-cell__delta { color: var(--risk); }
+    .target-cell--near .target-cell__delta { color: var(--warn); }
+    .target-cell--ok .target-cell__delta { color: var(--text-tertiary); }
+    .target-cell--done .target-cell__delta { color: var(--ok); }
+    .target-cell--none .target-cell__date { color: var(--text-tertiary); }
+    /* Sólo el atraso merece un marcador fuerte en la fila. El indicador se proyecta ligeramente fuera de la celda para que pueda escanearse
+      rápido sin convertir todos los estados en alertas visuales. */
+    .target-cell--overdue { position: relative; }
+    .target-cell--overdue::before { content: ''; position: absolute; top: -6px; bottom: -6px; left: -9px; width: 2px; border-radius: 1px; background: var(--risk); }
+    /* Permite que el marcador de atraso se proyecte fuera de la celda sin afectar el resto de las columnas de la tabla. */
+    .feature-list-date-cell:has(.target-cell--overdue) { overflow: visible; }
+    
   </style>
 </head>
 <body>
@@ -837,12 +852,15 @@
     const { useState, useEffect, useRef } = React;
     const { DateTime } = luxon;
 
-    /*
-      Fallback seguro antes de recibir /api/features.
-      El backend devuelve dashboard.timeZone y reemplaza este valor durante la carga. El fallback evita que haya un render inicial inconsistente si la respuesta todavía no llegó.
-    */
+    /* Fallback seguro antes de recibir /api/features. El backend devuelve dashboard.timeZone y reemplaza este valor durante la carga. 
+    El fallback evita que haya un render inicial inconsistente si la respuesta todavía no llegó. */
     let dashboardTimeZone = 'America/Chicago';
 
+    /* Este valor debe mantenerse alineado con targetDateNearDays en las reglas de Delivery Health del backend.
+    Cuando /api/features exponga dashboard.thresholds.targetDateNearDays, este valor deberá actualizarse desde loadFeatures() para que UI y
+    reglas del servidor compartan la misma fuente de verdad. */
+    let targetDateNearDays = 14;
+    
     function getDashboardNow() {
       return DateTime.now().setZone(dashboardTimeZone);
     }
@@ -884,6 +902,105 @@
       return date
         ? DateTime.fromJSDate(date).setZone(dashboardTimeZone)
         : null;
+    }
+
+    /* Convierte Target Date a la unidad que realmente permite decidir: días restantes o días de retraso.
+      No se usa la zona local del navegador: tanto la fecha objetivo como "today" se evalúan bajo dashboardTimeZone, que llega desde el backend. */
+    function getTargetDateStatus(targetDate, featureState) {
+      const target = getDashboardDateTime(targetDate);
+
+      if (!target) {
+        return {
+          tone: 'none',
+          days: null,
+          text: 'No target date'
+        };
+      }
+
+      const days = Math.round(
+        target
+          .startOf('day')
+          .diff(
+            getDashboardNow().startOf('day'),
+            'days'
+          )
+          .days
+      );
+
+      /* Una Feature cerrada no debe aparecer como overdue aunque su fecha objetivo haya quedado atrás: visualmente ya representa entrega.  */
+      if (String(featureState || '') === 'Closed') {
+        return {
+          tone: 'done',
+          days,
+          text: 'Delivered'
+        };
+      }
+
+      if (days < 0) {
+        const overdueDays = Math.abs(days);
+
+        return {
+          tone: 'overdue',
+          days,
+          text: `${overdueDays} day${overdueDays === 1 ? '' : 's'} overdue`
+        };
+      }
+
+      if (days === 0) {
+        return {
+          tone: 'today',
+          days,
+          text: 'Due today'
+        };
+      }
+
+      if (days <= targetDateNearDays) {
+        return {
+          tone: 'near',
+          days,
+          text: `in ${days} day${days === 1 ? '' : 's'}`
+        };
+      }
+
+      return {
+        tone: 'ok',
+        days,
+        text: `in ${days} day${days === 1 ? '' : 's'}`
+      };
+    }
+
+    /* Celda reutilizable para Feature List. La fecha absoluta sigue visible para referencia y el texto inferior
+      expresa urgencia en días, que es la unidad operativa útil. */
+    function TargetDateCell({
+      targetDate,
+      featureState,
+      formatDate
+    }) {
+      const status = getTargetDateStatus(
+        targetDate,
+        featureState
+      );
+
+      return (
+        <div
+          className={`target-cell target-cell--${status.tone}`}
+          title={
+            status.days === null
+              ? 'No Target Date assigned'
+              : `${formatDate(targetDate)} · ${status.text}`
+          }
+        >
+          <span className="target-cell__date">
+            {formatDate(targetDate)}
+          </span>
+
+          {status.days !== null && (
+            <span className="target-cell__delta">
+              {status.text}
+            </span>
+          )}
+        </div>
+      );
     }
 
     function createDashboardDate(year, month, day = 1) {
@@ -8242,7 +8359,11 @@
                             </td>
         
                               <td className="feature-list-date-cell">
-                                {formatDate(f.targetDate)}
+                                <TargetDateCell
+                                  targetDate={f.targetDate}
+                                  featureState={f.state}
+                                  formatDate={formatDate}
+                                />
                               </td>
         
                               <td className="feature-list-date-cell">
