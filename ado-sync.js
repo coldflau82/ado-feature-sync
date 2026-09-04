@@ -458,10 +458,23 @@ const redis = Redis.fromEnv();
 // Si tus variables tienen otro nombre, usa:
 // const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN });
 
-// ===== Historiales ADO: protección contra throttling =====
-// Máximo de consultas simultáneas a /revisions dentro de una solicitud batch.
-// Empieza con 5; puede subirse gradualmente si ADO no devuelve 429.
+/* ===== Historiales ADO: protección contra throttling =====
+  Máximo de consultas simultáneas a /revisions dentro de una solicitud batch.
+  Empieza con 5; puede subirse gradualmente si ADO no devuelve 429.*/
 const HISTORY_BATCH_CONCURRENCY = 5;
+
+/* Aging consulta revisiones de Features únicamente cuando no existe una entrada válida en Redis o cuando cambió el estado actual.
+  Se mantiene deliberadamente más bajo que HISTORY_BATCH_CONCURRENCY, porque /api/features puede procesar muchas Features durante la
+  reconstrucción de rangos históricos. */
+const FEATURE_AGING_CONCURRENCY = 3;
+
+/* Redis conserva el momento de entrada al estado actual, no el número de días. El número se recalcula al responder cada solicitud para que
+  Aging avance diariamente sin necesitar una nueva llamada a ADO.
+  El estado actual de la Feature se valida siempre antes de reutilizar una entrada. Si la Feature cambió de estado, la caché se reconstruye.*/
+const FEATURE_AGING_CACHE_PREFIX = 'featureAging:v1';
+
+const FEATURE_AGING_CACHE_TTL_SECONDS =
+  90 * 24 * 60 * 60;
 
 /* Máximo de consultas WIQL históricas simultáneas durante la creación del caché de Features antiguas.
 Se inicia deliberadamente con 2 para reducir el tiempo de refresh sin generar una carga excesiva sobre Azure DevOps. No aumentar este valor
@@ -604,6 +617,150 @@ function getStateChangesFromRevisions(revisions) {
   });
 
   return stateChanges;
+}
+
+/*
+  Construye una clave Redis por Feature.
+
+  La entrada representa el momento en que el Feature entró a su estado
+  actual. No guarda títulos, descripciones ni otros campos sensibles.
+*/
+function getFeatureAgingCacheKey(featureId) {
+  return `${FEATURE_AGING_CACHE_PREFIX}:${featureId}`;
+}
+
+/*
+  Resultado explícito para casos donde no se puede confirmar el historial
+  desde Azure DevOps. No se debe interpretar como cero días.
+*/
+function createUnknownFeatureAging(currentState = '') {
+  return {
+    source: 'unknown',
+    currentState: String(currentState || '').trim(),
+    enteredCurrentStateAt: null
+  };
+}
+
+/*
+  Calcula días calendario entre dos claves YYYY-MM-DD usando la misma zona
+  de negocio del dashboard.
+
+  No usa milisegundos fijos de 24 horas porque los cambios de horario de
+  verano pueden producir días de 23 o 25 horas.
+*/
+function getCalendarDaysBetweenDateKeys(
+  startDateKey,
+  endDateKey = getTodayDateKey()
+) {
+  const start = DateTime.fromISO(startDateKey, {
+    zone: DASHBOARD_TIME_ZONE
+  }).startOf('day');
+
+  const end = DateTime.fromISO(endDateKey, {
+    zone: DASHBOARD_TIME_ZONE
+  }).startOf('day');
+
+  if (!start.isValid || !end.isValid) {
+    return null;
+  }
+
+  return Math.max(
+    0,
+    Math.floor(end.diff(start, 'days').days)
+  );
+}
+
+/*
+  Convierte la información estable guardada en caché a la forma pública
+  consumida por el frontend.
+
+  daysInCurrentState se calcula en tiempo de respuesta para que el valor
+  avance diariamente incluso si enteredCurrentStateAt proviene de Redis.
+*/
+function materializeFeatureAging(aging) {
+  const currentState = String(
+    aging?.currentState || ''
+  ).trim();
+
+  const enteredCurrentStateAt = String(
+    aging?.enteredCurrentStateAt || ''
+  ).trim();
+
+  if (
+    aging?.source !== 'ok' ||
+    !currentState ||
+    !enteredCurrentStateAt
+  ) {
+    return {
+      source: 'unknown',
+      currentState,
+      enteredCurrentStateAt: null,
+      daysInCurrentState: null
+    };
+  }
+
+  const daysInCurrentState =
+    getCalendarDaysBetweenDateKeys(
+      enteredCurrentStateAt
+    );
+
+  if (!Number.isInteger(daysInCurrentState)) {
+    return {
+      source: 'unknown',
+      currentState,
+      enteredCurrentStateAt: null,
+      daysInCurrentState: null
+    };
+  }
+
+  return {
+    source: 'ok',
+    currentState,
+    enteredCurrentStateAt,
+    daysInCurrentState
+  };
+}
+
+/* Obtiene el evento de entrada al estado actual desde las revisiones de ADO.
+  La validación contra expectedCurrentState evita devolver un Aging incorrecto si el Work Item cambió de estado entre la consulta de campos
+  y la consulta de revisiones. */
+function getFeatureAgingFromRevisions(
+  revisions,
+  expectedCurrentState
+) {
+  const currentState = String(
+    expectedCurrentState || ''
+  ).trim();
+
+  const stateChanges = getStateChangesFromRevisions(
+    revisions
+  );
+
+  const latestStateChange =
+    stateChanges[stateChanges.length - 1];
+
+  if (
+    !currentState ||
+    !latestStateChange ||
+    String(latestStateChange.state || '').trim() !==
+      currentState
+  ) {
+    return createUnknownFeatureAging(currentState);
+  }
+
+  const enteredCurrentStateAt = getDateKey(
+    latestStateChange.changedDate
+  );
+
+  if (!enteredCurrentStateAt) {
+    return createUnknownFeatureAging(currentState);
+  }
+
+  return {
+    source: 'ok',
+    currentState,
+    enteredCurrentStateAt
+  };
 }
 
 /* El Cron se ejecuta diariamente. Se conservan 36 horas para que, incluso si el Cron diario llega más
@@ -1484,9 +1641,7 @@ function mapFeature(i) {
       discoveryWithoutSprintWorkItems: null,
       workItemsPendingDelivery: null,
     
-      /*
-        Aliases temporales para frontend antiguo.
-      */
+      /* Aliases temporales para frontend antiguo. */
       doneWorkItems: null,
       pendingWorkItems: null,
       excludedWorkItems: null,
@@ -1494,22 +1649,27 @@ function mapFeature(i) {
       pendingNonActiveWorkItems: null
     },
 
-     // ===== Readiness: nuevo contrato de la API =====
-    // Estos son los nombres que utilizará el frontend nuevo.
+    /* ===== Readiness: nuevo contrato de la API =====
+     Estos son los nombres que utilizará el frontend nuevo.*/
     readiness: health,
     readinessChecks: requiredFields,
     readinessMissingChecks: missingChecks,
     readinessUnknownChecks: unknownChecks,
 
-    // ===== Compatibilidad temporal =====
-    // Se mantienen los nombres antiguos hasta que el frontend y cualquier
-    // dato cacheado hayan migrado completamente a readiness.
+    /* ===== Compatibilidad temporal =====
+     Se mantienen los nombres antiguos hasta que el frontend y cualquier dato cacheado hayan migrado completamente a readiness.*/
     requiredFields,
     health,
     missingChecks,
     unknownChecks,
 
-    // Útil para diagnóstico técnico; no contiene datos sensibles.
+    /* Aging conserva el evento estable de entrada al estado actual. 
+    daysInCurrentState se calcula dinámicamente en /api/features para evitar que los datos cacheados queden desactualizados al día siguiente. */
+    aging: i.aging || createUnknownFeatureAging(
+      fields['System.State'] || ''
+    ),
+
+    /* Útil para diagnóstico técnico; no contiene datos sensibles.*/
     dataSources: {
       fields: fieldsSource,
       relations: relationsSource
@@ -2228,9 +2388,188 @@ async function enrichFeaturesWithDeliverySummary(c, features, iterationsByPath =
       deliverySummary: buildDeliverySummary(deliveryWorkItems, 'ok', iterationsByPath)
     };
   });
+  /* Enriquecimiento de Aging para Features.
+  Reglas:
+  - Si Redis tiene el mismo estado actual y una fecha válida de entrada, no se consulta Azure DevOps.
+  - Si el estado cambió o falta la entrada, se consulta /revisions.
+  - Un fallo en una Feature no bloquea el dashboard ni afecta otras Features; esa Feature queda con source: 'unknown'.
+  - No se persisten resultados unknown, para permitir recuperación automática ante un fallo temporal de ADO.*/
+async function enrichFeaturesWithAging(c, features) {
+  const agingByFeatureId = new Map();
+
+  const cacheKeys = features.map(feature =>
+    getFeatureAgingCacheKey(feature.id)
+  );
+
+  let cachedEntries = [];
+
+  try {
+    cachedEntries = await redis.mget(...cacheKeys);
+  } catch (error) {
+    /* Redis no debe impedir que el dashboard funcione. Si falla la lectura, se continúa consultando ADO únicamente para los Features necesarios. */
+    console.error(
+      'Unable to read Feature Aging cache from Redis.',
+      {
+        message: error.message
+      }
+    );
+
+    cachedEntries = [];
+  }
+
+  const cachedAgingByFeatureId = new Map();
+
+  features.forEach((feature, index) => {
+    const cachedEntry = Array.isArray(cachedEntries)
+      ? cachedEntries[index]
+      : null;
+
+    if (
+      cachedEntry &&
+      typeof cachedEntry === 'object'
+    ) {
+      cachedAgingByFeatureId.set(
+        Number(feature.id),
+        cachedEntry
+      );
+    }
+  });
+
+  const featuresNeedingHistory = features.filter(feature => {
+    const currentState = String(
+      feature.fields?.['System.State'] || ''
+    ).trim();
+
+    const cachedAging = cachedAgingByFeatureId.get(
+      Number(feature.id)
+    );
+
+    return !(
+      cachedAging?.source === 'ok' &&
+      String(cachedAging.currentState || '').trim() ===
+        currentState &&
+      /^\d{4}-\d{2}-\d{2}$/.test(
+        String(
+          cachedAging.enteredCurrentStateAt || ''
+        )
+      )
+    );
+  });
+
+  /* Las entradas de caché válidas se reutilizan primero. El número de días se recalcula posteriormente al responder /api/features. */
+  features.forEach(feature => {
+    const featureId = Number(feature.id);
+    const currentState = String(
+      feature.fields?.['System.State'] || ''
+    ).trim();
+
+    const cachedAging = cachedAgingByFeatureId.get(featureId);
+
+    if (
+      cachedAging?.source === 'ok' &&
+      String(cachedAging.currentState || '').trim() ===
+        currentState &&
+      /^\d{4}-\d{2}-\d{2}$/.test(
+        String(
+          cachedAging.enteredCurrentStateAt || ''
+        )
+      )
+    ) {
+      agingByFeatureId.set(featureId, {
+        source: 'ok',
+        currentState,
+        enteredCurrentStateAt:
+          cachedAging.enteredCurrentStateAt
+      });
+    }
+  });
+
+  await mapWithConcurrency(
+    featuresNeedingHistory,
+    FEATURE_AGING_CONCURRENCY,
+    async feature => {
+      const featureId = Number(feature.id);
+
+      const currentState = String(
+        feature.fields?.['System.State'] || ''
+      ).trim();
+
+      try {
+        const revisionsResponse = await withAdoRetry(() =>
+          c.get(
+            `/wit/workitems/${featureId}/revisions?api-version=7.0`
+          )
+        );
+
+        const aging = getFeatureAgingFromRevisions(
+          revisionsResponse.data?.value || [],
+          currentState
+        );
+
+        agingByFeatureId.set(featureId, aging);
+
+        if (aging.source === 'ok') {
+          try {
+            await redis.set(
+              getFeatureAgingCacheKey(featureId),
+              {
+                source: 'ok',
+                currentState: aging.currentState,
+                enteredCurrentStateAt:
+                  aging.enteredCurrentStateAt,
+                updatedAt: new Date().toISOString()
+              },
+              {
+                ex: FEATURE_AGING_CACHE_TTL_SECONDS
+              }
+            );
+          } catch (cacheError) {
+            /* El resultado correcto de ADO sigue siendo válido aunque no haya sido posible persistirlo para futuras solicitudes. */
+            console.error(
+              'Unable to write Feature Aging cache to Redis.',
+              {
+                featureId,
+                message: cacheError.message
+              }
+            );
+          }
+        }
+      } catch (error) {
+        console.error(
+          'Unable to retrieve Feature Aging history from ADO.',
+          {
+            featureId,
+            adoStatus: error.response?.status || null,
+            adoStatusText: error.response?.statusText || null,
+            message: error.message
+          }
+        );
+
+        agingByFeatureId.set(
+          featureId,
+          createUnknownFeatureAging(currentState)
+        );
+      }
+    }
+  );
+
+  return features.map(feature => {
+    const featureId = Number(feature.id);
+
+    const currentState = String(
+      feature.fields?.['System.State'] || ''
+    ).trim();
+
+    return {
+      ...feature,
+      aging:
+        agingByFeatureId.get(featureId) ||
+        createUnknownFeatureAging(currentState)
+    };
+  });
 }
 
-// ===== Mapea un Story/Bug para el detalle visual del dashboard =====
+/* ===== Mapea un Story/Bug para el detalle visual del dashboard ===== */
 function mapFeatureStoryWorkItem(workItem) {
   const fields = workItem.fields || {};
   const assignedToField = fields['System.AssignedTo'];
@@ -3603,9 +3942,8 @@ async function fetchFeatureDetailsBatch(c, ids) {
       };
     });
 
-    // Delivery Health no debe impedir que /api/features funcione.
-    // Si falla la consulta masiva de hijos, retornamos el Feature con
-    // deliverySummary: unknown y conservamos Readiness Health operativo.
+    /* Delivery Health no debe impedir que /api/features funcione.
+     Si falla la consulta masiva de hijos, retornamos el Feature con deliverySummary: unknown y conservamos Readiness Health operativo.*/
     let enrichedFeatures = mergedFeatures.map(feature => ({
       ...feature,
       deliverySummary: buildDeliverySummary([], 'unknown')
@@ -3628,6 +3966,30 @@ async function fetchFeatureDetailsBatch(c, ids) {
         adoResponse: error.response?.data || null,
         stack: error.stack || null
       });
+    }
+
+    /* Aging no debe bloquear la carga principal de Features ni Delivery Health. Si una revisión no puede recuperarse, únicamente el Aging
+      de esa Feature se devuelve como unknown. */
+    try {
+      enrichedFeatures = await enrichFeaturesWithAging(
+        c,
+        enrichedFeatures
+      );
+    } catch (error) {
+      console.error('ERROR enriching Features with Aging data', {
+        batchStart: i,
+        batchSize: currentIds.length,
+        errorName: error.name || 'Error',
+        message: error.message || 'Unknown error',
+        stack: error.stack || null
+      });
+
+      enrichedFeatures = enrichedFeatures.map(feature => ({
+        ...feature,
+        aging: createUnknownFeatureAging(
+          feature.fields?.['System.State'] || ''
+        )
+      }));
     }
 
     allFeatures = [...allFeatures, ...enrichedFeatures];
@@ -4914,7 +5276,12 @@ app.get('/api/features', async (req, res) => {
       featuresById.set(feature.id, feature);
     });
 
-    const allFeatures = [...featuresById.values()];
+    /* Las entradas cacheadas conservan enteredCurrentStateAt. Los días se recalculan aquí contra el día de negocio actual para que Aging no
+      quede congelado entre ejecuciones del Cron. */
+    const allFeatures = [...featuresById.values()].map(feature => ({
+      ...feature,
+      aging: materializeFeatureAging(feature.aging)
+    }));
 
     // 6. Combinar conteos, detalles técnicos y advertencias.
     const activeOldRangeKey =
@@ -4968,13 +5335,18 @@ app.get('/api/features', async (req, res) => {
     ];
 
     res.json({
-      /*
-        Configuración temporal compartida con el frontend.
-        businessDate representa el día operativo que el backend usó al evaluar Delivery Health durante esta respuesta.
-      */
+      /* Configuración temporal compartida con el frontend.
+        businessDate representa el día operativo que el backend usó al evaluar Delivery Health durante esta respuesta. */
       dashboard: {
         timeZone: DASHBOARD_TIME_ZONE,
         businessDate: getTodayDateKey(),
+
+        /* Los umbrales se publican para que el frontend use exactamente la misma política de negocio que Delivery Health. */
+        thresholds: {
+          targetDateNearDays:
+            deliveryHealthRules.thresholds.targetDateNearDays
+        },
+
         /* El calendario se publica con la respuesta principal para evitar una segunda llamada HTTP desde el frontend. */
         releaseCalendar: releaseCalendarByRfv
       },
