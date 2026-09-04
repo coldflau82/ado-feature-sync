@@ -2455,18 +2455,6 @@
     
             <div className="mobile-feature-card__info-item">
               <span className="mobile-feature-card__info-label">
-                Estimates
-              </span>
-    
-              <span className="mobile-feature-card__info-value">
-                BE {feature.estimation?.be || '—'} · FE{' '}
-                {feature.estimation?.fe || '—'} · QA{' '}
-                {feature.estimation?.qa || '—'}
-              </span>
-            </div>
-    
-            <div className="mobile-feature-card__info-item">
-              <span className="mobile-feature-card__info-label">
                 Target Date
               </span>
 
@@ -2475,6 +2463,18 @@
                 featureState={feature.state}
                 formatDate={formatDate}
               />
+            </div>
+            
+            <div className="mobile-feature-card__info-item">
+              <span className="mobile-feature-card__info-label">
+                Estimates
+              </span>
+    
+              <span className="mobile-feature-card__info-value">
+                BE {feature.estimation?.be || '—'} · FE{' '}
+                {feature.estimation?.fe || '—'} · QA{' '}
+                {feature.estimation?.qa || '—'}
+              </span>
             </div>
     
             <div className="mobile-feature-card__info-item">
