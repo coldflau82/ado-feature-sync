@@ -3852,6 +3852,299 @@
       return null;
     }
 
+    /* Declarative Risk Score configuration. To adjust prioritization, update this table without changing scoring logic or UI components. */
+    const RISK_WEIGHTS = {
+      overdue: 50,
+      targetWithin7Days: 22,
+      targetWithinThreshold: 12,
+
+      requiresActionAlert: 18,
+      requiresAttentionAlert: 7,
+
+      readinessIncomplete: 14,
+      readinessUnknown: 5,
+
+      noWorkItemsInExecution: 16,
+      unestimatedWorkItem: 3,
+      discoveryWithoutSprintWorkItem: 4,
+
+      stalledPerWeekAfter14Days: 5
+    };
+
+    /* Caps prevent one repeated signal from dominating the entire score. For example, twenty unestimated work items should not outweigh
+      every other delivery risk in the portfolio. */
+    const RISK_LIMITS = {
+      unestimatedWorkItems: 4,
+      discoveryWithoutSprintWorkItems: 4,
+      stalledWeeks: 4
+    };
+
+    /* Risk levels are intentionally based on the final accumulated score.
+      The numerical score remains the comparable and sortable value. */
+    const RISK_LEVELS = [
+      {
+        minScore: 60,
+        key: 'critical',
+        label: 'Critical'
+      },
+      {
+        minScore: 40,
+        key: 'high',
+        label: 'High'
+      },
+      {
+        minScore: 20,
+        key: 'moderate',
+        label: 'Moderate'
+      },
+      {
+        minScore: 1,
+        key: 'watch',
+        label: 'Watch'
+      },
+      {
+        minScore: 0,
+        key: 'low',
+        label: 'Low'
+      }
+    ];
+
+    /* Returns the display level for a completed Risk Score. */
+    function getFeatureRiskLevel(score) {
+      const normalizedScore = Number.isFinite(Number(score))
+        ? Number(score)
+        : 0;
+
+      return (
+        RISK_LEVELS.find(
+          level => normalizedScore >= level.minScore
+        ) ||
+        RISK_LEVELS[RISK_LEVELS.length - 1]
+      );
+    }
+
+    /* Returns true only when Delivery Health explicitly identifies the Feature as having no direct Stories or Bugs during execution.
+      This prevents New Features with no child work items from receiving an incorrect delivery-risk penalty. */
+    function featureHasNoStoriesRisk(feature) {
+      return getDeliveryHealthAlerts(feature).some(
+        alert => alert.key === 'no-stories'
+      );
+    }
+
+    /* Builds the detailed list of individual signals contributing to Risk. This detail is used by the tooltip and later by the Aging panel.
+      Keeping it separate from the final score makes the calculation transparent to users and easy to audit. */
+    function getFeatureRiskBreakdown(
+      feature,
+      storiesCache = {},
+      unavailableStoriesIds = {}
+    ) {
+      const breakdown = [];
+      const isClosed = String(
+        feature?.state || ''
+      ).trim() === 'Closed';
+
+      const target = getTargetDateStatus(
+        feature?.targetDate,
+        feature?.state
+      );
+
+      if (!isClosed && target.days !== null) {
+        if (target.days < 0) {
+          breakdown.push({
+            key: 'overdue',
+            label: 'Overdue Target Date',
+            points: RISK_WEIGHTS.overdue
+          });
+        } else if (target.days <= 7) {
+          breakdown.push({
+            key: 'target-within-7-days',
+            label: 'Target Date within 7 days',
+            points: RISK_WEIGHTS.targetWithin7Days
+          });
+        } else if (target.days <= targetDateNearDays) {
+          breakdown.push({
+            key: 'target-within-threshold',
+            label:
+              `Target Date within ${targetDateNearDays} days`,
+            points: RISK_WEIGHTS.targetWithinThreshold
+          });
+        }
+      }
+
+      getDeliveryHealthAlerts(feature).forEach(alert => {
+        if (alert.group === 'requires-action') {
+          breakdown.push({
+            key: `delivery-action-${alert.key}`,
+            label: `Requires Action: ${alert.label}`,
+            points: RISK_WEIGHTS.requiresActionAlert
+          });
+        } else if (alert.group === 'requires-attention') {
+          breakdown.push({
+            key: `delivery-attention-${alert.key}`,
+            label: `Requires Attention: ${alert.label}`,
+            points: RISK_WEIGHTS.requiresAttentionAlert
+          });
+        }
+      });
+
+      const readiness = getFeatureReadiness(feature);
+
+      if (readiness === 'Incomplete') {
+        breakdown.push({
+          key: 'readiness-incomplete',
+          label: 'Readiness incomplete',
+          points: RISK_WEIGHTS.readinessIncomplete
+        });
+      } else if (readiness === 'Unknown') {
+        breakdown.push({
+          key: 'readiness-unknown',
+          label: 'Readiness unavailable',
+          points: RISK_WEIGHTS.readinessUnknown
+        });
+      }
+
+      if (featureHasNoStoriesRisk(feature)) {
+        breakdown.push({
+          key: 'no-work-items-in-execution',
+          label: 'No Stories or Bugs in execution',
+          points: RISK_WEIGHTS.noWorkItemsInExecution
+        });
+      }
+
+      const summary = getFeatureDeliverySummary(
+        feature,
+        storiesCache,
+        unavailableStoriesIds
+      );
+
+      if (summary) {
+        const unestimatedWorkItems = Math.min(
+          RISK_LIMITS.unestimatedWorkItems,
+          Math.max(
+            0,
+            Number(summary.unestimatedWorkItems) || 0
+          )
+        );
+
+        if (unestimatedWorkItems > 0) {
+          breakdown.push({
+            key: 'unestimated-work-items',
+            label:
+              `${unestimatedWorkItems} unestimated work item${
+                unestimatedWorkItems === 1 ? '' : 's'
+              }`,
+            points:
+              unestimatedWorkItems *
+              RISK_WEIGHTS.unestimatedWorkItem
+          });
+        }
+
+        const discoveryWithoutSprintWorkItems = Math.min(
+          RISK_LIMITS.discoveryWithoutSprintWorkItems,
+          Math.max(
+            0,
+            Number(
+              summary.discoveryWithoutSprintWorkItems
+            ) || 0
+          )
+        );
+
+        if (discoveryWithoutSprintWorkItems > 0) {
+          breakdown.push({
+            key: 'discovery-without-sprint',
+            label:
+              `${discoveryWithoutSprintWorkItems} Discovery item${
+                discoveryWithoutSprintWorkItems === 1 ? '' : 's'
+              } without Sprint`,
+            points:
+              discoveryWithoutSprintWorkItems *
+              RISK_WEIGHTS.discoveryWithoutSprintWorkItem
+          });
+        }
+      }
+
+      const daysInCurrentState = Number(
+        feature?.aging?.daysInCurrentState
+      );
+
+      if (
+        !isClosed &&
+        Number.isFinite(daysInCurrentState) &&
+        daysInCurrentState > 14
+      ) {
+        const stalledWeeks = Math.min(
+          RISK_LIMITS.stalledWeeks,
+          Math.ceil(
+            (daysInCurrentState - 14) / 7
+          )
+        );
+
+        if (stalledWeeks > 0) {
+          breakdown.push({
+            key: 'aging-current-state',
+            label:
+              `${daysInCurrentState} days in current state`,
+            points:
+              stalledWeeks *
+              RISK_WEIGHTS.stalledPerWeekAfter14Days
+          });
+        }
+      }
+
+      return breakdown;
+    }
+
+    /* Returns one comparable score answering: "Which Feature should I review first?"
+      Risk does not replace Delivery Health. Delivery Health explains the
+      delivery issue; Risk accumulates signals to support prioritization.  */
+    function getFeatureRiskScore(
+      feature,
+      storiesCache = {},
+      unavailableStoriesIds = {}
+    ) {
+      return getFeatureRiskBreakdown(
+        feature,
+        storiesCache,
+        unavailableStoriesIds
+      ).reduce(
+        (total, item) => total + item.points,
+        0
+      );
+    }
+
+    /* Compact plain-text explanation for the Risk tooltip. The UI component will be added in the next implementation step. */
+    function getFeatureRiskTooltipText(
+      feature,
+      storiesCache = {},
+      unavailableStoriesIds = {}
+    ) {
+      const score = getFeatureRiskScore(
+        feature,
+        storiesCache,
+        unavailableStoriesIds
+      );
+
+      const level = getFeatureRiskLevel(score);
+
+      const breakdown = getFeatureRiskBreakdown(
+        feature,
+        storiesCache,
+        unavailableStoriesIds
+      );
+
+      if (breakdown.length === 0) {
+        return `${level.label} risk · ${score}\nNo risk signals detected.`;
+      }
+
+      return [
+        `${level.label} risk · ${score}`,
+        'Risk signals:',
+        ...breakdown.map(
+          item => `+${item.points} ${item.label}`
+        )
+      ].join('\n');
+    }
+
     /* Barra de entrega segmentada. Los segmentos conservan el mismo lenguaje visual del Gantt:
     - Closed: violeta.
     - To Release: verde.
