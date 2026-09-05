@@ -315,16 +315,138 @@ validateReleaseCalendar(releaseCalendar);
   - filtros/presets de RFV;
   - tooltips;
   - futuras comparaciones visuales. */
+/* Proyección pública del calendario para el frontend. Los índices de Sprints permanecen internos en backend. */
 const releaseCalendarByRfv = Object.fromEntries(
   releaseCalendar.releases.map(release => [
     release.rfv,
     {
       date: release.date,
       sequence: release.sequence,
-      label: release.label || release.rfv
+      label: release.label || release.rfv,
+      status: release.status || 'published'
     }
   ])
 );
+
+/* Índice: RFV -> Release calendar entry. */
+const releaseCalendarReleaseByRfv = new Map(
+  releaseCalendar.releases.map(release => [
+    String(release.rfv).trim(),
+    {
+      rfv: String(release.rfv).trim(),
+      date: release.date,
+      sequence: release.sequence,
+      label: release.label || release.rfv,
+      status: release.status || 'published'
+    }
+  ])
+);
+
+/* Índice: RFV -> todos los Sprints que pueden entregar ese RFV.
+  Un RFV puede tener varios Sprints. Por ejemplo: CE-2026-JUL -> Sprint 11 y Sprint 12. */
+const releaseCalendarSprintsByRfv = new Map();
+
+releaseCalendar.sprints.forEach(sprint => {
+  const deliveryRfv = String(
+    sprint.deliveryRfv || ''
+  ).trim();
+
+  const sprintsForRfv =
+    releaseCalendarSprintsByRfv.get(deliveryRfv) || [];
+
+  sprintsForRfv.push({
+    id: String(sprint.id).trim(),
+    name: String(sprint.name).trim(),
+    startDate: sprint.startDate,
+    endDate: sprint.endDate,
+
+    /* Política predeterminada: el commitment cutoff es el inicio del Sprint, salvo que el JSON configure explícitamente otro valor. */
+    commitmentCutoffDate:
+      sprint.commitmentCutoffDate || sprint.startDate,
+
+    deliveryRfv
+  });
+
+  releaseCalendarSprintsByRfv.set(
+    deliveryRfv,
+    sprintsForRfv
+  );
+});
+
+/* Orden estable por cutoff, útil para determinar el último Sprint viable de cada RFV. */
+releaseCalendarSprintsByRfv.forEach(sprints => {
+  sprints.sort((sprintA, sprintB) =>
+    sprintA.commitmentCutoffDate.localeCompare(
+      sprintB.commitmentCutoffDate
+    )
+  );
+});
+
+/* Índice: Sprint calendar ID -> Sprint calendar entry. */
+const releaseCalendarSprintById = new Map(
+  releaseCalendar.sprints.map(sprint => [
+    String(sprint.id).trim().toLowerCase(),
+    {
+      id: String(sprint.id).trim(),
+      name: String(sprint.name).trim(),
+      startDate: sprint.startDate,
+      endDate: sprint.endDate,
+      commitmentCutoffDate:
+        sprint.commitmentCutoffDate || sprint.startDate,
+      deliveryRfv: String(sprint.deliveryRfv).trim()
+    }
+  ])
+);
+
+/* Convierte el Iteration Path de Azure DevOps a un ID del calendario.
+  Ejemplo: Commercial Engineering\2026\Q3\2026_S16_Jul29-Aug11 -> 2026-sprint-16 */
+function getSprintCalendarIdFromIterationPath(iterationPath) {
+  const rawIterationPath = String(
+    iterationPath || ''
+  ).trim();
+
+  if (!rawIterationPath) {
+    return null;
+  }
+
+  const match = rawIterationPath.match(
+    /(\d{4})[_\s-]+S(?:PRINT)?(\d+)(?:[_\s-]|$)/i
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const sprintNumber = Number(match[2]);
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(sprintNumber) ||
+    sprintNumber < 1
+  ) {
+    return null;
+  }
+
+  return `${year}-sprint-${sprintNumber}`;
+}
+
+/* Busca el Sprint configurado en release-calendar.json usando el Iteration Path de Azure DevOps. */
+function getPlannedSprintFromIterationPath(iterationPath) {
+  const sprintId = getSprintCalendarIdFromIterationPath(
+    iterationPath
+  );
+
+  if (!sprintId) {
+    return null;
+  }
+
+  return (
+    releaseCalendarSprintById.get(
+      sprintId.toLowerCase()
+    ) || null
+  );
+}
 
 function validateReleaseCalendar(config) {
   if (!config || typeof config !== 'object') {
