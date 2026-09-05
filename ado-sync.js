@@ -1839,7 +1839,20 @@ function getEffectiveCommitmentCutoffForRfv(featureRfv) {
 /* Finds the first later RFV with a Sprint whose commitment cutoff has not yet been reached.
   A Sprint is no longer considered viable on its cutoff date. With the approved default policy, cutoffDate equals startDate, so the work must
   be assigned before that Sprint begins. */
-function getNextViableReleaseFixVersion(featureRfv) {
+
+/* Finds the next viable Feature RFV.
+  Priority:
+  1. A later RFV already supported by the Sprint assigned to a pending
+     Story/Bug. This remains a valid recommendation even when that
+     Sprint's original commitment cutoff has passed, because the item
+     is already committed to that Sprint.
+  2. If no pending work is already assigned to a later compatible
+     Sprint, choose the earliest later RFV whose commitment cutoff has
+     not yet been reached. */
+function getNextViableReleaseFixVersion(
+  featureRfv,
+  pendingWorkItems = []
+) {
   const featureRelease =
     releaseCalendarReleaseByRfv.get(featureRfv);
 
@@ -1847,9 +1860,61 @@ function getNextViableReleaseFixVersion(featureRfv) {
     return null;
   }
 
+  /* First, inspect the actual Sprints already assigned in ADO.
+    Example:
+    Feature RFV: CE-2026-SEP-SEMIMONTHLY
+    Story Sprint: Sprint 18
+    Sprint 18 delivery RFV: CE-2026-OCT
+
+    CE-2026-OCT becomes the preferred next RFV recommendation.*/
+  const assignedSprintCandidates = pendingWorkItems
+    .map(workItem => {
+      const iterationPath = String(
+        workItem?.iterationPath || ''
+      ).trim();
+
+      if (!iterationPath) {
+        return null;
+      }
+
+      const sprint = getPlannedSprintFromIterationPath(
+        iterationPath
+      );
+
+      if (!sprint) {
+        return null;
+      }
+
+      const sprintRelease =
+        releaseCalendarReleaseByRfv.get(
+          sprint.deliveryRfv
+        );
+
+      if (
+        !sprintRelease ||
+        sprintRelease.sequence <= featureRelease.sequence
+      ) {
+        return null;
+      }
+
+      return {
+        rfv: sprintRelease.rfv,
+        sequence: sprintRelease.sequence
+      };
+    })
+    .filter(Boolean)
+    .sort((candidateA, candidateB) =>
+      candidateA.sequence - candidateB.sequence
+    );
+
+  if (assignedSprintCandidates.length > 0) {
+    return assignedSprintCandidates[0].rfv;
+  }
+
+  /* No pending item is already committed to a later Sprint. Fall back to the earliest future RFV whose cutoff is still open. */
   const todayDateKey = getTodayDateKey();
 
-  const viableCandidates = releaseCalendar.releases
+  const futureCommitmentCandidates = releaseCalendar.releases
     .filter(release =>
       release.sequence > featureRelease.sequence
     )
@@ -1871,7 +1936,7 @@ function getNextViableReleaseFixVersion(featureRfv) {
       candidateA.sequence - candidateB.sequence
     );
 
-  return viableCandidates[0]?.rfv || null;
+  return futureCommitmentCandidates[0]?.rfv || null;
 }
 
 /*
