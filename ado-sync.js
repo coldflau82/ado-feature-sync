@@ -1953,7 +1953,25 @@ function buildReleaseAlignment(
     workItemRfvMismatch: 0
   };
 
-  const affectedWorkItemIds = new Set();
+  const affectedWorkItems = affectedWorkItemIds.size;
+
+  /* A Feature remains feasible until the commitment cutoff date.
+    Before that date:
+    - A blank Story/Bug RFV is still planning work, not automatically
+      a release-alignment risk.
+    - A blank Sprint is still planning work, not automatically a risk.
+    - Earlier RFVs/Sprints are compatible because they deliver before
+      the Feature RFV.
+    - Only a later RFV/Sprint creates an immediate alignment risk.
+
+    On or after the cutoff:
+    - Pending work must be explicitly committed to an eligible RFV/Sprint.
+    - Missing RFV or Sprint becomes a missed commitment.
+  */
+  const isCommitmentCutoffReached =
+    todayDateKey >= commitmentCutoffDate;
+
+  let hasUnavailablePlanningData = false;
 
   pendingWorkItems.forEach(workItem => {
     const workItemId = Number(workItem?.id);
@@ -1968,34 +1986,90 @@ function buildReleaseAlignment(
 
     let isAffected = false;
 
-    /* The work item RFV must be explicitly aligned with the Feature RFV.
-      Blank RFV is intentionally treated as a mismatch because the field exists in ADO and must be maintained consistently. */
-    if (workItemRfv !== featureRfv) {
+    /* Story/Bug RFV comparison is chronological, not exact.
+      Example:
+      Feature RFV: CE-2026-DEC
+      Story RFV:   CE-2026-OCT
+      CE-2026-OCT is compatible because it delivers before the committed December Feature release. */
+    if (workItemRfv) {
+      const workItemRelease =
+        releaseCalendarReleaseByRfv.get(workItemRfv);
+
+      if (!workItemRelease) {
+        /* A known non-empty RFV that is absent from the calendar cannot be assessed accurately. */
+        reasons.workItemRfvMismatch += 1;
+        hasUnavailablePlanningData = true;
+        isAffected = true;
+      } else if (workItemRelease.sequence > release.sequence) {
+        /* A Story/Bug committed after the Feature RFV cannot support the Feature's planned release. */
+        reasons.workItemRfvMismatch += 1;
+        isAffected = true;
+      }
+    } else if (isCommitmentCutoffReached) {
+      /* Before the cutoff, a blank RFV is allowed for discovery/planning. From the cutoff onward, it becomes an uncommitted pending item. */
       reasons.workItemRfvMismatch += 1;
       isAffected = true;
     }
 
-    if (!iterationPath) {
-      reasons.noSprint += 1;
-      isAffected = true;
-    } else {
+    if (iterationPath) {
       const sprint = getPlannedSprintFromIterationPath(
         iterationPath
       );
 
       if (!sprint) {
+        /* The Story/Bug has a Sprint in ADO, but it cannot be mapped to the release calendar. This needs calendar data correction,
+          rather than being treated as a normal RFV mismatch. */
         reasons.unmappedSprint += 1;
+        hasUnavailablePlanningData = true;
         isAffected = true;
-      } else if (sprint.deliveryRfv !== featureRfv) {
-        reasons.sprintRfvMismatch += 1;
-        isAffected = true;
+      } else {
+        const sprintRelease =
+          releaseCalendarReleaseByRfv.get(
+            sprint.deliveryRfv
+          );
+
+        if (!sprintRelease) {
+          reasons.unmappedSprint += 1;
+          hasUnavailablePlanningData = true;
+          isAffected = true;
+        } else if (sprintRelease.sequence > release.sequence) {
+          /* Earlier or same RFV Sprint is acceptable. Only a Sprint delivering after the Feature RFV is a risk. */
+          reasons.sprintRfvMismatch += 1;
+          isAffected = true;
+        }
       }
+    } else if (isCommitmentCutoffReached) {
+      /*
+        A Sprint is only mandatory once the Feature RFV commitment cutoff
+        has been reached.
+      */
+      reasons.noSprint += 1;
+      isAffected = true;
     }
 
     if (isAffected && Number.isInteger(workItemId)) {
       affectedWorkItemIds.add(workItemId);
     }
   });
+
+  /* If ADO has Sprint/RFV values which cannot be interpreted with the declared Release Calendar, do not report a false RFV risk.
+    The data must be reconciled first. */
+  if (hasUnavailablePlanningData) {
+    return createReleaseAlignmentResult(
+      'unavailable',
+      {
+        featureRfv,
+        featureReleaseDate: release.date,
+        commitmentCutoffDate,
+        affectedWorkItems: affectedWorkItemIds.size,
+        pendingWorkItems: pendingWorkItems.length,
+        reasons,
+        nextViableRfv: getNextViableReleaseFixVersion(
+          featureRfv
+        )
+      }
+    );
+  }
 
   const affectedWorkItems = affectedWorkItemIds.size;
   const todayDateKey = getTodayDateKey();
