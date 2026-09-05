@@ -1704,13 +1704,8 @@ function isPastTargetDate(targetDate) {
   );
 }
 
-/*
-  El umbral se obtiene desde delivery-health-rules.json:
-    thresholds.targetDateNearDays
-
-  El nombre no queda atado a "two weeks", porque el negocio puede
-  cambiar el límite sin requerir modificaciones adicionales al código.
-*/
+/* El umbral se obtiene desde delivery-health-rules.json: thresholds.targetDateNearDays
+  El nombre no queda atado a "two weeks", porque el negocio puede cambiar el límite sin requerir modificaciones adicionales al código.*/
 function isTargetDateWithinConfiguredDays(targetDate) {
   const targetDateKey = getDateKey(targetDate);
 
@@ -1953,8 +1948,6 @@ function buildReleaseAlignment(
     workItemRfvMismatch: 0
   };
 
-  const affectedWorkItems = affectedWorkItemIds.size;
-
   /* A Feature remains feasible until the commitment cutoff date.
     Before that date:
     - A blank Story/Bug RFV is still planning work, not automatically
@@ -1968,9 +1961,10 @@ function buildReleaseAlignment(
     - Pending work must be explicitly committed to an eligible RFV/Sprint.
     - Missing RFV or Sprint becomes a missed commitment.
   */
+  const todayDateKey = getTodayDateKey();
   const isCommitmentCutoffReached =
     todayDateKey >= commitmentCutoffDate;
-
+  
   let hasUnavailablePlanningData = false;
 
   pendingWorkItems.forEach(workItem => {
@@ -2039,10 +2033,7 @@ function buildReleaseAlignment(
         }
       }
     } else if (isCommitmentCutoffReached) {
-      /*
-        A Sprint is only mandatory once the Feature RFV commitment cutoff
-        has been reached.
-      */
+      /* A Sprint is only mandatory once the Feature RFV commitment cutoff has been reached. */
       reasons.noSprint += 1;
       isAffected = true;
     }
@@ -2061,18 +2052,13 @@ function buildReleaseAlignment(
         featureRfv,
         featureReleaseDate: release.date,
         commitmentCutoffDate,
-        affectedWorkItems: affectedWorkItemIds.size,
+        affectedWorkItems,
         pendingWorkItems: pendingWorkItems.length,
         reasons,
-        nextViableRfv: getNextViableReleaseFixVersion(
-          featureRfv
-        )
+        nextViableRfv: getNextViableReleaseFixVersion(featureRfv)
       }
     );
   }
-
-  const affectedWorkItems = affectedWorkItemIds.size;
-  const todayDateKey = getTodayDateKey();
 
   /* The RFV date has passed and pending work remains. This is more severe than a missed Sprint cutoff, so it takes precedence. */
   if (release.date < todayDateKey) {
