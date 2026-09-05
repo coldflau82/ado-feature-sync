@@ -111,6 +111,17 @@ function validateDeliveryHealthRules(config) {
     'overdue',
     'targetDateNearUnscheduledDiscovery',
     'targetNextMonthWithoutRelease',
+
+    /*
+      Release / Sprint Alignment rules.
+      These rules are evaluated from the Feature RFV, child work item
+      RFVs, assigned Sprint, and the Sprint-to-RFV planning calendar.
+    */
+    'releaseAlignmentAtRisk',
+    'releaseCommitmentMissed',
+    'releaseDatePassedWithOpenWork',
+    'releaseAlignmentUnavailable',
+
     'closedWithOpenWork',
     'needsEstimate',
     'noStories',
@@ -345,9 +356,31 @@ function validateReleaseCalendar(config) {
     );
   }
 
-  if (!Array.isArray(config.releases) || config.releases.length === 0) {
+  if (
+    config.timeZone.trim() !== DASHBOARD_TIME_ZONE
+  ) {
+    throw new Error(
+      'Release calendar timeZone must match DASHBOARD_TIME_ZONE. ' +
+      `Expected "${DASHBOARD_TIME_ZONE}" but received ` +
+      `"${config.timeZone}".`
+    );
+  }
+
+  if (
+    !Array.isArray(config.releases) ||
+    config.releases.length === 0
+  ) {
     throw new Error(
       'Release calendar configuration "releases" must be a non-empty array.'
+    );
+  }
+
+  if (
+    !Array.isArray(config.sprints) ||
+    config.sprints.length === 0
+  ) {
+    throw new Error(
+      'Release calendar configuration "sprints" must be a non-empty array.'
     );
   }
 
@@ -357,10 +390,7 @@ function validateReleaseCalendar(config) {
   config.releases.forEach((release, index) => {
     const prefix = `release-calendar.releases[${index}]`;
 
-    if (
-      !release ||
-      typeof release !== 'object'
-    ) {
+    if (!release || typeof release !== 'object') {
       throw new Error(`${prefix} must be an object.`);
     }
 
@@ -368,7 +398,9 @@ function validateReleaseCalendar(config) {
       typeof release.rfv !== 'string' ||
       !release.rfv.trim()
     ) {
-      throw new Error(`${prefix}.rfv must be a non-empty string.`);
+      throw new Error(
+        `${prefix}.rfv must be a non-empty string.`
+      );
     }
 
     if (
@@ -399,6 +431,17 @@ function validateReleaseCalendar(config) {
       );
     }
 
+    if (
+      release.status !== undefined &&
+      !['published', 'provisional'].includes(
+        String(release.status).trim()
+      )
+    ) {
+      throw new Error(
+        `${prefix}.status must be "published" or "provisional" when provided.`
+      );
+    }
+
     if (seenRfv.has(release.rfv)) {
       throw new Error(
         `Release calendar contains duplicate RFV "${release.rfv}".`
@@ -413,6 +456,126 @@ function validateReleaseCalendar(config) {
 
     seenRfv.add(release.rfv);
     seenSequence.add(release.sequence);
+  });
+
+  const seenSprintIds = new Set();
+
+  config.sprints.forEach((sprint, index) => {
+    const prefix = `release-calendar.sprints[${index}]`;
+
+    if (!sprint || typeof sprint !== 'object') {
+      throw new Error(`${prefix} must be an object.`);
+    }
+
+    if (
+      typeof sprint.id !== 'string' ||
+      !sprint.id.trim()
+    ) {
+      throw new Error(
+        `${prefix}.id must be a non-empty string.`
+      );
+    }
+
+    if (seenSprintIds.has(sprint.id)) {
+      throw new Error(
+        `Release calendar contains duplicate Sprint ID "${sprint.id}".`
+      );
+    }
+
+    seenSprintIds.add(sprint.id);
+
+    if (
+      typeof sprint.name !== 'string' ||
+      !sprint.name.trim()
+    ) {
+      throw new Error(
+        `${prefix}.name must be a non-empty string.`
+      );
+    }
+
+    ['startDate', 'endDate'].forEach(propertyName => {
+      const value = sprint[propertyName];
+
+      if (
+        typeof value !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(value)
+      ) {
+        throw new Error(
+          `${prefix}.${propertyName} must use YYYY-MM-DD format.`
+        );
+      }
+
+      const parsedDate = DateTime.fromISO(value, {
+        zone: config.timeZone
+      });
+
+      if (!parsedDate.isValid) {
+        throw new Error(
+          `${prefix}.${propertyName} is not a valid calendar date.`
+        );
+      }
+    });
+
+    if (sprint.startDate > sprint.endDate) {
+      throw new Error(
+        `${prefix}.startDate must not be after endDate.`
+      );
+    }
+
+    if (
+      sprint.commitmentCutoffDate !== undefined &&
+      (
+        typeof sprint.commitmentCutoffDate !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(
+          sprint.commitmentCutoffDate
+        )
+      )
+    ) {
+      throw new Error(
+        `${prefix}.commitmentCutoffDate must use YYYY-MM-DD format when provided.`
+      );
+    }
+
+    if (sprint.commitmentCutoffDate) {
+      const parsedCutoff = DateTime.fromISO(
+        sprint.commitmentCutoffDate,
+        {
+          zone: config.timeZone
+        }
+      );
+
+      if (!parsedCutoff.isValid) {
+        throw new Error(
+          `${prefix}.commitmentCutoffDate is not a valid calendar date.`
+        );
+      }
+
+      if (
+        sprint.commitmentCutoffDate < sprint.startDate ||
+        sprint.commitmentCutoffDate > sprint.endDate
+      ) {
+        throw new Error(
+          `${prefix}.commitmentCutoffDate must be between ` +
+          'startDate and endDate.'
+        );
+      }
+    }
+
+    if (
+      typeof sprint.deliveryRfv !== 'string' ||
+      !sprint.deliveryRfv.trim()
+    ) {
+      throw new Error(
+        `${prefix}.deliveryRfv must be a non-empty string.`
+      );
+    }
+
+    if (!seenRfv.has(sprint.deliveryRfv)) {
+      throw new Error(
+        `${prefix}.deliveryRfv "${sprint.deliveryRfv}" ` +
+        'does not exist in release-calendar.releases.'
+      );
+    }
   });
 }
 
@@ -921,6 +1084,8 @@ const DELIVERY_WORK_ITEM_FIELDS = [
   'System.State',
   'System.AreaPath',
   'System.IterationPath',
+  /* Required to validate alignment between: Feature RFV ↔ Story/Bug RFV ↔ Sprint delivery RFV. */
+  'Custom.ReleaseFixVersion',
   'Microsoft.VSTS.Scheduling.StoryPoints',
   'System.AssignedTo'
 ];
@@ -1478,8 +1643,296 @@ function isTargetDateInNextCalendarMonth(targetDate) {
   );
 }
 
-// ===== Determina si el Feature tiene un Parent jerárquico =====
-// Solo devuelve true / false. No expone información del elemento padre.
+/* Release Alignment evaluates whether open delivery scope can still reach the Feature's committed Release Fix Version.
+  Relevant work:
+  - inPlanning: includes New, Business Refinement, Technical Refinement,
+    and Ready for Development.
+  - inProgress: development, testing, and UAT states.
+  Excluded work:
+  - toRelease: delivery execution is complete.
+  - completed: closed work.
+  - removed: excluded from delivery scope.*/
+function isPendingReleaseAlignmentWorkItem(workItem) {
+  const category = getDeliveryWorkItemCategory(
+    workItem?.state
+  );
+
+  return (
+    category === 'inPlanning' ||
+    category === 'inProgress'
+  );
+}
+
+function createReleaseAlignmentResult(
+  status,
+  {
+    featureRfv = '',
+    featureReleaseDate = null,
+    commitmentCutoffDate = null,
+    affectedWorkItems = 0,
+    pendingWorkItems = 0,
+    reasons = {},
+    nextViableRfv = null
+  } = {}
+) {
+  return {
+    status,
+    featureRfv,
+    featureReleaseDate,
+    commitmentCutoffDate,
+    affectedWorkItems,
+    pendingWorkItems,
+
+    reasons: {
+      noSprint: Number(reasons.noSprint || 0),
+      unmappedSprint: Number(reasons.unmappedSprint || 0),
+      sprintRfvMismatch: Number(
+        reasons.sprintRfvMismatch || 0
+      ),
+      workItemRfvMismatch: Number(
+        reasons.workItemRfvMismatch || 0
+      )
+    },
+
+    nextViableRfv
+  };
+}
+
+/* Returns the latest Sprint commitment cutoff associated with an RFV.
+  Some releases intentionally have more than one Sprint: CE-2026-JUL is supported by both Sprint 11 and Sprint 12.
+  The latest cutoff is used because the Feature remains viable while at least one eligible Sprint for that RFV has not reached its cutoff.*/
+function getEffectiveCommitmentCutoffForRfv(featureRfv) {
+  const sprints =
+    releaseCalendarSprintsByRfv.get(featureRfv) || [];
+
+  if (sprints.length === 0) {
+    return null;
+  }
+
+  return sprints.reduce(
+    (latestCutoffDate, sprint) =>
+      !latestCutoffDate ||
+      sprint.commitmentCutoffDate > latestCutoffDate
+        ? sprint.commitmentCutoffDate
+        : latestCutoffDate,
+    null
+  );
+}
+
+/* Finds the first later RFV with a Sprint whose commitment cutoff has not yet been reached.
+  A Sprint is no longer considered viable on its cutoff date. With the approved default policy, cutoffDate equals startDate, so the work must
+  be assigned before that Sprint begins. */
+function getNextViableReleaseFixVersion(featureRfv) {
+  const featureRelease =
+    releaseCalendarReleaseByRfv.get(featureRfv);
+
+  if (!featureRelease) {
+    return null;
+  }
+
+  const todayDateKey = getTodayDateKey();
+
+  const viableCandidates = releaseCalendar.releases
+    .filter(release =>
+      release.sequence > featureRelease.sequence
+    )
+    .map(release => {
+      const effectiveCutoffDate =
+        getEffectiveCommitmentCutoffForRfv(release.rfv);
+
+      return {
+        rfv: release.rfv,
+        sequence: release.sequence,
+        effectiveCutoffDate
+      };
+    })
+    .filter(candidate =>
+      candidate.effectiveCutoffDate &&
+      candidate.effectiveCutoffDate > todayDateKey
+    )
+    .sort((candidateA, candidateB) =>
+      candidateA.sequence - candidateB.sequence
+    );
+
+  return viableCandidates[0]?.rfv || null;
+}
+
+/* Evaluates Feature RFV alignment based on all relevant direct child Stories and Bugs.
+  A work item is aligned only when:
+  1. It has an assigned Sprint that exists in the planning calendar.
+  2. That Sprint delivers the same RFV as the Feature.
+  3. The Story/Bug RFV matches the Feature RFV. */
+function buildReleaseAlignment(
+  feature,
+  workItems = []
+) {
+  const featureState = String(
+    feature?.fields?.['System.State'] || ''
+  ).trim();
+
+  const featureRfv = String(
+    feature?.fields?.['Custom.ReleaseFixVersion'] || ''
+  ).trim();
+
+  const isFeatureClosed =
+    FEATURE_CLOSED_STATES.includes(featureState);
+
+  if (isFeatureClosed || !featureRfv) {
+    return createReleaseAlignmentResult(
+      'not-applicable',
+      {
+        featureRfv
+      }
+    );
+  }
+
+  const pendingWorkItems = workItems.filter(
+    isPendingReleaseAlignmentWorkItem
+  );
+
+  /* If no direct Story/Bug is pending delivery, RFV viability does not need to block the Feature. This includes Features where all work is
+    To Release or Closed. */
+  if (pendingWorkItems.length === 0) {
+    return createReleaseAlignmentResult(
+      'aligned',
+      {
+        featureRfv,
+        pendingWorkItems: 0
+      }
+    );
+  }
+
+  const release = releaseCalendarReleaseByRfv.get(
+    featureRfv
+  );
+
+  const commitmentCutoffDate =
+    getEffectiveCommitmentCutoffForRfv(featureRfv);
+
+  /* A known Feature RFV without a matching release date or Sprint plan cannot be assessed reliably. */
+  if (!release || !commitmentCutoffDate) {
+    return createReleaseAlignmentResult(
+      'unavailable',
+      {
+        featureRfv,
+        featureReleaseDate: release?.date || null,
+        pendingWorkItems: pendingWorkItems.length,
+        nextViableRfv: getNextViableReleaseFixVersion(
+          featureRfv
+        )
+      }
+    );
+  }
+
+  const reasons = {
+    noSprint: 0,
+    unmappedSprint: 0,
+    sprintRfvMismatch: 0,
+    workItemRfvMismatch: 0
+  };
+
+  const affectedWorkItemIds = new Set();
+
+  pendingWorkItems.forEach(workItem => {
+    const workItemId = Number(workItem?.id);
+
+    const workItemRfv = String(
+      workItem?.releaseFixVersion || ''
+    ).trim();
+
+    const iterationPath = String(
+      workItem?.iterationPath || ''
+    ).trim();
+
+    let isAffected = false;
+
+    /* The work item RFV must be explicitly aligned with the Feature RFV.
+      Blank RFV is intentionally treated as a mismatch because the field exists in ADO and must be maintained consistently. */
+    if (workItemRfv !== featureRfv) {
+      reasons.workItemRfvMismatch += 1;
+      isAffected = true;
+    }
+
+    if (!iterationPath) {
+      reasons.noSprint += 1;
+      isAffected = true;
+    } else {
+      const sprint = getPlannedSprintFromIterationPath(
+        iterationPath
+      );
+
+      if (!sprint) {
+        reasons.unmappedSprint += 1;
+        isAffected = true;
+      } else if (sprint.deliveryRfv !== featureRfv) {
+        reasons.sprintRfvMismatch += 1;
+        isAffected = true;
+      }
+    }
+
+    if (isAffected && Number.isInteger(workItemId)) {
+      affectedWorkItemIds.add(workItemId);
+    }
+  });
+
+  const affectedWorkItems = affectedWorkItemIds.size;
+  const todayDateKey = getTodayDateKey();
+
+  /* The RFV date has passed and pending work remains. This is more severe than a missed Sprint cutoff, so it takes precedence. */
+  if (release.date < todayDateKey) {
+    return createReleaseAlignmentResult(
+      'release-passed',
+      {
+        featureRfv,
+        featureReleaseDate: release.date,
+        commitmentCutoffDate,
+        affectedWorkItems:
+          affectedWorkItems || pendingWorkItems.length,
+        pendingWorkItems: pendingWorkItems.length,
+        reasons,
+        nextViableRfv: getNextViableReleaseFixVersion(
+          featureRfv
+        )
+      }
+    );
+  }
+
+  if (affectedWorkItems === 0) {
+    return createReleaseAlignmentResult(
+      'aligned',
+      {
+        featureRfv,
+        featureReleaseDate: release.date,
+        commitmentCutoffDate,
+        pendingWorkItems: pendingWorkItems.length
+      }
+    );
+  }
+
+  /* On the cutoff date itself, the Sprint commitment is considered closed. With the current policy, cutoffDate defaults to Sprint startDate. */
+  const status =
+    todayDateKey >= commitmentCutoffDate
+      ? 'missed'
+      : 'at-risk';
+
+  return createReleaseAlignmentResult(
+    status,
+    {
+      featureRfv,
+      featureReleaseDate: release.date,
+      commitmentCutoffDate,
+      affectedWorkItems,
+      pendingWorkItems: pendingWorkItems.length,
+      reasons,
+      nextViableRfv: getNextViableReleaseFixVersion(
+        featureRfv
+      )
+    }
+  );
+}
+
+/* ===== Determina si el Feature tiene un Parent jerárquico =====
+ Solo devuelve true / false. No expone información del elemento padre.*/
 function hasParentRelation(workItem) {
   return Array.isArray(workItem.relations) &&
     workItem.relations.some(
@@ -1640,6 +2093,11 @@ function mapFeature(i) {
       unestimatedWorkItems: null,
       discoveryWithoutSprintWorkItems: null,
       workItemsPendingDelivery: null,
+      
+      /* API contract fallback. A current backend response should normally receive releaseAlignment from buildDeliverySummary(). */
+      releaseAlignment: createReleaseAlignmentResult(
+        'unavailable'
+      ),
     
       /* Aliases temporales para frontend antiguo. */
       doneWorkItems: null,
@@ -1806,7 +2264,12 @@ includedWorkItems = doneWorkItems + inProgressWorkItems + pendingWorkItems
 openWorkItems = inPlanningWorkItems + inProgressWorkItems
 Removed no participa en delivery, progreso ni cobertura de estimación.
 To Release cuenta como completado para porcentaje de progreso, aunque todavía sea trabajo abierto dentro del workflow.*/
-function buildDeliverySummary(workItems, source = 'ok', iterationsByPath = null) {
+function buildDeliverySummary(
+  workItems,
+  source = 'ok',
+  iterationsByPath = null,
+  feature = null
+) {
   const unknownSummary = {
     source: 'unknown',
     hasWorkItems: null,
@@ -1831,6 +2294,11 @@ function buildDeliverySummary(workItems, source = 'ok', iterationsByPath = null)
     /* Fase 3: executionTeams representa los equipos que realmente ejecutan Stories/Bugs, basado en System.AreaPath de cada hijo directo. */
     executionTeams: null,
     currentSprintWorkItems: null,
+
+    /* Release Alignment is unknown when direct child work items could not be retrieved completely from Azure DevOps. */
+    releaseAlignment: createReleaseAlignmentResult(
+      'unavailable'
+    ),
 
     /* Alias temporales para no romper consumidores existentes mientras actualizamos el frontend. */
     doneWorkItems: null,
@@ -1952,7 +2420,15 @@ function buildDeliverySummary(workItems, source = 'ok', iterationsByPath = null)
   );
 
   const currentSprintWorkItems = executionTeams.reduce(
-    (total, team) => total + Number(team.currentSprintWorkItems || 0), 0
+    (total, team) =>
+      total + Number(team.currentSprintWorkItems || 0),
+    0
+  );
+
+  /* Release Alignment only uses direct User Stories and Bugs already included in the Delivery Summary calculation. */
+  const releaseAlignment = buildReleaseAlignment(
+    feature,
+    relevantWorkItems
   );
 
   return {
@@ -1978,8 +2454,12 @@ function buildDeliverySummary(workItems, source = 'ok', iterationsByPath = null)
 
     /* Indica trabajo pendiente de planificación o ejecución. To Release no participa porque no representa trabajo abierto. */
     workItemsPendingDelivery: openWorkItems > 0,
-      executionTeams,
-      currentSprintWorkItems,
+
+    executionTeams,
+    currentSprintWorkItems,
+
+    /* Feature-level consolidated RFV viability result. It is consumed by Delivery Health now and by the UI later. */
+    releaseAlignment,
 
     /* Aliases temporales:
       - done ahora significa "completo para progreso";
@@ -2073,14 +2553,12 @@ function buildDeliveryHealth(feature) {
   const openWorkItems = Number(summary.openWorkItems || 0);
   const unestimatedWorkItems = Number(summary.unestimatedWorkItems || 0 );
   const discoveryWithoutSprintWorkItems = Number( summary.discoveryWithoutSprintWorkItems || 0 );
+  const releaseAlignment = summary.releaseAlignment || createReleaseAlignmentResult('unavailable');
   const isClosed = FEATURE_CLOSED_STATES.includes(state);
   const isExecutionState = FEATURE_DELIVERY_EXECUTION_STATES.includes(state);
   const isNotStartedState = FEATURE_NOT_STARTED_STATES.includes(state);
 
-  /*
-    Not started es informativo: no entra en Requires Action,
-    Requires Attention ni Healthy. No representa una alerta.
-  */
+  /* Not started es informativo: no entra en Requires Action, Requires Attention ni Healthy. No representa una alerta. */
   const notStartedRule = getDeliveryHealthRule('notStarted');
 
   if (
@@ -2151,6 +2629,83 @@ function buildDeliveryHealth(feature) {
   ) {
     alerts.push(
       createRuleAlert('targetNextMonthWithoutRelease')
+    );
+  }
+
+  /* Release / Sprint Alignment.
+    This is separate from Target Date rules:
+    - Target Date tells whether the Feature is late against its target.
+    - Release Alignment tells whether pending scope can still reach
+      the committed Release Fix Version. */
+  const releaseAlignmentAtRiskRule = getDeliveryHealthRule(
+    'releaseAlignmentAtRisk'
+  );
+
+  const releaseCommitmentMissedRule = getDeliveryHealthRule(
+    'releaseCommitmentMissed'
+  );
+
+  const releaseDatePassedWithOpenWorkRule =
+    getDeliveryHealthRule(
+      'releaseDatePassedWithOpenWork'
+    );
+
+  const releaseAlignmentUnavailableRule =
+    getDeliveryHealthRule(
+      'releaseAlignmentUnavailable'
+    );
+
+  if (
+    releaseAlignment.status === 'release-passed' &&
+    releaseDatePassedWithOpenWorkRule.enabled
+  ) {
+    alerts.push(
+      createRuleAlert(
+        'releaseDatePassedWithOpenWork',
+        {
+          reasonValues: {
+            count: releaseAlignment.pendingWorkItems,
+            rfv: releaseAlignment.featureRfv
+          }
+        }
+      )
+    );
+  } else if (
+    releaseAlignment.status === 'missed' &&
+    releaseCommitmentMissedRule.enabled
+  ) {
+    alerts.push(
+      createRuleAlert(
+        'releaseCommitmentMissed',
+        {
+          reasonValues: {
+            count: releaseAlignment.affectedWorkItems,
+            rfv: releaseAlignment.featureRfv
+          }
+        }
+      )
+    );
+  } else if (
+    releaseAlignment.status === 'at-risk' &&
+    releaseAlignmentAtRiskRule.enabled
+  ) {
+    alerts.push(
+      createRuleAlert(
+        'releaseAlignmentAtRisk',
+        {
+          reasonValues: {
+            count: releaseAlignment.affectedWorkItems,
+            rfv: releaseAlignment.featureRfv
+          }
+        }
+      )
+    );
+  } else if (
+    releaseAlignment.status === 'unavailable' &&
+    releaseAlignmentUnavailableRule.enabled
+  ) {
+    alerts.push(
+      createRuleAlert('releaseAlignmentUnavailable')
     );
   }
 
@@ -2284,6 +2839,14 @@ async function fetchDeliveryWorkItemsBatch(c, ids) {
           state: fields['System.State'] || '',
           areaPath: fields['System.AreaPath'] || '',
           iterationPath: fields['System.IterationPath'] || '',
+
+          /*
+            This field is not displayed from /api/features. It is used
+            only to calculate the Feature-level Release Alignment result.
+          */
+          releaseFixVersion:
+            fields['Custom.ReleaseFixVersion'] || '',
+
           storyPoints: normalizeStoryPoints(
             fields['Microsoft.VSTS.Scheduling.StoryPoints']
           ),
@@ -2358,16 +2921,20 @@ async function enrichFeaturesWithDeliverySummary(c, features, iterationsByPath =
   return features.map(feature => {
     const childIds = childIdsByFeature.get(feature.id);
 
-    // La consulta de relaciones del Feature falló u omitió el Feature.
+    /* La consulta de relaciones del Feature falló u omitió el Feature.*/
     if (childIds === null) {
       return {
         ...feature,
-        deliverySummary: buildDeliverySummary( [], 'unknown', iterationsByPath )
+        deliverySummary: buildDeliverySummary(
+          [],
+          'unknown',
+          iterationsByPath,
+          feature
+        )
       };
     }
 
-    // Si ADO omitió uno o varios elementos hijos, no es seguro concluir
-    // que el Feature no tiene trabajo pendiente.
+    /* Si ADO omitió uno o varios elementos hijos, no es seguro concluir que el Feature no tiene trabajo pendiente.*/
     const hasUnavailableChild = childIds.some(
       childId => unavailableIds.has(childId)
     );
@@ -2375,7 +2942,12 @@ async function enrichFeaturesWithDeliverySummary(c, features, iterationsByPath =
     if (hasUnavailableChild) {
       return {
         ...feature,
-        deliverySummary: buildDeliverySummary([], 'unknown', iterationsByPath )
+        deliverySummary: buildDeliverySummary(
+          [],
+          'unknown',
+          iterationsByPath,
+          feature
+        )
       };
     }
 
@@ -2385,10 +2957,15 @@ async function enrichFeaturesWithDeliverySummary(c, features, iterationsByPath =
 
     return {
       ...feature,
-      deliverySummary: buildDeliverySummary(deliveryWorkItems, 'ok', iterationsByPath)
+      deliverySummary: buildDeliverySummary(
+        deliveryWorkItems,
+        'ok',
+        iterationsByPath,
+        feature
+      )
     };
   });
- }
+}
 
 /* Enriquecimiento de Aging para Features.
   Reglas:
