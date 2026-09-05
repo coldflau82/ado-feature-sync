@@ -160,6 +160,42 @@
       "shortLabel": "Unavailable",
       "reason": "Delivery work information could not be retrieved.",
       "recommendedAction": "Refresh the dashboard and verify Azure DevOps availability and work-item relationships."
+    },
+    
+    "releaseAlignmentAtRisk": {
+      "enabled": true,
+      "group": "requires-attention",
+      "label": "Release alignment at risk",
+      "shortLabel": "RFV at risk",
+      "reasonTemplate": "{count} open work item(s) are not aligned with the Sprint and Release Fix Version required for {rfv}.",
+      "recommendedAction": "Assign the remaining work to the Sprint planned for this release, align the Story or Bug Release Fix Version, or move the Feature to the next viable Release Fix Version."
+    },
+    
+    "releaseCommitmentMissed": {
+      "enabled": true,
+      "group": "requires-action",
+      "label": "Release commitment missed",
+      "shortLabel": "RFV missed",
+      "reasonTemplate": "The Sprint commitment cutoff for {rfv} has passed and {count} open work item(s) are not aligned with the planned release.",
+      "recommendedAction": "Move the Feature and affected work items to the next viable Release Fix Version and update the delivery plan."
+    },
+    
+    "releaseDatePassedWithOpenWork": {
+      "enabled": true,
+      "group": "requires-action",
+      "label": "Release date passed",
+      "shortLabel": "Release passed",
+      "reasonTemplate": "The release date for {rfv} has passed and {count} delivery work item(s) remain pending.",
+      "recommendedAction": "Reconcile the Feature Release Fix Version, delivery status, and next release plan."
+    },
+    
+    "releaseAlignmentUnavailable": {
+      "enabled": true,
+      "group": "requires-attention",
+      "label": "Release alignment unavailable",
+      "shortLabel": "RFV unavailable",
+      "reason": "The Feature has a Release Fix Version, but the required Sprint or release planning data is unavailable.",
+      "recommendedAction": "Update the release planning calendar and verify the Feature, Story, and Bug Release Fix Version values."
     }
   }
 }
