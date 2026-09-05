@@ -863,7 +863,32 @@
     .mobile-feature-card__info-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
     /* RFV puede contener identificadores largos. En móvil se permite partir en puntos naturales sin ensanchar o romper la card.*/
     .mobile-feature-card__rfv { display: block; overflow: hidden; text-overflow: ellipsis; overflow-wrap: anywhere; white-space: normal; }
-            
+    /* ── Release / Sprint Alignment ─────────────────────────────── */
+    .release-alignment-details { min-width: 0; margin-top: 11px; padding-top: 11px; border-top: 1px solid #e5edf5; }
+    .release-alignment-details__heading { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; min-width: 0; }
+    .release-alignment-details__title { color: var(--text-primary); font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .release-alignment-badge { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 2px 7px 2px 5px;
+      border-radius: var(--radius-chip); font-size: 10px; font-weight: 700; line-height: 1.25; }
+    .release-alignment-badge__icon { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; flex: 0 0 14px;
+      border-radius: 50%; color: var(--surface-raised); font-size: 9px; font-weight: 800; }
+    .release-alignment-badge--aligned { color: #166534; background: var(--ok-soft); }
+    .release-alignment-badge--aligned.release-alignment-badge__icon { background: var(--ok); }
+    .release-alignment-badge--at-risk { color: #854d0e; background: var(--warn-soft); }
+    .release-alignment-badge--at-risk.release-alignment-badge__icon { background: var(--warn); }
+    .release-alignment-badge--missed,.release-alignment-badge--release-passed { color: #991b1b; background: var(--risk-soft); }
+    .release-alignment-badge--missed.release-alignment-badge__icon,.release-alignment-badge--release-passed.release-alignment-badge__icon { background: var(--risk); }
+    .release-alignment-badge--unavailable,.release-alignment-badge--not-applicable { color: var(--text-secondary); background: var(--neutral-soft); }
+    .release-alignment-badge--unavailable.release-alignment-badge__icon,.release-alignment-badge--not-applicable.release-alignment-badge__icon { background: var(--text-tertiary); }
+    .release-alignment-details__summary { display: block; margin-top: 6px; color: var(--text-secondary); font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
+    .release-alignment-details__metrics { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+    .release-alignment-details__metric { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 7px; border: 1px solid var(--line-hairline);
+      border-radius: var(--radius-chip); background: var(--surface-sunken); color: var(--text-secondary); font-size: 10px; font-weight: 700; line-height: 1.25; }
+    .release-alignment-details__metric--risk { border-color: #fbbf24; background: var(--warn-soft); color: #854d0e; }
+    .release-alignment-details__metric--error { border-color: #fca5a5; background: var(--risk-soft); color: #991b1b; }
+    .release-alignment-details__next-release { display: block; margin-top: 8px; color: var(--accent-strong); font-size: 10px; font-weight: 700; line-height: 1.4; }
+    @media (max-width: 560px) { .release-alignment-details__metrics { gap: 4px; }
+      .release-alignment-details__metric { font-size: 9px; }}
+                
   </style>
 </head>
 <body>
@@ -1362,6 +1387,7 @@
               ))}
             </div>
           </div>
+          <ReleaseAlignmentDetails feature={feature} />
         </section>
       );
     }
@@ -1371,53 +1397,60 @@
       CSS para renderizarla.
       La lógica antigua basada en deliverySummary se conserva por ahora como fallback temporal para respuestas cacheadas antiguas. */
 
-    function getDeliveryVisualMeta(key) {
-      switch (key) {
-        case 'overdue':
-        case 'target-date-near-unscheduled-discovery':
-        case 'target-next-month-without-release':
-          return {
-            className: 'delivery--overdue',
-            alertClassName: 'delivery-alert--overdue',
-            icon: '!'
-          };
-
-        case 'needs-estimate':
-          return {
-            className: 'delivery--needs-info',
-            alertClassName: 'delivery-alert--needs-info',
-            icon: '!'
-          };
-
-        case 'healthy':
-          return {
-            className: 'delivery--healthy',
-            alertClassName: 'delivery-alert--healthy',
-            icon: '✓'
-          };
-
-       case 'not-started':
-          return {
-            className: 'delivery--not-started',
-            alertClassName: 'delivery-alert--not-started',
-            icon: '○'
-          };
-
-        case 'unable-to-evaluate':
-          return {
-            className: 'delivery--unknown',
-            alertClassName: 'delivery-alert--unknown',
-            icon: '?'
-          };
-
-        default:
-          return {
-            className: 'delivery--attention',
-            alertClassName: 'delivery-alert--attention',
-            icon: '!'
-          };
-      }
+  function getDeliveryVisualMeta(key) {
+    switch (key) {
+      /* Requires Action. These conditions represent an overdue, missed, or already-passed delivery/release commitment. */
+      case 'overdue':
+      case 'target-date-near-unscheduled-discovery':
+      case 'target-next-month-without-release':
+      case 'release-commitment-missed':
+      case 'release-date-passed-with-open-work':
+        return { className: 'delivery--overdue', alertClassName: 'delivery-alert--overdue', icon: '!' };
+        /* Requires Attention. The Feature still has an opportunity to recover or needs planning data before the alignment can be determined. */
+      case 'release-alignment-at-risk':
+      case 'release-alignment-unavailable':
+        return {
+          className: 'delivery--attention',
+          alertClassName: 'delivery-alert--attention',
+          icon: '!'
+        };
+  
+      case 'needs-estimate':
+        return {
+          className: 'delivery--needs-info',
+          alertClassName: 'delivery-alert--needs-info',
+          icon: '!'
+        };
+  
+      case 'healthy':
+        return {
+          className: 'delivery--healthy',
+          alertClassName: 'delivery-alert--healthy',
+          icon: '✓'
+        };
+  
+      case 'not-started':
+        return {
+          className: 'delivery--not-started',
+          alertClassName: 'delivery-alert--not-started',
+          icon: '○'
+        };
+  
+      case 'unable-to-evaluate':
+        return {
+          className: 'delivery--unknown',
+          alertClassName: 'delivery-alert--unknown',
+          icon: '?'
+        };
+  
+      default:
+        return {
+          className: 'delivery--attention',
+          alertClassName: 'delivery-alert--attention',
+          icon: '!'
+        };
     }
+  }
 
     function getDeliveryHealthDisplayLabels(key, fallbackLabel) {
       if (key === 'needs-estimate') {
@@ -1520,8 +1553,252 @@
         };
       });
     }
+
+    function getReleaseAlignmentMeta(status) {
+      switch (status) {
+        case 'aligned':
+          return {
+            label: 'Aligned',
+            icon: '✓',
+            className: 'release-alignment-badge--aligned'
+          };
     
-     function ReadinessOverview({
+        case 'at-risk':
+          return {
+            label: 'At risk',
+            icon: '!',
+            className: 'release-alignment-badge--at-risk'
+          };
+    
+        case 'missed':
+          return {
+            label: 'Commitment missed',
+            icon: '!',
+            className: 'release-alignment-badge--missed'
+          };
+    
+        case 'release-passed':
+          return {
+            label: 'Release date passed',
+            icon: '!',
+            className: 'release-alignment-badge--release-passed'
+          };
+    
+        case 'unavailable':
+          return {
+            label: 'Unavailable',
+            icon: '?',
+            className: 'release-alignment-badge--unavailable'
+          };
+    
+        case 'not-applicable':
+          return {
+            label: 'Not applicable',
+            icon: '○',
+            className: 'release-alignment-badge--not-applicable'
+          };
+    
+        default:
+          return {
+            label: 'Unavailable',
+            icon: '?',
+            className: 'release-alignment-badge--unavailable'
+          };
+      }
+    }
+
+  function formatReleaseAlignmentDate(value) {
+    const parsedDate = parseDashboardDate(value);
+  
+    if (!parsedDate) {
+      return '—';
+    }
+  
+    return parsedDate.toLocaleDateString(
+      'es-CO',
+      {
+        timeZone: dashboardTimeZone
+      }
+    );
+  }
+
+  function ReleaseAlignmentDetails({ feature }) {
+    const alignment =
+      feature?.deliverySummary?.releaseAlignment;
+  
+    /*
+      El backend normalmente siempre entrega esta estructura.
+      Este fallback evita que una entrada histórica anterior rompa
+      el detalle expandido.
+    */
+    const normalizedAlignment = alignment || {
+      status: 'unavailable',
+      featureRfv: feature?.releaseFixVersion || '',
+      featureReleaseDate: null,
+      commitmentCutoffDate: null,
+      affectedWorkItems: 0,
+      pendingWorkItems: 0,
+      reasons: {},
+      nextViableRfv: null
+    };
+  
+    const meta = getReleaseAlignmentMeta(
+      normalizedAlignment.status
+    );
+  
+    const reasons = normalizedAlignment.reasons || {};
+  
+    const reasonMetrics = [
+      {
+        key: 'noSprint',
+        label: 'without Sprint',
+        count: Number(reasons.noSprint || 0)
+      },
+      {
+        key: 'unmappedSprint',
+        label: 'unmapped Sprint',
+        count: Number(reasons.unmappedSprint || 0)
+      },
+      {
+        key: 'sprintRfvMismatch',
+        label: 'Sprint RFV mismatch',
+        count: Number(reasons.sprintRfvMismatch || 0)
+      },
+      {
+        key: 'workItemRfvMismatch',
+        label: 'Work item RFV mismatch',
+        count: Number(reasons.workItemRfvMismatch || 0)
+      }
+    ].filter(item => item.count > 0);
+  
+    const isRisk =
+      normalizedAlignment.status === 'at-risk';
+  
+    const isError =
+      normalizedAlignment.status === 'missed' ||
+      normalizedAlignment.status === 'release-passed';
+  
+    const isNotApplicable =
+      normalizedAlignment.status === 'not-applicable';
+  
+    const summaryText = (() => {
+      if (isNotApplicable) {
+        return normalizedAlignment.featureRfv
+          ? 'This Feature is closed, so release alignment is no longer evaluated.'
+          : 'This Feature does not have a Release Fix Version assigned.';
+      }
+  
+      if (normalizedAlignment.status === 'unavailable') {
+        return 'The Feature has pending delivery work, but release or Sprint planning information is unavailable.';
+      }
+  
+      if (normalizedAlignment.status === 'aligned') {
+        return normalizedAlignment.pendingWorkItems > 0
+          ? `${normalizedAlignment.pendingWorkItems} pending work item(s) are aligned with the Feature RFV and planned Sprint.`
+          : 'No pending Stories or Bugs require release alignment evaluation.';
+      }
+  
+      return (
+        `${normalizedAlignment.affectedWorkItems} affected of ` +
+        `${normalizedAlignment.pendingWorkItems} pending work item(s).`
+      );
+    })();
+  
+    return (
+      <section
+        className="release-alignment-details"
+        aria-label="Release and Sprint alignment"
+      >
+        <div className="release-alignment-details__heading">
+          <strong className="release-alignment-details__title">
+            Release Alignment:
+          </strong>
+  
+          <span
+            className={[
+              'release-alignment-badge',
+              meta.className
+            ].join(' ')}
+            title={`Release Alignment: ${meta.label}`}
+          >
+            <span
+              className="release-alignment-badge__icon"
+              aria-hidden="true"
+            >
+              {meta.icon}
+            </span>
+  
+            {meta.label}
+          </span>
+        </div>
+  
+        <p className="release-alignment-details__summary">
+          {summaryText}
+        </p>
+  
+        {!isNotApplicable && (
+          <div className="release-alignment-details__metrics">
+            <span className="release-alignment-details__metric">
+              RFV: {normalizedAlignment.featureRfv || '—'}
+            </span>
+  
+            <span className="release-alignment-details__metric">
+              Release: {formatReleaseAlignmentDate(
+                normalizedAlignment.featureReleaseDate
+              )}
+            </span>
+  
+            <span className="release-alignment-details__metric">
+              Cutoff: {formatReleaseAlignmentDate(
+                normalizedAlignment.commitmentCutoffDate
+              )}
+            </span>
+  
+            {normalizedAlignment.pendingWorkItems > 0 && (
+              <span className="release-alignment-details__metric">
+                Pending: {normalizedAlignment.pendingWorkItems}
+              </span>
+            )}
+  
+            {normalizedAlignment.affectedWorkItems > 0 && (
+              <span
+                className={[
+                  'release-alignment-details__metric',
+                  isError
+                    ? 'release-alignment-details__metric--error'
+                    : 'release-alignment-details__metric--risk'
+                ].join(' ')}
+              >
+                Affected: {normalizedAlignment.affectedWorkItems}
+              </span>
+            )}
+  
+            {reasonMetrics.map(reason => (
+              <span
+                key={reason.key}
+                className={[
+                  'release-alignment-details__metric',
+                  isError
+                    ? 'release-alignment-details__metric--error'
+                    : 'release-alignment-details__metric--risk'
+                ].join(' ')}
+              >
+                {reason.count} {reason.label}
+              </span>
+            ))}
+          </div>
+        )}
+  
+        {normalizedAlignment.nextViableRfv && (
+          <span className="release-alignment-details__next-release">
+            Next viable RFV: {normalizedAlignment.nextViableRfv}
+          </span>
+        )}
+      </section>
+    );
+  }
+    
+    function ReadinessOverview({
       counts,
       SelectedReadiness,
       isAllFeaturesSelected,
@@ -6164,25 +6441,19 @@
             >
               <option value="All">All health rules</option>
               <option value="overdue">Overdue</option>
-              <option value="needs-estimate">
-                Needs High Level Estimation
-              </option>
-              <option value="target-date-near-unscheduled-discovery">
-                Target date near
-              </option>
-              <option value="target-next-month-without-release">
-                Target date near w/o RFV
-              </option>
-              <option value="closed-with-open-work">
-                Closed w/open work
-              </option>
+              <option value="needs-estimate">Needs High Level Estimation</option>
+              <option value="target-date-near-unscheduled-discovery">Target date near</option>
+              <option value="target-next-month-without-release">Target date near w/o RFV</option>
+              <option value="release-alignment-at-risk">Release alignment at risk</option>
+              <option value="release-commitment-missed">Release commitment missed</option>
+              <option value="release-date-passed-with-open-work">Release date passed</option>
+              <option value="release-alignment-unavailable">Release alignment unavailable</option>
+              <option value="closed-with-open-work">Closed w/open work</option>
               <option value="no-stories">No Stories</option>
               <option value="no-active-work">No active work</option>
               <option value="unestimated-work">No estimated work</option>
               <option value="not-started">Not started</option>
-              <option value="unable-to-evaluate">
-                Unable to evaluate
-              </option>
+              <option value="unable-to-evaluate">Unable to evaluate</option>
             </select>
     
             <button
@@ -7209,19 +7480,23 @@
         loadRelationshipGraphForFeatures([featureId]);
       };
 
-      const deliveryHealthRuleOptions = [
-        { key: 'healthy', label: 'Healthy'},
-        { key: 'overdue', label: 'Overdue' },
-        { key: 'target-date-near-unscheduled-discovery', label: 'Target date near' },
-        { key: 'target-next-month-without-release', label: 'Target date near w/o RFV' },
-        { key: 'closed-with-open-work', label: 'Closed w/open work' },
-        { key: 'unable-to-evaluate', label: 'Unable to evaluate' },
-        { key: 'needs-estimate', label: 'Needs High Level Estimation' },
-        { key: 'no-stories', label: 'No Stories' },
-        { key: 'no-active-work', label: 'No active work' },
-        { key: 'unestimated-work', label: 'No estimated work' },
-        { key: 'not-started', label: 'Not started' },
-      ];
+    const deliveryHealthRuleOptions = [
+      { key: 'healthy', label: 'Healthy' },
+      { key: 'overdue', label: 'Overdue' },
+      { key: 'target-date-near-unscheduled-discovery', label: 'Target date near' },
+      { key: 'target-next-month-without-release', label: 'Target date near w/o RFV'},
+      { key: 'release-alignment-at-risk', label: 'Release alignment at risk'},
+      { key: 'release-commitment-missed', label: 'Release commitment missed' },
+      { key: 'release-date-passed-with-open-work', label: 'Release date passed' },
+      { key: 'release-alignment-unavailable', label: 'Release alignment unavailable' },
+      { key: 'closed-with-open-work', label: 'Closed w/open work' },
+      { key: 'unable-to-evaluate', label: 'Unable to evaluate' },
+      { key: 'needs-estimate', label: 'Needs High Level Estimation' },
+      { key: 'no-stories', label: 'No Stories' },
+      { key: 'no-active-work', label: 'No active work' },
+      { key: 'unestimated-work', label: 'No estimated work' },
+      { key: 'not-started', label: 'Not started' }
+    ];
 
       const featuresItemsPerPage = 15;
       const featuresTotalPages =  Math.max( 1, Math.ceil(sortedFiltered.length / featuresItemsPerPage));
