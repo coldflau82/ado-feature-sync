@@ -888,7 +888,16 @@
     .release-alignment-details__next-release { display: block; margin-top: 8px; color: var(--accent-strong); font-size: 10px; font-weight: 700; line-height: 1.4; }
     @media (max-width: 560px) { .release-alignment-details__metrics { gap: 4px; }
       .release-alignment-details__metric { font-size: 9px; }}
-                
+    /* Stories and Bugs header: - Left: heading, description, and state/filter buttons. - Right: Release / Sprint Alignment. */
+    .feature-work-items-panel__top-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr); gap: 16px; align-items: start;
+      min-width: 0; }
+    .feature-work-items-panel__controls { min-width: 0; }
+    .feature-work-items-panel__alignment { min-width: 0; padding: 11px 12px; border: 1px solid var(--line-hairline); border-radius: 7px; 
+      background: var(--surface-sunken); }
+    /* Dentro del panel lateral ya existe una tarjeta propia. No debe repetir el borde superior ni crear separación extra. */
+    .feature-work-items-panel__alignment.release-alignment-details { margin-top: 0; padding-top: 0; border-top: 0; }
+    @media (max-width: 980px) { .feature-work-items-panel__top-grid { grid-template-columns: 1fr; gap: 12px; }}
+    
   </style>
 </head>
 <body>
@@ -1387,7 +1396,6 @@
               ))}
             </div>
           </div>
-          <ReleaseAlignmentDetails feature={feature} />
         </section>
       );
     }
@@ -5391,23 +5399,25 @@
             </section>
           </div>
                     
-                    <section
+          <section
             className="feature-work-items-panel"
             aria-label={`Stories and Bugs for Feature ${feature.id}`}
           >
-            <FeatureWorkItemsPanelHeader
-              activeTeamAreaPaths={
-                effectiveDeliveryTeamAreaPaths
-              }
-              teamViewLabel={
-                isAllDeliveryTeamsView
-                  ? 'All delivery teams'
-                  : ''
-              }
-            />
+            <div className="feature-work-items-panel__top-grid">
+              <div className="feature-work-items-panel__controls">
+                <FeatureWorkItemsPanelHeader
+                  activeTeamAreaPaths={
+                    effectiveDeliveryTeamAreaPaths
+                  }
+                  teamViewLabel={
+                    isAllDeliveryTeamsView
+                      ? 'All delivery teams'
+                      : ''
+                  }
+                />
 
-            <div className="feature-work-items-panel__filters">
-              <div className="delivery-details__summary">
+                <div className="feature-work-items-panel__filters">
+                  <div className="delivery-details__summary">
                 <button
                   type="button"
                   className={[
@@ -5573,7 +5583,16 @@
                         ? 'Linked Items unavailable'
                         : 'Linked Items'}
                 </button>
+                  </div>
+                </div>
               </div>
+
+              <aside
+                className="feature-work-items-panel__alignment"
+                aria-label="Release and Sprint Alignment"
+              >
+                <ReleaseAlignmentDetails feature={feature} />
+              </aside>
             </div>
 
             <div className="feature-work-items-panel__divider" />
