@@ -2545,7 +2545,8 @@
         prioriza ese detalle local y refina el valor sin parpadeos. */
       const summary = getFeatureDeliverySummary(
         feature,
-        storiesCache
+        storiesCache,
+        unavailableStoriesIds
       );
 
       /* Si no existe ni detalle local ni deliverySummary del backend, sí conservamos los estados anteriores como fallback visual. */
@@ -3774,8 +3775,7 @@
     
       summary.openWorkItems =
         summary.inPlanningWorkItems +
-        summary.inProgressWorkItems +
-        summary.toReleaseWorkItems;
+        summary.inProgressWorkItems;
     
       summary.progressPercent =
         summary.includedWorkItems === 0
@@ -3802,8 +3802,38 @@
     1. El detalle ya cargado en storiesCache, porque es la información más fresca y permite recalcular el resumen con los mismos campos.
     2. feature.deliverySummary, enviado por /api/features y disponible antes de que termine la precarga de Stories/Bugs.
     Ninguna celda de Progress debería depender de una petición posterior para mostrar información. */
-    function getFeatureDeliverySummary(feature, storiesCache) {
-      const cached = storiesCache?.[feature?.id];
+    /* Returns the best available delivery summary for a Feature.
+      Priority:
+      1. Server summary when Stories/Bugs detail is unavailable. An empty storiesCache array in this scenario represents a failed
+         request, not a confirmed "no work items" result.
+      2. Successfully loaded Stories/Bugs from storiesCache.
+      3. Server summary available from /api/features. */
+    function getFeatureDeliverySummary(
+      feature,
+      storiesCache,
+      unavailableStoriesIds = {}
+    ) {
+      const featureId = Number(feature?.id);
+
+      const server = feature?.deliverySummary;
+
+      const hasAvailableServerSummary =
+        server &&
+        server.source !== 'unknown' &&
+        Number.isInteger(server.includedWorkItems);
+
+      /* If the detail request failed or was incomplete, never interpret storiesCache[featureId] = [] as a confirmed absence of work items. */
+      if (
+        unavailableStoriesIds?.[featureId] &&
+        hasAvailableServerSummary
+      ) {
+        return {
+          ...server,
+          source: 'server'
+        };
+      }
+
+      const cached = storiesCache?.[featureId];
 
       if (Array.isArray(cached)) {
         return {
@@ -3812,13 +3842,7 @@
         };
       }
 
-      const server = feature?.deliverySummary;
-
-      if (
-        server &&
-        server.source !== 'unknown' &&
-        Number.isInteger(server.includedWorkItems)
-      ) {
+      if (hasAvailableServerSummary) {
         return {
           ...server,
           source: 'server'
@@ -6324,15 +6348,28 @@
             ? json.warnings
             : [];
 
-          /*
-            El backend es la fuente de verdad de la zona de negocio. Se actualiza antes de guardar Features para que el render posterior use la misma zona que Delivery Health.
-          */
+          /* El backend es la fuente de verdad de la zona de negocio. Se actualiza antes de guardar Features para que el render posterior use
+          la misma zona que Delivery Health. */
           if (
             json.dashboard?.timeZone &&
             DateTime.now().setZone(json.dashboard.timeZone).isValid
           ) {
             dashboardTimeZone = json.dashboard.timeZone;
           }
+
+          /* Delivery Health y frontend comparten el mismo threshold para "Target Date near". If the backend configuration changes,
+            the UI updates without requiring a dashboard code change.  */
+          const receivedTargetDateNearDays = Number(
+            json.dashboard?.thresholds?.targetDateNearDays
+          );
+
+          if (
+            Number.isInteger(receivedTargetDateNearDays) &&
+            receivedTargetDateNearDays > 0
+          ) {
+            targetDateNearDays = receivedTargetDateNearDays;
+          }
+
           if (
             json.dashboard?.releaseCalendar &&
             typeof json.dashboard.releaseCalendar === 'object'
@@ -8537,7 +8574,8 @@
                                 <DeliveryProgressBar
                                   summary={getFeatureDeliverySummary(
                                     f,
-                                    storiesCache
+                                    storiesCache,
+                                    unavailableStoriesIds
                                   )}
                                 />
                               </td>
