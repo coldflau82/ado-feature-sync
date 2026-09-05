@@ -1874,11 +1874,19 @@ function getNextViableReleaseFixVersion(featureRfv) {
   return viableCandidates[0]?.rfv || null;
 }
 
-/* Evaluates Feature RFV alignment based on all relevant direct child Stories and Bugs.
-  A work item is aligned only when:
-  1. It has an assigned Sprint that exists in the planning calendar.
-  2. That Sprint delivers the same RFV as the Feature.
-  3. The Story/Bug RFV matches the Feature RFV. */
+/*
+  Evaluates whether pending direct child Stories and Bugs can still
+  support the Feature Release Fix Version.
+
+  Compatibility policy:
+  - A Story/Bug RFV or Sprint delivering BEFORE the Feature RFV is valid.
+  - A Story/Bug RFV or Sprint delivering ON the Feature RFV is valid.
+  - A Story/Bug RFV or Sprint delivering AFTER the Feature RFV is a risk.
+  - Before the Feature commitment cutoff, pending work may temporarily
+    have no RFV and/or no Sprint.
+  - On or after the cutoff, pending work must be committed to an RFV
+    and Sprint that can support the Feature RFV.
+*/
 function buildReleaseAlignment(
   feature,
   workItems = []
@@ -1894,6 +1902,10 @@ function buildReleaseAlignment(
   const isFeatureClosed =
     FEATURE_CLOSED_STATES.includes(featureState);
 
+  /*
+    Closed Features and Features without an RFV are intentionally not
+    evaluated for release alignment.
+  */
   if (isFeatureClosed || !featureRfv) {
     return createReleaseAlignmentResult(
       'not-applicable',
@@ -1907,8 +1919,10 @@ function buildReleaseAlignment(
     isPendingReleaseAlignmentWorkItem
   );
 
-  /* If no direct Story/Bug is pending delivery, RFV viability does not need to block the Feature. This includes Features where all work is
-    To Release or Closed. */
+  /*
+    No pending work means there is no remaining scope that can jeopardize
+    the Feature release commitment.
+  */
   if (pendingWorkItems.length === 0) {
     return createReleaseAlignmentResult(
       'aligned',
@@ -1926,7 +1940,10 @@ function buildReleaseAlignment(
   const commitmentCutoffDate =
     getEffectiveCommitmentCutoffForRfv(featureRfv);
 
-  /* A known Feature RFV without a matching release date or Sprint plan cannot be assessed reliably. */
+  /*
+    The Feature RFV itself must exist in the calendar and have at least
+    one planned Sprint/cutoff before an alignment assessment is possible.
+  */
   if (!release || !commitmentCutoffDate) {
     return createReleaseAlignmentResult(
       'unavailable',
@@ -1948,27 +1965,37 @@ function buildReleaseAlignment(
     workItemRfvMismatch: 0
   };
 
-  /* A Feature remains feasible until the commitment cutoff date.
-    Before that date:
-    - A blank Story/Bug RFV is still planning work, not automatically
-      a release-alignment risk.
-    - A blank Sprint is still planning work, not automatically a risk.
-    - Earlier RFVs/Sprints are compatible because they deliver before
-      the Feature RFV.
-    - Only a later RFV/Sprint creates an immediate alignment risk.
-
-    On or after the cutoff:
-    - Pending work must be explicitly committed to an eligible RFV/Sprint.
-    - Missing RFV or Sprint becomes a missed commitment.
-  */
   const todayDateKey = getTodayDateKey();
+
+  /*
+    The cutoff date itself is treated as closed:
+    today >= cutoff means new/uncommitted pending work is too late.
+  */
   const isCommitmentCutoffReached =
     todayDateKey >= commitmentCutoffDate;
-  
+
+  /*
+    A Set ensures a Story/Bug is counted once even if it has multiple
+    causes, such as both a later RFV and a later Sprint.
+  */
+  const affectedWorkItemKeys = new Set();
+
+  /*
+    This indicates that ADO contains a non-empty RFV or Sprint which
+    cannot be interpreted using the declared release calendar.
+  */
   let hasUnavailablePlanningData = false;
 
-  pendingWorkItems.forEach(workItem => {
-    const workItemId = Number(workItem?.id);
+  pendingWorkItems.forEach((workItem, workItemIndex) => {
+    const numericWorkItemId = Number(workItem?.id);
+
+    /*
+      IDs should normally exist. The fallback keeps the affected count
+      correct if an unexpected incomplete ADO work item is received.
+    */
+    const workItemKey = Number.isInteger(numericWorkItemId)
+      ? `id-${numericWorkItemId}`
+      : `index-${workItemIndex}`;
 
     const workItemRfv = String(
       workItem?.releaseFixVersion || ''
@@ -1980,39 +2007,58 @@ function buildReleaseAlignment(
 
     let isAffected = false;
 
-    /* Story/Bug RFV comparison is chronological, not exact.
-      Example:
-      Feature RFV: CE-2026-DEC
-      Story RFV:   CE-2026-OCT
-      CE-2026-OCT is compatible because it delivers before the committed December Feature release. */
+    /*
+      Story/Bug RFV validation.
+
+      Earlier RFVs are acceptable:
+      Feature: CE-2026-DEC
+      Story:   CE-2026-OCT
+    */
     if (workItemRfv) {
       const workItemRelease =
         releaseCalendarReleaseByRfv.get(workItemRfv);
 
       if (!workItemRelease) {
-        /* A known non-empty RFV that is absent from the calendar cannot be assessed accurately. */
+        /*
+          The work item has an RFV, but it is absent from the configured
+          Release Calendar. This cannot be evaluated reliably.
+        */
         reasons.workItemRfvMismatch += 1;
         hasUnavailablePlanningData = true;
         isAffected = true;
       } else if (workItemRelease.sequence > release.sequence) {
-        /* A Story/Bug committed after the Feature RFV cannot support the Feature's planned release. */
+        /*
+          The Story/Bug is explicitly planned for a later release than
+          the Feature RFV, so it cannot support the Feature commitment.
+        */
         reasons.workItemRfvMismatch += 1;
         isAffected = true;
       }
     } else if (isCommitmentCutoffReached) {
-      /* Before the cutoff, a blank RFV is allowed for discovery/planning. From the cutoff onward, it becomes an uncommitted pending item. */
+      /*
+        Blank RFV is permitted during planning before cutoff.
+        Once the cutoff is reached, pending work must be committed.
+      */
       reasons.workItemRfvMismatch += 1;
       isAffected = true;
     }
 
+    /*
+      Sprint validation.
+
+      An earlier Sprint is acceptable because it delivers no later than
+      the Feature RFV. Only a later Sprint creates a release risk.
+    */
     if (iterationPath) {
       const sprint = getPlannedSprintFromIterationPath(
         iterationPath
       );
 
       if (!sprint) {
-        /* The Story/Bug has a Sprint in ADO, but it cannot be mapped to the release calendar. This needs calendar data correction,
-          rather than being treated as a normal RFV mismatch. */
+        /*
+          A Sprint is assigned in ADO but cannot be resolved against the
+          release calendar. This is planning-data unavailability.
+        */
         reasons.unmappedSprint += 1;
         hasUnavailablePlanningData = true;
         isAffected = true;
@@ -2027,40 +2073,34 @@ function buildReleaseAlignment(
           hasUnavailablePlanningData = true;
           isAffected = true;
         } else if (sprintRelease.sequence > release.sequence) {
-          /* Earlier or same RFV Sprint is acceptable. Only a Sprint delivering after the Feature RFV is a risk. */
+          /*
+            The assigned Sprint delivers after the Feature RFV.
+          */
           reasons.sprintRfvMismatch += 1;
           isAffected = true;
         }
       }
     } else if (isCommitmentCutoffReached) {
-      /* A Sprint is only mandatory once the Feature RFV commitment cutoff has been reached. */
+      /*
+        No Sprint is acceptable before cutoff during planning. It becomes
+        a missed commitment only once the cutoff has been reached.
+      */
       reasons.noSprint += 1;
       isAffected = true;
     }
 
-    if (isAffected && Number.isInteger(workItemId)) {
-      affectedWorkItemIds.add(workItemId);
+    if (isAffected) {
+      affectedWorkItemKeys.add(workItemKey);
     }
   });
 
-  /* If ADO has Sprint/RFV values which cannot be interpreted with the declared Release Calendar, do not report a false RFV risk.
-    The data must be reconciled first. */
-  if (hasUnavailablePlanningData) {
-    return createReleaseAlignmentResult(
-      'unavailable',
-      {
-        featureRfv,
-        featureReleaseDate: release.date,
-        commitmentCutoffDate,
-        affectedWorkItems,
-        pendingWorkItems: pendingWorkItems.length,
-        reasons,
-        nextViableRfv: getNextViableReleaseFixVersion(featureRfv)
-      }
-    );
-  }
+  const affectedWorkItems = affectedWorkItemKeys.size;
 
-  /* The RFV date has passed and pending work remains. This is more severe than a missed Sprint cutoff, so it takes precedence. */
+  /*
+    Release-passed has the highest priority. If the release date has
+    passed while work remains pending, the Feature must not be reported
+    merely as "unavailable".
+  */
   if (release.date < todayDateKey) {
     return createReleaseAlignmentResult(
       'release-passed',
@@ -2079,6 +2119,33 @@ function buildReleaseAlignment(
     );
   }
 
+  /*
+    The Feature RFV is known, but at least one Story/Bug contains a
+    non-empty RFV or assigned Sprint that cannot be mapped to planning
+    data. Do not claim a normal RFV risk until that data is reconciled.
+  */
+  if (hasUnavailablePlanningData) {
+    return createReleaseAlignmentResult(
+      'unavailable',
+      {
+        featureRfv,
+        featureReleaseDate: release.date,
+        commitmentCutoffDate,
+        affectedWorkItems,
+        pendingWorkItems: pendingWorkItems.length,
+        reasons,
+        nextViableRfv: getNextViableReleaseFixVersion(
+          featureRfv
+        )
+      }
+    );
+  }
+
+  /*
+    Everything that is pending is either:
+    - explicitly planned for the Feature RFV or earlier, or
+    - still legitimately uncommitted before cutoff.
+  */
   if (affectedWorkItems === 0) {
     return createReleaseAlignmentResult(
       'aligned',
@@ -2086,16 +2153,20 @@ function buildReleaseAlignment(
         featureRfv,
         featureReleaseDate: release.date,
         commitmentCutoffDate,
-        pendingWorkItems: pendingWorkItems.length
+        pendingWorkItems: pendingWorkItems.length,
+        reasons,
+        nextViableRfv: null
       }
     );
   }
 
-  /* On the cutoff date itself, the Sprint commitment is considered closed. With the current policy, cutoffDate defaults to Sprint startDate. */
-  const status =
-    todayDateKey >= commitmentCutoffDate
-      ? 'missed'
-      : 'at-risk';
+  /*
+    If affected work remains before cutoff, it can still be corrected.
+    On or after cutoff, it is a missed release commitment.
+  */
+  const status = isCommitmentCutoffReached
+    ? 'missed'
+    : 'at-risk';
 
   return createReleaseAlignmentResult(
     status,
@@ -2612,6 +2683,24 @@ function buildDeliverySummary(
     feature,
     relevantWorkItems
   );
+
+  if (
+    releaseAlignment.status !== 'aligned' &&
+    releaseAlignment.status !== 'not-applicable'
+  ) {
+    console.log('Release Alignment evaluation', {
+      featureId: feature?.id,
+      featureRfv:
+        feature?.fields?.['Custom.ReleaseFixVersion'] || '',
+      status: releaseAlignment.status,
+      pendingWorkItems: releaseAlignment.pendingWorkItems,
+      affectedWorkItems: releaseAlignment.affectedWorkItems,
+      featureReleaseDate: releaseAlignment.featureReleaseDate,
+      commitmentCutoffDate:
+        releaseAlignment.commitmentCutoffDate,
+      reasons: releaseAlignment.reasons
+    });
+  }
 
   return {
     source: 'ok',
