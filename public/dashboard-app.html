@@ -1513,7 +1513,6 @@
               <span
                 className={`delivery-badge ${delivery.className}`}
                 aria-label={`Delivery health: ${delivery.label}`}
-                title={`Delivery health: ${delivery.label}`}
               >
                 <span
                   className="delivery-badge__icon"
@@ -2965,13 +2964,130 @@
     */
 
     function MobileDeliveryBadge({ feature }) {
-      const delivery = getDeliveryHealth(feature);
+      /* En móvil no se depende de hover. El detalle expandido presenta Delivery Health, alertas y acciones recomendadas. */
+      return (
+        <DeliveryHealthBadge
+          feature={feature}
+          compact
+        />
+      );
+    }
 
+    /* Badge reutilizable de Delivery Health.    
+      Reemplaza el title nativo por el tooltip global del dashboard en contextos desktop/tablet. En móvil conserva el aria-label, pero no
+      depende de hover para comunicar la información: el detalle expandido ya muestra las alertas, la causa y la acción recomendada. */
+    function DeliveryHealthBadge({
+      feature,
+      compact = false,
+      showTooltip,
+      moveTooltip,
+      hideTooltip
+    }) {
+      const delivery = getDeliveryHealth(feature);
+    
+      const tooltipContent = (
+        <div className="feature-list-tooltip">
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginBottom: '6px'
+            }}
+          >
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                background:
+                  delivery.className === 'delivery--overdue'
+                    ? 'var(--risk)'
+                    : delivery.className === 'delivery--needs-info'
+                      ? '#ea580c'
+                      : delivery.className === 'delivery--attention'
+                        ? 'var(--warn)'
+                        : delivery.className === 'delivery--healthy'
+                          ? 'var(--ok)'
+                          : delivery.className === 'delivery--not-started'
+                            ? 'var(--accent)'
+                            : 'var(--text-tertiary)',
+                color: '#ffffff',
+                fontSize: '10px',
+                fontWeight: '800',
+                lineHeight: '1'
+              }}
+              aria-hidden="true"
+            >
+              {delivery.icon}
+            </span>
+    
+            <strong
+              style={{
+                margin: 0,
+                color: '#ffffff',
+                fontSize: '12px',
+                lineHeight: '1.35'
+              }}
+            >
+              {delivery.label}
+            </strong>
+          </div>
+    
+          <div
+            style={{
+              color: '#cbd5e1',
+              fontSize: '10px',
+              lineHeight: '1.5'
+            }}
+          >
+            {delivery.reason && (
+              <div>
+                <span style={{ color: '#94a3b8' }}>
+                  Reason:
+                </span>{' '}
+                {delivery.reason}
+              </div>
+            )}
+    
+            {delivery.recommendedAction && (
+              <div style={{ marginTop: '4px' }}>
+                <span style={{ color: '#94a3b8' }}>
+                  Action:
+                </span>{' '}
+                {delivery.recommendedAction}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    
       return (
         <span
           className={`delivery-badge ${delivery.className}`}
-          aria-label={`Delivery health: ${delivery.label}`}
-          title={`Delivery health: ${delivery.label}`}
+          aria-label={
+            delivery.reason
+              ? `Delivery health: ${delivery.label}. ${delivery.reason}`
+              : `Delivery health: ${delivery.label}`
+          }
+          onMouseEnter={(event) => {
+            if (showTooltip) {
+              showTooltip(event, tooltipContent);
+            }
+          }}
+          onMouseMove={(event) => {
+            if (moveTooltip) {
+              moveTooltip(event);
+            }
+          }}
+          onMouseLeave={() => {
+            if (hideTooltip) {
+              hideTooltip();
+            }
+          }}
         >
           <span
             className="delivery-badge__icon"
@@ -2979,14 +3095,16 @@
           >
             {delivery.icon}
           </span>
-
+    
           <span className="delivery-badge__label">
-            {delivery.shortLabel}
+            {compact
+              ? delivery.shortLabel
+              : delivery.label}
           </span>
         </span>
       );
     }
-
+    
     function getFeatureStateColor(state) {
       return {
         New: '#94a3b8',
@@ -8374,41 +8492,59 @@
       expandedStoryIds
     ]);
 
-        function FeatureTooltipContent({ feature }) {
-        /* Reutilizamos exactamente la lógica de display ya utilizada en la columna Iteration: tomar el último segmento del path.
-          Area: Commercial Engineering\Digital\Acquisition\Global Product 1 → Global Product 1
-          Iteration: Commercial Engineering\2026\Q4  → Q4 */
-        const shortArea = feature.areaPath
-          ? feature.areaPath.split('\\').pop()
-          : '—';
-
-        const shortIteration = feature.iterationPath
-          ? feature.iterationPath.split('\\').pop()
-          : '—';
-
-        return (
-          <div className="feature-list-tooltip">
-            <strong>
-              #{feature.id} — {feature.title || 'Untitled Feature'}
-            </strong>
-            <div>
-                Area Path: {shortArea}
-            </div>
-            <div>
-              Iteration Path: {shortIteration}
-            </div>
-            <div>
-              Assigned to: {feature.assignedTo || '—'}
-            </div>
-            <div>
-              Release Fix Version: {feature.releaseFixVersion || '—'}
-            </div>
-            <div>
-              Tech Go Live RFV: {feature.techGoLiveRFV || '—'}
-            </div>
+    function FeatureTooltipContent({ feature }) {
+      /* Reutiliza el criterio del Roadmap: Area e Iteration muestran solamente el último segmento del path,
+        que es la parte operativa que el usuario necesita identificar. */
+      const shortArea = feature.areaPath
+        ? feature.areaPath.split('\\').pop()
+        : '—';
+    
+      const shortIteration = feature.iterationPath
+        ? feature.iterationPath.split('\\').pop()
+        : '—';
+    
+      return (
+        <div className="feature-list-tooltip">
+          <div
+            style={{
+              marginBottom: '7px',
+              color: '#ffffff',
+              fontSize: '12px',
+              fontWeight: '700',
+              lineHeight: '1.4'
+            }}
+          >
+            #{feature.id} — {feature.title || 'Untitled Feature'}
           </div>
-        );
-      }
+    
+          <div
+            style={{
+              color: '#cbd5e1',
+              fontSize: '10px',
+              lineHeight: '1.5'
+            }}
+          >
+            <div>
+              📍 Area: {shortArea}
+            </div>
+    
+            <div>
+              🗓️ Iteration: {shortIteration}
+            </div>
+    
+            <div>
+              👤 Assigned to: {getShortAssignedToName(feature.assignedTo)}
+            </div>
+    
+            {feature.techGoLiveRFV && (
+              <div>
+                ★ Tech Go Live: {feature.techGoLiveRFV}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
 
       const handleSortColumn = (column) => {
         setSortColumn(column);
@@ -9758,25 +9894,13 @@
                               </td>
                               
                               <td className="feature-list-centered-cell">
-                                {(() => {
-                                  const delivery = getDeliveryHealth(f);
-                              
-                                  return (
-                                    <span
-                                      className={`delivery-badge ${delivery.className}`}
-                                      aria-label={`Delivery health: ${delivery.label}`}
-                                      title={`Delivery health: ${delivery.label}`}
-                                    >
-                                      <span className="delivery-badge__icon" aria-hidden="true">
-                                        {delivery.icon}
-                                      </span>
-                              
-                                      <span className="delivery-badge__label">
-                                        {delivery.shortLabel}
-                                      </span>
-                                    </span>
-                                  );
-                                })()}
+                                <DeliveryHealthBadge
+                                  feature={f}
+                                  compact
+                                  showTooltip={showTooltip}
+                                  moveTooltip={moveTooltip}
+                                  hideTooltip={hideTooltip}
+                                />
                               </td>
                               <td className="feature-list-progress-cell">
                                 <DeliveryProgressBar
