@@ -949,22 +949,22 @@
     .delivery-inline-alert__summary-content { flex: 1 1 0; }
     .delivery-inline-alert__title,.delivery-inline-alert__reason,.delivery-inline-alert__detail-value { overflow-wrap: anywhere; word-break: break-word; }
     .delivery-inline-alert__reason { white-space: normal; }
-    /* Indicador compacto y clicable dentro de la columna RFV. No muestra tooltip: el detalle completo se consulta al expandir la Feature. */
-    .release-alignment-indicator { appearance: none; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
-      flex: 0 0 16px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; font: inherit; line-height: 1;
-      touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-    .release-alignment-indicator__icon { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 50%;
-      color: var(--surface-raised); font-size: 9px; font-weight: 800; line-height: 1; }
-    .release-alignment-indicator.release-alignment-badge--aligned.release-alignment-indicator__icon { background: var(--ok);}
-    .release-alignment-indicator.release-alignment-badge--at-risk.release-alignment-indicator__icon { background: var(--warn);}
-    .release-alignment-indicator.release-alignment-badge--missed.release-alignment-indicator__icon,
-    .release-alignment-indicator.release-alignment-badge--release-passed.release-alignment-indicator__icon { background: var(--risk);}
-    .release-alignment-indicator.release-alignment-badge--unavailable.release-alignment-indicator__icon { background: var(--text-tertiary);}
-    .release-alignment-indicator.release-alignment-badge--unavailable.release-alignment-indicator__icon { background: var(--text-tertiary); }
-    .release-alignment-indicator:hover { transform: scale(1.12); }
-    .release-alignment-indicator:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.32); outline-offset: 2px; }
-    .release-alignment-indicator:active { transform: scale(0.94); }
-    @media (prefers-reduced-motion: reduce) { .release-alignment-indicator:hover,.release-alignment-indicator:active {  transform: none;}}
+    /* Indicador compacto y clicable dentro de la columna RFV. No usa tooltip: al hacer clic abre el detalle completo de la Feature. */
+    .release-alignment-indicator { appearance: none; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; flex: 0 0 16px;
+      margin-top: 1px; padding: 0; border: 0; border-radius: 50%; background: var(--text-tertiary); color: var(--surface-raised); cursor: pointer;
+      font: inherit; font-size: 9px; font-weight: 800; line-height: 1; touch-action: manipulation; -webkit-tap-highlight-color: transparent;}
+    .release-alignment-indicator__icon { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: inherit;
+      font-size: inherit; font-weight: inherit; line-height: 1;}
+    /* El color se pinta en el botón, no en el span interno. */
+    .release-alignment-indicator.release-alignment-badge--aligned { background: var(--ok);}
+    .release-alignment-indicator.release-alignment-badge--at-risk { background: var(--warn);}
+    .release-alignment-indicator.release-alignment-badge--missed,.release-alignment-indicator.release-alignment-badge--release-passed {
+      background: var(--risk);}
+    .release-alignment-indicator.release-alignment-badge--unavailable { background: var(--text-tertiary);}
+    .release-alignment-indicator:hover { transform: scale(1.12);}
+    .release-alignment-indicator:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.32); outline-offset: 2px;}
+    .release-alignment-indicator:active { transform: scale(0.94);}
+    @media (prefers-reduced-motion: reduce) {.release-alignment-indicator:hover,.release-alignment-indicator:active { transform: none; }}
     /* ── Stories and Bugs + Release Alignment: tarjetas gemelas ─── */
     .feature-work-items-panel__top-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: stretch; min-width: 0; }
     .feature-work-items-panel__controls-card,.feature-work-items-panel__alignment { min-width: 0; padding: 12px;  border: 1px solid var(--line-hairline);
@@ -981,8 +981,9 @@
     .feature-work-items-panel__results.delivery-work-group:first-child { margin-top: 0;}
     @media (max-width: 980px) {.feature-work-items-panel__top-grid { grid-template-columns: 1fr; gap: 10px; }}
     .release-fix-version-with-alignment { display: flex; align-items: flex-start; gap: 4px; min-width: 0;}
-    .release-fix-version-with-alignment.release-fix-version-cell { flex: 1 1 auto; min-width: 0;}
-    .release-fix-version-with-alignment.release-alignment-indicator { flex: 0 0 16px; margin-top: 1px;}
+    .release-fix-version-with-alignment .release-fix-version-cell,.release-fix-version-with-alignment .release-fix-version-cell__empty {
+      flex: 1 1 auto; min-width: 0; }
+    .release-fix-version-with-alignment .release-alignment-indicator { flex: 0 0 16px; margin-top: 1px; }
    
   </style>
 </head>
