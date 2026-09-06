@@ -5231,24 +5231,13 @@ async function getIncrementalOldFeaturesCache(
   - su TTL expiró;
   - el Cron interno solicita forceRefresh=true.
   El Refresh manual del dashboard nunca usa forceRefresh: los Features Live se consultan siempre mediante fetchRecentFeatures(). */
-  const rangesToRefresh = OLD_FEATURES_DATE_RANGES.filter(range => {
-    const existing = existingEntries.find(
-      item => item.range.cacheSuffix === range.cacheSuffix
-    );
-  
-    /*
-      El endpoint público nunca envía forceRefresh=true.
-  
-      Sólo el Cron interno puede solicitar una actualización explícita de
-      los shards históricos ya existentes.
-    */
-    return forceRefresh || !existing?.entry;
-  });
+  /* El endpoint público sólo lee los shards históricos existentes. La reconstrucción histórica es responsabilidad exclusiva del Cron
+    protegido mediante forceRefresh: true. Así evitamos que una visita normal al dashboard provoque consultas históricas pesadas a ADO.*/
+  const rangesToRefresh = forceRefresh
+    ? OLD_FEATURES_DATE_RANGES
+    : [];
 
-  /*
-    Los rangos existentes que no necesitan actualizarse se conservan
-    directamente en memoria.
-  */
+  /* Los rangos existentes que no necesitan actualizarse se conservan directamente en memoria. */
   existingEntries.forEach(({ range, entry }) => {
     if (entry) {
       rangeEntries.set(range.cacheSuffix, entry);
@@ -5461,10 +5450,7 @@ async function getActiveOldFeaturesCache(
     ACTIVE_OLD_FEATURES_CACHE_KEY
   );
 
-  /*
-    Mientras el shard exista y no sea una sincronización interna
-    programada, se reutiliza sin consultar Azure DevOps.
-  */
+  /* Uso normal del dashboard: si el shard existe, se reutiliza sin consultar Azure DevOps. */
   if (existingEntry && !forceRefresh) {
     return {
       activeOldFeaturesCache: existingEntry,
@@ -5474,6 +5460,18 @@ async function getActiveOldFeaturesCache(
     };
   }
 
+  /* La ruta pública no construye histórico si Redis está vacío. Sólo el Cron autorizado puede hacerlo con forceRefresh: true. */
+  if (!existingEntry && !forceRefresh) {
+    const error = new Error(
+      'Active historical Features cache is not available yet.'
+    );
+
+    error.statusCode = 503;
+
+    throw error;
+  }
+
+  /* A partir de aquí sólo se llega en una sincronización forzada: normalmente el Cron interno autorizado. */
   try {
     const newEntry = await fetchActiveOldFeatures(c);
 
@@ -5492,10 +5490,7 @@ async function getActiveOldFeaturesCache(
       refreshed: true
     };
   } catch (error) {
-    /*
-      Durante el Cron, un shard previo válido sigue siendo preferible a
-      reemplazarlo por información parcial o hacer fallar todo el proceso.
-    */
+    /* Durante el Cron, un shard previo válido sigue siendo preferible a reemplazarlo por información parcial o hacer fallar todo el proceso. */
     if (existingEntry) {
       console.error(
         'Active old Features cache refresh failed. ' +
