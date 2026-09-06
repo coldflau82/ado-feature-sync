@@ -743,9 +743,42 @@ const redis = Redis.fromEnv();
 // Si tus variables tienen otro nombre, usa:
 // const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN });
 
+/* ===== Auditoría persistente del Cron nocturno =====
+  Vercel conserva logs por tiempo limitado. Este audit persiste en Redis para poder confirmar posteriormente:
+  - si el Cron se ejecutó;
+  - si terminó correctamente;
+  - si se usó un fallback de caché;
+  - qué rangos fallaron;
+  - distribución de Release Alignment;
+  - ejemplos de Features que requieren seguimiento.
+  No se almacenan títulos, descripciones, PATs, headers ni respuestas completas de Azure DevOps. */
+const FEATURE_CACHE_AUDIT_PREFIX = 'featureCacheAudit:v1';
+const FEATURE_CACHE_AUDIT_LATEST_KEY = `${FEATURE_CACHE_AUDIT_PREFIX}:latest`;
+const FEATURE_CACHE_AUDIT_RECENT_KEY = `${FEATURE_CACHE_AUDIT_PREFIX}:recent`;
+const FEATURE_CACHE_AUDIT_RUN_PREFIX = `${FEATURE_CACHE_AUDIT_PREFIX}:run`;
+const FEATURE_CACHE_AUDIT_TTL_SECONDS =  45 * 24 * 60 * 60;
+const FEATURE_CACHE_AUDIT_MAX_RUNS = 45;
+const FEATURE_CACHE_AUDIT_EXAMPLE_LIMIT = 20;
+/* Feature IDs que siempre queremos inspeccionar en el audit.
+  Puedes controlar la lista desde Vercel con: CACHE_AUDIT_WATCH_FEATURE_IDS=1290868,1234567
+  Si la variable no existe, se conserva 1290868 como diagnóstico temporal para el caso actual. */
+const CACHE_AUDIT_WATCH_FEATURE_IDS = [
+  ...new Set(
+    String(
+      process.env.CACHE_AUDIT_WATCH_FEATURE_IDS ||
+      '1290868'
+    )
+      .split(',')
+      .map(value => Number(value.trim()))
+      .filter(value =>
+        Number.isInteger(value) &&
+        value > 0
+      )
+  )
+];
+
 /* ===== Historiales ADO: protección contra throttling =====
-  Máximo de consultas simultáneas a /revisions dentro de una solicitud batch.
-  Empieza con 5; puede subirse gradualmente si ADO no devuelve 429.*/
+  Máximo de consultas simultáneas a /revisions dentro de una solicitud batch. Empieza con 5; puede subirse gradualmente si ADO no devuelve 429.*/
 const HISTORY_BATCH_CONCURRENCY = 5;
 
 /* Aging consulta revisiones de Features únicamente cuando no existe una entrada válida en Redis o cuando cambió el estado actual.
@@ -1770,8 +1803,21 @@ function isTargetDateInNextCalendarMonth(targetDate) {
   - completed: closed work.
   - removed: excluded from delivery scope.*/
 function isPendingReleaseAlignmentWorkItem(workItem) {
+  const normalizedState = String(
+    workItem?.state || ''
+  ).trim();
+
+  /* Esta exclusión es específica de Release Alignment. No cambia la clasificación general de Delivery Health: 
+  UAT puede seguir siendo In Progress en los indicadores generales, pero no bloquea el cálculo de compromiso de RFV. */
+  if (
+    normalizedState === 'User Acceptance Testing' ||
+    normalizedState === 'User Acceptance Test'
+  ) {
+    return false;
+  }
+
   const category = getDeliveryWorkItemCategory(
-    workItem?.state
+    normalizedState
   );
 
   return (
@@ -2017,7 +2063,8 @@ function buildReleaseAlignment(
         featureReleaseDate: release?.date || null,
         pendingWorkItems: pendingWorkItems.length,
         nextViableRfv: getNextViableReleaseFixVersion(
-          featureRfv
+          featureRfv,
+          pendingWorkItems
         )
       }
     );
@@ -5498,8 +5545,501 @@ async function getActiveOldFeaturesCache(
 const FEATURE_CACHE_SYNC_LOCK_KEY =
   'oldFeaturesCache:v2:scheduled-sync-lock';
 
-const FEATURE_CACHE_SYNC_LOCK_TTL_SECONDS =
-  55 * 60;
+const FEATURE_CACHE_SYNC_LOCK_TTL_SECONDS = 55 * 60;
+
+/* Crea la estructura inicial de una ejecución de sincronización.
+  Se guarda una estructura explícita en vez de depender de console.log(), porque los logs de Vercel tienen retención limitada. */
+function createFeatureCacheSyncAudit(trigger = 'vercel-cron') {
+  const startedAt = new Date().toISOString();
+
+  return {
+    runId: startedAt,
+    trigger,
+    status: 'running',
+
+    startedAt,
+    finishedAt: null,
+    durationMs: null,
+
+    dashboardTimeZone: DASHBOARD_TIME_ZONE,
+    businessDate: getTodayDateKey(),
+
+    /* El Cron actual refresca exclusivamente:
+      - shards históricos de 10 a 180 días;
+      - Features activas de 180 a 730 días.
+      Los Features de los últimos 10 días se consultan Live en /api/features y no se almacenan como parte del Cron.  */
+    scope: {
+      includesHistoricalRanges: true,
+      includesActiveOldFeatures: true,
+      includesRecentLiveFeatures: false
+    },
+
+    cache: {
+      storageMode: null,
+      historicalFailedRanges: [],
+      historicalWarningCount: 0,
+      usedLegacyFallback: false,
+
+      activeOldRefreshed: false,
+      activeOldUsedPreviousCache: false,
+      activeOldWarning: null,
+
+      historicalRangeCount: 0,
+      historicalFeatureCount: 0,
+      activeOldFeatureCount: 0,
+      totalUniqueCachedFeatures: 0
+    },
+
+    releaseAlignment: {
+      aligned: 0,
+      atRisk: 0,
+      missed: 0,
+      releasePassed: 0,
+      unavailable: 0,
+      notApplicable: 0,
+      unknown: 0
+    },
+
+    deliverySummary: {
+      ok: 0,
+      unknown: 0
+    },
+
+    deliveryHealthAlerts: {
+      releaseAlignmentAtRisk: 0,
+      releaseCommitmentMissed: 0,
+      releaseDatePassedWithOpenWork: 0,
+      releaseAlignmentUnavailable: 0
+    },
+
+    examples: {
+      atRisk: [],
+      missed: [],
+      releasePassed: [],
+      unavailable: [],
+      unknownDeliverySummary: []
+    },
+
+    /* Snapshot reducido para Features definidas en CACHE_AUDIT_WATCH_FEATURE_IDS.
+      No se guarda title, description, acceptance criteria, assignedTo ni otros campos sensibles. */
+    watchedFeatures: [],
+
+    error: null,
+    skippedReason: null
+  };
+}
+
+/* Agrega IDs únicos a un bucket de ejemplos, con límite para evitar que el audit crezca sin control. */
+function addFeatureCacheAuditExample(audit, bucket, featureId) {
+  if (
+    !audit?.examples?.[bucket] ||
+    audit.examples[bucket].length >=
+      FEATURE_CACHE_AUDIT_EXAMPLE_LIMIT
+  ) {
+    return;
+  }
+
+  const normalizedFeatureId = Number(featureId);
+
+  if (!Number.isInteger(normalizedFeatureId)) {
+    return;
+  }
+
+  if (!audit.examples[bucket].includes(normalizedFeatureId)) {
+    audit.examples[bucket].push(normalizedFeatureId);
+  }
+}
+
+/* Construye un snapshot seguro y reducido para un Feature observado. */
+function createWatchedFeatureAuditSnapshot(feature) {
+  const featureId = Number(feature?.id);
+  const deliverySummary = feature?.deliverySummary || {};
+  const releaseAlignment =
+    deliverySummary.releaseAlignment ||
+    createReleaseAlignmentResult('unavailable');
+
+  const healthAlerts = Array.isArray(
+    feature?.deliveryHealth?.alerts
+  )
+    ? feature.deliveryHealth.alerts
+        .map(alert => String(alert?.key || '').trim())
+        .filter(Boolean)
+    : [];
+
+  return {
+    featureId,
+
+    featureState: String(feature?.state || '').trim(),
+    featureRfv: String(
+      feature?.releaseFixVersion || ''
+    ).trim(),
+
+    deliverySummarySource:
+      String(deliverySummary.source || 'unknown'),
+
+    totalWorkItems:
+      deliverySummary.totalWorkItems ?? null,
+
+    inPlanningWorkItems:
+      deliverySummary.inPlanningWorkItems ?? null,
+
+    inProgressWorkItems:
+      deliverySummary.inProgressWorkItems ?? null,
+
+    toReleaseWorkItems:
+      deliverySummary.toReleaseWorkItems ?? null,
+
+    completedWorkItems:
+      deliverySummary.completedWorkItems ?? null,
+
+    releaseAlignment: {
+      status: releaseAlignment.status || 'unavailable',
+      pendingWorkItems:
+        releaseAlignment.pendingWorkItems ?? null,
+      affectedWorkItems:
+        releaseAlignment.affectedWorkItems ?? null,
+      featureReleaseDate:
+        releaseAlignment.featureReleaseDate || null,
+      commitmentCutoffDate:
+        releaseAlignment.commitmentCutoffDate || null,
+      nextViableRfv:
+        releaseAlignment.nextViableRfv || null,
+      reasons: {
+        noSprint:
+          Number(releaseAlignment.reasons?.noSprint || 0),
+        unmappedSprint:
+          Number(
+            releaseAlignment.reasons?.unmappedSprint || 0
+          ),
+        sprintRfvMismatch:
+          Number(
+            releaseAlignment.reasons?.sprintRfvMismatch || 0
+          ),
+        workItemRfvMismatch:
+          Number(
+            releaseAlignment.reasons?.workItemRfvMismatch || 0
+          )
+      }
+    },
+
+    deliveryHealthAlertKeys: healthAlerts
+  };
+}
+
+/* Resume la parte cacheada de Features procesada por el Cron.
+  Importante:
+  - Deduplica IDs, igual que /api/features.
+  - No incluye Features recientes de los últimos 10 días porque esos siempre se obtienen live cuando el navegador llama /api/features. */
+function populateFeatureCacheSyncAudit(
+  audit,
+  {
+    historicalFeatures = [],
+    activeOldFeatures = [],
+    historicalResult = null,
+    activeOldResult = null
+  } = {}
+) {
+  const featuresById = new Map();
+
+  /* Mantiene el mismo principio de prioridad usado en /api/features: si por una condición inesperada un ID aparece en ambos conjuntos,
+    el último valor sobrescribe el anterior. */
+  [
+    ...activeOldFeatures,
+    ...historicalFeatures
+  ].forEach(feature => {
+    const featureId = Number(feature?.id);
+
+    if (Number.isInteger(featureId)) {
+      featuresById.set(featureId, feature);
+    }
+  });
+
+  const allCachedFeatures = [
+    ...featuresById.values()
+  ];
+
+  audit.cache.storageMode =
+    historicalResult?.usedLegacyFallback
+      ? 'legacy-fallback'
+      : 'incremental-v2';
+
+  audit.cache.usedLegacyFallback = Boolean(
+    historicalResult?.usedLegacyFallback
+  );
+
+  audit.cache.historicalFailedRanges =
+    historicalResult?.failedRanges || [];
+
+  audit.cache.historicalWarningCount =
+    Array.isArray(
+      historicalResult?.cacheRefreshWarnings
+    )
+      ? historicalResult.cacheRefreshWarnings.length
+      : 0;
+
+  audit.cache.activeOldRefreshed = Boolean(
+    activeOldResult?.refreshed
+  );
+
+  audit.cache.activeOldUsedPreviousCache = Boolean(
+    activeOldResult?.usedPreviousCache
+  );
+
+  audit.cache.activeOldWarning =
+    activeOldResult?.warning || null;
+
+  audit.cache.historicalRangeCount =
+    Array.isArray(
+      historicalResult?.oldFeaturesCache?.historicalRanges
+    )
+      ? historicalResult.oldFeaturesCache
+          .historicalRanges.length
+      : 0;
+
+  audit.cache.historicalFeatureCount =
+    Array.isArray(historicalFeatures)
+      ? historicalFeatures.length
+      : 0;
+
+  audit.cache.activeOldFeatureCount =
+    Array.isArray(activeOldFeatures)
+      ? activeOldFeatures.length
+      : 0;
+
+  audit.cache.totalUniqueCachedFeatures =
+    allCachedFeatures.length;
+
+  allCachedFeatures.forEach(feature => {
+    const featureId = Number(feature?.id);
+
+    const summary = feature?.deliverySummary || {};
+    const alignment =
+      summary.releaseAlignment ||
+      createReleaseAlignmentResult('unavailable');
+
+    const deliverySummarySource = String(
+      summary.source || 'unknown'
+    ).trim();
+
+    if (deliverySummarySource === 'ok') {
+      audit.deliverySummary.ok += 1;
+    } else {
+      audit.deliverySummary.unknown += 1;
+
+      addFeatureCacheAuditExample(
+        audit,
+        'unknownDeliverySummary',
+        featureId
+      );
+    }
+
+    switch (alignment.status) {
+      case 'aligned':
+        audit.releaseAlignment.aligned += 1;
+        break;
+
+      case 'at-risk':
+        audit.releaseAlignment.atRisk += 1;
+
+        addFeatureCacheAuditExample(
+          audit,
+          'atRisk',
+          featureId
+        );
+        break;
+
+      case 'missed':
+        audit.releaseAlignment.missed += 1;
+
+        addFeatureCacheAuditExample(
+          audit,
+          'missed',
+          featureId
+        );
+        break;
+
+      case 'release-passed':
+        audit.releaseAlignment.releasePassed += 1;
+
+        addFeatureCacheAuditExample(
+          audit,
+          'releasePassed',
+          featureId
+        );
+        break;
+
+      case 'unavailable':
+        audit.releaseAlignment.unavailable += 1;
+
+        addFeatureCacheAuditExample(
+          audit,
+          'unavailable',
+          featureId
+        );
+        break;
+
+      case 'not-applicable':
+        audit.releaseAlignment.notApplicable += 1;
+        break;
+
+      default:
+        audit.releaseAlignment.unknown += 1;
+        break;
+    }
+
+    const alertKeys = Array.isArray(
+      feature?.deliveryHealth?.alerts
+    )
+      ? feature.deliveryHealth.alerts.map(alert =>
+          String(alert?.key || '').trim()
+        )
+      : [];
+
+    if (
+      alertKeys.includes('release-alignment-at-risk')
+    ) {
+      audit.deliveryHealthAlerts.releaseAlignmentAtRisk += 1;
+    }
+
+    if (
+      alertKeys.includes('release-commitment-missed')
+    ) {
+      audit.deliveryHealthAlerts.releaseCommitmentMissed += 1;
+    }
+
+    if (
+      alertKeys.includes(
+        'release-date-passed-with-open-work'
+      )
+    ) {
+      audit.deliveryHealthAlerts
+        .releaseDatePassedWithOpenWork += 1;
+    }
+
+    if (
+      alertKeys.includes(
+        'release-alignment-unavailable'
+      )
+    ) {
+      audit.deliveryHealthAlerts
+        .releaseAlignmentUnavailable += 1;
+    }
+  });
+
+  audit.watchedFeatures = CACHE_AUDIT_WATCH_FEATURE_IDS
+    .map(featureId =>
+      featuresById.get(featureId)
+    )
+    .filter(Boolean)
+    .map(createWatchedFeatureAuditSnapshot);
+}
+
+/* Finaliza el audit antes de persistirlo. */
+function finalizeFeatureCacheSyncAudit(
+  audit,
+  {
+    status,
+    error = null,
+    skippedReason = null
+  } = {}
+) {
+  const finishedAt = new Date().toISOString();
+
+  return {
+    ...audit,
+    status: status || audit.status || 'success',
+    finishedAt,
+    durationMs: Math.max(
+      0,
+      new Date(finishedAt).getTime() -
+        new Date(audit.startedAt).getTime()
+    ),
+    error,
+    skippedReason
+  };
+}
+
+/* Persiste:
+  - una clave individual por ejecución;
+  - la última ejecución;
+  - una lista compacta de las últimas 45 ejecuciones.
+  Upstash Redis serializa objetos JSON automáticamente, igual que las otras claves de caché ya usadas en este archivo. */
+async function saveFeatureCacheSyncAudit(audit) {
+  const runKey =
+    `${FEATURE_CACHE_AUDIT_RUN_PREFIX}:${audit.runId}`;
+
+  let previousRuns = [];
+
+  try {
+    const storedRecentRuns = await redis.get(
+      FEATURE_CACHE_AUDIT_RECENT_KEY
+    );
+
+    if (Array.isArray(storedRecentRuns)) {
+      previousRuns = storedRecentRuns;
+    }
+  } catch (error) {
+    /* Si no se puede leer el historial, todavía intentamos guardar latest y el registro individual. */
+    console.error(
+      'Unable to read previous Feature cache sync audits.',
+      {
+        message: error.message
+      }
+    );
+  }
+
+  /* Evita duplicar el mismo runId en caso de que este helper sea llamado más de una vez por una ejecución inesperada. */
+  const recentRuns = [
+    audit,
+    ...previousRuns.filter(
+      previousAudit =>
+        previousAudit?.runId !== audit.runId
+    )
+  ].slice(0, FEATURE_CACHE_AUDIT_MAX_RUNS);
+
+  await redis.set(
+    runKey,
+    audit,
+    {
+      ex: FEATURE_CACHE_AUDIT_TTL_SECONDS
+    }
+  );
+
+  await redis.set(
+    FEATURE_CACHE_AUDIT_LATEST_KEY,
+    audit,
+    {
+      ex: FEATURE_CACHE_AUDIT_TTL_SECONDS
+    }
+  );
+
+  await redis.set(
+    FEATURE_CACHE_AUDIT_RECENT_KEY,
+    recentRuns,
+    {
+      ex: FEATURE_CACHE_AUDIT_TTL_SECONDS
+    }
+  );
+
+  return audit;
+}
+
+/* La auditoría no debe convertir una sincronización correcta en un error HTTP únicamente porque Redis no pudo guardar telemetría adicional.
+*/
+async function saveFeatureCacheSyncAuditSafely(audit) {
+  try {
+    await saveFeatureCacheSyncAudit(audit);
+  } catch (error) {
+    console.error(
+      'Unable to persist Feature cache synchronization audit.',
+      {
+        runId: audit?.runId || null,
+        status: audit?.status || null,
+        message: error.message
+      }
+    );
+  }
+}
 
 /*
   Compara secretos sin revelar diferencias de longitud o contenido por
@@ -5549,15 +6089,12 @@ async function tryAcquireFeatureCacheSyncLock() {
 
 app.get('/api/health', (req, res) => res.json({ ok: 1 }));
 
-/*
-  Endpoint exclusivo para Vercel Cron.
-
+/* Endpoint exclusivo para Vercel Cron.
   No utiliza /api/features porque:
   - no necesita ejecutar la consulta Live;
   - no debe devolver la lista completa de Features;
   - debe actualizar explícitamente los shards históricos;
-  - necesita un lock para evitar sincronizaciones concurrentes.
-*/
+  - necesita un lock para evitar sincronizaciones concurrentes. */
 app.get(
   '/api/internal/sync-feature-caches',
   async (req, res) => {
@@ -5573,42 +6110,49 @@ app.get(
 
     let lockAcquired = false;
 
+    /* El audit se crea después de validar autorización para evitar almacenar intentos no autorizados. */
+    let audit = createFeatureCacheSyncAudit(
+      'vercel-cron-or-authorized-manual-request'
+    );
+
     try {
       lockAcquired = await tryAcquireFeatureCacheSyncLock();
 
+      /* Si existe otra ejecución activa, también se persiste el evento.
+        Así podrás distinguir "el Cron no funcionó" de "el Cron llegó, pero una ejecución previa seguía activa". */
       if (!lockAcquired) {
         console.warn(
           'Feature cache sync skipped because another run is active.'
         );
 
+        audit = finalizeFeatureCacheSyncAudit(
+          audit,
+          {
+            status: 'skipped',
+            skippedReason:
+              'A feature cache synchronization is already running.'
+          }
+        );
+
+        await saveFeatureCacheSyncAuditSafely(audit);
+
         return res.status(409).json({
           ok: false,
           skipped: true,
-          reason: 'A feature cache synchronization is already running.'
+          reason:
+            'A feature cache synchronization is already running.',
+          auditRunId: audit.runId
         });
       }
 
-      const startedAt = Date.now();
       const c = getAdoClient();
 
-      /*
-        El caché legado se conserva como fallback durante la migración.
-        Una vez que oldFeaturesCache deje de ser necesario, este bloque
-        podrá simplificarse junto con la retirada del fallback legado.
-      */
+      /* El caché legado se conserva como fallback durante la migración. */
       const legacyOldFeaturesCache = await redis.get(
         LEGACY_OLD_FEATURES_CACHE_KEY
       );
 
-      /*
-        El Cron sí fuerza una actualización histórica.
-
-        Cada shard conserva su propia protección:
-        - éxito completo => se escribe el nuevo shard;
-        - fallo + shard previo => se conserva el shard previo;
-        - shard faltante + legacy disponible => fallback legado;
-        - sin datos seguros disponibles => error 503.
-      */
+      /* Fuerza el refresh de los cinco shards históricos. */
       const historicalResult =
         await getIncrementalOldFeaturesCache(
           c,
@@ -5618,10 +6162,7 @@ app.get(
           }
         );
 
-      /*
-        El rango de Features activos entre 180 y 730 días también se
-        actualiza en el Cron, no desde el Refresh manual del dashboard.
-      */
+      /* Fuerza el refresh del caché de Features activos cuyo último cambio está entre 180 y 730 días. */
       const activeOldResult =
         await getActiveOldFeaturesCache(
           c,
@@ -5630,38 +6171,84 @@ app.get(
           }
         );
 
-      const durationMs = Date.now() - startedAt;
+      /* Resume los datos que realmente quedan disponibles para el caché nocturno. No incluye Live Features recientes: esos se consultan
+        directamente desde /api/features. */
+      populateFeatureCacheSyncAudit(
+        audit,
+        {
+          historicalFeatures:
+            historicalResult.oldFeaturesCache?.data || [],
+
+          activeOldFeatures:
+            activeOldResult.activeOldFeaturesCache?.data || [],
+
+          historicalResult,
+          activeOldResult
+        }
+      );
+
+      audit = finalizeFeatureCacheSyncAudit(
+        audit,
+        {
+          status: 'success'
+        }
+      );
+
+      await saveFeatureCacheSyncAuditSafely(audit);
 
       console.log(
         'Feature cache synchronization completed.',
         {
-          durationMs,
+          runId: audit.runId,
+          durationMs: audit.durationMs,
+
           storageMode:
-            historicalResult.usedLegacyFallback
-              ? 'legacy-fallback'
-              : 'incremental-v2',
+            audit.cache.storageMode,
+
           historicalFailedRanges:
-            historicalResult.failedRanges.length,
+            audit.cache.historicalFailedRanges.length,
+
           activeOldUsedPreviousCache:
-            activeOldResult.usedPreviousCache,
+            audit.cache.activeOldUsedPreviousCache,
+
           activeOldRefreshed:
-            activeOldResult.refreshed
+            audit.cache.activeOldRefreshed,
+
+          totalUniqueCachedFeatures:
+            audit.cache.totalUniqueCachedFeatures,
+
+          releaseAlignment:
+            audit.releaseAlignment,
+
+          watchedFeatures:
+            audit.watchedFeatures
         }
       );
 
       return res.status(200).json({
         ok: true,
+        auditRunId: audit.runId,
+
         storageMode:
-          historicalResult.usedLegacyFallback
-            ? 'legacy-fallback'
-            : 'incremental-v2',
+          audit.cache.storageMode,
+
         historicalFailedRanges:
-          historicalResult.failedRanges.length,
+          audit.cache.historicalFailedRanges.length,
+
         activeOldUsedPreviousCache:
-          activeOldResult.usedPreviousCache,
+          audit.cache.activeOldUsedPreviousCache,
+
         activeOldRefreshed:
-          activeOldResult.refreshed,
-        durationMs
+          audit.cache.activeOldRefreshed,
+
+        durationMs: audit.durationMs,
+
+        /* Resumen liviano para una prueba manual. El detalle completo queda disponible en Redis y en el endpoint de audit. */
+        releaseAlignment:
+          audit.releaseAlignment,
+
+        watchedFeatures:
+          audit.watchedFeatures
       });
     } catch (error) {
       console.error(
@@ -5676,13 +6263,92 @@ app.get(
         }
       );
 
+      /* Incluso cuando ADO o Redis de caché falle, intentamos registrar el error en el audit persistente. */
+      audit = finalizeFeatureCacheSyncAudit(
+        audit,
+        {
+          status: 'failed',
+          error: {
+            name: error.name || 'Error',
+            message: error.message || 'Unknown error',
+            statusCode: error.statusCode || null,
+            adoStatus: error.response?.status || null,
+            errorCode: error.code || null
+          }
+        }
+      );
+
+      await saveFeatureCacheSyncAuditSafely(audit);
+
       return res.status(
         error.statusCode || 500
       ).json({
         error:
           error.statusCode === 503
             ? 'Feature caches could not be fully synchronized. Please try again later.'
-            : 'Unable to synchronize Feature caches.'
+            : 'Unable to synchronize Feature caches.',
+        auditRunId: audit.runId
+      });
+    }
+  }
+);
+
+/* Endpoint técnico protegido para inspeccionar auditorías persistentes.
+  Ejemplos:
+  - /api/internal/feature-cache-audit
+  - /api/internal/feature-cache-audit?limit=10
+  Requiere exactamente el mismo Bearer CRON_SECRET que el Cron. */
+app.get(
+  '/api/internal/feature-cache-audit',
+  async (req, res) => {
+    if (!hasValidCronAuthorization(req)) {
+      return res.status(401).json({
+        error: 'Unauthorized.'
+      });
+    }
+
+    try {
+      const requestedLimit = Number(req.query.limit || 1);
+
+      const limit = Number.isInteger(requestedLimit)
+        ? Math.min(
+            Math.max(requestedLimit, 1),
+            FEATURE_CACHE_AUDIT_MAX_RUNS
+          )
+        : 1;
+
+      /* La solicitud por defecto devuelve sólo el último audit. ?limit=10 devuelve los últimos diez. */
+      if (limit === 1) {
+        const latestAudit = await redis.get(
+          FEATURE_CACHE_AUDIT_LATEST_KEY
+        );
+
+        return res.json({
+          latest: latestAudit || null
+        });
+      }
+
+      const recentAudits = await redis.get(
+        FEATURE_CACHE_AUDIT_RECENT_KEY
+      );
+
+      return res.json({
+        audits: Array.isArray(recentAudits)
+          ? recentAudits.slice(0, limit)
+          : []
+      });
+    } catch (error) {
+      console.error(
+        'ERROR /api/internal/feature-cache-audit',
+        {
+          message: error.message,
+          stack: error.stack || null
+        }
+      );
+
+      return res.status(500).json({
+        error:
+          'Unable to retrieve Feature cache synchronization audit.'
       });
     }
   }
