@@ -166,21 +166,35 @@
     /* FEATURE LIST Esta tabla debe ocupar el ancho disponible del dashboard, sin necesitar scroll horizontal. */
     .feature-list-table-wrapper { width: 100%; margin-bottom: 0; overflow: visible; font-size: 11px}
     .feature-list-table { width: 100%;  min-width: 0; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
-    /* Anchos compactos para que las doce columnas se vean completas en el área disponible de una pantalla laptop/desktop.
-       ID y Feature reciben espacio adicional para mostrar IDs de 7–8 dígitos y más texto del título. */
-    .feature-list-col--id { width: 7%; }
-    .feature-list-col--title { width: 26%; }
-    .feature-list-col--priority { width: 5%; }
-    .feature-list-col--target-date { width:11%; }
+    /* Anchos compactos para Feature List.  La tabla ahora tiene 14 columnas: disclosure, risk, priority, ID, Feature, Target, RFV, BE, FE, QA,
+    State, Readiness, Delivery Health y Progress.*/
+    .feature-list-col--risk { width: 46px; }
+    .feature-list-col--id { width: 6%; }
+    .feature-list-col--title { width: 22%; }
+    .feature-list-col--priority { width: 4%; }
+    .feature-list-col--target-date { width: 9%; }
     .feature-list-col--release-fix-version { width: 8%; }
-    .feature-list-col--estimate { width: 4%; }
-    .feature-list-col--state { width: 8%; }
-    .feature-list-col--readiness { width: 11%; }
-    .feature-list-col--delivery { width: 12%; }
-    .feature-list-col--progress { width: 10%; }
-    .feature-list-table th, .feature-list-table td { padding: 8px 7px; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; }
-    .feature-list-table th { white-space: nowrap; font-size: 11px; }
-    .feature-list-table td { white-space: nowrap; }
+    .feature-list-col--estimate { width: 3.5%; }
+    .feature-list-col--state { width: 7%; }
+    .feature-list-col--readiness { width: 10%; }
+    .feature-list-col--delivery { width: 11%; }
+    .feature-list-col--progress { width: 8%; }
+    .feature-list-table th,.feature-list-table td { padding: 8px 7px; vertical-align: middle; overflow: hidden; text-overflow: ellipsis;}
+    .feature-list-table th { white-space: nowrap; font-size: 11px;}
+    .feature-list-table td { white-space: nowrap;}
+    /* Risk Indicator: Tres barras de altura creciente comunican severidad también por forma,
+    no exclusivamente por color. Esto mejora legibilidad en escala de grises y para usuarios con diferencias en percepción de color.*/
+    .risk-indicator { display: inline-flex; align-items: flex-end; justify-content: center; gap: 2px; height: 14px; cursor: help;}
+    .risk-indicator__bar { width: 3px; border-radius: 1px; background: var(--line-strong); transition: background var(--response-ui) var(--ease-ui);}
+    .risk-indicator__bar:nth-child(1) { height: 6px; }
+    .risk-indicator__bar:nth-child(2) { height: 10px; }
+    .risk-indicator__bar:nth-child(3) { height: 14px; }
+    /* Watch = una barra verde. Moderate = dos barras ámbar. High y Critical = tres barras rojas. Low = gris: no se detectaron señales con los pesos actuales.*/
+    .risk-indicator--low .risk-indicator__bar:nth-child(1) { background: var(--ok);}
+    .risk-indicator--medium .risk-indicator__bar:nth-child(-n + 2) { background: var(--warn);}
+    .risk-indicator--high .risk-indicator__bar { background: var(--risk);}
+    .risk-indicator__list { margin: 5px 0 0; padding-left: 16px;}
+    .risk-indicator__list li + li { margin-top: 2px;}
     /* El título puede reducirse con ellipsis, pero el texto completo queda disponible en el tooltip que ya usa FeatureTooltipContent.*/
     .feature-list-title-cell { min-width: 0; }
     /* Estado: punto de color + nombre del estado. Además de esta indicación, la fila conserva su línea de color izquierda según el estado. */
@@ -4722,6 +4736,84 @@
       ].join('\n');
     }
 
+    /* Risk Indicator compacto para la tabla. El score exacto sigue disponible en el tooltip porque es útil para
+      ordenar y auditar, pero la tabla prioriza el nivel visual de riesgo. */
+    function RiskIndicator({
+      score,
+      breakdown = [],
+      showTooltip,
+      moveTooltip,
+      hideTooltip
+    }) {
+      const level = getFeatureRiskLevel(score);
+
+      /* El modelo tiene cinco niveles internos, pero la columna usa tres intensidades visuales para conservar lectura rápida:
+        - Low: sin señales detectadas;
+        - Watch: verde;
+        - Moderate: ámbar;
+        - High / Critical: rojo. */
+      const visualLevel =
+        level.key === 'critical' || level.key === 'high'
+          ? 'high'
+          : level.key === 'moderate'
+            ? 'medium'
+            : level.key === 'watch'
+              ? 'low'
+              : 'none';
+
+      const accessibleLabel =
+        visualLevel === 'high'
+          ? `High risk. Score ${score}.`
+          : visualLevel === 'medium'
+            ? `Moderate risk. Score ${score}.`
+            : visualLevel === 'low'
+              ? `Watch risk. Score ${score}.`
+              : 'Low risk. No risk signals detected.';
+
+      return (
+        <span
+          className={`risk-indicator risk-indicator--${visualLevel}`}
+          role="img"
+          aria-label={accessibleLabel}
+          onMouseEnter={(event) => {
+            if (!showTooltip) {
+              return;
+            }
+
+            showTooltip(
+              event,
+              <div>
+                <strong>
+                  {level.label} risk · {score}
+                </strong>
+
+                {breakdown.length > 0 ? (
+                  <ul className="risk-indicator__list">
+                    {breakdown.map(item => (
+                      <li key={item.key}>
+                        +{item.points} {item.label}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div>
+                    No risk signals detected.
+                  </div>
+                )}
+              </div>
+            );
+          }}
+          onMouseMove={moveTooltip}
+          onMouseLeave={hideTooltip}
+          title={`${level.label} risk · ${score}`}
+        >
+          <span className="risk-indicator__bar" />
+          <span className="risk-indicator__bar" />
+          <span className="risk-indicator__bar" />
+        </span>
+      );
+    }
+
     /* Barra de entrega segmentada. Los segmentos conservan el mismo lenguaje visual del Gantt:
     - Closed: violeta.
     - To Release: verde.
@@ -7533,60 +7625,198 @@
       });
 
       let sortedFiltered = [...filtered];
+
       if (sortColumn) {
         sortedFiltered.sort((a, b) => {
-          let valA = '', valB = '';
-          if (sortColumn === 'id') { valA = a.id; valB = b.id; }
-          else if (sortColumn === 'title') { valA = (a.title || '').toLowerCase(); valB = (b.title || '').toLowerCase(); }
-          else if (sortColumn === 'areaPath') { valA = (a.areaPath || '').toLowerCase(); valB = (b.areaPath || '').toLowerCase(); }
-          else if (sortColumn === 'iteration') {
+          let valA = '';
+          let valB = '';
+
+          if (sortColumn === 'id') {
+            valA = a.id;
+            valB = b.id;
+          } else if (sortColumn === 'title') {
+            valA = (a.title || '').toLowerCase();
+            valB = (b.title || '').toLowerCase();
+          } else if (sortColumn === 'areaPath') {
+            valA = (a.areaPath || '').toLowerCase();
+            valB = (b.areaPath || '').toLowerCase();
+          } else if (sortColumn === 'iteration') {
             const extractYearQuarter = (path) => {
               const yearMatch = (path || '').match(/(\d{4})/);
               const quarterMatch = (path || '').match(/Q(\d)/);
-              const year = yearMatch ? parseInt(yearMatch[1]) : 9999;
-              const quarter = quarterMatch ? parseInt(quarterMatch[1]) : 9;
+
+              const year = yearMatch
+                ? parseInt(yearMatch[1], 10)
+                : 9999;
+
+              const quarter = quarterMatch
+                ? parseInt(quarterMatch[1], 10)
+                : 9;
+
               return year * 10 + quarter;
             };
+
             valA = extractYearQuarter(a.iterationPath);
             valB = extractYearQuarter(b.iterationPath);
-          }
-          else if (sortColumn === 'priority') {
-            /* Features sin Priority se muestran después de cualquier Priority numérica. Number.MAX_SAFE_INTEGER es mayor que cualquier valor real de prioridad. */
-            valA = a.priority === null || a.priority === undefined || a.priority === '' ? Number.MAX_SAFE_INTEGER : parseInt(a.priority, 10);        
-            valB = b.priority === null || b.priority === undefined || b.priority === '' ? Number.MAX_SAFE_INTEGER : parseInt(b.priority, 10);
-          }
-            else if (sortColumn === 'state') { valA = (a.state || '').toLowerCase(); valB = (b.state || '').toLowerCase(); }
-            else if (sortColumn === 'targetDate') { valA = (a.targetDate || ''); valB = (b.targetDate || ''); }
-            else if (sortColumn === 'assignedTo') { valA = (a.assignedTo || '').toLowerCase(); valB = (b.assignedTo || '').toLowerCase(); }
-            else if (sortColumn === 'readiness') { const readinessOrder = 
-              { 'Incomplete': 1, 'Unknown': 2, 'Healthy': 3 }; 
-              valA = readinessOrder[getFeatureReadiness(a)] || 4; 
-              valB = readinessOrder[getFeatureReadiness(b)] || 4; 
+          } else if (sortColumn === 'priority') {
+            /* Features sin Priority se muestran después de cualquier Priority numérica cuando el orden es ascendente. */
+            valA =
+              a.priority === null ||
+              a.priority === undefined ||
+              a.priority === ''
+                ? Number.MAX_SAFE_INTEGER
+                : parseInt(a.priority, 10);
+
+            valB =
+              b.priority === null ||
+              b.priority === undefined ||
+              b.priority === ''
+                ? Number.MAX_SAFE_INTEGER
+                : parseInt(b.priority, 10);
+          } else if (sortColumn === 'state') {
+            valA = (a.state || '').toLowerCase();
+            valB = (b.state || '').toLowerCase();
+          } else if (sortColumn === 'targetDate') {
+            valA = a.targetDate || '';
+            valB = b.targetDate || '';
+          } else if (sortColumn === 'daysToTarget') {
+            /* La lectura ascendente es operacional: overdue primero, luego fechas cercanas y luego las lejanas.
+              Sin Target Date siempre va al final, tanto en ascendente como descendente, porque no representa una fecha comparable. */
+            const daysA = getTargetDateStatus(
+              a.targetDate,
+              a.state
+            ).days;
+
+            const daysB = getTargetDateStatus(
+              b.targetDate,
+              b.state
+            ).days;
+
+            if (daysA === null && daysB !== null) {
+              return 1;
             }
-            else if (sortColumn === 'deliveryHealth') {
-            /* Orden operativo, de mayor a menor urgencia:
+
+            if (daysA !== null && daysB === null) {
+              return -1;
+            }
+
+            if (daysA === null && daysB === null) {
+              return 0;
+            }
+
+            valA = daysA;
+            valB = daysB;
+          } else if (sortColumn === 'assignedTo') {
+            valA = (a.assignedTo || '').toLowerCase();
+            valB = (b.assignedTo || '').toLowerCase();
+          } else if (sortColumn === 'readiness') {
+            const readinessOrder = {
+              Incomplete: 1,
+              Unknown: 2,
+              Healthy: 3
+            };
+
+            valA = readinessOrder[getFeatureReadiness(a)] || 4;
+            valB = readinessOrder[getFeatureReadiness(b)] || 4;
+          } else if (sortColumn === 'deliveryHealth') {
+            /*  Orden operativo, de mayor a menor urgencia:
               1. Requires Action
               2. Requires Attention
               3. Unable to evaluate
               4. Not started
               5. Healthy
-              Una Feature puede tener múltiples alertas. Por eso se usa getDeliveryHealthGroups(), no sólo el badge primary. */
-              const getDeliveryHealthSortRank = (feature) => {
-                const groups = getDeliveryHealthGroups(feature);
-                if (groups.has('requires-action')) { return 1; }
-                if (groups.has('requires-attention')) { return 2; }
-                if (groups.has('unable-to-evaluate')) { return 3; }
-                if (groups.has('not-started')) { return 4; }
-                if (groups.has('healthy')) { return 5; }
-                return 6;
-              };
-              valA = getDeliveryHealthSortRank(a);
-              valB = getDeliveryHealthSortRank(b);
+              Una Feature puede tener múltiples alertas. Por eso usamos getDeliveryHealthGroups(), no únicamente la alerta primary. */
+            const getDeliveryHealthSortRank = (feature) => {
+              const groups = getDeliveryHealthGroups(feature);
+
+              if (groups.has('requires-action')) {
+                return 1;
+              }
+
+              if (groups.has('requires-attention')) {
+                return 2;
+              }
+
+              if (groups.has('unable-to-evaluate')) {
+                return 3;
+              }
+
+              if (groups.has('not-started')) {
+                return 4;
+              }
+
+              if (groups.has('healthy')) {
+                return 5;
+              }
+
+              return 6;
+            };
+
+            valA = getDeliveryHealthSortRank(a);
+            valB = getDeliveryHealthSortRank(b);
+          } else if (sortColumn === 'progress') {
+            /* Progress menor primero al ordenar ascendente. Si no existe summary disponible, la Feature siempre queda al
+              final porque "sin datos" no debe aparentar ser 0% de progreso. */
+            const progressA = getFeatureDeliverySummary(
+              a,
+              storiesCache,
+              unavailableStoriesIds
+            )?.progressPercent;
+
+            const progressB = getFeatureDeliverySummary(
+              b,
+              storiesCache,
+              unavailableStoriesIds
+            )?.progressPercent;
+
+            const hasProgressA = Number.isFinite(progressA);
+            const hasProgressB = Number.isFinite(progressB);
+
+            if (!hasProgressA && hasProgressB) {
+              return 1;
             }
-            if (sortOrder === 'asc') return valA < valB ? -1 : valA > valB ? 1 : 0;
-            else return valA > valB ? -1 : valA < valB ? 1 : 0;
-          });
-        }
+
+            if (hasProgressA && !hasProgressB) {
+              return -1;
+            }
+
+            if (!hasProgressA && !hasProgressB) {
+              return 0;
+            }
+
+            valA = progressA;
+            valB = progressB;
+          } else if (sortColumn === 'risk') {
+            /* El score mayor representa más riesgo. Se invierte para que la opción ascendente, que es la primera
+              al pulsar una columna nueva, tenga la lectura natural: "riesgo más alto primero". */
+            valA = -getFeatureRiskScore(
+              a,
+              storiesCache,
+              unavailableStoriesIds
+            );
+
+            valB = -getFeatureRiskScore(
+              b,
+              storiesCache,
+              unavailableStoriesIds
+            );
+          }
+
+          if (sortOrder === 'asc') {
+            return valA < valB
+              ? -1
+              : valA > valB
+                ? 1
+                : 0;
+          }
+
+          return valA > valB
+            ? -1
+            : valA < valB
+              ? 1
+              : 0;
+        });
+      }
 
       /* Se usa para diferenciar:
         - no existen Features en el alcance configurado;
@@ -9122,6 +9352,9 @@
                       {/* Control accesible para expandir o contraer detalle. */}
                       <col style={{ width: '30px' }} />
 
+                      {/* Indicador operacional de riesgo compuesto. */}
+                      <col className="feature-list-col--risk" />
+
                       <col className="feature-list-col--priority" />
                       <col className="feature-list-col--id" />
                       <col className="feature-list-col--title" />
@@ -9149,6 +9382,16 @@
                             Feature details
                           </span>
                         </th>
+
+                        <SortableHeader
+                          column="risk"
+                          label="Risk"
+                          align="center"
+                          hint="Sort by composite risk: Target Date, Delivery Health, Readiness, estimates and Aging"
+                          sortColumn={sortColumn}
+                          sortOrder={sortOrder}
+                          onSort={handleSortColumn}
+                        />
 
                         <SortableHeader
                           column="priority"
@@ -9179,9 +9422,9 @@
                         />
 
                         <SortableHeader
-                          column="targetDate"
-                          label="Target Date"
-                          hint="Sort by Target Date"
+                          column="daysToTarget"
+                          label="Target"
+                          hint="Sort by days remaining until Target Date"
                           sortColumn={sortColumn}
                           sortOrder={sortOrder}
                           onSort={handleSortColumn}
@@ -9227,12 +9470,15 @@
                           onSort={handleSortColumn}
                         />
 
-                        <th
-                          scope="col"
-                          className="feature-list-centered-cell"
-                        >
-                          Progress
-                        </th>
+                        <SortableHeader
+                          column="progress"
+                          label="Progress"
+                          align="center"
+                          hint="Sort by delivery progress"
+                          sortColumn={sortColumn}
+                          sortOrder={sortOrder}
+                          onSort={handleSortColumn}
+                        />
                       </tr>
                     </thead>
 
@@ -9240,7 +9486,7 @@
                     {featuresPageItems.length === 0 ? (
                       <tr>
                         <td
-                          colSpan="13"
+                          colSpan="14"
                           style={{
                             padding: '28px',
                             textAlign: 'center',
@@ -9334,6 +9580,24 @@
                                     />
                                   </svg>
                                 </button>
+                              </td>
+
+                              <td className="feature-list-centered-cell">
+                                <RiskIndicator
+                                  score={getFeatureRiskScore(
+                                    f,
+                                    storiesCache,
+                                    unavailableStoriesIds
+                                  )}
+                                  breakdown={getFeatureRiskBreakdown(
+                                    f,
+                                    storiesCache,
+                                    unavailableStoriesIds
+                                  )}
+                                  showTooltip={showTooltip}
+                                  moveTooltip={moveTooltip}
+                                  hideTooltip={hideTooltip}
+                                />
                               </td>
 
                               <td>{f.priority || '-'}</td>
