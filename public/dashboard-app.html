@@ -1472,57 +1472,96 @@
       CSS para renderizarla.
       La lógica antigua basada en deliverySummary se conserva por ahora como fallback temporal para respuestas cacheadas antiguas. */
 
-  function getDeliveryVisualMeta(key) {
+  /* Delivery Health visual meta.
+    El backend define el grupo operativo real de cada regla:
+    - requires-action
+    - requires-attention
+    - healthy
+    - not-started
+    key conserva estilos especiales cuando corresponde, pero group evita que una regla nueva o no mapeada se muestre con severidad incorrecta. */
+  function getDeliveryVisualMeta(key, group = '') {
     switch (key) {
-      /* Requires Action. These conditions represent an overdue, missed, or already-passed delivery/release commitment. */
+      /* Estas reglas representan compromisos ya vencidos, incumplidos o situaciones que requieren intervención inmediata. */
       case 'overdue':
       case 'target-date-near-unscheduled-discovery':
       case 'target-next-month-without-release':
       case 'release-commitment-missed':
       case 'release-date-passed-with-open-work':
-        return { className: 'delivery--overdue', alertClassName: 'delivery-alert--overdue', icon: '!' };
-        /* Requires Attention. The Feature still has an opportunity to recover or needs planning data before the alignment can be determined. */
-      case 'release-alignment-at-risk':
-      case 'release-alignment-unavailable':
         return {
-          className: 'delivery--attention',
-          alertClassName: 'delivery-alert--attention',
+          className: 'delivery--overdue',
+          alertClassName: 'delivery-alert--overdue',
           icon: '!'
         };
-  
+
+      /* Needs estimate conserva un color diferenciado porque indica falta de información de sizing, no necesariamente un retraso operativo. */
       case 'needs-estimate':
         return {
           className: 'delivery--needs-info',
           alertClassName: 'delivery-alert--needs-info',
           icon: '!'
         };
-  
+
       case 'healthy':
         return {
           className: 'delivery--healthy',
           alertClassName: 'delivery-alert--healthy',
           icon: '✓'
         };
-  
+
       case 'not-started':
         return {
           className: 'delivery--not-started',
           alertClassName: 'delivery-alert--not-started',
           icon: '○'
         };
-  
+
       case 'unable-to-evaluate':
         return {
           className: 'delivery--unknown',
           alertClassName: 'delivery-alert--unknown',
           icon: '?'
         };
-  
+
       default:
+        /* Fallback gobernado por el group del backend. Esto cubre reglas válidas como no-stories, no-active-work, unestimated-work,
+          closed-with-open-work y futuras reglas configurables. */
+        if (group === 'requires-action') {
+          return {
+            className: 'delivery--overdue',
+            alertClassName: 'delivery-alert--overdue',
+            icon: '!'
+          };
+        }
+
+        if (group === 'healthy') {
+          return {
+            className: 'delivery--healthy',
+            alertClassName: 'delivery-alert--healthy',
+            icon: '✓'
+          };
+        }
+
+        if (group === 'not-started') {
+          return {
+            className: 'delivery--not-started',
+            alertClassName: 'delivery-alert--not-started',
+            icon: '○'
+          };
+        }
+
+        if (group === 'requires-attention') {
+          return {
+            className: 'delivery--attention',
+            alertClassName: 'delivery-alert--attention',
+            icon: '!'
+          };
+        }
+
+        /* Protección visual para payloads incompletos o grupos no reconocidos. No afirma Healthy ni Not started sin confirmación. */
         return {
-          className: 'delivery--attention',
-          alertClassName: 'delivery-alert--attention',
-          icon: '!'
+          className: 'delivery--unknown',
+          alertClassName: 'delivery-alert--unknown',
+          icon: '?'
         };
     }
   }
@@ -1554,7 +1593,10 @@
 
       /* Este caso no es un fallback de negocio: es una protección visual para una respuesta incompleta o inválida. */
       if (!primary || typeof primary !== 'object') {
-        const visual = getDeliveryVisualMeta('unable-to-evaluate');
+        const visual = getDeliveryVisualMeta(
+          'unable-to-evaluate',
+          'requires-attention'
+        );
 
         return {
           key: 'unable-to-evaluate',
@@ -1570,7 +1612,10 @@
         };
       }
 
-      const visual = getDeliveryVisualMeta(primary.key);
+      const visual = getDeliveryVisualMeta(
+        primary.key,
+        primary.group
+      );
 
       const labels = getDeliveryHealthDisplayLabels(
         primary.key,
@@ -1596,7 +1641,10 @@
 
       /* El backend envía [] cuando no existen alertas aplicables, por ejemplo para un Feature Healthy o Not started. */
       if (!Array.isArray(backendAlerts)) {
-        const visual = getDeliveryVisualMeta('unable-to-evaluate');
+        const visual = getDeliveryVisualMeta(
+          'unable-to-evaluate',
+          'requires-attention'
+        );
 
         return [{
           key: 'unable-to-evaluate',
@@ -1611,7 +1659,10 @@
       }
 
       return backendAlerts.map(alert => {
-        const visual = getDeliveryVisualMeta(alert.key);
+        const visual = getDeliveryVisualMeta(
+          alert.key,
+          alert.group
+        );
       
         const labels = getDeliveryHealthDisplayLabels(
           alert.key,
@@ -3207,11 +3258,13 @@
           )}
     
           {deliveryAlerts.map(alert => {
+            /* Needs estimate conserva su estilo de falta de información. Para cualquier otra regla, el grupo del backend define la
+              severidad visual, incluso para reglas nuevas. */
             const className =
-              alert.key === 'overdue'
-                ? 'mobile-feature-timeline-alert--delivery-overdue'
-                : alert.key === 'needs-estimate'
-                  ? 'mobile-feature-timeline-alert--delivery-needs-info'
+              alert.key === 'needs-estimate'
+                ? 'mobile-feature-timeline-alert--delivery-needs-info'
+                : alert.group === 'requires-action'
+                  ? 'mobile-feature-timeline-alert--delivery-overdue'
                   : 'mobile-feature-timeline-alert--delivery-attention';
     
             return (
@@ -5007,7 +5060,10 @@
     }) {
       const owner = getShortAssignedToName(assignedTo);
 
-      const visual = getDeliveryVisualMeta(alert.key);
+      const visual = getDeliveryVisualMeta(
+        alert.key,
+        alert.group
+      );
 
       const alertSummary =
         `${alert.label}: ${alert.reason}`;
