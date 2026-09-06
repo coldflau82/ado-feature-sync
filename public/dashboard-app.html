@@ -870,13 +870,17 @@
     .release-alignment-badge__icon { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; flex: 0 0 14px;
       border-radius: 50%; color: var(--surface-raised); font-size: 9px; font-weight: 800; }
     .release-alignment-badge--aligned { color: #166534; background: var(--ok-soft); }
-    .release-alignment-badge--aligned.release-alignment-badge__icon { background: var(--ok); }
+    .release-alignment-badge--aligned .release-alignment-badge__icon { background: var(--ok); }
     .release-alignment-badge--at-risk { color: #854d0e; background: var(--warn-soft); }
-    .release-alignment-badge--at-risk.release-alignment-badge__icon { background: var(--warn); }
-    .release-alignment-badge--missed,.release-alignment-badge--release-passed { color: #991b1b; background: var(--risk-soft); }
-    .release-alignment-badge--missed.release-alignment-badge__icon,.release-alignment-badge--release-passed.release-alignment-badge__icon { background: var(--risk); }
-    .release-alignment-badge--unavailable,.release-alignment-badge--not-applicable { color: var(--text-secondary); background: var(--neutral-soft); }
-    .release-alignment-badge--unavailable.release-alignment-badge__icon,.release-alignment-badge--not-applicable.release-alignment-badge__icon { background: var(--text-tertiary); }
+    .release-alignment-badge--at-risk .release-alignment-badge__icon { background: var(--warn); }
+    .release-alignment-badge--missed,
+    .release-alignment-badge--release-passed { color: #991b1b; background: var(--risk-soft); }
+    .release-alignment-badge--missed .release-alignment-badge__icon,
+    .release-alignment-badge--release-passed .release-alignment-badge__icon { background: var(--risk); }
+    .release-alignment-badge--unavailable,
+    .release-alignment-badge--not-applicable { color: var(--text-secondary); background: var(--neutral-soft); }
+    .release-alignment-badge--unavailable .release-alignment-badge__icon,
+    .release-alignment-badge--not-applicable .release-alignment-badge__icon { background: var(--text-tertiary); }
     .release-alignment-details__summary { display: block; margin-top: 6px; color: var(--text-secondary); font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
     .release-alignment-details__metrics { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
     .release-alignment-details__metric { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 7px; border: 1px solid var(--line-hairline);
