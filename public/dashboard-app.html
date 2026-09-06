@@ -832,6 +832,10 @@
     utiliza animation y no sólo transition. La animación comunica continuidad visual sin ocultar contenido ni retrasar la interacción. */
     .feature-detail-disclosure { animation: feature-detail-open var(--response-ui) var(--ease-ui) both; transform-origin: top center; }
     @keyframes feature-detail-open { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0);}}
+    /* Roadmap desktop/tablet: Los detalles expandidos son filas <tr>. 
+    Para conservar un layout de tabla consistente entre navegadores, la animación se aplica sobre sus celdas <td>, no sobre el <tr> directamente.*/
+    .roadmap-detail-row > td { animation: roadmap-detail-open var(--response-ui) var(--ease-ui) both;}
+    @keyframes roadmap-detail-open { from {opacity: 0; } to { opacity: 1; }}
     .disclosure-button,.sortable-header__button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     .disclosure-button:active,.sortable-header__button:active { transform: scale(0.985); transition: transform var(--press) ease-out; }
     /* Preparación para migrar RoadmapLegend, que hoy utiliza estilos inline. Esta clase no tendrá efecto hasta que RoadmapLegend use: <div className="gantt-legend"> */
@@ -839,7 +843,7 @@
       backdrop-filter: blur(18px) saturate(180%); -webkit-backdrop-filter: blur(18px) saturate(180%); }
     /* Variante sólida para usuarios que solicitan menos transparencia. Se mantiene aunque .gantt-legend todavía no esté montado. */
     @media (prefers-reduced-transparency: reduce) { .gantt-legend { background: var(--surface-raised); backdrop-filter: none; -webkit-backdrop-filter: none; }}
-    @media (prefers-reduced-motion: reduce) { .feature-detail-disclosure { animation: none; }
+    @media (prefers-reduced-motion: reduce) { .feature-detail-disclosure,.roadmap-detail-row > td { animation: none; }
     .disclosure-button:active,.sortable-header__button:active { transform: none;}}
     /* ── Controles táctiles y feedback inmediato ────────────────── */
     .mobile-workspace-controls__nav-button,.mobile-workspace-controls__refresh,.mobile-workspace-controls__more-filters,.mobile-workspace-controls__select,.mobile-workspace-controls__input,
@@ -1261,10 +1265,7 @@
             meta.className
           ].join(' ')}
           onClick={(event) => {
-            /*
-              La fila también tiene un onClick para expandir.
-              Detener la propagación evita ejecutar el toggle dos veces.
-            */
+            /* La fila también tiene un onClick para expandir. Detener la propagación evita ejecutar el toggle dos veces. */
             event.stopPropagation();
             onToggle();
           }}
@@ -2518,7 +2519,7 @@
       }
 
       return (
-        <tr style={{ borderBottom: '1px solid #eee', background: '#f2f2f2' }}>
+        <tr className="roadmap-detail-row" style={{ borderBottom: '1px solid #eee', background: '#f2f2f2' }}>
           {/* Columna de disclosure: los Stories/Bugs no son expandibles aquí. */}
           <td className="roadmap-disclosure-cell" />
 
@@ -2721,6 +2722,7 @@
               ].filter(Boolean).join(' ')}
               onClick={onToggleExpand}
               aria-expanded={isExpanded}
+              aria-controls={`roadmap-feature-details-${featureId}`}
               aria-label={
                 isExpanded
                   ? `Collapse Story and Bug timelines for Feature ${featureId}`
@@ -10115,7 +10117,7 @@
                             />
                           {isExpanded && (
                             loadingStoriesIds[f.id] ? (
-                              <tr style={{ background: '#f2f2f2' }}>
+                              <tr className="roadmap-detail-row" style={{ background: '#f2f2f2' }}>
                                 <td
                                   id={`roadmap-feature-details-${f.id}`}
                                   colSpan="5"
@@ -10130,7 +10132,7 @@
                                 </td>
                               </tr>
                             ) : unavailableStoriesIds[f.id] ? (
-                              <tr style={{ background: '#fefce8' }}>
+                              <tr className="roadmap-detail-row" style={{ background: '#fefce8' }}>
                                 <td
                                   id={`roadmap-feature-details-${f.id}`}
                                   colSpan="5"
@@ -10155,6 +10157,7 @@
                                 - timeline gris, sin barras de estado. */
                               <tr
                                 id={`roadmap-feature-details-${f.id}`}
+                                className="roadmap-detail-row"
                                 style={{
                                   borderBottom: '1px solid #eee',
                                   background: '#f2f2f2'
