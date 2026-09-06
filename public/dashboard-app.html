@@ -1406,8 +1406,139 @@
       return feature.readinessUnknownChecks || [];
     }
 
-    function ReadinessBadge({ readiness, iconOnly = false }) {
+    function getReadinessTooltipDetails(feature) {
+      const readiness = getFeatureReadiness(feature);
+    
+      const missingChecks =
+        getFeatureReadinessMissingChecks(feature);
+    
+      const unknownChecks =
+        getFeatureReadinessUnknownChecks(feature);
+    
+      const missingText = missingChecks
+        .map(check => readinessCheckLabels[check] || check)
+        .join(', ');
+    
+      const unknownText = unknownChecks
+        .map(check => readinessCheckLabels[check] || check)
+        .join(', ');
+    
+      if (readiness === 'Incomplete') {
+        return {
+          heading: 'Data missing:',
+          details:
+            missingText ||
+            'One or more required readiness checks are incomplete.'
+        };
+      }
+    
+      if (readiness === 'Unknown') {
+        return {
+          heading: 'Unable to validate:',
+          details:
+            unknownText ||
+            'The required readiness information could not be validated.'
+        };
+      }
+    
+      if (readiness === 'Healthy') {
+        return {
+          heading: '',
+          details:
+            'All configured readiness checks are complete.'
+        };
+      }
+    
+      return {
+        heading: '',
+        details: 'Readiness information is unavailable.'
+      };
+    }
+    
+    function ReadinessBadge({
+      readiness,
+      feature,
+      iconOnly = false,
+      showTooltip,
+      moveTooltip,
+      hideTooltip
+    }) {
       const meta = getReadinessMeta(readiness);
+    
+      const tooltipDetails = feature
+        ? getReadinessTooltipDetails(feature)
+        : null;
+    
+      const tooltipContent = tooltipDetails ? (
+        <div className="feature-list-tooltip">
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginBottom: '6px'
+            }}
+          >
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                background:
+                  meta.className === 'readiness--ready'
+                    ? 'var(--ok)'
+                    : meta.className === 'readiness--needs-info'
+                      ? '#ea580c'
+                      : 'var(--text-tertiary)',
+                color: '#ffffff',
+                fontSize: '10px',
+                fontWeight: '800',
+                lineHeight: '1'
+              }}
+              aria-hidden="true"
+            >
+              {meta.icon}
+            </span>
+    
+            <strong
+              style={{
+                margin: 0,
+                color: '#ffffff',
+                fontSize: '12px',
+                lineHeight: '1.35'
+              }}
+            >
+              {meta.label}
+            </strong>
+          </div>
+    
+          <div
+            style={{
+              color: '#cbd5e1',
+              fontSize: '10px',
+              lineHeight: '1.5'
+            }}
+          >
+            {tooltipDetails.heading && (
+              <div>
+                <span style={{ color: '#94a3b8' }}>
+                  {tooltipDetails.heading}
+                </span>{' '}
+                {tooltipDetails.details}
+              </div>
+            )}
+    
+            {!tooltipDetails.heading && (
+              <div>
+                {tooltipDetails.details}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null;
     
       return (
         <span
@@ -1415,11 +1546,30 @@
             'readiness-badge',
             iconOnly ? 'readiness-badge--icon-only' : '',
             meta.className
-          ].filter(Boolean).join(' ')}
+          ]
+            .filter(Boolean)
+            .join(' ')}
           aria-label={`Feature readiness: ${meta.label}`}
-          title={`Feature readiness: ${meta.label}`}
+          onMouseEnter={(event) => {
+            if (showTooltip && tooltipContent) {
+              showTooltip(event, tooltipContent);
+            }
+          }}
+          onMouseMove={(event) => {
+            if (moveTooltip && tooltipContent) {
+              moveTooltip(event);
+            }
+          }}
+          onMouseLeave={() => {
+            if (hideTooltip && tooltipContent) {
+              hideTooltip();
+            }
+          }}
         >
-          <span className="readiness-badge__icon" aria-hidden="true">
+          <span
+            className="readiness-badge__icon"
+            aria-hidden="true"
+          >
             {meta.icon}
           </span>
     
@@ -9890,6 +10040,10 @@
                               <td className="feature-list-centered-cell">
                                 <ReadinessBadge
                                   readiness={getFeatureReadiness(f)}
+                                  feature={f}
+                                  showTooltip={showTooltip}
+                                  moveTooltip={moveTooltip}
+                                  hideTooltip={hideTooltip}
                                 />
                               </td>
                               
