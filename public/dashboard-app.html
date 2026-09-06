@@ -9117,245 +9117,126 @@
 
                 {/* Tabla exclusiva para desktop/tablet. */}
                 <div className="table-wrapper feature-list-table-wrapper">
-                  <thead>
-                    <tr>
-                      <th
-                        scope="col"
-                        className="feature-list-disclosure-header"
-                      >
-                        <span className="visually-hidden">
-                          Feature details
-                        </span>
-                      </th>
+                  <table className="feature-list-table">
+                    <colgroup>
+                      {/* Control accesible para expandir o contraer detalle. */}
+                      <col style={{ width: '30px' }} />
 
-                      <SortableHeader
-                        column="priority"
-                        label="Priority"
-                        align="center"
-                        hint="Sort by Feature priority"
-                        sortColumn={sortColumn}
-                        sortOrder={sortOrder}
-                        onSort={handleSortColumn}
-                      />
+                      <col className="feature-list-col--priority" />
+                      <col className="feature-list-col--id" />
+                      <col className="feature-list-col--title" />
 
-                      <SortableHeader
-                        column="id"
-                        label="ID"
-                        hint="Sort by Azure DevOps Feature ID"
-                        sortColumn={sortColumn}
-                        sortOrder={sortOrder}
-                        onSort={handleSortColumn}
-                      />
+                      <col className="feature-list-col--target-date" />
+                      <col className="feature-list-col--release-fix-version" />
 
-                      <SortableHeader
-                        column="title"
-                        label="Feature"
-                        hint="Sort by Feature title"
-                        sortColumn={sortColumn}
-                        sortOrder={sortOrder}
-                        onSort={handleSortColumn}
-                      />
+                      <col className="feature-list-col--estimate" />
+                      <col className="feature-list-col--estimate" />
+                      <col className="feature-list-col--estimate" />
 
-                      <SortableHeader
-                        column="targetDate"
-                        label="Target Date"
-                        hint="Sort by Target Date"
-                        sortColumn={sortColumn}
-                        sortOrder={sortOrder}
-                        onSort={handleSortColumn}
-                      />
+                      <col className="feature-list-col--state" />
+                      <col className="feature-list-col--readiness" />
+                      <col className="feature-list-col--delivery" />
+                      <col className="feature-list-col--progress" />
+                    </colgroup>
 
-                      <th
-                        scope="col"
-                        title="Release Fix Version"
-                      >
-                        RFV
-                      </th>
+                    <thead>
+                      <tr>
+                        <th
+                          scope="col"
+                          className="feature-list-disclosure-header"
+                        >
+                          <span className="visually-hidden">
+                            Feature details
+                          </span>
+                        </th>
 
-                      <th scope="col">BE</th>
-                      <th scope="col">FE</th>
-                      <th scope="col">QA</th>
+                        <SortableHeader
+                          column="priority"
+                          label="Priority"
+                          align="center"
+                          hint="Sort by Feature priority"
+                          sortColumn={sortColumn}
+                          sortOrder={sortOrder}
+                          onSort={handleSortColumn}
+                        />
 
-                      <SortableHeader
-                        column="state"
-                        label="State"
-                        hint="Sort by Feature state"
-                        sortColumn={sortColumn}
-                        sortOrder={sortOrder}
-                        onSort={handleSortColumn}
-                      />
+                        <SortableHeader
+                          column="id"
+                          label="ID"
+                          hint="Sort by Azure DevOps Feature ID"
+                          sortColumn={sortColumn}
+                          sortOrder={sortOrder}
+                          onSort={handleSortColumn}
+                        />
 
-                      <SortableHeader
-                        column="readiness"
-                        label="Readiness"
-                        align="center"
-                        hint="Sort by Feature Readiness"
-                        sortColumn={sortColumn}
-                        sortOrder={sortOrder}
-                        onSort={handleSortColumn}
-                      />
+                        <SortableHeader
+                          column="title"
+                          label="Feature"
+                          hint="Sort by Feature title"
+                          sortColumn={sortColumn}
+                          sortOrder={sortOrder}
+                          onSort={handleSortColumn}
+                        />
 
-                      <SortableHeader
-                        column="deliveryHealth"
-                        label="Delivery Health"
-                        align="center"
-                        hint="Sort by Delivery Health priority"
-                        sortColumn={sortColumn}
-                        sortOrder={sortOrder}
-                        onSort={handleSortColumn}
-                      />
+                        <SortableHeader
+                          column="targetDate"
+                          label="Target Date"
+                          hint="Sort by Target Date"
+                          sortColumn={sortColumn}
+                          sortOrder={sortOrder}
+                          onSort={handleSortColumn}
+                        />
 
-                      <th
-                        scope="col"
-                        className="feature-list-centered-cell"
-                      >
-                        Progress
-                      </th>
-                    </tr>
-                  </thead>
-                      
-                      <th
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => {
-                          setSortColumn('id');
-                          setSortOrder(
-                            sortColumn === 'id' && sortOrder === 'asc'
-                              ? 'desc'
-                              : 'asc'
-                          );
-                          setFeaturesPage(1);
-                        }}
-                      >
-                        ID{' '}
-                        {sortColumn === 'id'
-                          ? sortOrder === 'asc'
-                            ? '▲'
-                            : '▼'
-                          : ''}
-                      </th>
-                      
-                      <th
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => {
-                          setSortColumn('title');
-                          setSortOrder(
-                            sortColumn === 'title' && sortOrder === 'asc'
-                              ? 'desc'
-                              : 'asc'
-                          );
-                          setFeaturesPage(1);
-                        }}
-                      >
-                        Feature{' '}
-                        {sortColumn === 'title'
-                          ? sortOrder === 'asc'
-                            ? '▲'
-                            : '▼'
-                          : ''}
-                      </th>
-        
-                      <th
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => {
-                          setSortColumn('targetDate');
-                          setSortOrder(
-                            sortColumn === 'targetDate' && sortOrder === 'asc'
-                              ? 'desc'
-                              : 'asc'
-                          );
-                          setFeaturesPage(1);
-                        }}
-                      >
-                        Target Date{' '}
-                        {sortColumn === 'targetDate'
-                          ? sortOrder === 'asc'
-                            ? '▲'
-                            : '▼'
-                          : ''}
-                      </th>
-        
-                      <th title="Release Fix Version">RFV</th>
-                      <th>BE</th>
-                      <th>FE</th>
-                      <th>QA</th>
-        
-                      <th
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => {
-                          setSortColumn('state');
-                          setSortOrder(
-                            sortColumn === 'state' && sortOrder === 'asc'
-                              ? 'desc'
-                              : 'asc'
-                          );
-                          setFeaturesPage(1);
-                        }}
-                      >
-                        State{' '}
-                        {sortColumn === 'state'
-                          ? sortOrder === 'asc'
-                            ? '▲'
-                            : '▼'
-                          : ''}
-                      </th>
-        
-                      <th
-                        style={{
-                          textAlign: 'center',
-                          cursor: 'pointer'
-                        }}
-                        onClick={() => {
-                          setSortColumn('readiness');
-                          setSortOrder(
-                            sortColumn === 'readiness' && sortOrder === 'asc'
-                              ? 'desc'
-                              : 'asc'
-                          );
-                          setFeaturesPage(1);
-                        }}
-                      >
-                        Readiness{' '}
-                        {sortColumn === 'readiness'
-                          ? sortOrder === 'asc'
-                            ? '▲'
-                            : '▼'
-                          : ''}
-                      </th>
-        
-                      <th
-                        style={{
-                          textAlign: 'center',
-                          cursor: 'pointer'
-                        }}
-                        title="Sort by Delivery Health priority"
-                        onClick={() => {
-                          setSortColumn('deliveryHealth');
+                        <th
+                          scope="col"
+                          title="Release Fix Version"
+                        >
+                          RFV
+                        </th>
 
-                          setSortOrder(
-                            sortColumn === 'deliveryHealth' &&
-                            sortOrder === 'asc'
-                              ? 'desc'
-                              : 'asc'
-                          );
+                        <th scope="col">BE</th>
+                        <th scope="col">FE</th>
+                        <th scope="col">QA</th>
 
-                          setFeaturesPage(1);
-                        }}
-                      >
-                        Delivery Health{' '}
-                        {sortColumn === 'deliveryHealth'
-                          ? sortOrder === 'asc'
-                            ? '▲'
-                            : '▼'
-                          : ''}
-                      </th>
-        
-                      <th style={{ textAlign: 'center' }}>
-                        Progress
-                      </th>
-                    </tr>
-                  </thead>
-        
-                  <tbody>
+                        <SortableHeader
+                          column="state"
+                          label="State"
+                          hint="Sort by Feature state"
+                          sortColumn={sortColumn}
+                          sortOrder={sortOrder}
+                          onSort={handleSortColumn}
+                        />
+
+                        <SortableHeader
+                          column="readiness"
+                          label="Readiness"
+                          align="center"
+                          hint="Sort by Feature Readiness"
+                          sortColumn={sortColumn}
+                          sortOrder={sortOrder}
+                          onSort={handleSortColumn}
+                        />
+
+                        <SortableHeader
+                          column="deliveryHealth"
+                          label="Delivery Health"
+                          align="center"
+                          hint="Sort by Delivery Health priority"
+                          sortColumn={sortColumn}
+                          sortOrder={sortOrder}
+                          onSort={handleSortColumn}
+                        />
+
+                        <th
+                          scope="col"
+                          className="feature-list-centered-cell"
+                        >
+                          Progress
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
                     {featuresPageItems.length === 0 ? (
                       <tr>
                         <td
