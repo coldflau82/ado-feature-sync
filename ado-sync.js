@@ -5025,12 +5025,25 @@ async function getLiveFeatures(c) {
   }
 
   liveFeaturesFetchInFlight = (async () => {
+  const startedAt = Date.now();  
     try {
       console.log(
         'Starting Live Features request.'
-      );
+      );    
+    
+    const result = await fetchRecentFeatures(c);
 
-      return await fetchRecentFeatures(c);
+    console.log(
+      'Live Features request completed.',
+      {
+        durationMs: Date.now() - startedAt,
+        featureCount: result.features.length,
+        rangeCounts: result.rangeCounts,
+        rangeDetails: result.rangeDetails
+      }
+    );
+
+    return result;
     } finally {
       /* Es indispensable limpiar la Promise también ante errores. De lo contrario, un fallo temporal de Azure DevOps dejaría
         una Promise rechazada reutilizándose indefinidamente. */
