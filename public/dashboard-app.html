@@ -955,10 +955,11 @@
       touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     .release-alignment-indicator__icon { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 50%;
       color: var(--surface-raised); font-size: 9px; font-weight: 800; line-height: 1; }
-    .release-alignment-indicator.release-alignment-badge--aligned.release-alignment-indicator__icon { background: var(--ok); }
-    .release-alignment-indicator.release-alignment-badge--at-risk.release-alignment-indicator__icon { background: var(--warn); }
-    .release-alignment-indicator.release-alignment-badge--missed.release-alignment-indicator__icon,.release-alignment-indicator.release-alignment-badge--release-passed
-    .release-alignment-indicator__icon { background: var(--risk); }
+    .release-alignment-indicator.release-alignment-badge--aligned.release-alignment-indicator__icon { background: var(--ok);}
+    .release-alignment-indicator.release-alignment-badge--at-risk.release-alignment-indicator__icon { background: var(--warn);}
+    .release-alignment-indicator.release-alignment-badge--missed.release-alignment-indicator__icon,
+    .release-alignment-indicator.release-alignment-badge--release-passed.release-alignment-indicator__icon { background: var(--risk);}
+    .release-alignment-indicator.release-alignment-badge--unavailable.release-alignment-indicator__icon { background: var(--text-tertiary);}
     .release-alignment-indicator.release-alignment-badge--unavailable.release-alignment-indicator__icon { background: var(--text-tertiary); }
     .release-alignment-indicator:hover { transform: scale(1.12); }
     .release-alignment-indicator:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.32); outline-offset: 2px; }
@@ -979,8 +980,10 @@
     .feature-work-items-panel__results { min-width: 0; margin-top: 10px; padding: 12px; border: 1px solid var(--line-hairline); border-radius: 7px; background: var(--surface-raised);}
     .feature-work-items-panel__results.delivery-work-group:first-child { margin-top: 0;}
     @media (max-width: 980px) {.feature-work-items-panel__top-grid { grid-template-columns: 1fr; gap: 10px; }}
-
-    
+    .release-fix-version-with-alignment { display: flex; align-items: flex-start; gap: 4px; min-width: 0;}
+    .release-fix-version-with-alignment.release-fix-version-cell { flex: 1 1 auto; min-width: 0;}
+    .release-fix-version-with-alignment.release-alignment-indicator { flex: 0 0 16px; margin-top: 1px;}
+   
   </style>
 </head>
 <body>
@@ -9673,13 +9676,7 @@
                               </td>
         
                               <td className="feature-list-date-cell">
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'flex-start',
-                                    gap: '4px',
-                                    minWidth: 0
-                                  }}
-                                >
+                                <div className="release-fix-version-with-alignment">
                                   <ReleaseFixVersionCell
                                     value={f.releaseFixVersion}
                                   />
