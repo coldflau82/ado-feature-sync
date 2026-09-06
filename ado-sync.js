@@ -760,13 +760,11 @@ const FEATURE_CACHE_AUDIT_TTL_SECONDS =  45 * 24 * 60 * 60;
 const FEATURE_CACHE_AUDIT_MAX_RUNS = 45;
 const FEATURE_CACHE_AUDIT_EXAMPLE_LIMIT = 20;
 /* Feature IDs que siempre queremos inspeccionar en el audit.
-  Puedes controlar la lista desde Vercel con: CACHE_AUDIT_WATCH_FEATURE_IDS=1290868,1234567
-  Si la variable no existe, se conserva 1290868 como diagnóstico temporal para el caso actual. */
+  Puedes controlar la lista desde Vercel con: CACHE_AUDIT_WATCH_FEATURE_IDS || '1290868' */
 const CACHE_AUDIT_WATCH_FEATURE_IDS = [
   ...new Set(
     String(
-      process.env.CACHE_AUDIT_WATCH_FEATURE_IDS ||
-      '1290868'
+      process.env.CACHE_AUDIT_WATCH_FEATURE_IDS || ''
     )
       .split(',')
       .map(value => Number(value.trim()))
