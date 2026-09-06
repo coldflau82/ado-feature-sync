@@ -1079,6 +1079,10 @@ function getFeatureAgingFromRevisions(
   };
 }
 
+/* Evita que varias solicitudes simultáneas reconstruyan la misma ventana Live contra Azure DevOps. No guarda resultados: sólo comparte el trabajo
+  mientras la consulta está en progreso. */
+let liveFeaturesFetchInFlight = null;
+
 /* El Cron se ejecuta diariamente. Se conservan 36 horas para que, incluso si el Cron diario llega más
   tarde de lo esperado o ADO falla durante una actualización, exista un shard previo válido al cual volver temporalmente.
   El Cron sigue intentando actualizar los datos cada día; este TTL sólo evita perder el fallback seguro entre ejecuciones. */
@@ -5006,13 +5010,39 @@ async function fetchRecentFeatures(c) {
   };
 }
 
-/*
-  Recupera un único rango histórico.
+/* Protege la consulta de Features Live mediante el patrón single-flight.
+  Si varias solicitudes a /api/features llegan mientras la ventana Live todavía se está consultando en Azure DevOps, todas reutilizan la misma
+  Promise. Esto evita duplicar consultas WIQL, batches de Features, Delivery Health, Aging e Iteration Calendar para el mismo período.
+  No es una caché: cuando fetchRecentFeatures() termina —con éxito o con error— la referencia se limpia. Una solicitud posterior hará una nueva
+  consulta Live. */
+async function getLiveFeatures(c) {
+  if (liveFeaturesFetchInFlight) {
+    console.log(
+      'Reusing in-flight Live Features request.'
+    );
 
-  Este resultado se guarda de manera independiente en Redis.
-  Así, un error en un rango no obliga a descartar los demás rangos
-  históricos que sí pudieron actualizarse correctamente.
-*/
+    return liveFeaturesFetchInFlight;
+  }
+
+  liveFeaturesFetchInFlight = (async () => {
+    try {
+      console.log(
+        'Starting Live Features request.'
+      );
+
+      return await fetchRecentFeatures(c);
+    } finally {
+      /* Es indispensable limpiar la Promise también ante errores. De lo contrario, un fallo temporal de Azure DevOps dejaría
+        una Promise rechazada reutilizándose indefinidamente. */
+      liveFeaturesFetchInFlight = null;
+    }
+  })();
+
+  return liveFeaturesFetchInFlight;
+}
+
+/* Recupera un único rango histórico. Este resultado se guarda de manera independiente en Redis. Así, un error en un rango no obliga a descartar los demás rangos
+  históricos que sí pudieron actualizarse correctamente. */
 async function fetchOldFeaturesRange(c, range) {
   const rangeKey = getOldFeaturesRangeLabel(range);
 
@@ -6835,15 +6865,17 @@ app.get('/api/features', async (req, res) => {
         oldFeaturesCache.rangeDetails =
         oldFeaturesCache.rangeDetails || {};
 
-    // 4. La consulta reciente siempre es en vivo; nunca se guarda en Redis.
-    const recentResult = await fetchRecentFeatures(c);
+    /* 4. La consulta reciente siempre es Live y nunca se guarda en Redis.
+     Si ya hay una consulta Live en curso en esta instancia Node.js, se reutiliza la misma Promise para no duplicar tráfico a ADO. */
+    const recentResult = await getLiveFeatures(c);
 
-    // 5. Deduplicación: si un ID aparece en más de un origen, gana la versión más reciente.
-    /* Prioridad de datos, de más reciente a más antiguo:
+    /* 5. Deduplicación: si un ID aparece en más de un origen, gana la versión más reciente.
+      Prioridad de datos, de más reciente a más antiguo:
       1. Live: últimos 10 días.
       2. Histórico incremental: entre 10 y 180 días.
       3. Retención activa: entre 180 y 730 días, únicamente para Features que no estén en estados terminales.
-      Aunque los filtros no deberían solaparse, la deduplicación protege contra cambios de fecha, transiciones de estado o reconstrucciones de caché en momentos distintos. */
+      Aunque los filtros no deberían solaparse, la deduplicación protege contra cambios de fecha, transiciones de estado o reconstrucciones 
+      de caché en momentos distintos. */
     const featuresById = new Map();
     [
       ...activeOldFeaturesCache.data,
