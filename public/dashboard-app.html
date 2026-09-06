@@ -6806,8 +6806,8 @@
               className="mobile-workspace-controls__refresh"
               onClick={onRefresh}
               disabled={refreshing}
-              aria-label="Refresh dashboard cache"
-              title="Refresh cache"
+              aria-label="Refresh Live Features edited in the last 10 days"
+              title="Refresh Features edited in the last 10 days"
             >
               ↻
             </button>
@@ -6996,6 +6996,9 @@
       const [featuresPage, setFeaturesPage] = useState(1);
       const [legendExpanded, setLegendExpanded] = useState(false);
       const [refreshing, setRefreshing] = useState(false);
+      /* Representa la última respuesta exitosa recibida por este navegador durante la sesión actual.
+      No es la edad de Redis ni un timestamp compartido entre usuarios: /api/features siempre vuelve a consultar la ventana Live de los últimos 10 días.*/
+      const [lastLiveCheckAt, setLastLiveCheckAt] = useState(null);
       const [cacheInfo, setCacheInfo] = useState(null);
       const [readinessKpiFilter, setReadinessKpiFilter] = useState('All');
       const [healthGroupKpiFilter, setHealthGroupKpiFilter] = useState('All');
@@ -7381,6 +7384,11 @@
           setFeatures(Array.isArray(json.features) ? json.features : []);
           setCacheInfo(json.cacheInfo || null);
           setWarnings(receivedWarnings);
+
+          /* /api/features siempre consulta la ventana Live.
+          Este timestamp sólo informa cuándo este navegador recibió con éxito una respuesta que incluye esa revisión Live. */
+          setLastLiveCheckAt(new Date());
+          
           /* Si el usuario había cerrado una advertencia anterior, una carga nueva —especialmente Refresh cache— debe mostrar las advertencias
             vigentes que devuelva el backend. */
           setAreWarningsDismissed(false);
@@ -8147,7 +8155,23 @@
 
       const adoLink = (id) =>
         `https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/${id}`;
-
+      
+      const formatLiveCheckTime = (value) => {
+        if (!value) {
+          return 'Not checked yet in this session.';
+        }
+      
+        return DateTime
+          .fromJSDate(value)
+          .setZone(dashboardTimeZone)
+          .setLocale('en-US')
+          .toLocaleString({
+            hour: 'numeric',
+            minute: '2-digit',
+            second: '2-digit'
+          });
+      };
+      
       const formatDate = (date) => {
         const parsedDate = parseDashboardDate(date);
 
@@ -8722,11 +8746,19 @@
               onMouseEnter={(event) =>
                 showTooltip( event,
                   <div>
-                    <strong>Refresh cache</strong>
+                    <strong>Refresh Live Features</strong>
+              
                     <div>
-                      {cacheInfo
-                        ? `Last updated ${cacheInfo.ageMinutes} min ago.`
-                        : 'Cache update time unavailable.'}
+                      Rechecks Features edited in the last 10 days.
+                    </div>
+              
+                    <div>
+                      Historical cached Features are refreshed automatically at night.
+                    </div>
+              
+                    <div style={{ marginTop: '4px', color: '#cbd5e1' }}>
+                      Last checked in this session:{' '}
+                      {formatLiveCheckTime(lastLiveCheckAt)}
                     </div>
                   </div>
                 )
@@ -8734,7 +8766,12 @@
               onMouseMove={moveTooltip}
               onMouseLeave={hideTooltip}
               aria-label={
-                cacheInfo ? `Refresh cache. Last updated ${cacheInfo.ageMinutes} minutes ago.` : 'Refresh cache'
+                lastLiveCheckAt
+                  ? `Refresh Live Features edited in the last 10 days. ` +
+                    `Last checked in this session at ${formatLiveCheckTime(
+                      lastLiveCheckAt
+                    )}.`
+                  : 'Refresh Live Features edited in the last 10 days.'
               }
               disabled={refreshing}
             >
