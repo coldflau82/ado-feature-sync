@@ -2225,7 +2225,8 @@ function buildReleaseAlignment(
         pendingWorkItems: pendingWorkItems.length,
         reasons,
         nextViableRfv: getNextViableReleaseFixVersion(
-          featureRfv
+          featureRfv,
+          pendingWorkItems
         )
       }
     );
@@ -2247,7 +2248,8 @@ function buildReleaseAlignment(
         pendingWorkItems: pendingWorkItems.length,
         reasons,
         nextViableRfv: getNextViableReleaseFixVersion(
-          featureRfv
+          featureRfv,
+          pendingWorkItems
         )
       }
     );
@@ -2290,7 +2292,8 @@ function buildReleaseAlignment(
       pendingWorkItems: pendingWorkItems.length,
       reasons,
       nextViableRfv: getNextViableReleaseFixVersion(
-        featureRfv
+        featureRfv,
+        pendingWorkItems
       )
     }
   );
