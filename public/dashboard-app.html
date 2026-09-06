@@ -8156,20 +8156,24 @@
       const adoLink = (id) =>
         `https://dev.azure.com/tr-commercial-eng/Commercial%20Engineering/_workitems/edit/${id}`;
       
+      /* La última revisión Live pertenece a esta sesión del navegador.
+        Por eso se muestra en la zona horaria local del computador o móvil que solicitó /api/features, no en dashboardTimeZone.      
+        Ejemplos: 10:42:18 AM (CDT, UTC-5), 8:42:18 AM (PDT, UTC-7), 11:42:18 AM (EDT, UTC-4) */
       const formatLiveCheckTime = (value) => {
         if (!value) {
           return 'Not checked yet in this session.';
         }
       
-        return DateTime
+        const localTime = DateTime
           .fromJSDate(value)
-          .setZone(dashboardTimeZone)
-          .setLocale('en-US')
-          .toLocaleString({
-            hour: 'numeric',
-            minute: '2-digit',
-            second: '2-digit'
-          });
+          .toLocal()
+          .setLocale('en-US');
+      
+        return `${localTime.toLocaleString({
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit'
+        })} (${localTime.offsetNameShort}, UTC${localTime.toFormat('ZZ')})`;
       };
       
       const formatDate = (date) => {
