@@ -949,65 +949,37 @@
     .delivery-inline-alert__summary-content { flex: 1 1 0; }
     .delivery-inline-alert__title,.delivery-inline-alert__reason,.delivery-inline-alert__detail-value { overflow-wrap: anywhere; word-break: break-word; }
     .delivery-inline-alert__reason { white-space: normal; }
+    /* Indicador compacto y clicable dentro de la columna RFV. No muestra tooltip: el detalle completo se consulta al expandir la Feature. */
+    .release-alignment-indicator { appearance: none; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
+      flex: 0 0 16px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; font: inherit; line-height: 1;
+      touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    .release-alignment-indicator__icon { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 50%;
+      color: var(--surface-raised); font-size: 9px; font-weight: 800; line-height: 1; }
+    .release-alignment-indicator.release-alignment-badge--aligned.release-alignment-indicator__icon { background: var(--ok); }
+    .release-alignment-indicator.release-alignment-badge--at-risk.release-alignment-indicator__icon { background: var(--warn); }
+    .release-alignment-indicator.release-alignment-badge--missed.release-alignment-indicator__icon,.release-alignment-indicator.release-alignment-badge--release-passed
+    .release-alignment-indicator__icon { background: var(--risk); }
+    .release-alignment-indicator.release-alignment-badge--unavailable.release-alignment-indicator__icon { background: var(--text-tertiary); }
+    .release-alignment-indicator:hover { transform: scale(1.12); }
+    .release-alignment-indicator:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.32); outline-offset: 2px; }
+    .release-alignment-indicator:active { transform: scale(0.94); }
+    @media (prefers-reduced-motion: reduce) { .release-alignment-indicator:hover,.release-alignment-indicator:active {  transform: none;}}
     /* ── Stories and Bugs + Release Alignment: tarjetas gemelas ─── */
+    .feature-work-items-panel__top-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: stretch; min-width: 0; }
+    .feature-work-items-panel__controls-card,.feature-work-items-panel__alignment { min-width: 0; padding: 12px;  border: 1px solid var(--line-hairline);
+      border-radius: 7px; background: var(--surface-raised); }
+    .feature-work-items-panel__controls-card { display: flex; flex-direction: column; align-items: stretch; }
+    /*  Los botones pueden ocupar una segunda o tercera línea si no caben.No se reducen de manera ilegible.*/
+    .feature-work-items-panel__controls-card.feature-work-items-panel__filters { margin-top: 11px;}
+    .feature-work-items-panel__controls-card.delivery-details__summary { align-items: flex-start;}
+    /* ReleaseAlignmentDetails ya está dentro de una tarjeta. Por eso no debe dibujar un segundo divisor interno.*/
+    .feature-work-items-panel__alignment.release-alignment-details { margin-top: 0; padding-top: 0; border-top: 0;}
+    /* La lista de Stories/Bugs se conserva en su propia superficie, debajo de las dos tarjetas superiores.*/
+    .feature-work-items-panel__divider { display: none;}
+    .feature-work-items-panel__results { min-width: 0; margin-top: 10px; padding: 12px; border: 1px solid var(--line-hairline); border-radius: 7px; background: var(--surface-raised);}
+    .feature-work-items-panel__results.delivery-work-group:first-child { margin-top: 0;}
+    @media (max-width: 980px) {.feature-work-items-panel__top-grid { grid-template-columns: 1fr; gap: 10px; }}
 
-.feature-work-items-panel__top-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: stretch; min-width: 0; }
-.feature-work-items-panel__controls-card,.feature-work-items-panel__alignment { min-width: 0; padding: 12px;  border: 1px solid var(--line-hairline);
-  border-radius: 7px; background: var(--surface-raised); }
-
-.feature-work-items-panel__controls-card { display: flex; flex-direction: column; align-items: stretch; }
-/*  Los botones pueden ocupar una segunda o tercera línea si no caben.
-  No se reducen de manera ilegible.
-*/
-.feature-work-items-panel__controls-card
-.feature-work-items-panel__filters {
-  margin-top: 11px;
-}
-
-.feature-work-items-panel__controls-card
-.delivery-details__summary {
-  align-items: flex-start;
-}
-
-/*
-  ReleaseAlignmentDetails ya está dentro de una tarjeta.
-  Por eso no debe dibujar un segundo divisor interno.
-*/
-.feature-work-items-panel__alignment
-.release-alignment-details {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: 0;
-}
-
-/*
-  La lista de Stories/Bugs se conserva en su propia superficie,
-  debajo de las dos tarjetas superiores.
-*/
-.feature-work-items-panel__divider {
-  display: none;
-}
-
-.feature-work-items-panel__results {
-  min-width: 0;
-  margin-top: 10px;
-  padding: 12px;
-  border: 1px solid var(--line-hairline);
-  border-radius: 7px;
-  background: var(--surface-raised);
-}
-
-.feature-work-items-panel__results
-.delivery-work-group:first-child {
-  margin-top: 0;
-}
-
-@media (max-width: 980px) {
-  .feature-work-items-panel__top-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-}
     
   </style>
 </head>
@@ -1253,6 +1225,62 @@
       );
     }
 
+    function ReleaseAlignmentIndicator({
+      releaseAlignment,
+      featureId,
+      isExpanded,
+      onToggle
+    }) {
+      const status = String(
+        releaseAlignment?.status || ''
+      ).trim();
+    
+      /*
+        Sin RFV o Feature cerrada/no aplicable:
+        no se agrega ruido visual en la tabla.
+      */
+      if (
+        !status ||
+        status === 'not-applicable'
+      ) {
+        return null;
+      }
+    
+      const meta = getReleaseAlignmentMeta(status);
+    
+      return (
+        <button
+          type="button"
+          className={[
+            'release-alignment-indicator',
+            meta.className
+          ].join(' ')}
+          onClick={(event) => {
+            /*
+              La fila también tiene un onClick para expandir.
+              Detener la propagación evita ejecutar el toggle dos veces.
+            */
+            event.stopPropagation();
+            onToggle();
+          }}
+          aria-expanded={isExpanded}
+          aria-controls={`feature-details-panel-${featureId}`}
+          aria-label={
+            isExpanded
+              ? `Collapse Feature ${featureId} details. Release Alignment: ${meta.label}.`
+              : `Expand Feature ${featureId} details. Release Alignment: ${meta.label}.`
+          }
+        >
+          <span
+            className="release-alignment-indicator__icon"
+            aria-hidden="true"
+          >
+            {meta.icon}
+          </span>
+        </button>
+      );
+    }
+        
     function createDashboardDate(year, month, day = 1) {
       const date = DateTime.fromObject(
         { year, month: month + 1, day },
@@ -4731,7 +4759,7 @@
         `${level.label} risk · ${score}`,
         'Risk signals:',
         ...breakdown.map(
-          item => `+${item.points} ${item.label}`
+          item => `+${item.points}: ${item.label}`
         )
       ].join('\n');
     }
@@ -9645,8 +9673,26 @@
                               </td>
         
                               <td className="feature-list-date-cell">
-                                <ReleaseFixVersionCell value={f.releaseFixVersion}
-                                />
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: '4px',
+                                    minWidth: 0
+                                  }}
+                                >
+                                  <ReleaseFixVersionCell
+                                    value={f.releaseFixVersion}
+                                  />
+                              
+                                  <ReleaseAlignmentIndicator
+                                    releaseAlignment={
+                                      f.deliverySummary?.releaseAlignment
+                                    }
+                                    featureId={f.id}
+                                    isExpanded={isFeatureExpanded}
+                                    onToggle={() => toggleFeatureDetails(f.id)}
+                                  />
+                                </div>
                               </td>
         
                               <td>{f.estimation?.be || '-'}</td>
@@ -9705,7 +9751,7 @@
                               <tr style={{ background: '#f9f9f9' }}>
                                 <td
                                   id={`feature-details-panel-${f.id}`}
-                                  colSpan="13"
+                                  colSpan="14"
                                   style={{
                                     paddingLeft: '20px',
                                     paddingTop: '12px',
@@ -9717,9 +9763,13 @@
                                     {loadingStoriesIds[f.id] ? (
                                       <>
                                         <FeatureStatusDetails feature={f} />
-
+                                      
                                         <div className="feature-detail-panel__divider" />
-
+                                      
+                                        <ReleaseAlignmentDetails feature={f} />
+                                      
+                                        <div className="feature-detail-panel__divider" />
+                                      
                                         <div className="feature-detail-panel-message">
                                           Loading Stories and Bugs...
                                         </div>
@@ -9727,9 +9777,13 @@
                                     ) : unavailableStoriesIds[f.id] ? (
                                       <>
                                         <FeatureStatusDetails feature={f} />
-
+                                      
                                         <div className="feature-detail-panel__divider" />
-
+                                      
+                                        <ReleaseAlignmentDetails feature={f} />
+                                      
+                                        <div className="feature-detail-panel__divider" />
+                                      
                                         <div className="feature-detail-panel-warning">
                                           Stories and Bugs could not be fully retrieved from Azure DevOps.
                                           Delivery Health rules remain based on the server-provided Feature
