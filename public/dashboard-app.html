@@ -2885,7 +2885,23 @@
       };
     }
     
-    function StoryRow({ storyId, title, storyPoints, state, iterationPath, formatDate, timelineStart, timelineEnd, adoLink, states, loading, showTooltip, moveTooltip, hideTooltip }) {
+    function StoryRow({
+      storyId,
+      title,
+      storyPoints,
+      state,
+      iterationPath,
+      formatDate,
+      timelineStart,
+      timelineEnd,
+      adoLink,
+      states,
+      loading,
+      unavailable,
+      showTooltip,
+      moveTooltip,
+      hideTooltip
+    }) {
       const today = getDashboardToday();
       const timelineTotalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
       
@@ -3032,13 +3048,20 @@
                   />
                 );
               })}
-              {loading && (
-                <div style={{ position: 'absolute', top: '50%', left: '8px', transform: 'translateY(-50%)', fontSize: '11px', color: '#999', zIndex: 2 }}>Loading...</div>
-              )}
-              {!loading && segments.length === 0 && (
-                <div style={{ position: 'absolute', top: '50%', left: '8px', transform: 'translateY(-50%)', fontSize: '11px', color: '#999', zIndex: 2 }}>No data</div>
-              )}
-              {!loading && isSprintFullyVisible && (
+              {loading ? (
+                <div style={{ position: 'absolute', top: '50%', left: '8px', transform: 'translateY(-50%)', fontSize: '11px', color: '#999', zIndex: 2 }}>
+                  Loading timeline...
+                </div>
+              ) : unavailable ? (
+                <div style={{ position: 'absolute', top: '50%', left: '8px', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--warn)', zIndex: 2}}>
+                  Timeline temporarily unavailable
+                </div>
+              ): segments.length === 0 ? (
+                <div style={{ position: 'absolute', top: '50%', left: '8px', transform: 'translateY(-50%)', fontSize: '11px', color: '#999', zIndex: 2 }}>
+                  No data
+                </div>
+              ) : null}
+              {!loading && !unavailable && isSprintFullyVisible && (
                 <>
                   <div
                     style={{ position: 'absolute', top: 0, bottom: 0, left: `${sprintStartPercent}%`, width: '1px', borderLeft: '1px dashed #123770', 
@@ -3060,14 +3083,10 @@
                 </>
               )}
               
-              {!loading &&
-              sprintInfo.hasAssignedSprint &&
-              !isSprintFullyVisible && (
-                <div
-                  style={{ position: 'absolute', top: '2px', left: '6px', padding: '1px 5px', borderRadius: '2px', background: '#123770', color: 'var(--surface-raised)',
+              {!loading && !unavailable && sprintInfo.hasAssignedSprint && !isSprintFullyVisible && (
+                <div style={{ position: 'absolute', top: '2px', left: '6px', padding: '1px 5px', borderRadius: '2px', background: '#123770', color: 'var(--surface-raised)',
                     fontSize: '9px', fontWeight: '700', lineHeight: '1.2', zIndex: 8, pointerEvents: 'none' }}
-                  title={`Assigned Sprint: ${sprintLabel}`}
-                >
+                  title={`Assigned Sprint: ${sprintLabel}`}>
                   {sprintLabel}
                 </div>
               )}
@@ -4512,6 +4531,7 @@
       story,
       states,
       loading,
+      unavailable,
       adoLink,
       timelineStart,
       timelineEnd
@@ -4790,6 +4810,10 @@
             <span className="mobile-story-timeline-card__empty">
               Loading timeline...
             </span>
+          ) : unavailable ? (
+            <span className="mobile-story-timeline-card__empty" style={{ color: 'var(--warn)' }}>
+              Timeline temporarily unavailable.
+            </span>
           ) : segments.length === 0 ? (
             <span className="mobile-story-timeline-card__empty">
               No timeline history available.
@@ -4810,6 +4834,7 @@
         storiesUnavailable,
         storyHistoryCache,
         loadingStoryHistoryIds,
+        unavailableStoryHistoryIds,
         featureHistory,
         loadingFeatureHistory,
         unavailableFeatureHistory,
@@ -4897,6 +4922,7 @@
                         story={story}
                         states={storyHistoryCache[story.id] || []}
                         loading={!!loadingStoryHistoryIds[story.id]}
+                        unavailable={!!unavailableStoryHistoryIds[story.id]}
                         adoLink={adoLink}
                         timelineStart={weekTimelineStart}
                         timelineEnd={weekTimelineEnd}
@@ -7865,24 +7891,23 @@
       const [storiesCache, setStoriesCache] = useState({});
       const [loadingStoriesIds, setLoadingStoriesIds] = useState({});
       const [unavailableStoriesIds, setUnavailableStoriesIds] = useState({});
-      /* Caché independiente para el grafo de Linked items. Importante:
-      - No se mezcla con storiesCache.
-      - No afecta Delivery Health.
-      - No afecta Progress.
-      - Se consulta al expandir una Feature en Feature List.
-      - La caché evita repetir solicitudes al reabrir la misma Feature. */
+      /* Caché independiente para el grafo de Linked items. Importante: No se mezcla con storiesCache.No afecta Delivery Health.No afecta Progress. Se consulta al expandir una Feature en Feature List.
+        La caché evita repetir solicitudes al reabrir la misma Feature. */
       const [relationshipGraphCache, setRelationshipGraphCache] = useState({});
       const [loadingRelationshipIds, setLoadingRelationshipIds] = useState({});
       const [unavailableRelationshipIds, setUnavailableRelationshipIds] = useState({});
       const relationshipRequestInFlightRef = useRef(new Set());
       const [storyHistoryCache, setStoryHistoryCache] = useState({});
-      const [loadingStoryHistoryIds, setLoadingStoryHistoryIds] = useState({});
+      const [loadingStoryHistoryIds, setLoadingStoryHistoryIds]  = useState({});
+      /* Diferencia: storyHistoryCache[id] = []: consulta correcta, pero sin cambios. unavailableStoryHistoryIds[id] = true: no fue posible recuperar el historial de esa Story/Bug. */
+      const [unavailableStoryHistoryIds, setUnavailableStoryHistoryIds] = useState({});
+      const storyHistoryRequestInFlightRef = useRef(new Set());
       const storyHistoryRequestInFlightRef = useRef(new Set());
       const [featuresPage, setFeaturesPage] = useState(1);
       const [legendExpanded, setLegendExpanded] = useState(false);
       const [refreshing, setRefreshing] = useState(false);
       /* Representa la última respuesta exitosa recibida por este navegador durante la sesión actual.
-      No es la edad de Redis ni un timestamp compartido entre usuarios: /api/features siempre vuelve a consultar la ventana Live de los últimos 10 días.*/
+        No es la edad de Redis ni un timestamp compartido entre usuarios: /api/features siempre vuelve a consultar la ventana Live de los últimos 10 días.*/
       const [lastLiveCheckAt, setLastLiveCheckAt] = useState(null);
       const [cacheInfo, setCacheInfo] = useState(null);
       const [readinessKpiFilter, setReadinessKpiFilter] = useState('All');
@@ -9390,6 +9415,7 @@
             storyHistoryCache,
             id
           ) &&
+          !loadingStoryHistoryIds[id] &&
           !storyHistoryRequestInFlightRef.current.has(id)
         );
     
@@ -9397,9 +9423,7 @@
         return;
       }
     
-      ids.forEach(id => {
-        storyHistoryRequestInFlightRef.current.add(id);
-      });
+      ids.forEach(id => { storyHistoryRequestInFlightRef.current.add(id); });
     
       setLoadingStoryHistoryIds(previous => {
         const next = { ...previous };
@@ -9418,20 +9442,26 @@
         },
         body: JSON.stringify({ ids })
       })
-      .then(response =>
-        parseApiJsonResponse(
-          response,
-          'Unable to load Stories/Bugs for the selected Features.'
+        .then(response =>
+          parseApiJsonResponse(
+            response,
+            'Unable to load Story/Bug timeline history.'
+          )
         )
-      )
         .then(data => {
           const results = data.results || {};
+    
+          /* Si el backend omitió un ID solicitado, no interpretamos eso como una Story/Bug sin historial. */
+          const unavailableIds = new Set(
+            (data.unavailableWorkItemIds || [])
+              .map(Number)
+              .filter(Number.isInteger)
+          );
     
           setStoryHistoryCache(previous => {
             const next = { ...previous };
     
             ids.forEach(id => {
-              /* Un arreglo vacío significa que la Story fue consultada correctamente, pero no tiene historial utilizable.  */
               next[id] = Array.isArray(results[id])
                 ? results[id]
                 : [];
@@ -9439,19 +9469,50 @@
     
             return next;
           });
+    
+          setUnavailableStoryHistoryIds(previous => {
+            const next = { ...previous };
+    
+            ids.forEach(id => {
+              const isUnavailable =
+                unavailableIds.has(id) ||
+                !Object.prototype.hasOwnProperty.call(
+                  results,
+                  id
+                );
+    
+              if (isUnavailable) {
+                next[id] = true;
+              } else {
+                delete next[id];
+              }
+            });
+    
+            return next;
+          });
         })
         .catch(error => {
           console.error(
-            'Error loading Story timeline history:',
+            'Error loading Story/Bug timeline history:',
             error
           );
     
-          /* Evita solicitudes automáticas infinitas si falla el endpoint. La UI mostrará "No timeline history available." */
+          /* Un error HTTP global afecta a todos los IDs de este lote. */
           setStoryHistoryCache(previous => {
             const next = { ...previous };
     
             ids.forEach(id => {
               next[id] = [];
+            });
+    
+            return next;
+          });
+    
+          setUnavailableStoryHistoryIds(previous => {
+            const next = { ...previous };
+    
+            ids.forEach(id => {
+              next[id] = true;
             });
     
             return next;
@@ -11137,8 +11198,9 @@
                     storyHistoryCache={storyHistoryCache}
                     loadingStoryHistoryIds={loadingStoryHistoryIds}
                     featureHistory={historyCache[feature.id] || []}
-                    loadingFeatureHistory={ !!loadingFeatureHistoryIds[feature.id] }
-                    unavailableFeatureHistory={ !!unavailableFeatureHistoryIds[feature.id] }
+                    loadingFeatureHistory={!!loadingFeatureHistoryIds[feature.id]}
+                    unavailableStoryHistoryIds={unavailableStoryHistoryIds}
+                    unavailableFeatureHistory={!!unavailableFeatureHistoryIds[feature.id]}
                     weekOffset={weekOffset}
                   />
                 ))}
@@ -11373,6 +11435,7 @@
                                   adoLink={adoLink}
                                   states={storyHistoryCache[s.id] || []}
                                   loading={!!loadingStoryHistoryIds[s.id]}
+                                  unavailable={!!unavailableStoryHistoryIds[s.id]}
                                   showTooltip={showTooltip}
                                   moveTooltip={moveTooltip}
                                   hideTooltip={hideTooltip}
