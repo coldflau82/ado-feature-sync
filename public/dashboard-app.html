@@ -8138,17 +8138,13 @@
         if (forceRefresh) {
           setRefreshing(true);
 
-          /* Los Features fueron solicitados explícitamente de nuevo. Se invalidan también los detalles dependientes de ellos. */
-          setStoriesCache({});
-          setUnavailableStoriesIds({});
-          setLoadingStoriesIds({});
-        
-          setRelationshipGraphCache({});
-          setUnavailableRelationshipIds({});
-          setLoadingRelationshipIds({});
-        
-          setHistoryCache({});
-          setStoryHistoryCache({});
+          /* Stale-while-revalidate: Durante Refresh Live conservamos la última información válida visible en pantalla mientras /api/features consulta Azure DevOps.
+            No se deben vaciar storiesCache, historyCache ni storyHistoryCache antes de recibir una respuesta exitosa:
+            - historyCache alimenta las barras del Roadmap;
+            - storiesCache mantiene Progress y el detalle expandido;
+            - storyHistoryCache mantiene timelines de Stories/Bugs;
+            - relationshipGraphCache evita que Linked Items desaparezca.
+            Vaciar estas cachés provocaba que Roadmap mostrara "No data" aunque el usuario ya tuviera información válida en pantalla. */
         } else {
           setLoading(true);
         }
