@@ -7807,8 +7807,17 @@
         isWeekScale
       ]);
       
+      /* historyCache conserva el timeline de estado de cada Feature. Un arreglo vacío significa que la Feature fue consultada
+        correctamente, pero no tiene cambios de estado utilizables dentro de la ventana actual. */
       const [historyCache, setHistoryCache] = useState({});
-      const [loadingHistory, setLoadingHistory] = useState(false);
+
+      /* A diferencia del booleano loadingHistory anterior, este mapa permite indicar carga de forma individual por Feature ID. Ejemplo: { 1165429: true, 1165501: true } */
+      const [loadingFeatureHistoryIds, setLoadingFeatureHistoryIds] =
+        useState({});
+
+      /* Protege contra solicitudes duplicadas antes de que React alcance a reflejar loadingFeatureHistoryIds en el siguiente render. */
+      const featureHistoryRequestInFlightRef = useRef(new Set());
+
       /* storiesCache contiene el resultado por Feature. Un arreglo vacío puede significar que realmente no hay Stories/Bugs.
         Por eso unavailableStoriesIds existe separadamente: permite informar una carga incompleta sin confundirla con un Feature sin hijos. */
       const [storiesCache, setStoriesCache] = useState({});
@@ -9189,14 +9198,55 @@
       const expandedRoadmapStories = expandedRoadmapFeatureId ? (storiesCache[expandedRoadmapFeatureId] || []) : [];
       const expandedStoryIds = expandedRoadmapStories.map(s => s.id).join(',');
     
+      /* Carga únicamente los timelines que aún no existen en caché. El estado de carga se administra por ID: una Feature ya cargada
+        conserva su timeline mientras otra Feature de la misma página sigue esperando respuesta. */
       useEffect(() => {
-        if (currentPage !== 'roadmap' || pageItems.length === 0) return;
-        const ids = pageItems.map(item => item.id).filter(id => !historyCache[id]);
-        if (ids.length === 0) return;
-        setLoadingHistory(true);
+        if ( currentPage !== 'roadmap' || pageItems.length === 0 ) {
+          return;
+        }
+
+        const ids = pageItems
+          .map(item => Number(item.id))
+          .filter(
+            featureId =>
+              Number.isInteger(featureId) &&
+              featureId > 0 &&
+              !Object.prototype.hasOwnProperty.call(
+                historyCache,
+                featureId
+              ) &&
+              !loadingFeatureHistoryIds[featureId] &&
+              !featureHistoryRequestInFlightRef.current.has(
+                featureId
+              )
+          );
+
+        if (ids.length === 0) {
+          return;
+        }
+
+        /* Marcamos los IDs antes de iniciar fetch para evitar solicitudes duplicadas mientras React procesa el siguiente render. */
+        ids.forEach(featureId => {
+          featureHistoryRequestInFlightRef.current.add(
+            featureId
+          );
+        });
+
+        setLoadingFeatureHistoryIds(previous => {
+          const next = { ...previous };
+
+          ids.forEach(featureId => {
+            next[featureId] = true;
+          });
+
+          return next;
+        });
+
         fetch('/api/features-history-batch', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify({ ids })
         })
           .then(response =>
@@ -9206,41 +9256,64 @@
             )
           )
           .then(data => {
-            setHistoryCache(previous => ({
-              ...previous,
-              ...(data.results || {})
-            }));
+            const results = data.results || {};
+
+            setHistoryCache(previous => {
+              const next = { ...previous };
+
+              ids.forEach(featureId => {
+                /* Si el backend no devuelve un ID, lo tratamos temporalmente como un timeline vacío para conservar el contrato visual actual.
+                  En el siguiente punto agregaremos un estado explícito "timeline unavailable" para distinguirlo de un historial realmente vacío. */
+                next[featureId] = Array.isArray(
+                  results[featureId]
+                )
+                  ? results[featureId]
+                  : [];
+              });
+
+              return next;
+            });
           })
           .catch(error => {
             console.error(
               'Error loading Feature timeline history:',
               error
             );
+
+            /* Conserva el comportamiento visual actual: no bloquea otras Features ni deja una fila cargando indefinidamente.
+              Nota: en el próximo punto reemplazaremos [] por un estado explícito de historial temporalmente no disponible. */
+            setHistoryCache(previous => {
+              const next = { ...previous };
+
+              ids.forEach(featureId => {
+                next[featureId] = [];
+              });
+
+              return next;
+            });
           })
           .finally(() => {
-            setLoadingHistory(false);
-          });
-       }, [pageItemIds, currentPage]);
+            ids.forEach(featureId => {
+              featureHistoryRequestInFlightRef.current.delete(
+                featureId
+              );
+            });
 
-   /*   useEffect(() => {
-        if (currentPage !== 'roadmap') return;
-        const nextStart = roadmapPage * itemsPerPage;
-        const nextPageItems = sortedFiltered.slice(nextStart, nextStart + itemsPerPage);
-        if (nextPageItems.length === 0) return;
-        const ids = nextPageItems.map(item => item.id).filter(id => !historyCache[id]);
-        if (ids.length === 0) return;
-        fetch('/api/features-history-batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids })
-        })
-          .then(r => r.json())
-          .then(d => {
-            setHistoryCache(prev => ({ ...prev, ...(d.results || {}) }));
-          })
-          .catch(() => {});
-      }, [roadmapPage, currentPage, sortedFiltered.length, filterAreaPath.join(','), filterIteration.join(','), filterState.join(','), filterTargetDate.join(','), filterReleaseVersion.join(','), filterAssignedTo.join(','), readinessDropdownFilter, searchTitle]);
-    */
+            setLoadingFeatureHistoryIds(previous => {
+              const next = { ...previous };
+
+              ids.forEach(featureId => {
+                next[featureId] = false;
+              });
+
+              return next;
+            });
+          });
+      }, [
+        pageItemIds,
+        currentPage
+      ]);
+
     useEffect(() => {
       if ( !expandedRoadmapFeatureId || expandedRoadmapStories.length === 0 ) {
         return;
@@ -9296,10 +9369,7 @@
             const next = { ...previous };
     
             ids.forEach(id => {
-              /*
-                Un arreglo vacío significa que la Story fue consultada
-                correctamente, pero no tiene historial utilizable.
-              */
+              /* Un arreglo vacío significa que la Story fue consultada correctamente, pero no tiene historial utilizable.  */
               next[id] = Array.isArray(results[id])
                 ? results[id]
                 : [];
@@ -9314,10 +9384,7 @@
             error
           );
     
-          /*
-            Evita solicitudes automáticas infinitas si falla el endpoint.
-            La UI mostrará "No timeline history available."
-          */
+          /* Evita solicitudes automáticas infinitas si falla el endpoint. La UI mostrará "No timeline history available." */
           setStoryHistoryCache(previous => {
             const next = { ...previous };
     
@@ -9349,8 +9416,8 @@
     ]);
 
     function FeatureTooltipContent({ feature }) {
-      /* Reutiliza el criterio del Roadmap: Area e Iteration muestran solamente el último segmento del path,
-        que es la parte operativa que el usuario necesita identificar. */
+      /* Reutiliza el criterio del Roadmap: Area e Iteration muestran solamente el último segmento del path, que es la parte operativa 
+      que el usuario necesita identificar. */
       const shortArea = feature.areaPath
         ? feature.areaPath.split('\\').pop()
         : '—';
@@ -11008,7 +11075,7 @@
                     storyHistoryCache={storyHistoryCache}
                     loadingStoryHistoryIds={loadingStoryHistoryIds}
                     featureHistory={historyCache[feature.id] || []}
-                    loadingFeatureHistory={loadingHistory}
+                    loadingFeatureHistory={ !!loadingFeatureHistoryIds[feature.id] }
                     weekOffset={weekOffset}
                   />
                 ))}
@@ -11121,7 +11188,7 @@
                               isExpanded={isExpanded}
                               onToggleExpand={() => toggleRoadmapFeature(f.id)}
                               states={historyCache[f.id] || []}
-                              loading={loadingHistory}
+                              loading={ !!loadingFeatureHistoryIds[f.id] }
                               showTooltip={showTooltip}
                               moveTooltip={moveTooltip}
                               hideTooltip={hideTooltip}
