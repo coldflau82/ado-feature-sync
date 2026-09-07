@@ -641,7 +641,7 @@
         background: var(--accent-soft); color: var(--accent-strong); font-size: 11px; font-weight: 800; }
       .mobile-feature-card__id-link { color: var(--accent); text-decoration: none; }
       .mobile-feature-card__id-link:hover { text-decoration: underline; }
-      .mobile-feature-card__title { display: block; mind-width: 0; max-width: 100%; margin-top: 8px; overflow: visible; color: var(--text-primary); 
+      .mobile-feature-card__title { display: block; min-width: 0; max-width: 100%; margin-top: 8px; overflow: visible; color: var(--text-primary); 
         font-size: 14px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
       .mobile-feature-card__state-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; color: var(--text-secondary); font-size: 11px; font-weight: 700; }
       .mobile-feature-card__state-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; }
@@ -1075,6 +1075,103 @@
     /* Identifica la columna que debe medir useTimelineColumnBox(). También servirá como superficie de interacción cuando se implemente
       el pan horizontal del punto 3.2. */
     .gantt-timeline-cell { position: relative; }
+    /* ── Roadmap legend ───────────────────────────────────────────── */
+
+.roadmap-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 12px;
+  min-width: 0;
+  margin-top: 6px;
+  color: var(--text-tertiary);
+  font-size: var(--step--2);
+  line-height: 1.2;
+}
+
+.roadmap-legend__label {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.roadmap-legend__items {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-width: 0;
+}
+
+.roadmap-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.roadmap-legend__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+  Base común para todos los marcadores. Los tipos específicos
+  controlan su geometría y color.
+*/
+.roadmap-legend__marker {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 11px;
+  height: 11px;
+  line-height: 1;
+}
+
+/* Línea vertical equivalente a la línea global de Today. */
+.roadmap-legend__marker--today {
+  width: 2px;
+  height: 13px;
+  border-radius: 999px;
+  background: var(--accent, #2563eb);
+  box-shadow: 0 0 0 1px color-mix(
+    in srgb,
+    var(--accent, #2563eb) 16%,
+    transparent
+  );
+}
+
+/* Marcador circular equivalente a Target Date. */
+.roadmap-legend__marker--target {
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--risk, #dc2626);
+  border-radius: 50%;
+  background: var(--surface, #fff);
+}
+
+/* Diamante equivalente al marcador RFV del Gantt. */
+.roadmap-legend__marker--rfv {
+  color: var(--warn, #d97706);
+  font-size: 14px;
+  font-weight: 800;
+  transform: translateY(-0.5px);
+}
+
+/* Estrella equivalente al marcador Tech Go Live RFV. */
+.roadmap-legend__marker--tech-go-live {
+  color: var(--accent, #2563eb);
+  font-size: 13px;
+  font-weight: 800;
+  transform: translateY(-0.5px);
+}
     /* ── Protección contra overflow horizontal en cards móviles ───── */
     @media (max-width: 820px) { html, body, #root { width: 100%; max-width: 100%; }
       .container.dashboard-shell, .dashboard-fixed-content, .dashboard-results-scroll, .mobile-feature-list, .mobile-roadmap-list, .mobile-feature-card,
@@ -1093,7 +1190,29 @@
       /* La fila horizontal de filtros conserva scroll propio, pero no debe ensanchar el layout general de la página. */
       .mobile-workspace-controls,.mobile-workspace-controls__filters { min-width: 0; max-width: 100%; }
       .mobile-workspace-controls__input { max-width: calc(100vw - 84px); }}
-   
+    @media (max-width: 820px) {
+  .roadmap-legend {
+    align-items: flex-start;
+  }
+
+  .roadmap-legend__items {
+    flex-basis: 100%;
+  }
+}
+    @media (max-width: 420px) {
+  .roadmap-legend {
+    gap: 5px 8px;
+  }
+
+  .roadmap-legend__items {
+    gap: 5px 9px;
+  }
+
+  .roadmap-legend__label {
+    flex-basis: 100%;
+  }
+}
+    
   </style>
 </head>
 <body>
@@ -6641,269 +6760,57 @@
       );
     }
 
-   /* Leyenda exclusiva del Roadmap. Se renderiza fuera del panel de resultados para permanecer visible mientras el usuario navega mediante el 
-   scroll interno. */
-    function RoadmapLegend({
-      legendExpanded,
-      onToggle
-    }) {
+    /* Leyenda exclusiva del Roadmap. Se renderiza fuera del panel de resultados para permanecer visible mientras el usuario navega mediante el 
+    scroll interno. */
+    function RoadmapLegend() {
       return (
-        <div className="gantt-legend">
-          <div
-            onClick={onToggle}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-              userSelect: 'none'
-            }}
-            role="button"
-            tabIndex="0"
-            aria-expanded={legendExpanded}
-            aria-label={
-              legendExpanded
-                ? 'Collapse Roadmap legend'
-                : 'Expand Roadmap legend'
-            }
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                onToggle();
-              }
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
+        <div
+          className="roadmap-legend"
+          aria-label="Roadmap timeline legend"
+        >
+          <span className="roadmap-legend__label">
+            Timeline markers:
+          </span>
+    
+          <div className="roadmap-legend__items">
+            <div className="roadmap-legend__item">
               <span
-                style={{
-                  fontSize: '13px',
-                  fontWeight: 'bold'
-                }}
-              >
-                Features & Stories states
-              </span>
-
+                className="roadmap-legend__marker roadmap-legend__marker--today"
+                aria-hidden="true"
+              />
+              <span className="roadmap-legend__text">Today</span>
+            </div>
+    
+            <div className="roadmap-legend__item">
               <span
-                style={{
-                  fontSize: '10px',
-                  transform: legendExpanded
-                    ? 'rotate(180deg)'
-                    : 'rotate(0deg)',
-                  transition: 'transform 0.2s'
-                }}
+                className="roadmap-legend__marker roadmap-legend__marker--target"
+                aria-hidden="true"
+              />
+              <span className="roadmap-legend__text">Target Date</span>
+            </div>
+    
+            <div className="roadmap-legend__item">
+              <span
+                className="roadmap-legend__marker roadmap-legend__marker--rfv"
                 aria-hidden="true"
               >
-                ▼
+                ◆
+              </span>
+              <span className="roadmap-legend__text">RFV</span>
+            </div>
+    
+            <div className="roadmap-legend__item">
+              <span
+                className="roadmap-legend__marker roadmap-legend__marker--tech-go-live"
+                aria-hidden="true"
+              >
+                ★
+              </span>
+              <span className="roadmap-legend__text">
+                Tech Go Live RFV
               </span>
             </div>
-
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '20px',
-                flexWrap: 'nowrap'
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                <div
-                  style={{
-                    width: '2px',
-                    height: '12px',
-                    background: '#333333',
-                    flexShrink: 0
-                  }}
-                />
-                <span style={{ fontSize: '10px' }}>Today</span>
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                <div
-                  style={{
-                    width: '0',
-                    height: '0',
-                    borderLeft: '5px solid transparent',
-                    borderRight: '5px solid transparent',
-                    borderTop: '8px solid #f43f5e',
-                    flexShrink: 0
-                  }}
-                />
-                <span style={{ fontSize: '10px' }}>Target Date</span>
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                <div
-                  style={{
-                    width: '8px',
-                    height: '8px',
-                    background: '#1e3a8a',
-                    transform: 'rotate(45deg)',
-                    flexShrink: 0
-                  }}
-                />
-              
-                <span style={{ fontSize: '10px' }}>
-                  Release Fix Version
-                </span>
-              </div>
-              
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                <span
-                  style={{
-                    color: '#f59e0b',
-                    fontSize: '16px',
-                    fontWeight: '700',
-                    lineHeight: '10px',
-                    textShadow: '0 0 1px #78350f'
-                  }}
-                >
-                  ★
-                </span>
-              
-                <span style={{ fontSize: '10px' }}>
-                  Tech Go Live RFV
-                </span>
-
-              </div>
-            </div>
           </div>
-
-          {legendExpanded && (
-            <div
-              style={{
-                display: 'flex',
-                gap: '10px',
-                alignItems: 'flex-start',
-                flexWrap: 'wrap',
-                flexDirection: 'column',
-                marginTop: '10px'
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '8px',
-                  alignItems: 'center',
-                  flexWrap: 'wrap'
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  Feature States:
-                </span>
-
-                {[
-                  { label: 'New', color: '#94a3b8' },
-                  { label: 'In Shaping', color: '#fbbf24' },
-                  { label: 'In Planning', color: '#fb923c' },
-                  { label: 'Planned', color: '#34d399' },
-                  { label: 'In Process', color: '#60a5fa' },
-                  { label: 'Closed', color: '#a78bfa' }
-                ].map(item => (
-                  <div
-                    key={item.label}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px'
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '12px',
-                        height: '12px',
-                        background: item.color,
-                        borderRadius: '2px'
-                      }}
-                    />
-                    <span style={{ fontSize: '10px' }}>
-                      {item.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '8px',
-                  flexWrap: 'wrap',
-                  alignItems: 'center',
-                  fontSize: '10px'
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  Stories States:
-                </span>
-
-                {Object.entries(storyStateColors).map(
-                  ([state, color]) => (
-                    <div
-                      key={state}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: '12px',
-                          height: '12px',
-                          background: color,
-                          borderRadius: '2px'
-                        }}
-                      />
-                      <span>{state}</span>
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-          )}
         </div>
       );
     }
