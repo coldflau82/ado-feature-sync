@@ -467,6 +467,19 @@
     .dashboard-kpis .readiness-overview-card__label,.dashboard-kpis .health-overview-card__label { min-height: 0; font-size: 9px; line-height: 11px;}
     /* El número sigue siendo el elemento visual más importante. */
     .dashboard-kpis .readiness-overview-card__count,.dashboard-kpis .health-overview-card__count { font-size: 21px; line-height: 21px;}
+    /* Delivery Health usa una distribución exclusiva. Las tres categorías principales mantienen una presencia visual equivalente. 
+    Not Started y Unable to Evaluate son indicadores secundarios compactos: siguen siendo visibles, pero no compiten con riesgos y salud operativa del portafolio. */
+    .dashboard-kpi-group--delivery { min-width: 410px; }
+    .dashboard-kpi-group--delivery .health-overview--exclusive { display: flex; align-items: stretch; gap: 6px; width: 100%; margin: 0; }
+    .dashboard-kpi-group--delivery .health-overview--exclusive .health-overview-card { flex: 1 1 0; width: auto; min-width: 0; }
+    .dashboard-kpi-group--delivery .health-overview-card--compact { flex: 0 0 48px; width: 48px; min-width: 48px; padding: 6px 4px; text-align: center; }
+    .dashboard-kpi-group--delivery .health-overview-card--compact .health-overview-card__label { justify-content: center; font-size: 13px; line-height: 1; }
+    .dashboard-kpi-group--delivery .health-overview-card--compact .health-overview-card__label-text { display: none; }
+    .dashboard-kpi-group--delivery .health-overview-card--compact .health-overview-card__count { margin-top: 2px; font-size: 16px; line-height: 1; }
+    .dashboard-kpi-group--delivery .health-overview-card--not-started { background: #eff6ff; border-color: #bfdbfe; }
+    .dashboard-kpi-group--delivery .health-overview-card--not-started .health-overview-card__label { color: #1d4ed8; }
+    .dashboard-kpi-group--delivery .health-overview-card--unavailable { background: var(--surface-sunken); border-color: var(--line-strong); }
+    .dashboard-kpi-group--delivery .health-overview-card--unavailable .health-overview-card__label { color: var(--text-secondary);}    
     /* All Features tiene una apariencia neutra: no pertenece a Readiness ni a Delivery Health; representa el retorno a la vista completa. */
     .dashboard-kpis .readiness-overview-card--all { height: 100%; min-height: 82px; border-color: #93c5fd; background: var(--surface-raised);}
     .dashboard-kpis .readiness-overview-card--all .readiness-overview-card__label { color: var(--accent-strong);}
@@ -752,10 +765,16 @@
       .dashboard-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
       .dashboard-kpi-group,.dashboard-kpi-all-features,.dashboard-kpi-group .readiness-overview,.dashboard-kpi-group .health-overview,
       .dashboard-kpi-all-features .readiness-overview { display: contents; }
+      /* Delivery Health necesita conservar su propio grid para mostrar: - 3 indicadores principales, de dos columnas cada uno; - 2 indicadores secundarios, de una columna cada uno. */
+      .dashboard-kpi-group--delivery .health-overview--exclusive { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
+      .dashboard-kpi-group--delivery .health-overview--exclusive .health-overview-card { grid-column: span 2; width: 100%; min-width: 0; }
+      .dashboard-kpi-group--delivery .health-overview--exclusive .health-overview-card--compact { grid-column: span 1; width: 100%; min-width: 0; }      
       .dashboard-kpi-group__title { display: none; }
       .dashboard-kpis .readiness-overview-card,.dashboard-kpis .health-overview-card { width: 100%; min-width: 0; height: 45px; min-height: 45px;
         padding: 6px 8px; border-radius: 6px; }
+      .dashboard-kpi-group--delivery .health-overview-card--compact { padding: 6px 2px; }     
       .dashboard-kpis .readiness-overview-card__count,.dashboard-kpis .health-overview-card__count { margin-top: 3px; font-size: 18px; line-height: 18px; }
+      .dashboard-kpi-group--delivery.health-overview-card--compact.health-overview-card__count { font-size: 15px; line-height: 15px; }
       .dashboard-kpis .readiness-overview-card--all { grid-column: auto; min-height: 45px; height: 45px; }
       /* El toolbar desktop original se conserva dentro de top-filters-bar, pero en móvil se sustituye por los controles sticky compactos. */
       .top-filters-bar { display: none; }
@@ -1090,7 +1109,7 @@
     /* Marcador circular equivalente a Target Date. */
     .roadmap-legend__marker--target { width: 9px; height: 9px; border: 2px solid var(--risk, #dc2626); border-radius: 50%; background: var(--surface, #fff);}
     /* Diamante equivalente al marcador RFV del Gantt. */
-    roadmap-legend__marker--rfv { color: var(--warn, #d97706); font-size: 14px; font-weight: 800; transform: translateY(-0.5px);}
+    .roadmap-legend__marker--rfv { color: var(--warn, #d97706); font-size: 14px; font-weight: 800; transform: translateY(-0.5px);}
     /* Estrella equivalente al marcador Tech Go Live RFV. */
     .roadmap-legend__marker--tech-go-live { color: var(--accent, #2563eb); font-size: 13px; font-weight: 800; transform: translateY(-0.5px);}
     .dashboard-interaction-hint__message--mobile { display: none;}
@@ -2383,50 +2402,92 @@
       selectedHealthGroup,
       onSelectHealthGroup
     }) {
+      /* Las tarjetas representan una clasificación exclusiva: cada Feature pertenece a un solo grupo de Delivery Health. Unable to Evaluate es opcional porque debería representar una
+      excepción operativa. Solo aparece cuando al menos una Feature no pudo ser evaluada. */
       const cards = [
         {
           key: 'requires-action',
           label: 'Requires Action',
           count: counts.requiresAction,
           icon: '!',
-          className: 'health-overview-card--action'
+          className: 'health-overview-card--action',
+          compact: false
         },
         {
           key: 'requires-attention',
           label: 'Requires Attention',
           count: counts.requiresAttention,
           icon: '!',
-          className: 'health-overview-card--attention'
+          className: 'health-overview-card--attention',
+          compact: false
         },
         {
           key: 'healthy',
           label: 'Healthy',
           count: counts.healthy,
           icon: '✓',
-          className: 'health-overview-card--healthy'
+          className: 'health-overview-card--healthy',
+          compact: false
+        },
+        {
+          key: 'not-started',
+          label: 'Not Started',
+          count: counts.notStarted,
+          icon: '○',
+          className: 'health-overview-card--not-started',
+          compact: true
+        },
+        {
+          key: 'unable-to-evaluate',
+          label: 'Unable to Evaluate',
+          count: counts.unableToEvaluate,
+          icon: '?',
+          className: 'health-overview-card--unavailable',
+          compact: true,
+          hideWhenZero: true
         }
-      ];
+      ].filter(card =>
+        !card.hideWhenZero || card.count > 0
+      );
 
       return (
-        <div className="health-overview">
+        <div className="health-overview health-overview--exclusive">
           {cards.map(card => {
-            const isSelected = selectedHealthGroup === card.key;
+            const isSelected =
+              selectedHealthGroup === card.key;
+
+            const buttonClassName = [
+              'health-overview-card',
+              card.className,
+              card.compact
+                ? 'health-overview-card--compact'
+                : '',
+              isSelected
+                ? 'health-overview-card--selected'
+                : ''
+            ]
+              .filter(Boolean)
+              .join(' ');
 
             return (
               <button
                 key={card.key}
                 type="button"
-                className={[
-                  'health-overview-card',
-                  card.className,
-                  isSelected ? 'health-overview-card--selected' : ''
-                ].filter(Boolean).join(' ')}
+                className={buttonClassName}
                 title={`${card.label}: ${card.count} Feature(s)`}
+                aria-label={
+                  `${card.label}: ${card.count} Feature(s). ` +
+                  'Filter Delivery Health by this exclusive category.'
+                }
+                aria-pressed={isSelected}
                 onClick={() => onSelectHealthGroup(card.key)}
               >
                 <span className="health-overview-card__label">
-                  <span>{card.icon}</span>
-                  {card.label}
+                  <span aria-hidden="true">{card.icon}</span>
+
+                  <span className="health-overview-card__label-text">
+                    {card.label}
+                  </span>
                 </span>
 
                 <span className="health-overview-card__count">
@@ -8261,25 +8322,18 @@
         unknown: filteredBeforeReadiness.filter(f => getFeatureReadiness(f) === 'Unknown').length
       };
 
-      /* Los contadores usan todas las alertas aplicables de cada Feature, no solamente el estado principal del badge.
-        not-started queda fuera de los KPI: es un estado informativo que podrá revisarse posteriormente mediante un filtro específico.*/
-      
-      /* Los grupos vienen directamente desde el backend.
-        - alertas: Requires Action / Requires Attention;
-        - primary: permite identificar Healthy, porque los Features sanos
-          tienen alerts: [] y primary.group === 'healthy';
-        - Not started conserva group: 'not-started' y queda fuera de KPI. */
-      
+      /* Obtiene todos los grupos técnicos devueltos por backend. Esta función continúa siendo útil para:
+        - filtros específicos por regla;
+        - visualización de alertas acumulables;
+        - compatibilidad con el detalle expandido.
+        No se usa directamente para contar las tarjetas KPI porque una Feature puede tener varias alertas y, por tanto, varios grupos. */
       function getDeliveryHealthGroups(feature) {
         const groups = new Set();
-
         const primary = feature.deliveryHealth?.primary;
         if (primary?.group) {
           groups.add(primary.group);
         }
-
         const alerts = feature.deliveryHealth?.alerts;
-
         if (Array.isArray(alerts)) {
           alerts.forEach(alert => {
             if (alert?.group) {
@@ -8287,26 +8341,73 @@
             }
           });
         }
-
         return groups;
       }
-          
-      const deliveryHealthCounts = {
-        requiresAction: filteredBeforeReadiness.filter(feature =>
-          getDeliveryHealthGroups(feature).has('requires-action')
-        ).length,
-
-        requiresAttention: filteredBeforeReadiness.filter(feature =>
-          getDeliveryHealthGroups(feature).has('requires-attention')
-        ).length,
-
-        healthy: filteredBeforeReadiness.filter(feature =>
-          getDeliveryHealthGroups(feature).has('healthy')
-        ).length
-      };
       
-      /* Aplica el filtro de Readiness después de calcular los contadores.
-      Readiness puede originarse desde uno de dos controles independientes:
+      /* Clasificación exclusiva para KPIs y filtros de cabecera. Prioridad acordada:
+        1. Requires Action
+        2. Requires Attention
+        3. Unable to Evaluate
+        4. Not Started
+        5. Healthy
+        Importante:
+        - Las alertas siguen siendo acumulables en el detalle.
+        - La cabecera solo asigna una categoría por Feature.
+        - unable-to-evaluate se identifica por key, no solo por group, Porque versiones anteriores del backend pueden asociarlo a requires-attention como fallback técnico.*/
+      function getExclusiveDeliveryHealthGroup(feature) {
+        const primary = feature?.deliveryHealth?.primary || {};
+
+        const alerts = getDeliveryHealthAlerts(feature);
+
+        const hasOperationalGroup = group => alerts.some(alert => alert.key !== 'unable-to-evaluate' && alert.group === group );
+
+        if (hasOperationalGroup('requires-action')) { return 'requires-action'; }
+
+        if (hasOperationalGroup('requires-attention')) { return 'requires-attention'; }
+
+        const hasUnableToEvaluate = primary.key === 'unable-to-evaluate' || alerts.some( alert => alert.key === 'unable-to-evaluate' );
+
+        if (hasUnableToEvaluate) { return 'unable-to-evaluate'; }
+
+        if (primary.group === 'not-started') { return 'not-started'; }
+
+        if (primary.group === 'healthy') { return 'healthy'; }
+
+        /* Protección defensiva: si el payload está incompleto o llega una regla no reconocida, no se debe clasificar falsamente como Healthy. */
+        return 'unable-to-evaluate';
+      }
+
+      /* Cada Feature se cuenta una sola vez. Por diseño, la suma de los cinco valores debe coincidir exactamente con readinessCounts.total, que representa el mismo
+        universo: Features después de filtros estructurales y antes de aplicar Readiness o Delivery Health como filtro KPI. */
+      const deliveryHealthCounts =
+        filteredBeforeReadiness.reduce(
+          (counts, feature) => {
+            const group = getExclusiveDeliveryHealthGroup(feature);
+
+            if (group === 'requires-action') {
+              counts.requiresAction += 1;
+            } else if (group === 'requires-attention') {
+              counts.requiresAttention += 1;
+            } else if (group === 'unable-to-evaluate') {
+              counts.unableToEvaluate += 1;
+            } else if (group === 'not-started') {
+              counts.notStarted += 1;
+            } else {
+              counts.healthy += 1;
+            }
+
+            return counts;
+          },
+          {
+            requiresAction: 0,
+            requiresAttention: 0,
+            unableToEvaluate: 0,
+            notStarted: 0,
+            healthy: 0
+          }
+        );
+      
+      /* Aplica el filtro de Readiness después de calcular los contadores. Readiness puede originarse desde uno de dos controles independientes:
         1. Una tarjeta KPI.
         2. El dropdown superior.
       Normalmente sólo uno estará activo porque las acciones KPI limpian los dropdowns. Sin embargo, esta lógica es segura incluso si ambos recibieran valores por cualquier motivo. */
@@ -8329,24 +8430,16 @@
 
         const healthGroups = getDeliveryHealthGroups(f);
       
+        /* Las tarjetas KPI aplican la misma clasificación exclusiva usada en los conteos de cabecera. Por ejemplo: una Feature con Requires Action y Requires
+          Attention aparecerá solamente en Requires Action cuando el usuario pulse una tarjeta KPI. */
         const matchesHealthGroupKpi = (() => {
           if (healthGroupKpiFilter === 'All') {
             return true;
           }
-        
-          if (healthGroupKpiFilter === 'requires-action') {
-            return healthGroups.has('requires-action');
-          }
-        
-          if (healthGroupKpiFilter === 'requires-attention') {
-            return healthGroups.has('requires-attention');
-          }
-        
-          if (healthGroupKpiFilter === 'healthy') {
-            return healthGroups.has('healthy');
-          }
-        
-          return true;
+
+          return (
+            getExclusiveDeliveryHealthGroup(f) === healthGroupKpiFilter
+          );
         })();
       
         const matchesHealthRule =
@@ -8358,8 +8451,7 @@
 
       let sortedFiltered = [...filtered];
 
-      if (sortColumn) {
-        sortedFiltered.sort((a, b) => {
+      if (sortColumn) { sortedFiltered.sort((a, b) => {
           let valA = '';
           let valB = '';
 
@@ -8457,31 +8549,23 @@
               3. Unable to evaluate
               4. Not started
               5. Healthy
-              Una Feature puede tener múltiples alertas. Por eso usamos getDeliveryHealthGroups(), no únicamente la alerta primary. */
-            const getDeliveryHealthSortRank = (feature) => {
-              const groups = getDeliveryHealthGroups(feature);
+              Una Feature puede tener múltiples alertas, pero el orden usa la misma categoría exclusiva de las tarjetas KPI. */
+            const getDeliveryHealthSortRank = feature => {
+              const exclusiveGroup =
+                getExclusiveDeliveryHealthGroup(feature);
 
-              if (groups.has('requires-action')) {
-                return 1;
-              }
+              const sortOrderByGroup = {
+                'requires-action': 1,
+                'requires-attention': 2,
+                'unable-to-evaluate': 3,
+                'not-started': 4,
+                healthy: 5
+              };
 
-              if (groups.has('requires-attention')) {
-                return 2;
-              }
-
-              if (groups.has('unable-to-evaluate')) {
-                return 3;
-              }
-
-              if (groups.has('not-started')) {
-                return 4;
-              }
-
-              if (groups.has('healthy')) {
-                return 5;
-              }
-
-              return 6;
+              return (
+                sortOrderByGroup[exclusiveGroup] ||
+                6
+              );
             };
 
             valA = getDeliveryHealthSortRank(a);
