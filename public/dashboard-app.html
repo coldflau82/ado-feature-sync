@@ -532,6 +532,8 @@
       border-left: 1px solid var(--line-hairline); color: var(--text-secondary); font-size: var(--step--2); font-weight: 700; }
     .dashboard-interaction-hint__legend-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
     .dashboard-interaction-hint__today-marker { width: 2px; height: 13px; flex: 0 0 2px; background: var(--accent-strong); box-shadow: 0 0 3px rgba(29, 78, 216, 0.32); }
+    .dashboard-interaction-hint__target-marker { width: 0; height: 0; flex: 0 0 0; border-top: 9px solid #f43f5e; border-right: 6px solid transparent;
+      border-left: 6px solid transparent; }
     .dashboard-interaction-hint__rfv-marker { width: 9px; height: 9px; flex: 0 0 9px; background: #1e3a8a; transform: rotate(45deg); }
     .dashboard-interaction-hint__tech-go-live-marker { display: inline-flex; align-items: center; justify-content: center; width: 13px; color: #f59e0b;
       flex: 0 0 13px; font-size: 16px; font-weight: 800; line-height: 1; text-shadow: 0 0 1px #78350f, 0 1px 2px rgba(15, 23, 42, 0.35); }
@@ -10711,7 +10713,15 @@
                     />
                     Today
                   </span>
-              
+
+                  <span className="dashboard-interaction-hint__legend-item">
+                    <span
+                      className="dashboard-interaction-hint__target-marker"
+                      aria-hidden="true"
+                    />
+                    Target Date
+                  </span>
+                  
                   <span className="dashboard-interaction-hint__legend-item">
                     <span
                       className="dashboard-interaction-hint__rfv-marker"
