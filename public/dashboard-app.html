@@ -914,6 +914,7 @@
     /* ── Barras principales del Gantt ─────────────────────────────── */
     .gantt-bar { position: absolute; top: 0; height: 20px; min-width: 6px; border-radius: 3px; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
       transition: filter var(--press) ease-out; }
+    .gantt-bar--story { top: 8px; }
     .gantt-bar:hover { filter: brightness(1.06) saturate(1.1); }
     @media (prefers-reduced-motion: reduce) { .gantt-bar { transition: none; }}
     /* ── Target Date: fecha absoluta + urgencia operativa ───────── */
@@ -2798,9 +2799,15 @@
                 return (
                   <div
                     key={idx}
-                    style={{ position: 'absolute', top: '8px', left: seg.startPercent + '%', width: seg.widthPercent + '%', height: '20px', background: seg.color, borderRadius: '3px', opacity: 0.85, minWidth: '6px', cursor: 'pointer', zIndex: 2 }}
-                    onMouseEnter={(e) => showTooltip && showTooltip(e, tooltipContent)}
-                    onMouseMove={(e) => moveTooltip && moveTooltip(e)}
+                    className="gantt-bar gantt-bar--story"
+                    style={{
+                      left: `${seg.startPercent}%`,
+                      width: `${seg.widthPercent}%`,
+                      background: seg.color,
+                      zIndex: 2
+                    }}
+                    onMouseEnter={(event) => showTooltip && showTooltip(event, tooltipContent)}
+                    onMouseMove={(event) => moveTooltip && moveTooltip(event) }
                     onMouseLeave={() => hideTooltip && hideTooltip()}
                   />
                 );
