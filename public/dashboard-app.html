@@ -3146,8 +3146,30 @@
       );
     }
     
-    function FeatureRow({ featureId, feature, deliverySummary, title, assignedTo, targetDate, releaseFixVersion, techGoLiveRFV, estimation,
-      priority, formatDate, timelineStart, timelineEnd, adoLink, isExpanded, onToggleExpand, states, loading, showTooltip, moveTooltip, hideTooltip }) {
+    function FeatureRow({
+      featureId,
+      feature,
+      deliverySummary,
+      title,
+      assignedTo,
+      targetDate,
+      releaseFixVersion,
+      techGoLiveRFV,
+      estimation,
+      priority,
+      formatDate,
+      timelineStart,
+      timelineEnd,
+      adoLink,
+      isExpanded,
+      onToggleExpand,
+      states,
+      loading,
+      unavailable,
+      showTooltip,
+      moveTooltip,
+      hideTooltip
+    }) {
       const stateColors = {
         'New': '#94a3b8',
         'In Shaping': '#fbbf24',
@@ -3440,9 +3462,17 @@
                   );
                 })()}
               {loading ? (
-                <span style={{ fontSize: '11px', color: '#999' }}>Loading...</span>
-              ) : segments.length === 0 ? (
-                <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
+                <span style={{ fontSize: '11px', color: '#999' }}>
+                  Loading timeline...
+                </span>
+              ) : unavailable ? (
+                <span style={{ fontSize: '11px', color: 'var(--warn)', paddingLeft: '8px' }} >
+                  Timeline temporarily unavailable
+                </span>
+              ): segments.length === 0 ? (
+                <span style={{ fontSize: '11px', color: '#999' }}>
+                  No data
+                </span>
               ) : (
                 <div style={{ width: '100%', position: 'relative', height: '46px' }}>
                   {segments.map((seg, idx) => {
@@ -3900,6 +3930,7 @@
       feature,
       states,
       loading,
+      unavailable,
       timelineStart,
       timelineEnd
     }) {
@@ -4050,7 +4081,11 @@
             <span className="mobile-feature-activity__empty">
               Loading Feature activity...
             </span>
-          ) : segments.length === 0 ? (
+          ) : unavailable ? (
+            <span className="mobile-feature-activity__empty" style={{ color: 'var(--warn)' }}>
+              Feature timeline is temporarily unavailable.
+            </span>
+          ): segments.length === 0 ? (
             <span className="mobile-feature-activity__empty">
               No Feature timeline history available.
             </span>
@@ -4777,6 +4812,7 @@
         loadingStoryHistoryIds,
         featureHistory,
         loadingFeatureHistory,
+        unavailableFeatureHistory,
         weekOffset
       }) {
       const featureStateColor = getFeatureStateColor(feature.state);
@@ -4817,6 +4853,7 @@
             feature={feature}
             states={featureHistory}
             loading={loadingFeatureHistory}
+            unavailable={unavailableFeatureHistory}
             timelineStart={weekTimelineStart}
             timelineEnd={weekTimelineEnd}
           />
@@ -7815,6 +7852,11 @@
       const [loadingFeatureHistoryIds, setLoadingFeatureHistoryIds] =
         useState({});
 
+      /* Separa "sin historial" de "historial no disponible".
+      - historyCache[id] = [] sin esta marca: ADO respondió correctamente, pero no hubo cambios de estado utilizables.
+      - unavailableFeatureHistoryIds[id] = true: la consulta individual no pudo recuperarse temporalmente. */
+      const [ unavailableFeatureHistoryIds, setUnavailableFeatureHistoryIds ] = useState({});
+      
       /* Protege contra solicitudes duplicadas antes de que React alcance a reflejar loadingFeatureHistoryIds en el siguiente render. */
       const featureHistoryRequestInFlightRef = useRef(new Set());
 
@@ -8053,67 +8095,57 @@
           'Unable to load Stories/Bugs for the selected Features.'
         )
       )
-        .then(data => {
-          const results = data.results || {};
-    
-          const unavailableIds = new Set(
-            (data.unavailableFeatureIds || [])
-              .map(Number)
-              .filter(Number.isInteger)
-          );
-    
-          setRelationshipGraphCache(previous => {
-            const next = { ...previous };
-    
-            ids.forEach(featureId => {
-              /*
-                Un ID ausente en results se considera temporalmente
-                no disponible; no se interpreta como "sin relaciones".
-              */
-              if (
-                results[featureId] &&
-                results[featureId].source === 'ok'
-              ) {
-                next[featureId] = results[featureId];
-              } else {
-                delete next[featureId];
-              }
-            });
-    
-            return next;
+      .then(data => {
+        const results = data.results || {};
+      
+        /* Un ID ausente también se considera unavailable: no hay evidencia suficiente para interpretarlo como "Feature sin historial". */
+        const unavailableIds = new Set(
+          (data.unavailableFeatureIds || [])
+            .map(Number)
+            .filter(Number.isInteger)
+        );
+      
+        setHistoryCache(previous => {
+          const next = { ...previous };
+      
+          ids.forEach(featureId => {
+            /* Conservamos [] como estructura estable y como protección contra recargas automáticas infinitas. La diferencia semántica queda representada por unavailableFeatureHistoryIds. */
+            next[featureId] = Array.isArray(results[featureId])
+              ? results[featureId]
+              : [];
           });
-    
-          setUnavailableRelationshipIds(previous => {
-            const next = { ...previous };
-    
-            ids.forEach(featureId => {
-              const result = results[featureId];
-    
-              const isTemporarilyUnavailable =
-                unavailableIds.has(featureId) ||
-                !result ||
-                result.source !== 'ok';
-    
-              if (isTemporarilyUnavailable) {
-                next[featureId] = true;
-              } else {
-                delete next[featureId];
-              }
-            });
-    
-            return next;
+      
+          return next;
+        });
+      
+        setUnavailableFeatureHistoryIds(previous => {
+          const next = { ...previous };
+      
+          ids.forEach(featureId => {
+            const wasUnavailable =
+              unavailableIds.has(featureId) ||
+              !Object.prototype.hasOwnProperty.call(
+                results,
+                featureId
+              );
+      
+            if (wasUnavailable) {
+              next[featureId] = true;
+            } else {
+              delete next[featureId];
+            }
           });
-        })
+      
+          return next;
+        });
+      })
         .catch(error => {
           console.error(
             'Error loading Feature relationship graph batch:',
             error
           );
     
-          /*
-            No agregamos entradas vacías a relationshipGraphCache:
-            [] significaría erróneamente "sin relaciones".
-          */
+          /* No agregamos entradas vacías a relationshipGraphCache: [] significaría erróneamente "sin relaciones". */
           setUnavailableRelationshipIds(previous => {
             const next = { ...previous };
     
@@ -9274,41 +9306,33 @@
               return next;
             });
           })
-          .catch(error => {
-            console.error(
-              'Error loading Feature timeline history:',
-              error
-            );
-
-            /* Conserva el comportamiento visual actual: no bloquea otras Features ni deja una fila cargando indefinidamente.
-              Nota: en el próximo punto reemplazaremos [] por un estado explícito de historial temporalmente no disponible. */
-            setHistoryCache(previous => {
-              const next = { ...previous };
-
-              ids.forEach(featureId => {
-                next[featureId] = [];
-              });
-
-              return next;
-            });
-          })
-          .finally(() => {
+        .catch(error => {
+          console.error(
+            'Error loading Feature timeline history:',
+            error
+          );
+        
+          /* Un fallo global HTTP/red impide determinar qué Feature falló. Por seguridad, todos los IDs de esta solicitud se marcan como temporalmente unavailable. */
+          setHistoryCache(previous => {
+            const next = { ...previous };
+        
             ids.forEach(featureId => {
-              featureHistoryRequestInFlightRef.current.delete(
-                featureId
-              );
+              next[featureId] = [];
             });
-
-            setLoadingFeatureHistoryIds(previous => {
-              const next = { ...previous };
-
-              ids.forEach(featureId => {
-                next[featureId] = false;
-              });
-
-              return next;
-            });
+        
+            return next;
           });
+        
+          setUnavailableFeatureHistoryIds(previous => {
+            const next = { ...previous };
+        
+            ids.forEach(featureId => {
+              next[featureId] = true;
+            });
+        
+            return next;
+          });
+        });
       }, [
         pageItemIds,
         currentPage
@@ -11076,6 +11100,7 @@
                     loadingStoryHistoryIds={loadingStoryHistoryIds}
                     featureHistory={historyCache[feature.id] || []}
                     loadingFeatureHistory={ !!loadingFeatureHistoryIds[feature.id] }
+                    unavailableFeatureHistory={ !!unavailableFeatureHistoryIds[feature.id] }
                     weekOffset={weekOffset}
                   />
                 ))}
@@ -11188,7 +11213,8 @@
                               isExpanded={isExpanded}
                               onToggleExpand={() => toggleRoadmapFeature(f.id)}
                               states={historyCache[f.id] || []}
-                              loading={ !!loadingFeatureHistoryIds[f.id] }
+                              loading={!!loadingFeatureHistoryIds[f.id]}
+                              unavailable={!!unavailableFeatureHistoryIds[f.id]}
                               showTooltip={showTooltip}
                               moveTooltip={moveTooltip}
                               hideTooltip={hideTooltip}
