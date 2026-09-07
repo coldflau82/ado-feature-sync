@@ -2898,6 +2898,7 @@
       states,
       loading,
       unavailable,
+      onRetryTimeline,
       showTooltip,
       moveTooltip,
       hideTooltip
@@ -3055,6 +3056,12 @@
               ) : unavailable ? (
                 <div style={{ position: 'absolute', top: '50%', left: '8px', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--warn)', zIndex: 2}}>
                   Timeline temporarily unavailable
+                  <button type="button" className="timeline-retry-button"
+                    onClick={onRetryTimeline}
+                    disabled={loading}
+                    aria-label={`Retry timeline for work item ${storyId}`}>
+                    Retry
+                  </button>
                 </div>
               ): segments.length === 0 ? (
                 <div style={{ position: 'absolute', top: '50%', left: '8px', transform: 'translateY(-50%)', fontSize: '11px', color: '#999', zIndex: 2 }}>
@@ -3185,6 +3192,7 @@
       states,
       loading,
       unavailable,
+      onRetryTimeline,
       showTooltip,
       moveTooltip,
       hideTooltip
@@ -3487,6 +3495,15 @@
               ) : unavailable ? (
                 <span style={{ fontSize: '11px', color: 'var(--warn)', paddingLeft: '8px' }} >
                   Timeline temporarily unavailable
+                    <button type="button" className="timeline-retry-button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRetryTimeline?.();
+                    }}
+                    disabled={loading}
+                    aria-label={`Retry Feature ${featureId} timeline`}>
+                    Retry
+                  </button>
                 </span>
               ): segments.length === 0 ? (
                 <span style={{ fontSize: '11px', color: '#999' }}>
@@ -3951,7 +3968,8 @@
       loading,
       unavailable,
       timelineStart,
-      timelineEnd
+      timelineEnd,
+      onRetryTimeline
     }) {
       const stateColors = {
         New: '#94a3b8',
@@ -4107,6 +4125,11 @@
           ): segments.length === 0 ? (
             <span className="mobile-feature-activity__empty">
               No Feature timeline history available.
+              <button type="button" className="timeline-retry-button"
+                onClick={onRetryTimeline}
+                disabled={loading}>
+                Retry
+              </button>
             </span>
           ) : null}
         </section>
@@ -4534,7 +4557,8 @@
       unavailable,
       adoLink,
       timelineStart,
-      timelineEnd
+      timelineEnd,
+      onRetryTimeline
     }) {
       const stateColor =
         storyStateColors[story.state] || '#94a3b8';
@@ -4813,6 +4837,13 @@
           ) : unavailable ? (
             <span className="mobile-story-timeline-card__empty" style={{ color: 'var(--warn)' }}>
               Timeline temporarily unavailable.
+              <button
+                type="button"
+                className="timeline-retry-button"
+                onClick={onRetryTimeline}
+                disabled={loading}>
+                Retry
+              </button>  
             </span>
           ) : segments.length === 0 ? (
             <span className="mobile-story-timeline-card__empty">
@@ -4881,6 +4912,7 @@
             unavailable={unavailableFeatureHistory}
             timelineStart={weekTimelineStart}
             timelineEnd={weekTimelineEnd}
+            onRetryFeatureTimeline={onRetryFeatureTimeline}            
           />
           
           </MobileFeatureCardHeader>
@@ -4923,6 +4955,7 @@
                         states={storyHistoryCache[story.id] || []}
                         loading={!!loadingStoryHistoryIds[story.id]}
                         unavailable={!!unavailableStoryHistoryIds[story.id]}
+                        onRetryTimeline={() => loadStoryHistoryForWorkItems([story.id],{ retry: true })}
                         adoLink={adoLink}
                         timelineStart={weekTimelineStart}
                         timelineEnd={weekTimelineEnd}
@@ -7815,6 +7848,169 @@
       const resetTimelineToToday = () => { setTimelineOffset(-7); setWeekOffset(-7); };
       const timelinePan = useTimelinePan({ unitCount: 12, offset: timelineUnitOffset, onOffsetChange: setTimelineUnitOffset, minOffset: -60, maxOffset: 36 });
       const setRoadmapGanttNode = (node) => { roadmapGanttRef.current = node; timelinePan.panHandlers.ref.current = node; };
+
+      const loadFeatureHistoryForFeatures = (
+        featureIds,
+        { retry = false } = {}
+      ) => {
+        const ids = [
+          ...new Set(
+            (featureIds || [])
+              .map(Number)
+              .filter(id => Number.isInteger(id) && id > 0)
+          )
+        ].filter(featureId => {
+          const existsInCache = Object.prototype.hasOwnProperty.call(
+            historyCache,
+            featureId
+          );
+      
+          const isLoading = loadingFeatureHistoryIds[featureId];
+      
+          const isInFlight =
+            featureHistoryRequestInFlightRef.current.has(featureId);
+      
+          /* Carga normal: sólo IDs sin entrada de cache.
+            Retry: ignora la entrada [] creada durante el fallo anterior; no duplica una petición que ya esté en curso. */
+          return ( !isLoading && !isInFlight &&
+            ( retry ||
+              ( !existsInCache && !unavailableFeatureHistoryIds[featureId] ))
+          );
+        });
+      
+        if (ids.length === 0) {
+          return;
+        }
+      
+        ids.forEach(featureId => { featureHistoryRequestInFlightRef.current.add(featureId);});
+      
+        /* Antes de reintentar, elimina el resultado vacío que fue guardado durante el error anterior. Así nunca queda representado como dato
+          válido mientras llega la nueva respuesta. */
+        if (retry) {
+          setHistoryCache(previous => {
+            const next = { ...previous };
+      
+            ids.forEach(featureId => {delete next[featureId];});
+      
+            return next;
+          });
+      
+          setUnavailableFeatureHistoryIds(previous => {
+            const next = { ...previous };
+      
+            ids.forEach(featureId => {delete next[featureId]; });
+      
+            return next;
+          });
+        }
+      
+        setLoadingFeatureHistoryIds(previous => {
+          const next = { ...previous };
+      
+          ids.forEach(featureId => {
+            next[featureId] = true;
+          });
+      
+          return next;
+        });
+      
+        fetch('/api/features-history-batch', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ ids })
+        })
+          .then(response =>
+            parseApiJsonResponse(
+              response,
+              'Unable to load Feature timeline history.'
+            )
+          )
+          .then(data => {
+            const results = data.results || {};
+      
+            const unavailableIds = new Set(
+              (data.unavailableFeatureIds || [])
+                .map(Number)
+                .filter(Number.isInteger)
+            );
+      
+            setHistoryCache(previous => {
+              const next = { ...previous };
+      
+              ids.forEach(featureId => {
+                next[featureId] = Array.isArray(results[featureId])
+                  ? results[featureId]
+                  : [];
+              });
+      
+              return next;
+            });
+      
+            setUnavailableFeatureHistoryIds(previous => {
+              const next = { ...previous };
+      
+              ids.forEach(featureId => {
+                const isUnavailable =
+                  unavailableIds.has(featureId) ||
+                  !Object.prototype.hasOwnProperty.call(
+                    results,
+                    featureId
+                  );
+      
+                if (isUnavailable) {
+                  next[featureId] = true;
+                } else {
+                  delete next[featureId];
+                }
+              });
+      
+              return next;
+            });
+          })
+          .catch(error => {
+            console.error(
+              'Error loading Feature timeline history:',
+              error
+            );
+      
+            setHistoryCache(previous => {
+              const next = { ...previous };
+      
+              ids.forEach(featureId => {
+                next[featureId] = [];
+              });
+      
+              return next;
+            });
+      
+            setUnavailableFeatureHistoryIds(previous => {
+              const next = { ...previous };
+      
+              ids.forEach(featureId => {
+                next[featureId] = true;
+              });
+      
+              return next;
+            });
+          })
+          .finally(() => {
+            ids.forEach(featureId => {
+              featureHistoryRequestInFlightRef.current.delete(featureId);
+            });
+      
+            setLoadingFeatureHistoryIds(previous => {
+              const next = { ...previous };
+      
+              ids.forEach(featureId => {
+                next[featureId] = false;
+              });
+      
+              return next;
+            });
+          });
+      };
             
       useEffect(() => {
         if (currentPage !== 'roadmap') {
@@ -9248,15 +9444,20 @@
     
       /* Carga únicamente los timelines de Features visibles en Roadmap que todavía no existen en caché.
         historyCache[id] = []:
-        - consulta exitosa sin cambios de estado utilizables; o
-        - consulta no disponible, diferenciada por
-          unavailableFeatureHistoryIds[id]. */
+        - consulta exitosa sin cambios de estado utilizables;
+        - consulta no disponible, diferenciada por unavailableFeatureHistoryIds[id]. */
       useEffect(() => {
         if ( currentPage !== 'roadmap' || pageItems.length === 0 ) {
           return;
         }
-
-        const ids = pageItems
+      loadFeatureHistoryForFeatures(
+          pageItems.map(feature => feature.id)
+        );
+      }, [
+        currentPage,
+        pageItemIds
+      ]);
+      /*  const ids = pageItems
           .map(item => Number(item.id))
           .filter(featureId =>
             Number.isInteger(featureId) &&
@@ -9269,18 +9470,18 @@
             !featureHistoryRequestInFlightRef.current.has(
               featureId
             )
-          );
+          );*/
 
-        if (ids.length === 0) {
+      /*  if (ids.length === 0) {
           return;
         }
 
-        /* Bloquea solicitudes duplicadas inmediatamente, antes de que React tenga oportunidad de reflejar loadingFeatureHistoryIds. */
+        /* Bloquea solicitudes duplicadas inmediatamente, antes de que React tenga oportunidad de reflejar loadingFeatureHistoryIds. 
         ids.forEach(featureId => {
           featureHistoryRequestInFlightRef.current.add(
             featureId
           );
-        });
+        }); 
 
         setLoadingFeatureHistoryIds(previous => {
           const next = { ...previous };
@@ -9308,7 +9509,7 @@
           .then(data => {
             const results = data.results || {};
 
-            /* Un ID solicitado pero ausente de results no puede interpretarse como "sin historial"; se considera temporalmente no disponible. */
+            /* Un ID solicitado pero ausente de results no puede interpretarse como "sin historial"; se considera temporalmente no disponible. 
             const unavailableIds = new Set(
               (data.unavailableFeatureIds || [])
                 .map(Number)
@@ -9356,7 +9557,7 @@
               error
             );
 
-            /* Si falla el endpoint completo, no podemos saber cuál Feature falló: todas las Features del lote pasan a unavailable, pero dejan de estar cargando. */
+            /* Si falla el endpoint completo, no podemos saber cuál Feature falló: todas las Features del lote pasan a unavailable, pero dejan de estar cargando. 
             setHistoryCache(previous => {
               const next = { ...previous };
 
@@ -9378,7 +9579,7 @@
             });
           })
           .finally(() => {
-            /* Siempre liberar el request y apagar el loading, incluso ante un error HTTP, red o JSON inválido. */
+            /* Siempre liberar el request y apagar el loading, incluso ante un error HTTP, red o JSON inválido. 
             ids.forEach(featureId => {
               featureHistoryRequestInFlightRef.current.delete(
                 featureId
@@ -9398,9 +9599,20 @@
       }, [
         currentPage,
         pageItemIds
-      ]);
+      ]); */
 
-    useEffect(() => {
+      useEffect(() => {
+        if ( !expandedRoadmapFeatureId || expandedRoadmapStories.length === 0 ) {
+          return;
+        }
+      
+        loadStoryHistoryForWorkItems( expandedRoadmapStories.map(story => story.id) );
+      }, [
+        expandedRoadmapFeatureId,
+        expandedStoryIds
+      ]);
+      
+ /*   useEffect(() => {
       if ( !expandedRoadmapFeatureId || expandedRoadmapStories.length === 0 ) {
         return;
       }
@@ -9450,7 +9662,7 @@
         .then(data => {
           const results = data.results || {};
     
-          /* Si el backend omitió un ID solicitado, no interpretamos eso como una Story/Bug sin historial. */
+          /* Si el backend omitió un ID solicitado, no interpretamos eso como una Story/Bug sin historial. 
           const unavailableIds = new Set(
             (data.unavailableWorkItemIds || [])
               .map(Number)
@@ -9496,7 +9708,7 @@
             error
           );
     
-          /* Un error HTTP global afecta a todos los IDs de este lote. */
+          /* Un error HTTP global afecta a todos los IDs de este lote. 
           setStoryHistoryCache(previous => {
             const next = { ...previous };
     
@@ -9535,7 +9747,7 @@
     }, [
       expandedRoadmapFeatureId,
       expandedStoryIds
-    ]);
+    ]); */
 
     function FeatureTooltipContent({ feature }) {
       /* Reutiliza el criterio del Roadmap: Area e Iteration muestran solamente el último segmento del path, que es la parte operativa 
@@ -11181,25 +11393,18 @@
                     feature={feature}
                     adoLink={adoLink}
                     formatDate={formatDate}
-                    isExpanded={
-                      expandedRoadmapFeatureId === feature.id
-                    }
-                    onToggle={() =>
-                      toggleRoadmapFeature(feature.id)
-                    }
+                    isExpanded={ expandedRoadmapFeatureId === feature.id }
+                    onToggle={() => toggleRoadmapFeature(feature.id) }
                     stories={storiesCache[feature.id] || []}
-                    loadingStories={
-                      !!loadingStoriesIds[feature.id]
-                    }
-                    storiesUnavailable={
-                      !!unavailableStoriesIds[feature.id]
-                    }
+                    loadingStories={!!loadingStoriesIds[feature.id]}
+                    storiesUnavailable={!!unavailableStoriesIds[feature.id]}
                     storyHistoryCache={storyHistoryCache}
                     loadingStoryHistoryIds={loadingStoryHistoryIds}
                     featureHistory={historyCache[feature.id] || []}
                     loadingFeatureHistory={!!loadingFeatureHistoryIds[feature.id]}
                     unavailableStoryHistoryIds={unavailableStoryHistoryIds}
                     unavailableFeatureHistory={!!unavailableFeatureHistoryIds[feature.id]}
+                    onRetryFeatureTimeline={() => loadFeatureHistoryForFeatures([feature.id],{ retry: true })}
                     weekOffset={weekOffset}
                   />
                 ))}
@@ -11314,6 +11519,7 @@
                               states={historyCache[f.id] || []}
                               loading={!!loadingFeatureHistoryIds[f.id]}
                               unavailable={!!unavailableFeatureHistoryIds[f.id]}
+                              onRetryTimeline={() => loadFeatureHistoryForFeatures([f.id], { retry: true })}
                               showTooltip={showTooltip}
                               moveTooltip={moveTooltip}
                               hideTooltip={hideTooltip}
@@ -11435,6 +11641,7 @@
                                   states={storyHistoryCache[s.id] || []}
                                   loading={!!loadingStoryHistoryIds[s.id]}
                                   unavailable={!!unavailableStoryHistoryIds[s.id]}
+                                  onRetryTimeline={() => loadStoryHistoryForWorkItems([s.id],{ retry: true })}
                                   showTooltip={showTooltip}
                                   moveTooltip={moveTooltip}
                                   hideTooltip={hideTooltip}
