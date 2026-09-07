@@ -7856,6 +7856,93 @@
       const resetTimelineToToday = () => { setTimelineOffset(-7); setWeekOffset(-7); };
       const timelinePan = useTimelinePan({ unitCount: 12, offset: timelineUnitOffset, onOffsetChange: setTimelineUnitOffset, minOffset: -60, maxOffset: 36 });
       const setRoadmapGanttNode = (node) => { roadmapGanttRef.current = node; timelinePan.panHandlers.ref.current = node; };
+   
+      useEffect(() => {
+        if (currentPage !== 'roadmap') {
+          return;
+        }
+      
+        const handleKeyDown = event => {
+          const tagName = String(
+            event.target?.tagName || ''
+          ).toLowerCase();
+      
+          if (
+            tagName === 'input' ||
+            tagName === 'select' ||
+            tagName === 'textarea' ||
+            event.target?.isContentEditable
+          ) {
+            return;
+          }
+      
+          if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+      
+            setTimelineUnitOffset(currentOffset =>
+              Math.max(-60, currentOffset - 1)
+            );
+          }
+      
+          if (event.key === 'ArrowRight') {
+            event.preventDefault();
+      
+            setTimelineUnitOffset(currentOffset =>
+              Math.min(36, currentOffset + 1)
+            );
+          }
+      
+          if (event.key === 'Home') {
+            event.preventDefault();
+            resetTimelineToToday();
+          }
+        };
+      
+        window.addEventListener('keydown', handleKeyDown);
+      
+        return () => {
+          window.removeEventListener(
+            'keydown',
+            handleKeyDown
+          );
+        };
+      }, [
+        currentPage,
+        isWeekScale
+      ]);
+      
+      /* historyCache conserva el timeline de estado de cada Feature. Un arreglo vacío significa que la Feature fue consultada
+        correctamente, pero no tiene cambios de estado utilizables dentro de la ventana actual. */
+      const [historyCache, setHistoryCache] = useState({});
+
+      /* A diferencia del booleano loadingHistory anterior, este mapa permite indicar carga de forma individual por Feature ID. Ejemplo: { 1165429: true, 1165501: true } */
+      const [loadingFeatureHistoryIds, setLoadingFeatureHistoryIds] =
+        useState({});
+
+      /* Separa "sin historial" de "historial no disponible".
+      - historyCache[id] = [] sin esta marca: ADO respondió correctamente, pero no hubo cambios de estado utilizables.
+      - unavailableFeatureHistoryIds[id] = true: la consulta individual no pudo recuperarse temporalmente. */
+      const [ unavailableFeatureHistoryIds, setUnavailableFeatureHistoryIds ] = useState({});
+      
+      /* Protege contra solicitudes duplicadas antes de que React alcance a reflejar loadingFeatureHistoryIds en el siguiente render. */
+      const featureHistoryRequestInFlightRef = useRef(new Set());
+
+      /* storiesCache contiene el resultado por Feature. Un arreglo vacío puede significar que realmente no hay Stories/Bugs.
+        Por eso unavailableStoriesIds existe separadamente: permite informar una carga incompleta sin confundirla con un Feature sin hijos. */
+      const [storiesCache, setStoriesCache] = useState({});
+      const [loadingStoriesIds, setLoadingStoriesIds] = useState({});
+      const [unavailableStoriesIds, setUnavailableStoriesIds] = useState({});
+      /* Caché independiente para el grafo de Linked items. Importante: No se mezcla con storiesCache.No afecta Delivery Health.No afecta Progress. Se consulta al expandir una Feature en Feature List.
+        La caché evita repetir solicitudes al reabrir la misma Feature. */
+      const [relationshipGraphCache, setRelationshipGraphCache] = useState({});
+      const [loadingRelationshipIds, setLoadingRelationshipIds] = useState({});
+      const [unavailableRelationshipIds, setUnavailableRelationshipIds] = useState({});
+      const relationshipRequestInFlightRef = useRef(new Set());
+      const [storyHistoryCache, setStoryHistoryCache] = useState({});
+      const [loadingStoryHistoryIds, setLoadingStoryHistoryIds]  = useState({});
+      /* Diferencia: storyHistoryCache[id] = []: consulta correcta, pero sin cambios. unavailableStoryHistoryIds[id] = true: no fue posible recuperar el historial de esa Story/Bug. */
+      const [unavailableStoryHistoryIds, setUnavailableStoryHistoryIds] = useState({});
+      const storyHistoryRequestInFlightRef = useRef(new Set());
 
       const loadFeatureHistoryForFeatures = (
         featureIds,
@@ -8019,93 +8106,7 @@
             });
           });
       };
-            
-      useEffect(() => {
-        if (currentPage !== 'roadmap') {
-          return;
-        }
       
-        const handleKeyDown = event => {
-          const tagName = String(
-            event.target?.tagName || ''
-          ).toLowerCase();
-      
-          if (
-            tagName === 'input' ||
-            tagName === 'select' ||
-            tagName === 'textarea' ||
-            event.target?.isContentEditable
-          ) {
-            return;
-          }
-      
-          if (event.key === 'ArrowLeft') {
-            event.preventDefault();
-      
-            setTimelineUnitOffset(currentOffset =>
-              Math.max(-60, currentOffset - 1)
-            );
-          }
-      
-          if (event.key === 'ArrowRight') {
-            event.preventDefault();
-      
-            setTimelineUnitOffset(currentOffset =>
-              Math.min(36, currentOffset + 1)
-            );
-          }
-      
-          if (event.key === 'Home') {
-            event.preventDefault();
-            resetTimelineToToday();
-          }
-        };
-      
-        window.addEventListener('keydown', handleKeyDown);
-      
-        return () => {
-          window.removeEventListener(
-            'keydown',
-            handleKeyDown
-          );
-        };
-      }, [
-        currentPage,
-        isWeekScale
-      ]);
-      
-      /* historyCache conserva el timeline de estado de cada Feature. Un arreglo vacío significa que la Feature fue consultada
-        correctamente, pero no tiene cambios de estado utilizables dentro de la ventana actual. */
-      const [historyCache, setHistoryCache] = useState({});
-
-      /* A diferencia del booleano loadingHistory anterior, este mapa permite indicar carga de forma individual por Feature ID. Ejemplo: { 1165429: true, 1165501: true } */
-      const [loadingFeatureHistoryIds, setLoadingFeatureHistoryIds] =
-        useState({});
-
-      /* Separa "sin historial" de "historial no disponible".
-      - historyCache[id] = [] sin esta marca: ADO respondió correctamente, pero no hubo cambios de estado utilizables.
-      - unavailableFeatureHistoryIds[id] = true: la consulta individual no pudo recuperarse temporalmente. */
-      const [ unavailableFeatureHistoryIds, setUnavailableFeatureHistoryIds ] = useState({});
-      
-      /* Protege contra solicitudes duplicadas antes de que React alcance a reflejar loadingFeatureHistoryIds en el siguiente render. */
-      const featureHistoryRequestInFlightRef = useRef(new Set());
-
-      /* storiesCache contiene el resultado por Feature. Un arreglo vacío puede significar que realmente no hay Stories/Bugs.
-        Por eso unavailableStoriesIds existe separadamente: permite informar una carga incompleta sin confundirla con un Feature sin hijos. */
-      const [storiesCache, setStoriesCache] = useState({});
-      const [loadingStoriesIds, setLoadingStoriesIds] = useState({});
-      const [unavailableStoriesIds, setUnavailableStoriesIds] = useState({});
-      /* Caché independiente para el grafo de Linked items. Importante: No se mezcla con storiesCache.No afecta Delivery Health.No afecta Progress. Se consulta al expandir una Feature en Feature List.
-        La caché evita repetir solicitudes al reabrir la misma Feature. */
-      const [relationshipGraphCache, setRelationshipGraphCache] = useState({});
-      const [loadingRelationshipIds, setLoadingRelationshipIds] = useState({});
-      const [unavailableRelationshipIds, setUnavailableRelationshipIds] = useState({});
-      const relationshipRequestInFlightRef = useRef(new Set());
-      const [storyHistoryCache, setStoryHistoryCache] = useState({});
-      const [loadingStoryHistoryIds, setLoadingStoryHistoryIds]  = useState({});
-      /* Diferencia: storyHistoryCache[id] = []: consulta correcta, pero sin cambios. unavailableStoryHistoryIds[id] = true: no fue posible recuperar el historial de esa Story/Bug. */
-      const [unavailableStoryHistoryIds, setUnavailableStoryHistoryIds] = useState({});
-      const storyHistoryRequestInFlightRef = useRef(new Set());
       const loadStoryHistoryForWorkItems = (workItemIds,{ retry = false } = {}) => {
         const ids = [...new Set((workItemIds || []) .map(Number) .filter(id => Number .isInteger(id) && id > 0))
         ].filter(workItemId => {
@@ -8113,53 +8114,38 @@
             storyHistoryCache,
             workItemId
           );
-      
           const isLoading = loadingStoryHistoryIds[workItemId];
-      
           const isInFlight = storyHistoryRequestInFlightRef.current.has( workItemId );
-      
           /* Carga normal: sólo IDs que todavía no existen en caché; no vuelve a pedir timelines temporalmente no disponibles.
             Retry: permite reintentar un ID marcado como unavailable; sigue evitando solicitudes duplicadas.*/
           return ( !isLoading && !isInFlight &&
             (retry || (!existsInCache && !unavailableStoryHistoryIds[workItemId]) )
           );
         });
-      
         if (ids.length === 0) { return; }
-      
         ids.forEach(workItemId => {
           storyHistoryRequestInFlightRef.current.add(
             workItemId
           );
         });
-      
         /* Al reintentar, borrar solamente el estado técnico anterior. No se modifica ningún timeline sano. */
         if (retry) {
           setStoryHistoryCache(previous => { const next = { ...previous };
-      
             ids.forEach(workItemId => { delete next[workItemId]; });
-      
             return next;
           });
-      
           setUnavailableStoryHistoryIds(previous => { const next = { ...previous };
-      
             ids.forEach(workItemId => { delete next[workItemId]; });
-      
             return next;
           });
         }
-      
         setLoadingStoryHistoryIds(previous => {
           const next = { ...previous };
-      
           ids.forEach(workItemId => {
             next[workItemId] = true;
           });
-      
           return next;
         });
-      
         fetch('/api/stories-history-batch', {
           method: 'POST',
           headers: {
@@ -9614,149 +9600,6 @@
         currentPage,
         pageItemIds
       ]);
-      /*  const ids = pageItems
-          .map(item => Number(item.id))
-          .filter(featureId =>
-            Number.isInteger(featureId) &&
-            featureId > 0 &&
-            !Object.prototype.hasOwnProperty.call(
-              historyCache,
-              featureId
-            ) &&
-            !loadingFeatureHistoryIds[featureId] &&
-            !featureHistoryRequestInFlightRef.current.has(
-              featureId
-            )
-          );*/
-
-      /*  if (ids.length === 0) {
-          return;
-        }
-
-        /* Bloquea solicitudes duplicadas inmediatamente, antes de que React tenga oportunidad de reflejar loadingFeatureHistoryIds. 
-        ids.forEach(featureId => {
-          featureHistoryRequestInFlightRef.current.add(
-            featureId
-          );
-        }); 
-
-        setLoadingFeatureHistoryIds(previous => {
-          const next = { ...previous };
-
-          ids.forEach(featureId => {
-            next[featureId] = true;
-          });
-
-          return next;
-        });
-
-        fetch('/api/features-history-batch', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ ids })
-        })
-          .then(response =>
-            parseApiJsonResponse(
-              response,
-              'Unable to load Feature timeline history.'
-            )
-          )
-          .then(data => {
-            const results = data.results || {};
-
-            /* Un ID solicitado pero ausente de results no puede interpretarse como "sin historial"; se considera temporalmente no disponible. 
-            const unavailableIds = new Set(
-              (data.unavailableFeatureIds || [])
-                .map(Number)
-                .filter(Number.isInteger)
-            );
-
-            setHistoryCache(previous => {
-              const next = { ...previous };
-
-              ids.forEach(featureId => {
-                next[featureId] = Array.isArray(
-                  results[featureId]
-                )
-                  ? results[featureId]
-                  : [];
-              });
-
-              return next;
-            });
-
-            setUnavailableFeatureHistoryIds(previous => {
-              const next = { ...previous };
-
-              ids.forEach(featureId => {
-                const isUnavailable =
-                  unavailableIds.has(featureId) ||
-                  !Object.prototype.hasOwnProperty.call(
-                    results,
-                    featureId
-                  );
-
-                if (isUnavailable) {
-                  next[featureId] = true;
-                } else {
-                  delete next[featureId];
-                }
-              });
-
-              return next;
-            });
-          })
-          .catch(error => {
-            console.error(
-              'Error loading Feature timeline history:',
-              error
-            );
-
-            /* Si falla el endpoint completo, no podemos saber cuál Feature falló: todas las Features del lote pasan a unavailable, pero dejan de estar cargando. 
-            setHistoryCache(previous => {
-              const next = { ...previous };
-
-              ids.forEach(featureId => {
-                next[featureId] = [];
-              });
-
-              return next;
-            });
-
-            setUnavailableFeatureHistoryIds(previous => {
-              const next = { ...previous };
-
-              ids.forEach(featureId => {
-                next[featureId] = true;
-              });
-
-              return next;
-            });
-          })
-          .finally(() => {
-            /* Siempre liberar el request y apagar el loading, incluso ante un error HTTP, red o JSON inválido. 
-            ids.forEach(featureId => {
-              featureHistoryRequestInFlightRef.current.delete(
-                featureId
-              );
-            });
-
-            setLoadingFeatureHistoryIds(previous => {
-              const next = { ...previous };
-
-              ids.forEach(featureId => {
-                next[featureId] = false;
-              });
-
-              return next;
-            });
-          });
-      }, [
-        currentPage,
-        pageItemIds
-      ]); */
 
       useEffect(() => {
         if ( !expandedRoadmapFeatureId || expandedRoadmapStories.length === 0 ) {
@@ -9769,143 +9612,6 @@
         expandedStoryIds
       ]);
       
- /*   useEffect(() => {
-      if ( !expandedRoadmapFeatureId || expandedRoadmapStories.length === 0 ) {
-        return;
-      }
-    
-      const ids = expandedRoadmapStories
-        .map(story => Number(story.id))
-        .filter(id =>
-          Number.isInteger(id) &&
-          id > 0 &&
-          !Object.prototype.hasOwnProperty.call(
-            storyHistoryCache,
-            id
-          ) &&
-          !loadingStoryHistoryIds[id] &&
-          !storyHistoryRequestInFlightRef.current.has(id)
-        );
-    
-      if (ids.length === 0) {
-        return;
-      }
-    
-      ids.forEach(id => { storyHistoryRequestInFlightRef.current.add(id); });
-    
-      setLoadingStoryHistoryIds(previous => {
-        const next = { ...previous };
-    
-        ids.forEach(id => {
-          next[id] = true;
-        });
-    
-        return next;
-      });
-    
-      fetch('/api/stories-history-batch', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ ids })
-      })
-        .then(response =>
-          parseApiJsonResponse(
-            response,
-            'Unable to load Story/Bug timeline history.'
-          )
-        )
-        .then(data => {
-          const results = data.results || {};
-    
-          /* Si el backend omitió un ID solicitado, no interpretamos eso como una Story/Bug sin historial. 
-          const unavailableIds = new Set(
-            (data.unavailableWorkItemIds || [])
-              .map(Number)
-              .filter(Number.isInteger)
-          );
-    
-          setStoryHistoryCache(previous => {
-            const next = { ...previous };
-    
-            ids.forEach(id => {
-              next[id] = Array.isArray(results[id])
-                ? results[id]
-                : [];
-            });
-    
-            return next;
-          });
-    
-          setUnavailableStoryHistoryIds(previous => {
-            const next = { ...previous };
-    
-            ids.forEach(id => {
-              const isUnavailable =
-                unavailableIds.has(id) ||
-                !Object.prototype.hasOwnProperty.call(
-                  results,
-                  id
-                );
-    
-              if (isUnavailable) {
-                next[id] = true;
-              } else {
-                delete next[id];
-              }
-            });
-    
-            return next;
-          });
-        })
-        .catch(error => {
-          console.error(
-            'Error loading Story/Bug timeline history:',
-            error
-          );
-    
-          /* Un error HTTP global afecta a todos los IDs de este lote. 
-          setStoryHistoryCache(previous => {
-            const next = { ...previous };
-    
-            ids.forEach(id => {
-              next[id] = [];
-            });
-    
-            return next;
-          });
-    
-          setUnavailableStoryHistoryIds(previous => {
-            const next = { ...previous };
-    
-            ids.forEach(id => {
-              next[id] = true;
-            });
-    
-            return next;
-          });
-        })
-        .finally(() => {
-          ids.forEach(id => {
-            storyHistoryRequestInFlightRef.current.delete(id);
-          });
-    
-          setLoadingStoryHistoryIds(previous => {
-            const next = { ...previous };
-    
-            ids.forEach(id => {
-              next[id] = false;
-            });
-    
-            return next;
-          });
-        });
-    }, [
-      expandedRoadmapFeatureId,
-      expandedStoryIds
-    ]); */
-
     function FeatureTooltipContent({ feature }) {
       /* Reutiliza el criterio del Roadmap: Area e Iteration muestran solamente el último segmento del path, que es la parte operativa 
       que el usuario necesita identificar. */
@@ -11561,6 +11267,7 @@
                     loadingFeatureHistory={!!loadingFeatureHistoryIds[feature.id]}
                     unavailableStoryHistoryIds={unavailableStoryHistoryIds}
                     unavailableFeatureHistory={!!unavailableFeatureHistoryIds[feature.id]}
+                    onRetryFeatureTimeline={() => loadFeatureHistoryForFeatures([feature.id],{ retry: true })}
                     onRetryStoryTimeline={(storyId) => loadStoryHistoryForWorkItems([storyId],{ retry: true })}
                     weekOffset={weekOffset}
                   />
