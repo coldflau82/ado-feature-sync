@@ -8098,25 +8098,51 @@
       .then(data => {
         const results = data.results || {};
       
-        /* Un ID ausente también se considera unavailable: no hay evidencia suficiente para interpretarlo como "Feature sin historial". */
         const unavailableIds = new Set(
           (data.unavailableFeatureIds || [])
             .map(Number)
             .filter(Number.isInteger)
         );
       
-        setHistoryCache(previous => {
+        setRelationshipGraphCache(previous => {
           const next = { ...previous };
       
           ids.forEach(featureId => {
-            /* Conservamos [] como estructura estable y como protección contra recargas automáticas infinitas. La diferencia semántica queda representada por unavailableFeatureHistoryIds. */
-            next[featureId] = Array.isArray(results[featureId])
-              ? results[featureId]
-              : [];
+            /* No agregamos un objeto vacío como si fuera una respuesta válida. La UI utiliza unavailableRelationshipIds para distinguir un fallo técnico de un grafo sin relaciones. */
+            if (
+              Object.prototype.hasOwnProperty.call(
+                results,
+                featureId
+              )
+            ) {
+              next[featureId] = results[featureId];
+            }
           });
       
           return next;
         });
+      
+        setUnavailableRelationshipIds(previous => {
+          const next = { ...previous };
+      
+          ids.forEach(featureId => {
+            const wasUnavailable =
+              unavailableIds.has(featureId) ||
+              !Object.prototype.hasOwnProperty.call(
+                results,
+                featureId
+              );
+      
+            if (wasUnavailable) {
+              next[featureId] = true;
+            } else {
+              delete next[featureId];
+            }
+          });
+      
+          return next;
+        });
+      })
       
         setUnavailableFeatureHistoryIds(previous => {
           const next = { ...previous };
@@ -9274,38 +9300,97 @@
           return next;
         });
 
-        fetch('/api/features-history-batch', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ ids })
-        })
-          .then(response =>
-            parseApiJsonResponse(
-              response,
-              'Unable to load Feature timeline history.'
-            )
-          )
-          .then(data => {
-            const results = data.results || {};
+        .then(data => {
+          const results = data.results || {};
 
-            setHistoryCache(previous => {
-              const next = { ...previous };
+          /* Un ID ausente en results también se trata como unavailable: no existe evidencia para concluir que el Feature realmente no tiene historial. */
+          const unavailableIds = new Set(
+            (data.unavailableFeatureIds || [])
+              .map(Number)
+              .filter(Number.isInteger)
+          );
 
-              ids.forEach(featureId => {
-                /* Si el backend no devuelve un ID, lo tratamos temporalmente como un timeline vacío para conservar el contrato visual actual.
-                  En el siguiente punto agregaremos un estado explícito "timeline unavailable" para distinguirlo de un historial realmente vacío. */
-                next[featureId] = Array.isArray(
-                  results[featureId]
-                )
-                  ? results[featureId]
-                  : [];
-              });
+          setHistoryCache(previous => {
+            const next = { ...previous };
 
-              return next;
+            ids.forEach(featureId => {
+              /*  Conservamos una estructura estable para cada Feature. [] significa:
+                - historial consultado sin transiciones utilizables; o
+                - historial unavailable, que se diferencia mediante unavailableFeatureHistoryIds. */
+              next[featureId] = Array.isArray(results[featureId])
+                ? results[featureId]
+                : [];
             });
-          })
+
+            return next;
+          });
+
+          setUnavailableFeatureHistoryIds(previous => {
+            const next = { ...previous };
+
+            ids.forEach(featureId => {
+              const wasUnavailable =
+                unavailableIds.has(featureId) ||
+                !Object.prototype.hasOwnProperty.call(
+                  results,
+                  featureId
+                );
+
+              if (wasUnavailable) {
+                next[featureId] = true;
+              } else {
+                delete next[featureId];
+              }
+            });
+
+            return next;
+          });
+        })
+        .catch(error => {
+          console.error(
+            'Error loading Feature timeline history:',
+            error
+          );
+
+          /* Si falla todo el endpoint no es posible saber qué Feature individual falló. Marcamos todos los IDs de este lote como temporalmente unavailable. */
+          setHistoryCache(previous => {
+            const next = { ...previous };
+
+            ids.forEach(featureId => {
+              next[featureId] = [];
+            });
+
+            return next;
+          });
+
+          setUnavailableFeatureHistoryIds(previous => {
+            const next = { ...previous };
+
+            ids.forEach(featureId => {
+              next[featureId] = true;
+            });
+
+            return next;
+          });
+        })
+        .finally(() => {
+          /* Este bloque es imprescindible. Sin él, cada Feature queda permanentemente marcada como loading. */
+          ids.forEach(featureId => {
+            featureHistoryRequestInFlightRef.current.delete(
+              featureId
+            );
+          });
+
+          setLoadingFeatureHistoryIds(previous => {
+            const next = { ...previous };
+
+            ids.forEach(featureId => {
+              next[featureId] = false;
+            });
+
+            return next;
+          });
+        });
         .catch(error => {
           console.error(
             'Error loading Feature timeline history:',
