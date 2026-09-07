@@ -1025,7 +1025,8 @@
       - futuras mejoras de pan directo.*/
     .gantt-horizontal-scroll { position: relative; }
     /* La regla sólo ocupa la columna temporal. No cubre Priority, ID ni Feature title; tampoco intercepta clics, hover o tooltips. */
-    .gantt-ruler { position: absolute; top: 0; bottom: 0; z-index: 20;  pointer-events: none; }
+    .gantt-ruler { position: absolute; top: 0; bottom: 0; z-index: 50;  pointer-events: none; }
+    .roadmap-table { position: relative; z-index: 1; }
     /* Divisiones alineadas con las doce unidades del encabezado. Son deliberadamente sutiles: proporcionan estructura temporal sin competir con las barras, los markers ni los estados.*/
     .gantt-ruler__grid { position: absolute; inset: 0; opacity: 0.72; background: repeating-linear-gradient( to right, transparent 0,
       transparent calc(var(--gantt-unit) - 1px), var(--line-hairline) calc(var(--gantt-unit) - 1px), var(--line-hairline) var(--gantt-unit) ); }
@@ -2748,7 +2749,7 @@
             </div>
           </td>
           <td className="gantt-timeline-cell" style={{ padding: '6px 8px' }}>
-            <div className="gantt-timeline-cell" style={{ height: '36px', background: '#e0e0e0', borderRadius: '4px', overflow: 'hidden', 
+            <div className="gantt-timeline-canvas" style={{ height: '36px', background: '#e0e0e0', borderRadius: '4px', overflow: 'hidden', 
               position: 'relative' }}>
               {!loading && segments.map((seg, idx) => {
                 const segStartDate = new Date(timelineStart.getTime() + (seg.startPercent / 100) * (timelineEnd - timelineStart));
@@ -10728,12 +10729,7 @@
                   }}
                   aria-label="Roadmap timeline. Drag horizontally to browse time."
                 >
-                <GanttRuler
-                  box={timelineColumnBox}
-                  timelineStart={timelineStart}
-                  timelineEnd={timelineEnd}
-                  unitCount={12}
-                />
+
                 <table className="roadmap-table" style={{ tableLayout: 'fixed', width: '100%' }}>
                   <thead>
                     <tr>
@@ -10956,6 +10952,12 @@
                       })}
                   </tbody>
                 </table>
+                <GanttRuler
+                  box={timelineColumnBox}
+                  timelineStart={timelineStart}
+                  timelineEnd={timelineEnd}
+                  unitCount={12}
+                />
               </div>
             </div>
            </>
