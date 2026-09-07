@@ -523,15 +523,21 @@
     .feature-readiness-summary__message--missing { color: #b91c1c;}
     .feature-readiness-summary__message--unknown { color: var(--text-secondary); }
     .feature-detail-panel__divider { height: 1px; margin: 14px 0; background: var(--line-hairline); }
-    .dashboard-interaction-hint { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 8px; }
-    .dashboard-interaction-hint__legend { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-left: 4px;
-      color: var(--text-secondary); font-size: var(--step--2); font-weight: 700; }
+    .dashboard-interaction-hint { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin: 8px 0; padding: 7px 12px; border: 1px solid var(--line-hairline);
+      border-radius: var(--radius-card); background: var(--surface-raised); color: var(--text-secondary); font-size: var(--step--1); line-height: 1.35;
+      box-shadow: var(--shadow-chip); }
+    .dashboard-interaction-hint__message { color: var(--text-secondary); white-space: nowrap; }
+    .dashboard-interaction-hint strong { color: #1e3a8a; font-weight: 700; }
+    .dashboard-interaction-hint__legend { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px 11px; padding-left: 12px;
+      border-left: 1px solid var(--line-hairline); color: var(--text-secondary); font-size: var(--step--2); font-weight: 700; }
     .dashboard-interaction-hint__legend-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-    .dashboard-interaction-hint__today-marker { width: 2px; height: 14px; background: var(--accent-strong); box-shadow: 0 0 3px rgba(29, 78, 216, 0.32); }
-    .dashboard-interaction-hint__rfv-marker { width: 10px; height: 10px; background: #1e3a8a; transform: rotate(45deg); }
-    .dashboard-interaction-hint__tech-go-live-marker { display: inline-flex; align-items: center; justify-content: center; width: 12px; color: #f59e0b;
-      font-size: 17px; font-weight: 800; line-height: 1; text-shadow: 0 0 1px #78350f, 0 1px 2px rgba(15, 23, 42, 0.35); }
+    .dashboard-interaction-hint__today-marker { width: 2px; flex: 0 0 2px; background: var(--accent-strong); box-shadow: 0 0 3px rgba(29, 78, 216, 0.32); }
+    .dashboard-interaction-hint__rfv-marker { width: 9px; height: 9px; background: #1e3a8a; transform: rotate(45deg); }
+    .dashboard-interaction-hint__tech-go-live-marker { display: inline-flex; align-items: center; justify-content: center; width: 13px; color: #f59e0b;
+      font-size: 16px; font-weight: 800; line-height: 1; text-shadow: 0 0 1px #78350f, 0 1px 2px rgba(15, 23, 42, 0.35); }
     .dashboard-interaction-hint strong { color: #1e3a8a;}
+    @media (max-width: 980px) { .dashboard-interaction-hint__message { white-space: normal; } 
+      .dashboard-interaction-hint__legend { width: 100%; padding-top: 6px; padding-left: 0; border-top: 1px solid var(--line-hairline); border-left: 0; }}
     /* Estados visibles del área principal de resultados: loading; sin resultados por filtros; sin Features disponibles; error de carga. Se reutilizan tanto para Feature List como para Roadmap. */
     .dashboard-results-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 260px;
       margin: 8px 0; padding: 32px 24px; border: 1px dashed var(--line-strong); border-radius: 8px; background: var(--surface-raised); color: var(--text-secondary); text-align: center;}
@@ -10191,37 +10197,10 @@
             ) : (
               <>
                 <div className="dashboard-interaction-hint">
-                  <strong>Tip:</strong>{' '}
-                  Drag timeline to browse. Arrows move one unit; Home returns to Today.
-                  <span
-                    className="dashboard-interaction-hint__legend"
-                    aria-label="Roadmap marker legend"
-                  >
-                    <span className="dashboard-interaction-hint__legend-item">
-                      <span
-                        className="dashboard-interaction-hint__today-marker"
-                        aria-hidden="true"
-                      />
-                      Today
-                    </span>
-                
-                    <span className="dashboard-interaction-hint__legend-item">
-                      <span
-                        className="dashboard-interaction-hint__rfv-marker"
-                        aria-hidden="true"
-                      />
-                      RFV
-                    </span>
-                
-                    <span className="dashboard-interaction-hint__legend-item">
-                      <span
-                        className="dashboard-interaction-hint__tech-go-live-marker"
-                        aria-hidden="true"
-                      >
-                        ★
-                      </span>
-                      Tech Go Live RFV
-                    </span>
+                  <span className="dashboard-interaction-hint__message">
+                    <strong>Tip:</strong>{' '}
+                    Select a Feature row to view readiness, Delivery Health,
+                    Stories and Bugs.
                   </span>
                 </div>
 
@@ -10718,9 +10697,41 @@
           ) : (
             <>
               <div className="dashboard-interaction-hint">
-                <strong>Tip:</strong> Tap a Feature card to view Story
-                and Bug timelines. The Roadmap line shows Today, Target
-                Date and Release Fix Version.
+                <span className="dashboard-interaction-hint__message">
+                  <strong>Tip:</strong>{' '}
+                  Drag the timeline to browse. Arrow keys move one unit; Home returns to Today.
+                </span>
+              
+                <span
+                  className="dashboard-interaction-hint__legend"
+                  aria-label="Roadmap marker legend"
+                >
+                  <span className="dashboard-interaction-hint__legend-item">
+                    <span
+                      className="dashboard-interaction-hint__today-marker"
+                      aria-hidden="true"
+                    />
+                    Today
+                  </span>
+              
+                  <span className="dashboard-interaction-hint__legend-item">
+                    <span
+                      className="dashboard-interaction-hint__rfv-marker"
+                      aria-hidden="true"
+                    />
+                    RFV
+                  </span>
+              
+                  <span className="dashboard-interaction-hint__legend-item">
+                    <span
+                      className="dashboard-interaction-hint__tech-go-live-marker"
+                      aria-hidden="true"
+                    >
+                      ★
+                    </span>
+                    Tech Go Live RFV
+                  </span>
+                </span>
               </div>
 
               <section
