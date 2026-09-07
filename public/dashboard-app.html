@@ -905,7 +905,7 @@
     /* ── Controles táctiles y feedback inmediato ────────────────── */
     .mobile-workspace-controls__nav-button,.mobile-workspace-controls__refresh,.mobile-workspace-controls__more-filters,.mobile-workspace-controls__select,.mobile-workspace-controls__input,
     .filters-card__toggle,.filters-card__clear-all-button,.filters-card__save-my-filter,.delivery-activity__team,.relationship-retry-button,.relationship-show-all-button,
-    .story-linked-items-button,.refresh-button,.dashboard-results-state__action { touch-action: manipulation; -webkit-tap-highlight-color: transparent;}
+    .story-linked-items-button,.refresh-button,.dashboard-results-state__action,.timeline-retry-button { touch-action: manipulation; -webkit-tap-highlight-color: transparent;}
     .mobile-workspace-controls__nav-button:active,.mobile-workspace-controls__refresh:active:not(:disabled),.mobile-workspace-controls__more-filters:active,
     .filters-card__clear-all-button:active:not(:disabled),.filters-card__save-my-filter:active,.relationship-retry-button:active,.relationship-show-all-button:active,
     .story-linked-items-button:active,.dashboard-results-state__action:active:not(:disabled) { transform: scale(0.985); transition: transform var(--press) ease-out;}
@@ -945,6 +945,11 @@
     .timeline-scale__today:active { transform: scale(0.985); }
     .timeline-scale__segment:focus-visible,.timeline-scale__today:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.30); outline-offset: 1px; }
     @media (prefers-reduced-motion: reduce) { .timeline-scale__today:active { transform: none; }}
+    .timeline-retry-button { margin-left: 6px; padding: 0; border: 0; background: transparent; color: var(--accent-strong); cursor: pointer;
+      font: inherit; font-size: inherit; font-weight: 700; line-height: inherit; text-decoration: underline; text-underline-offset: 2px; }
+    .timeline-retry-button:hover:not(:disabled) { color: var(--accent); }
+    .timeline-retry-button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.28); outline-offset: 2px; border-radius: 3px; }
+    .timeline-retry-button:disabled { color: var(--text-tertiary); cursor: wait; text-decoration: none; }
     /* ── Barras principales del Gantt ─────────────────────────────── */
     .gantt-bar { position: absolute; top: 0; height: 20px; min-width: 6px; border-radius: 3px; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
       transition: filter var(--press) ease-out; }
@@ -4121,15 +4126,16 @@
           ) : unavailable ? (
             <span className="mobile-feature-activity__empty" style={{ color: 'var(--warn)' }}>
               Feature timeline is temporarily unavailable.
+              <button type="button" className="timeline-retry-button"
+                onClick={onRetryTimeline}
+                disabled={loading}
+                aria-label={`Retry Feature ${feature.id} timeline`}>
+                Retry
+              </button>
             </span>
           ): segments.length === 0 ? (
             <span className="mobile-feature-activity__empty">
               No Feature timeline history available.
-              <button type="button" className="timeline-retry-button"
-                onClick={onRetryTimeline}
-                disabled={loading}>
-                Retry
-              </button>
             </span>
           ) : null}
         </section>
@@ -4867,6 +4873,7 @@
         loadingStoryHistoryIds,
         unavailableStoryHistoryIds,
         onRetryFeatureTimeline,
+        onRetryStoryTimeline,
         featureHistory,
         loadingFeatureHistory,
         unavailableFeatureHistory,
@@ -4913,7 +4920,7 @@
             unavailable={unavailableFeatureHistory}
             timelineStart={weekTimelineStart}
             timelineEnd={weekTimelineEnd}
-            onRetryFeatureTimeline={onRetryFeatureTimeline}            
+            onRetryTimeline={onRetryFeatureTimeline}         
           />
           
           </MobileFeatureCardHeader>
@@ -4956,7 +4963,7 @@
                         states={storyHistoryCache[story.id] || []}
                         loading={!!loadingStoryHistoryIds[story.id]}
                         unavailable={!!unavailableStoryHistoryIds[story.id]}
-                        onRetryTimeline={() => loadStoryHistoryForWorkItems([story.id],{ retry: true })}
+                        onRetryTimeline={() => onRetryStoryTimeline?.(story.id) }
                         adoLink={adoLink}
                         timelineStart={weekTimelineStart}
                         timelineEnd={weekTimelineEnd}
@@ -8099,6 +8106,155 @@
       /* Diferencia: storyHistoryCache[id] = []: consulta correcta, pero sin cambios. unavailableStoryHistoryIds[id] = true: no fue posible recuperar el historial de esa Story/Bug. */
       const [unavailableStoryHistoryIds, setUnavailableStoryHistoryIds] = useState({});
       const storyHistoryRequestInFlightRef = useRef(new Set());
+      const loadStoryHistoryForWorkItems = (workItemIds,{ retry = false } = {}) => {
+        const ids = [...new Set((workItemIds || []) .map(Number) .filter(id => Number .isInteger(id) && id > 0))
+        ].filter(workItemId => {
+          const existsInCache = Object.prototype.hasOwnProperty.call(
+            storyHistoryCache,
+            workItemId
+          );
+      
+          const isLoading = loadingStoryHistoryIds[workItemId];
+      
+          const isInFlight = storyHistoryRequestInFlightRef.current.has( workItemId );
+      
+          /* Carga normal: sólo IDs que todavía no existen en caché; no vuelve a pedir timelines temporalmente no disponibles.
+            Retry: permite reintentar un ID marcado como unavailable; sigue evitando solicitudes duplicadas.*/
+          return ( !isLoading && !isInFlight &&
+            (retry || (!existsInCache && !unavailableStoryHistoryIds[workItemId]) )
+          );
+        });
+      
+        if (ids.length === 0) { return; }
+      
+        ids.forEach(workItemId => {
+          storyHistoryRequestInFlightRef.current.add(
+            workItemId
+          );
+        });
+      
+        /* Al reintentar, borrar solamente el estado técnico anterior. No se modifica ningún timeline sano. */
+        if (retry) {
+          setStoryHistoryCache(previous => { const next = { ...previous };
+      
+            ids.forEach(workItemId => { delete next[workItemId]; });
+      
+            return next;
+          });
+      
+          setUnavailableStoryHistoryIds(previous => { const next = { ...previous };
+      
+            ids.forEach(workItemId => { delete next[workItemId]; });
+      
+            return next;
+          });
+        }
+      
+        setLoadingStoryHistoryIds(previous => {
+          const next = { ...previous };
+      
+          ids.forEach(workItemId => {
+            next[workItemId] = true;
+          });
+      
+          return next;
+        });
+      
+        fetch('/api/stories-history-batch', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ ids })
+        })
+          .then(response =>
+            parseApiJsonResponse(
+              response,
+              'Unable to load Story/Bug timeline history.'
+            )
+          )
+          .then(data => { const results = data.results || {};
+      
+            const unavailableIds = new Set(
+              (data.unavailableWorkItemIds || [])
+                .map(Number)
+                .filter(Number.isInteger)
+            );
+      
+            setStoryHistoryCache(previous => { const next = { ...previous };
+      
+              ids.forEach(workItemId => {
+                next[workItemId] = Array.isArray(
+                  results[workItemId]
+                )
+                  ? results[workItemId]
+                  : [];
+              });
+      
+              return next;
+            });
+      
+            setUnavailableStoryHistoryIds(previous => { const next = { ...previous };
+      
+              ids.forEach(workItemId => { const isUnavailable =
+                  unavailableIds.has(workItemId) || !Object.prototype.hasOwnProperty.call( results, workItemId );
+      
+                if (isUnavailable) {
+                  next[workItemId] = true;
+                } else {
+                  delete next[workItemId];
+                }
+              });
+      
+              return next;
+            });
+          })
+          .catch(error => {
+            console.error(
+              'Error loading Story/Bug timeline history:',
+              error
+            );
+      
+            /* Si falla todo el endpoint batch, los IDs solicitados quedan marcados como temporalmente no disponibles. */
+            setStoryHistoryCache(previous => {
+              const next = { ...previous };
+      
+              ids.forEach(workItemId => {
+                next[workItemId] = [];
+              });
+      
+              return next;
+            });
+      
+            setUnavailableStoryHistoryIds(previous => {
+              const next = { ...previous };
+      
+              ids.forEach(workItemId => {
+                next[workItemId] = true;
+              });
+      
+              return next;
+            });
+          })
+          .finally(() => {
+            ids.forEach(workItemId => {
+              storyHistoryRequestInFlightRef.current.delete(
+                workItemId
+              );
+            });
+      
+            setLoadingStoryHistoryIds(previous => {
+              const next = { ...previous };
+      
+              ids.forEach(workItemId => {
+                next[workItemId] = false;
+              });
+      
+              return next;
+            });
+          });
+      };
+      
       const [featuresPage, setFeaturesPage] = useState(1);
       const [legendExpanded, setLegendExpanded] = useState(false);
       const [refreshing, setRefreshing] = useState(false);
@@ -11405,7 +11561,7 @@
                     loadingFeatureHistory={!!loadingFeatureHistoryIds[feature.id]}
                     unavailableStoryHistoryIds={unavailableStoryHistoryIds}
                     unavailableFeatureHistory={!!unavailableFeatureHistoryIds[feature.id]}
-                    onRetryFeatureTimeline={() => loadFeatureHistoryForFeatures([feature.id],{ retry: true })}
+                    onRetryStoryTimeline={(storyId) => loadStoryHistoryForWorkItems([storyId],{ retry: true })}
                     weekOffset={weekOffset}
                   />
                 ))}
