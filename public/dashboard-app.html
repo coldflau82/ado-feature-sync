@@ -99,6 +99,16 @@
       align-items: center; justify-content: center; transition: background 0.15s ease, color 0.15s ease; }
     .warnings__close-button:hover { background: rgba(133, 100, 4, 0.12); color: #5f4703; }
     .warnings__close-button:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.35); outline-offset: 2px; }
+    /* Mensaje no bloqueante cuando Refresh Live falla después de que el dashboard ya recibió un portafolio válido.
+    El color ámbar comunica que la información sigue disponible, pero puede no incluir la revisión Live más reciente. */
+    .refresh-status { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; padding: 9px 12px; border: 1px solid #fbbf24; border-radius: 8px; background: var(--warn-soft);
+      color: #854d0e; font-size: 12px; line-height: 1.45; }
+    .refresh-status__message { min-width: 0; }
+    .refresh-status__message strong { color: #78350f; }
+    .refresh-status__dismiss { flex: 0 0 auto; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #854d0e; cursor: pointer; font: inherit; font-size: 18px;
+      font-weight: 700; line-height: 1; }
+    .refresh-status__dismiss:hover { background: rgba(133, 77, 14, 0.12); color: #78350f; }
+    .refresh-status__dismiss:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.35); outline-offset: 2px; }
     .filter-label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 13px; }
     .filter-select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
     .filter-count { font-size: 11px; color: #666; margin-top: 5px; }
@@ -7705,9 +7715,10 @@
       const { tooltip, showTooltip, moveTooltip, hideTooltip } = useTooltip();
       const [features, setFeatures] = useState([]);
       const [loading, setLoading] = useState(true);
-      /* Diferencia una respuesta válida sin Features de un fallo real al cargar /api/features. El mensaje público devuelto por el
-        backend es seguro y no contiene detalles internos de ADO. */
+      /* loadError se reserva para el fallo de carga inicial, cuando no existe un portafolio válido que pueda mantenerse en pantalla. */
       const [loadError, setLoadError] = useState('');
+      /* refreshError es no bloqueante: informa que Refresh Live falló, pero conserva Features, KPIs, Roadmap, Feature List y cachés obtenidos desde la última respuesta exitosa. */
+      const [refreshError, setRefreshError] = useState('');
       const [warnings, setWarnings] = useState([]);
       const [areWarningsDismissed, setAreWarningsDismissed] = useState(false);
       const [filterAreaPath, setFilterAreaPath] = useState([]);
@@ -8132,21 +8143,15 @@
       }, [currentPage]);
       
       async function loadFeatures(forceRefresh = false) {
-        /* Limpiar el error anterior permite que el estado visual cambie inmediatamente a loading mientras el usuario intenta de nuevo. */
-        setLoadError('');
-
+        /* Una carga inicial y un Refresh Live tienen comportamientos distintos ante un error:
+          - Carga inicial: no hay datos previos; se muestra loadError.
+          - Refresh Live: se conservan los datos válidos ya visibles y se muestra refreshError como advertencia no bloqueante. */
         if (forceRefresh) {
           setRefreshing(true);
-
-          /* Stale-while-revalidate: Durante Refresh Live conservamos la última información válida visible en pantalla mientras /api/features consulta Azure DevOps.
-            No se deben vaciar storiesCache, historyCache ni storyHistoryCache antes de recibir una respuesta exitosa:
-            - historyCache alimenta las barras del Roadmap;
-            - storiesCache mantiene Progress y el detalle expandido;
-            - storyHistoryCache mantiene timelines de Stories/Bugs;
-            - relationshipGraphCache evita que Linked Items desaparezca.
-            Vaciar estas cachés provocaba que Roadmap mostrara "No data" aunque el usuario ya tuviera información válida en pantalla. */
+          setRefreshError('');
         } else {
           setLoading(true);
+          setLoadError('');
         }
 
         try {
@@ -8154,17 +8159,23 @@
             ? '/api/features?refresh=1'
             : '/api/features';
 
-          const res = await fetch(url);
+          const response = await fetch(url);
 
-          /* Un endpoint puede devolver un body vacío ante un error de infraestructura. Por eso el parse JSON también se protege. */
-          const json = await res.json().catch(() => ({}));
+          /* Un endpoint puede devolver body vacío, HTML o JSON inválido ante un error de infraestructura. El parse protegido evita que el dashboard falle con un error técnico poco útil. */
+          const json = await response.json().catch(() => ({}));
 
-          /* HTTP 4xx / 5xx no debe convertirse en una lista vacía. Se muestra el estado de error y se conserva en consola el
-            mensaje seguro proporcionado por el backend. */
-          if (!res.ok) {
+          if (!response.ok) {
             throw new Error(
               json.error ||
               'Unable to load Features from Azure DevOps.'
+            );
+          }
+
+          /* Una respuesta HTTP 200 sin arreglo features no debe tratarse como un portafolio vacío válido.
+            Esto protege los datos visibles ante contratos inválidos, proxies, respuestas parciales o regresiones del backend. */
+          if (!Array.isArray(json.features)) {
+            throw new Error(
+              'The dashboard received an invalid Features response.'
             );
           }
 
@@ -8172,8 +8183,8 @@
             ? json.warnings
             : [];
 
-          /* El backend es la fuente de verdad de la zona de negocio. Se actualiza antes de guardar Features para que el render posterior use
-          la misma zona que Delivery Health. */
+          /* El backend es la fuente de verdad de la zona de negocio.
+            Se actualiza antes de guardar Features para que el siguiente render interprete Target Dates y métricas con la misma zona. */
           if (
             json.dashboard?.timeZone &&
             DateTime.now().setZone(json.dashboard.timeZone).isValid
@@ -8181,8 +8192,7 @@
             dashboardTimeZone = json.dashboard.timeZone;
           }
 
-          /* Delivery Health y frontend comparten el mismo threshold para "Target Date near". If the backend configuration changes,
-            the UI updates without requiring a dashboard code change.  */
+          /* Delivery Health y frontend comparten el mismo threshold para "Target Date near". Si la configuración backend cambia, la UI se actualiza sin requerir un cambio de frontend. */
           const receivedTargetDateNearDays = Number(
             json.dashboard?.thresholds?.targetDateNearDays
           );
@@ -8200,30 +8210,42 @@
           ) {
             releaseCalendar = json.dashboard.releaseCalendar;
           }
-          
-          setFeatures(Array.isArray(json.features) ? json.features : []);
+
+          /* Solo una respuesta completamente válida reemplaza el portafolio actualmente visible. */
+          setFeatures(json.features);
           setCacheInfo(json.cacheInfo || null);
           setWarnings(receivedWarnings);
 
-          /* /api/features siempre consulta la ventana Live.
-          Este timestamp sólo informa cuándo este navegador recibió con éxito una respuesta que incluye esa revisión Live. */
-          setLastLiveCheckAt(new Date());
-          
-          /* Si el usuario había cerrado una advertencia anterior, una carga nueva —especialmente Refresh cache— debe mostrar las advertencias
-            vigentes que devuelva el backend. */
-          setAreWarningsDismissed(false);
-        } catch (err) {
-          console.error('Error loading features:', err);
+          /* Una respuesta exitosa elimina cualquier error previo, tanto de carga inicial como de un Refresh Live anterior. */
+          setLoadError('');
+          setRefreshError('');
 
-          /* Evita que KPIs, filtros y tablas muestren datos antiguos o interpreten el error como una respuesta válida sin Features. */
+          /* Este timestamp representa el momento en que este navegador recibió exitosamente una respuesta que incluye la revisión Live de Features editadas en los últimos 10 días. */
+          setLastLiveCheckAt(new Date());
+
+          /* Una nueva carga exitosa debe volver a mostrar advertencias vigentes entregadas por backend, aunque se hubieran cerrado. */
+          setAreWarningsDismissed(false);
+        } catch (error) {
+          console.error('Error loading features:', error);
+
+          const safeErrorMessage =
+            error?.message ||
+            'Unable to load Features from Azure DevOps.';
+
+          /* Si Refresh Live falla y ya existe información válida, NO borramos el dashboard. El usuario conserva el último portafolio conocido, incluyendo Roadmap, timelines, Progress, filtros y paginación. */
+          if (forceRefresh && features.length > 0) {
+            setRefreshError(
+              'Live refresh failed. Showing the last successfully loaded portfolio data.'
+            );
+
+            return;
+          }
+
+          /* Si falla la carga inicial, no hay datos confiables que conservar. En ese único escenario mostramos el estado de error de página completa. */
           setFeatures([]);
           setWarnings([]);
           setCacheInfo(null);
-
-          setLoadError(
-            err?.message ||
-            'Unable to load Features from Azure DevOps.'
-          );
+          setLoadError(safeErrorMessage);
         } finally {
           setLoading(false);
           setRefreshing(false);
@@ -9687,6 +9709,29 @@
                     {warning}
                   </div>
                 ))}
+              </div>
+            )}
+
+            {refreshError && (
+              <div
+                className="refresh-status"
+                role="status"
+                aria-live="polite"
+              >
+                <div className="refresh-status__message">
+                  <strong>Refresh unavailable.</strong>{' '}
+                  {refreshError}
+                </div>
+
+                <button
+                  type="button"
+                  className="refresh-status__dismiss"
+                  onClick={() => setRefreshError('')}
+                  aria-label="Dismiss refresh status"
+                  title="Dismiss refresh status"
+                >
+                  ×
+                </button>
               </div>
             )}
 
