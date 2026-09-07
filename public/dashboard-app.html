@@ -472,9 +472,9 @@
     .dashboard-kpi-group--delivery { min-width: 410px; }
     .dashboard-kpi-group--delivery .health-overview--exclusive { display: flex; align-items: stretch; gap: 6px; width: 100%; margin: 0; }
     .dashboard-kpi-group--delivery .health-overview--exclusive .health-overview-card { flex: 1 1 0; width: auto; min-width: 0; }
-    .dashboard-kpi-group--delivery .health-overview-card--compact { flex: 0 0 48px; width: 48px; min-width: 48px; padding: 6px 4px; text-align: center; }
-    .dashboard-kpi-group--delivery .health-overview-card--compact .health-overview-card__label { justify-content: center; font-size: 13px; line-height: 1; }
-    .dashboard-kpi-group--delivery .health-overview-card--compact .health-overview-card__label-text { display: none; }
+    .dashboard-kpi-group--delivery .health-overview-card--compact { flex: 0 0 76px; width: 76px; min-width: 76px; padding: 6px 5px; text-align: center; }
+    .dashboard-kpi-group--delivery .health-overview-card--compact .health-overview-card__label { justify-content: center; gap: 3px; font-size: 9px; line-height: 1.1; white-space: normal; }
+    .dashboard-kpi-group--delivery .health-overview-card--compact .health-overview-card__label-text { display: inline; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .dashboard-kpi-group--delivery .health-overview-card--compact .health-overview-card__count { margin-top: 2px; font-size: 16px; line-height: 1; }
     .dashboard-kpi-group--delivery .health-overview-card--not-started { background: #eff6ff; border-color: #bfdbfe; }
     .dashboard-kpi-group--delivery .health-overview-card--not-started .health-overview-card__label { color: #1d4ed8; }
@@ -774,6 +774,7 @@
         padding: 6px 8px; border-radius: 6px; }
       .dashboard-kpi-group--delivery .health-overview-card--compact { padding: 6px 2px; }     
       .dashboard-kpis .readiness-overview-card__count,.dashboard-kpis .health-overview-card__count { margin-top: 3px; font-size: 18px; line-height: 18px; }
+      .dashboard-kpi-group--delivery.health-overview-card--compact.health-overview-card__label { font-size: 8px; }
       .dashboard-kpi-group--delivery.health-overview-card--compact.health-overview-card__count { font-size: 15px; line-height: 15px; }
       .dashboard-kpis .readiness-overview-card--all { grid-column: auto; min-height: 45px; height: 45px; }
       /* El toolbar desktop original se conserva dentro de top-filters-bar, pero en móvil se sustituye por los controles sticky compactos. */
