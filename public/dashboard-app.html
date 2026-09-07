@@ -1018,6 +1018,25 @@
     .release-fix-version-with-alignment .release-fix-version-cell,.release-fix-version-with-alignment .release-fix-version-cell__empty {
       flex: 1 1 auto; min-width: 0; }
     .release-fix-version-with-alignment .release-alignment-indicator { flex: 0 0 16px; margin-top: 1px; }
+    /* ── Regla temporal(tiempo) única del Roadmap ─────────────────────────── */
+      /* El wrapper del Gantt es la referencia de posición para:
+      - grilla vertical de meses/semanas;
+      - línea única de Today;
+      - futuras mejoras de pan directo.*/
+    .gantt-horizontal-scroll { position: relative; }
+    /* La regla sólo ocupa la columna temporal. No cubre Priority, ID ni Feature title; tampoco intercepta clics, hover o tooltips. */
+    .gantt-ruler { position: absolute; top: 0; bottom: 0; z-index: 20;  pointer-events: none; }
+    /* Divisiones alineadas con las doce unidades del encabezado. Son deliberadamente sutiles: proporcionan estructura temporal sin competir con las barras, los markers ni los estados.*/
+    .gantt-ruler__grid { position: absolute; inset: 0; opacity: 0.72; background: repeating-linear-gradient( to right, transparent 0,
+      transparent calc(var(--gantt-unit) - 1px), var(--line-hairline) calc(var(--gantt-unit) - 1px), var(--line-hairline) var(--gantt-unit) ); }
+    /* Today es una sola línea continua para toda la altura del Roadmap. Se lee como una referencia temporal global, no como quince segmentos independientes dentro de las filas. */
+    .gantt-ruler__today { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent-strong); opacity: 0.72; }
+    .gantt-ruler__today::before { content: 'Today'; position: absolute; top: 4px; left: 50%; padding: 1px 6px; border-radius: 4px;
+      background: var(--accent-strong); color: #ffffff; font-size: var(--step--2); font-weight: 700; line-height: 1.3; white-space: nowrap;
+      transform: translateX(-50%); box-shadow: var(--shadow-chip); }
+    /* Identifica la columna que debe medir useTimelineColumnBox(). También servirá como superficie de interacción cuando se implemente
+      el pan horizontal del punto 3.2. */
+    .gantt-timeline-cell { position: relative; }
    
   </style>
 </head>
@@ -2632,9 +2651,7 @@
     function StoryRow({ storyId, title, storyPoints, state, iterationPath, formatDate, timelineStart, timelineEnd, adoLink, states, loading, showTooltip, moveTooltip, hideTooltip }) {
       const today = getDashboardToday();
       const timelineTotalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
-      const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
-      const clampedTodayPercent = Math.max(0, Math.min(100, todayPercent));
-
+      
       const segments = [];
       if (states.length > 0) {
         states.forEach((st, idx) => {
@@ -2730,8 +2747,9 @@
               </span>
             </div>
           </td>
-          <td style={{ padding: '6px 8px' }}>
-            <div style={{ height: '36px', background: '#e0e0e0', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
+          <td className="gantt-timeline-cell" style={{ padding: '6px 8px' }}>
+            <div className="gantt-timeline-cell" style={{ height: '36px', background: '#e0e0e0', borderRadius: '4px', overflow: 'hidden', 
+              position: 'relative' }}>
               {!loading && segments.map((seg, idx) => {
                 const segStartDate = new Date(timelineStart.getTime() + (seg.startPercent / 100) * (timelineEnd - timelineStart));
                 const segEndDate = new Date(timelineStart.getTime() + ((seg.startPercent + seg.widthPercent) / 100) * (timelineEnd - timelineStart));
@@ -2809,11 +2827,6 @@
                 >
                   {sprintLabel}
                 </div>
-              )}
-              {!loading && (
-                <div style={{ position: 'absolute', top: 0, bottom: 0, left: clampedTodayPercent + '%', width: '1px', background: '#1e3a8a', opacity: 0.9, 
-                  zIndex: 10, pointerEvents: 'none' }} 
-                />
               )}
             </div>
           </td>
@@ -2976,11 +2989,6 @@
           <td className="gantt-timeline-cell" style={{ padding: '4px 6px', overflow: 'hidden' }}>
             <div className="gantt-timeline-canvas" style={{ minHeight: '32px', background: isExpanded ? '#e0e0e0' : '#f9f9f9', borderRadius: '4px', 
               padding: '0', overflow: 'hidden', position: 'relative' }}>
-              {!loading && (() => {
-                const todayPercent = ((today - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
-                if (todayPercent < 0 || todayPercent > 100) return null;
-                return <div style={{ position: 'absolute', top: '0', bottom: '0', left: todayPercent + '%', width: '1px', background: '#1e3a8a', opacity: 0.9, zIndex: 10 }} />;
-              })()}
               {!loading && targetDate && (() => {
                 const target = parseDashboardDate(targetDate);
                   if (!target) { return null;}
@@ -3113,9 +3121,11 @@
                     );
                     return (
                       <div key={idx} className="gantt-bar" style={{
+                          top: '8px',
                           left: `${seg.startPercent}%`,
                           width: `${seg.widthPercent}%`,
-                          background: seg.color
+                          background: seg.color,
+                          zIndex: 2
                         }}
                         onMouseEnter={(e) => showTooltip && showTooltip(e, tooltipContent)}
                         onMouseMove={(e) => moveTooltip && moveTooltip(e)}
@@ -7245,6 +7255,110 @@
       return data;
     }
 
+    function useTimelineColumnBox(containerRef, deps = []) {
+      const [box, setBox] = useState(null);
+    
+      useEffect(() => {
+        const container = containerRef.current;
+    
+        if (!container) {
+          setBox(null);
+          return;
+        }
+    
+        const measure = () => {
+          const cell = container.querySelector(
+            '.gantt-timeline-cell'
+          );
+    
+          if (!cell) {
+            setBox(null);
+            return;
+          }
+    
+          const cellRect = cell.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+    
+          setBox({
+            left: cellRect.left - containerRect.left,
+            width: cellRect.width
+          });
+        };
+    
+        measure();
+    
+        const resizeObserver =
+          typeof ResizeObserver !== 'undefined'
+            ? new ResizeObserver(measure)
+            : null;
+    
+        resizeObserver?.observe(container);
+    
+        window.addEventListener('resize', measure);
+    
+        return () => {
+          resizeObserver?.disconnect();
+          window.removeEventListener('resize', measure);
+        };
+      }, deps);
+    
+      return box;
+    }
+
+    function GanttRuler({
+      box,
+      timelineStart,
+      timelineEnd,
+      unitCount = 12
+    }) {
+      if (!box || !timelineStart || !timelineEnd) {
+        return null;
+      }
+    
+      const totalMs = timelineEnd - timelineStart;
+    
+      if (totalMs <= 0) {
+        return null;
+      }
+    
+      const todayMs =
+        getDashboardToday() - timelineStart;
+    
+      const todayPercent =
+        (todayMs / totalMs) * 100;
+    
+      const isTodayVisible =
+        todayPercent >= 0 &&
+        todayPercent <= 100;
+    
+      return (
+        <div
+          className="gantt-ruler"
+          style={{
+            left: `${box.left}px`,
+            width: `${box.width}px`
+          }}
+          aria-hidden="true"
+        >
+          <div
+            className="gantt-ruler__grid"
+            style={{
+              '--gantt-unit': `${100 / unitCount}%`
+            }}
+          />
+    
+          {isTodayVisible && (
+            <div
+              className="gantt-ruler__today"
+              style={{
+                left: `${todayPercent}%`
+              }}
+            />
+          )}
+        </div>
+      );
+    }
+
     const DECELERATION_RATE = 0.998;
     const DRAG_THRESHOLD_PX = 8;
     
@@ -7512,7 +7626,7 @@
       /* -7 conserva el encuadre actual: siete unidades antes de hoy y cinco unidades futuras. */
       const resetTimelineToToday = () => { setTimelineOffset(-7); setWeekOffset(-7); };
       const timelinePan = useTimelinePan({ unitCount: 12, offset: timelineUnitOffset, onOffsetChange: setTimelineUnitOffset, minOffset: -60, maxOffset: 36 });
-
+            
       useEffect(() => {
         if (currentPage !== 'roadmap') {
           return;
@@ -7602,6 +7716,7 @@
       const FILTER_STORAGE_KEY = 'featureTracker_myFilter';
       /*  Referencia al único contenedor desplazable de resultados. En desktop/tablet este será el único scroll vertical disponible. */
       const resultsScrollRef = useRef(null);
+      const roadmapGanttRef = useRef(null);
       /*  Protege contra solicitudes duplicadas antes de que React alcance a actualizar loadingStoriesIds en el siguiente render. */
       const storiesRequestInFlightRef = useRef(new Set());
       const scrollResultsToTop = (behavior = 'auto') => { resultsScrollRef.current?.scrollTo({ top: 0, left: 0, behavior }); };
@@ -8790,7 +8905,49 @@
       const startIdx = (roadmapPage - 1) * itemsPerPage;
       const pageItems = sortedFiltered.slice(startIdx, startIdx + itemsPerPage);
       const pageItemIds = pageItems.map(item => item.id).join(',');
-
+      const roadmapDashboardToday = getDashboardNow().startOf('day');
+      const monthTimelineStart = roadmapDashboardToday
+        .startOf('month')
+        .plus({ months: timelineOffset })
+        .toJSDate();
+      const monthTimelineEnd = roadmapDashboardToday
+        .startOf('month')
+        .plus({ months: timelineOffset + 12 })
+        .minus({ days: 1 })
+        .endOf('day')
+        .toJSDate();
+      const weekTimelineStart = roadmapDashboardToday
+        .startOf('week')
+        .plus({ weeks: weekOffset })
+        .toJSDate();
+      const weekTimelineEnd = roadmapDashboardToday
+        .startOf('week')
+        .plus({ weeks: weekOffset + 12 })
+        .toJSDate();
+      
+      /*
+        Fuente única de verdad de la ventana temporal activa:
+        header, Features, Stories y regla global.
+      */
+      const timelineStart = isWeekScale
+        ? weekTimelineStart
+        : monthTimelineStart;
+      
+      const timelineEnd = isWeekScale
+        ? weekTimelineEnd
+        : monthTimelineEnd;
+      
+      const timelineColumnBox = useTimelineColumnBox(
+        roadmapGanttRef,
+        [
+          currentPage,
+          timelineScale,
+          timelineOffset,
+          weekOffset,
+          pageItems.length,
+          expandedRoadmapFeatureId
+        ]
+      );
       const changeRoadmapPage = (nextPage) => {
         const targetPage = Math.max( 1, Math.min(totalPages, Number(nextPage) || 1) );
         if (targetPage === roadmapPage) { return; }
@@ -10562,7 +10719,7 @@
               <div className="table-wrapper">
                 {/* ── TABLA PRINCIPAL DEL ROADMAP ── */}
                 {/* El header permanece sticky dentro del único panel de resultados. */}
-                <div className={[ 'gantt-horizontal-scroll', timelinePan.isDragging ? 'gantt-horizontal-scroll--dragging' : '' ]
+                <div ref={roadmapGanttRef} className={[ 'gantt-horizontal-scroll', timelinePan.isDragging ? 'gantt-horizontal-scroll--dragging' : '' ]
                     .filter(Boolean)
                     .join(' ')}
                   {...timelinePan.panHandlers}
@@ -10571,6 +10728,12 @@
                   }}
                   aria-label="Roadmap timeline. Drag horizontally to browse time."
                 >
+                <GanttRuler
+                  box={timelineColumnBox}
+                  timelineStart={timelineStart}
+                  timelineEnd={timelineEnd}
+                  unitCount={12}
+                />
                 <table className="roadmap-table" style={{ tableLayout: 'fixed', width: '100%' }}>
                   <thead>
                     <tr>
@@ -10635,36 +10798,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {(() => {
-                      const dashboardToday = getDashboardNow().startOf('day');
-
-                      const monthTimelineStart = dashboardToday
-                        .startOf('month')
-                        .plus({ months: timelineOffset })
-                        .toJSDate();
-
-                      const monthTimelineEnd = dashboardToday
-                        .startOf('month')
-                        .plus({ months: timelineOffset + 12 })
-                        .minus({ days: 1 })
-                        .endOf('day')
-                        .toJSDate();
-
-                      const weekTimelineStart = dashboardToday
-                        .startOf('week')
-                        .plus({ weeks: weekOffset })
-                        .toJSDate();
-
-                      const weekTimelineEnd = dashboardToday
-                        .startOf('week')
-                        .plus({ weeks: weekOffset + 12 })
-                        .toJSDate();
-
-                    /* La escala es global: encabezado, Features y Stories usan exactamente la misma referencia temporal. */
-                    const timelineStart = isWeekScale ? weekTimelineStart : monthTimelineStart;
-                    const timelineEnd = isWeekScale ? weekTimelineEnd : monthTimelineEnd;
-                    
-                    return pageItems.map(f => {
+                    {pageItems.map(f => {
                       const isExpanded = expandedRoadmapFeatureId === f.id;
                         return (
                           <React.Fragment key={f.id}>
@@ -10819,8 +10953,7 @@
                           )}
                           </React.Fragment>
                         );
-                      });
-                    })()}
+                      })}
                   </tbody>
                 </table>
               </div>
