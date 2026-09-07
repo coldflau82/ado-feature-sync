@@ -8011,12 +8011,8 @@
         resetResultsAfterMainFilterChange();
       };
 
-      /* Carga relaciones adicionales bajo demanda.    
-      A diferencia de storiesCache:
-      - estas relaciones no se precargan;
-      - sólo se consultan al pulsar Linked Bugs;
-      - un error no modifica Stories/Bugs directos;
-      - un refresh general permite intentar de nuevo. */
+      /* Carga relaciones adicionales bajo demanda. A diferencia de storiesCache:
+      - estas relaciones no se precargan; sólo se consultan al pulsar Linked Bugs; un error no modifica Stories/Bugs directos; un refresh general permite intentar de nuevo. */
     const loadRelationshipGraphForFeatures = (
       featureIds,
       { retry = false } = {}
@@ -8035,13 +8031,9 @@
     
         const isUnavailable = unavailableRelationshipIds[featureId];
         const isLoading = loadingRelationshipIds[featureId];
-        const inFlight =
-          relationshipRequestInFlightRef.current.has(featureId);
+        const inFlight = relationshipRequestInFlightRef.current.has(featureId);
     
-        /*
-          En un retry explícito ignoramos un estado unavailable anterior,
-          pero no duplicamos solicitudes que ya estén en progreso.
-        */
+        /* En un retry explícito ignoramos un estado unavailable anterior, pero no duplicamos solicitudes que ya estén en progreso. */
         return (
           !inFlight &&
           !isLoading &&
@@ -8067,21 +8059,19 @@
         return next;
       });
     
-      /*
-        Al reintentar, se elimina el estado temporal anterior.
-      */
+      /* Al reintentar, se elimina el estado temporal anterior. */
       if (retry) {
         setUnavailableRelationshipIds(previous => {
           const next = { ...previous };
-    
+      
           ids.forEach(featureId => {
             delete next[featureId];
           });
-    
+      
           return next;
         });
       }
-    
+      
       fetch('/api/features-relationship-graph-batch', {
         method: 'POST',
         headers: {
@@ -8089,116 +8079,92 @@
         },
         body: JSON.stringify({ ids })
       })
-      .then(response =>
-        parseApiJsonResponse(
-          response,
-          'Unable to load Stories/Bugs for the selected Features.'
+        .then(response =>
+          parseApiJsonResponse(
+            response,
+            'Unable to load Feature relationship graph.'
+          )
         )
-      )
-      .then(data => {
-        const results = data.results || {};
+        .then(data => {
+          const results = data.results || {};
       
-        const unavailableIds = new Set(
-          (data.unavailableFeatureIds || [])
-            .map(Number)
-            .filter(Number.isInteger)
-        );
+          const unavailableIds = new Set(
+            (data.unavailableFeatureIds || [])
+              .map(Number)
+              .filter(Number.isInteger)
+          );
       
-        setRelationshipGraphCache(previous => {
-          const next = { ...previous };
+          setRelationshipGraphCache(previous => {
+            const next = { ...previous };
       
-          ids.forEach(featureId => {
-            /* No agregamos un objeto vacío como si fuera una respuesta válida. La UI utiliza unavailableRelationshipIds para distinguir un fallo técnico de un grafo sin relaciones. */
-            if (
-              Object.prototype.hasOwnProperty.call(
-                results,
-                featureId
-              )
-            ) {
-              next[featureId] = results[featureId];
-            }
+            ids.forEach(featureId => {
+              /* Solo guardamos una respuesta que el backend haya devuelto. No crear un objeto vacío evita confundir un error técnico
+                con una Feature que realmente no tiene relaciones. */
+              if (  Object.prototype.hasOwnProperty.call( results, featureId )
+              ) { next[featureId] = results[featureId];
+              }
+            });
+      
+            return next;
           });
       
-          return next;
-        });
+          /* Este estado pertenece exclusivamente al Relationship Graph. No usar setUnavailableFeatureHistoryIds aquí.*/
+          setUnavailableRelationshipIds(previous => {
+            const next = { ...previous };
       
-        setUnavailableRelationshipIds(previous => {
-          const next = { ...previous };
+            ids.forEach(featureId => {
+              const wasUnavailable =
+                unavailableIds.has(featureId) ||
+                !Object.prototype.hasOwnProperty.call(
+                  results,
+                  featureId
+                );
       
-          ids.forEach(featureId => {
-            const wasUnavailable =
-              unavailableIds.has(featureId) ||
-              !Object.prototype.hasOwnProperty.call(
-                results,
-                featureId
-              );
+              if (wasUnavailable) {
+                next[featureId] = true;
+              } else {
+                delete next[featureId];
+              }
+            });
       
-            if (wasUnavailable) {
-              next[featureId] = true;
-            } else {
-              delete next[featureId];
-            }
+            return next;
           });
-      
-          return next;
-        });
-      })
-      
-        setUnavailableFeatureHistoryIds(previous => {
-          const next = { ...previous };
-      
-          ids.forEach(featureId => {
-            const wasUnavailable =
-              unavailableIds.has(featureId) ||
-              !Object.prototype.hasOwnProperty.call(
-                results,
-                featureId
-              );
-      
-            if (wasUnavailable) {
-              next[featureId] = true;
-            } else {
-              delete next[featureId];
-            }
-          });
-      
-          return next;
-        });
-      })
+        })
         .catch(error => {
           console.error(
             'Error loading Feature relationship graph batch:',
             error
           );
-    
-          /* No agregamos entradas vacías a relationshipGraphCache: [] significaría erróneamente "sin relaciones". */
+      
+          /* Si falla el endpoint completo, todos los Features de este lote quedan temporalmente indisponibles para Relationship Graph. */
           setUnavailableRelationshipIds(previous => {
             const next = { ...previous };
-    
+      
             ids.forEach(featureId => {
               next[featureId] = true;
             });
-    
+      
             return next;
           });
         })
         .finally(() => {
           ids.forEach(featureId => {
-            relationshipRequestInFlightRef.current.delete(featureId);
+            relationshipRequestInFlightRef.current.delete(
+              featureId
+            );
           });
-    
+      
           setLoadingRelationshipIds(previous => {
             const next = { ...previous };
-    
+      
             ids.forEach(featureId => {
               next[featureId] = false;
             });
-    
+      
             return next;
           });
         });
-    };
-          
+      };    
       const saveMyFilter = () => { const filtersToSave = {
          filterAreaPath,
          filterIteration,
@@ -9256,8 +9222,11 @@
       const expandedRoadmapStories = expandedRoadmapFeatureId ? (storiesCache[expandedRoadmapFeatureId] || []) : [];
       const expandedStoryIds = expandedRoadmapStories.map(s => s.id).join(',');
     
-      /* Carga únicamente los timelines que aún no existen en caché. El estado de carga se administra por ID: una Feature ya cargada
-        conserva su timeline mientras otra Feature de la misma página sigue esperando respuesta. */
+      /* Carga únicamente los timelines de Features visibles en Roadmap que todavía no existen en caché.
+        historyCache[id] = []:
+        - consulta exitosa sin cambios de estado utilizables; o
+        - consulta no disponible, diferenciada por
+          unavailableFeatureHistoryIds[id]. */
       useEffect(() => {
         if ( currentPage !== 'roadmap' || pageItems.length === 0 ) {
           return;
@@ -9265,25 +9234,24 @@
 
         const ids = pageItems
           .map(item => Number(item.id))
-          .filter(
-            featureId =>
-              Number.isInteger(featureId) &&
-              featureId > 0 &&
-              !Object.prototype.hasOwnProperty.call(
-                historyCache,
-                featureId
-              ) &&
-              !loadingFeatureHistoryIds[featureId] &&
-              !featureHistoryRequestInFlightRef.current.has(
-                featureId
-              )
+          .filter(featureId =>
+            Number.isInteger(featureId) &&
+            featureId > 0 &&
+            !Object.prototype.hasOwnProperty.call(
+              historyCache,
+              featureId
+            ) &&
+            !loadingFeatureHistoryIds[featureId] &&
+            !featureHistoryRequestInFlightRef.current.has(
+              featureId
+            )
           );
 
         if (ids.length === 0) {
           return;
         }
 
-        /* Marcamos los IDs antes de iniciar fetch para evitar solicitudes duplicadas mientras React procesa el siguiente render. */
+        /* Bloquea solicitudes duplicadas inmediatamente, antes de que React tenga oportunidad de reflejar loadingFeatureHistoryIds. */
         ids.forEach(featureId => {
           featureHistoryRequestInFlightRef.current.add(
             featureId
@@ -9300,127 +9268,112 @@
           return next;
         });
 
-        .then(data => {
-          const results = data.results || {};
-
-          /* Un ID ausente en results también se trata como unavailable: no existe evidencia para concluir que el Feature realmente no tiene historial. */
-          const unavailableIds = new Set(
-            (data.unavailableFeatureIds || [])
-              .map(Number)
-              .filter(Number.isInteger)
-          );
-
-          setHistoryCache(previous => {
-            const next = { ...previous };
-
-            ids.forEach(featureId => {
-              /*  Conservamos una estructura estable para cada Feature. [] significa:
-                - historial consultado sin transiciones utilizables; o
-                - historial unavailable, que se diferencia mediante unavailableFeatureHistoryIds. */
-              next[featureId] = Array.isArray(results[featureId])
-                ? results[featureId]
-                : [];
-            });
-
-            return next;
-          });
-
-          setUnavailableFeatureHistoryIds(previous => {
-            const next = { ...previous };
-
-            ids.forEach(featureId => {
-              const wasUnavailable =
-                unavailableIds.has(featureId) ||
-                !Object.prototype.hasOwnProperty.call(
-                  results,
-                  featureId
-                );
-
-              if (wasUnavailable) {
-                next[featureId] = true;
-              } else {
-                delete next[featureId];
-              }
-            });
-
-            return next;
-          });
+        fetch('/api/features-history-batch', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ ids })
         })
-        .catch(error => {
-          console.error(
-            'Error loading Feature timeline history:',
-            error
-          );
+          .then(response =>
+            parseApiJsonResponse(
+              response,
+              'Unable to load Feature timeline history.'
+            )
+          )
+          .then(data => {
+            const results = data.results || {};
 
-          /* Si falla todo el endpoint no es posible saber qué Feature individual falló. Marcamos todos los IDs de este lote como temporalmente unavailable. */
-          setHistoryCache(previous => {
-            const next = { ...previous };
-
-            ids.forEach(featureId => {
-              next[featureId] = [];
-            });
-
-            return next;
-          });
-
-          setUnavailableFeatureHistoryIds(previous => {
-            const next = { ...previous };
-
-            ids.forEach(featureId => {
-              next[featureId] = true;
-            });
-
-            return next;
-          });
-        })
-        .finally(() => {
-          /* Este bloque es imprescindible. Sin él, cada Feature queda permanentemente marcada como loading. */
-          ids.forEach(featureId => {
-            featureHistoryRequestInFlightRef.current.delete(
-              featureId
+            /* Un ID solicitado pero ausente de results no puede interpretarse como "sin historial"; se considera temporalmente no disponible. */
+            const unavailableIds = new Set(
+              (data.unavailableFeatureIds || [])
+                .map(Number)
+                .filter(Number.isInteger)
             );
-          });
 
-          setLoadingFeatureHistoryIds(previous => {
-            const next = { ...previous };
+            setHistoryCache(previous => {
+              const next = { ...previous };
 
-            ids.forEach(featureId => {
-              next[featureId] = false;
+              ids.forEach(featureId => {
+                next[featureId] = Array.isArray(
+                  results[featureId]
+                )
+                  ? results[featureId]
+                  : [];
+              });
+
+              return next;
             });
 
-            return next;
-          });
-        });
-        .catch(error => {
-          console.error(
-            'Error loading Feature timeline history:',
-            error
-          );
-        
-          /* Un fallo global HTTP/red impide determinar qué Feature falló. Por seguridad, todos los IDs de esta solicitud se marcan como temporalmente unavailable. */
-          setHistoryCache(previous => {
-            const next = { ...previous };
-        
-            ids.forEach(featureId => {
-              next[featureId] = [];
+            setUnavailableFeatureHistoryIds(previous => {
+              const next = { ...previous };
+
+              ids.forEach(featureId => {
+                const isUnavailable =
+                  unavailableIds.has(featureId) ||
+                  !Object.prototype.hasOwnProperty.call(
+                    results,
+                    featureId
+                  );
+
+                if (isUnavailable) {
+                  next[featureId] = true;
+                } else {
+                  delete next[featureId];
+                }
+              });
+
+              return next;
             });
-        
-            return next;
-          });
-        
-          setUnavailableFeatureHistoryIds(previous => {
-            const next = { ...previous };
-        
-            ids.forEach(featureId => {
-              next[featureId] = true;
+          })
+          .catch(error => {
+            console.error(
+              'Error loading Feature timeline history:',
+              error
+            );
+
+            /* Si falla el endpoint completo, no podemos saber cuál Feature falló: todas las Features del lote pasan a unavailable, pero dejan de estar cargando. */
+            setHistoryCache(previous => {
+              const next = { ...previous };
+
+              ids.forEach(featureId => {
+                next[featureId] = [];
+              });
+
+              return next;
             });
-        
-            return next;
+
+            setUnavailableFeatureHistoryIds(previous => {
+              const next = { ...previous };
+
+              ids.forEach(featureId => {
+                next[featureId] = true;
+              });
+
+              return next;
+            });
+          })
+          .finally(() => {
+            /* Siempre liberar el request y apagar el loading, incluso ante un error HTTP, red o JSON inválido. */
+            ids.forEach(featureId => {
+              featureHistoryRequestInFlightRef.current.delete(
+                featureId
+              );
+            });
+
+            setLoadingFeatureHistoryIds(previous => {
+              const next = { ...previous };
+
+              ids.forEach(featureId => {
+                next[featureId] = false;
+              });
+
+              return next;
+            });
           });
-        });
       }, [
-        pageItemIds,
-        currentPage
+        currentPage,
+        pageItemIds
       ]);
 
     useEffect(() => {
