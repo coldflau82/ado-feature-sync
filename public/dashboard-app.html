@@ -365,9 +365,9 @@
     /* Wrapper horizontal exclusivo para las tablas. No agrega scroll vertical. Sólo aparece scroll horizontal cuando el ancho mínimo del Gantt no cabe en la pantalla.*/
       .gantt-horizontal-scroll { width: 100%; overflow: visible; }
     /* La tabla conserva un ancho mínimo para que no comprima la línea de tiempo y sus barras Gantt sean utilizables. Puedes aumentar este valor si quieres más espacio para el timeline.*/
-    .roadmap-table { min-width: 1180px; }
+    .roadmap-table { min-width: 1280px; }
     /* Si Feature List también posee columnas que deban conservar ancho, aplica la misma protección. */
-    .feature-list-table { min-width: 1180px; }
+    .feature-list-table { min-width: 1280px; }
     /* El contenedor visual conserva fondo, bordes y esquinas. No debe cortar el scroll horizontal. */
     .dashboard-results-scroll .table-wrapper { margin-bottom: 0; overflow: visible; }
     /* Mobile: se conserva el scroll natural del navegador y no se fuerza una altura de viewport para evitar paneles demasiado pequeños. */
@@ -641,8 +641,8 @@
         background: var(--accent-soft); color: var(--accent-strong); font-size: 11px; font-weight: 800; }
       .mobile-feature-card__id-link { color: var(--accent); text-decoration: none; }
       .mobile-feature-card__id-link:hover { text-decoration: underline; }
-      .mobile-feature-card__title { display: -webkit-box; margin-top: 8px; overflow: hidden; color: var(--text-primary); font-size: 14px; font-weight: 700; line-height: 1.35;
-        -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+      .mobile-feature-card__title { display: block; mind-width: 0; max-width: 100%; margin-top: 8px; overflow: visible; color: var(--text-primary); 
+        font-size: 14px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
       .mobile-feature-card__state-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; color: var(--text-secondary); font-size: 11px; font-weight: 700; }
       .mobile-feature-card__state-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; }
       .mobile-feature-card__info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 11px; }
@@ -920,8 +920,8 @@
     /* ── Roadmap Feature delivery snapshot ────────────────────────── */
     .gantt-bar--feature { top: 13px; }
     /* La fila Feature ahora usa dos líneas: 1. título; 2. snapshot de Health, Target y Progress. */
-    .roadmap-feature-title-cell { padding: 6px 8px 6px 12px !important; vertical-align: middle; }
-    .roadmap-feature-title { overflow: hidden; color: var(--text-primary); font-size: var(--step-0); font-weight: 700; line-height: 1.25;
+    .roadmap-feature-title-cell { width: 420px; min-width: 420px; max-width: 420px; padding: 6px 8px 6px 12px !important; vertical-align: middle; }
+    .roadmap-feature-title { min-width: 0; overflow: hidden; color: var(--text-primary); font-size: var(--step-0); font-weight: 600; line-height: 1.25;
       text-overflow: ellipsis; white-space: nowrap; }
     .roadmap-feature-snapshot { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 5px 7px; min-width: 0;
       margin-top: 4px; color: var(--text-tertiary); font-size: var(--step--2); line-height: 1.2; }
@@ -2788,7 +2788,7 @@
             </a>
           </td>
 
-          <td style={{ maxWidth: '300px' }}>
+          <td style={{ maxWidth: '420px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '0 1 auto', minWidth: '0' }}>{title}</span>
               <span
@@ -10982,7 +10982,7 @@
                         ID
                       </th>
                   
-                      <th style={{ width: '300px', padding: '12px 4px 12px 12px' }} >
+                      <th style={{ width: '420px', padding: '12px 4px 12px 12px' }} >
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%'}} >
                           <span>Feature</span>
                           <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
@@ -11103,12 +11103,7 @@
                                   —
                                 </td>
 
-                                <td
-                                  style={{
-                                    maxWidth: '300px',
-                                    padding: '10px 12px'
-                                  }}
-                                >
+                                <td style={{ maxWidth: '420px', padding: '10px 12px' }}>
                                   <strong
                                     style={{
                                       display: 'block',
