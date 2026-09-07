@@ -6459,6 +6459,7 @@ app.post('/api/features-history-batch', async (req, res) => {
     }
     const c = getAdoClient();
     const results = {};
+    const unavailableFeatureIds = new Set();
     await mapWithConcurrency(
       ids,
       HISTORY_BATCH_CONCURRENCY,
@@ -6471,7 +6472,8 @@ app.post('/api/features-history-batch', async (req, res) => {
             revisionsResponse.data?.value || []
           );
         } catch (error) {
-          /* Un Feature fallido no debe impedir que el dashboard reciba el historial de los otros Features. */
+          /* Un Feature fallido no debe impedir que el dashboard reciba el historial de los otros Features. results[id] conserva un arreglo para mantener una estructura
+          predecible, pero unavailableFeatureIds permite al frontend distinguir este fallo de un historial válido sin cambios.*/
           console.error('ERROR fetching Feature history from ADO', {
             featureId: id,
             adoStatus: error.response?.status || null,
@@ -6479,13 +6481,17 @@ app.post('/api/features-history-batch', async (req, res) => {
             adoResponse: error.response?.data || null,
             message: error.message
           });
-          // Conserva el contrato actual con el frontend.
+          
           results[id] = [];
+          unavailableFeatureIds.add(id);
         }
       }
     );
 
-    return res.json({ results });
+    return res.json({
+      results,
+      unavailableFeatureIds: [...unavailableFeatureIds]
+    });
   } catch (error) {
     console.error('ERROR /api/features-history-batch', {
       message: error.message,
