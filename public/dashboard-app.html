@@ -468,8 +468,8 @@
     .dashboard-kpis .readiness-overview-card__label,.dashboard-kpis .health-overview-card__label { min-height: 0; font-size: 9px; line-height: 11px;}
     /* El número sigue siendo el elemento visual más importante. */
     .dashboard-kpis .readiness-overview-card__count,.dashboard-kpis .health-overview-card__count { font-size: 21px; line-height: 21px;}
-    /* Delivery Health usa una distribución exclusiva. Las tres categorías principales mantienen una presencia visual equivalente. 
-    Not Started y Unable to Evaluate son indicadores secundarios compactos: siguen siendo visibles, pero no compiten con riesgos y salud operativa del portafolio. */
+    /* Delivery Health usa una distribución exclusiva. Requires Action, Requires Attention, Healthy y Not Started usan tarjetas regulares para mantener consistencia de lectura, jerarquía tipográfica y alineación. 
+    Unable to Evaluate conserva una representación compacta solamente cuando existe, porque representa una excepción de disponibilidad de datos que debe ser visible sin competir con la gestión operativa. */
     .dashboard-kpi-group--delivery { min-width: 410px; }
     .dashboard-kpi-group--delivery .health-overview--exclusive { display: flex; align-items: stretch; gap: 6px; width: 100%; margin: 0; }
     .dashboard-kpi-group--delivery .health-overview--exclusive .health-overview-card { flex: 1 1 0; width: auto; min-width: 0; }
@@ -488,11 +488,11 @@
     /* El header debe permitir que los grupos tengan altura suficiente. */
     .dashboard-navigation .view-switcher__button { height: 82px; min-height: 82px;}
     /* En pantallas medianas, los tres bloques siguen ocupando una fila completa bajo el título y la navegación. */
-    @media (max-width: 1300px) { .dashboard-kpis { grid-template-columns: minmax(205px, 2fr) minmax(410px, 3fr) minmax(112px, 0.85fr); }}
+    @media (max-width: 1300px) { .dashboard-kpis { grid-template-columns: minmax(205px, 2fr) minmax(460px, 3fr) minmax(112px, 0.85fr); }}
     /* En tablet/móvil, cada grupo se apila. Las tarjetas dentro de cada grupo se muestran de dos en dos. */
-    @media (min-width: 821px) and (max-width: 980px) { .dashboard-kpis { grid-template-columns: minmax(205px, 2fr) minmax(410px, 3fr); }
+    @media (min-width: 821px) and (max-width: 980px) { .dashboard-kpis { grid-template-columns: minmax(205px, 2fr) minmax(460px, 3fr); }
       .dashboard-kpi-all-features { grid-column: 1 / -1; width: 100%; }
-      .dashboard-kpis.readiness-overview-card--all { min-height: 56px; height: 56px; } }
+      .dashboard-kpis .readiness-overview-card--all { min-height: 56px; height: 56px; } }
     @media (max-width: 820px) { .dashboard-kpis { grid-template-columns: 1fr; }
       .dashboard-kpi-group .readiness-overview, .dashboard-kpi-group .health-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .dashboard-kpi-all-features { max-width: none; }
@@ -2440,7 +2440,7 @@
           count: counts.notStarted,
           icon: '○',
           className: 'health-overview-card--not-started',
-          compact: true
+          compact: false
         },
         {
           key: 'unable-to-evaluate',
@@ -2448,7 +2448,7 @@
           count: counts.unableToEvaluate,
           icon: '?',
           className: 'health-overview-card--unavailable',
-          compact: true,
+          compact: false,
           hideWhenZero: true
         }
       ].filter(card =>
@@ -2505,19 +2505,97 @@
       );
     }
     
-    // ── Tooltip global ──────────────────────────────────────────────
+        // ── Tooltip global ──────────────────────────────────────────────
     function useTooltip() {
-      const [tooltip, setTooltip] = React.useState({ visible: false, x: 0, y: 0, content: null });
-      const showTooltip = React.useCallback((e, content) => {
-        setTooltip({ visible: true, x: e.clientX, y: e.clientY, content });
+      const [tooltip, setTooltip] = React.useState({
+        visible: false,
+        x: 0,
+        y: 0,
+        content: null
+      });
+
+      /* Cuando un elemento usa el tooltip React, no debe conservar simultáneamente su tooltip nativo HTML (atributo title).
+        El tooltip nativo puede aparecer encima del personalizado y ocultar información relevante, especialmente en Roadmap. */
+      const suppressedNativeTitleRef = React.useRef(null);
+
+      const suppressNativeTitle = element => {
+        if (!element || !element.hasAttribute('title')) {
+          return;
+        }
+
+        const currentSuppressed =
+          suppressedNativeTitleRef.current;
+
+        /* Si se entra directamente a otro elemento con tooltip, primero restauramos el title del elemento anterior antes de suprimir el nuevo. */
+        if (
+          currentSuppressed &&
+          currentSuppressed.element !== element
+        ) {
+          currentSuppressed.element.setAttribute(
+            'title',
+            currentSuppressed.title
+          );
+        }
+
+        suppressedNativeTitleRef.current = {
+          element,
+          title: element.getAttribute('title')
+        };
+
+        element.removeAttribute('title');
+      };
+
+      const restoreNativeTitle = () => {
+        const suppressed =
+          suppressedNativeTitleRef.current;
+
+        if (!suppressed) {
+          return;
+        }
+
+        suppressed.element.setAttribute(
+          'title',
+          suppressed.title
+        );
+
+        suppressedNativeTitleRef.current = null;
+      };
+
+      const showTooltip = React.useCallback((event, content) => {
+        /* currentTarget identifica el componente que registró el handler. event.target podría ser un span, ícono o SVG hijo sin title, mientras el title real suele estar en el contenedor padre. */
+        suppressNativeTitle(event.currentTarget);
+
+        setTooltip({
+          visible: true,
+          x: event.clientX,
+          y: event.clientY,
+          content
+        });
       }, []);
-      const moveTooltip = React.useCallback((e) => {
-        setTooltip(prev => ({ ...prev, x: e.clientX, y: e.clientY }));
+
+      const moveTooltip = React.useCallback(event => {
+        setTooltip(previous => ({
+          ...previous,
+          x: event.clientX,
+          y: event.clientY
+        }));
       }, []);
+
       const hideTooltip = React.useCallback(() => {
-        setTooltip(prev => ({ ...prev, visible: false }));
+        restoreNativeTitle();
+
+        setTooltip(previous => ({
+          ...previous,
+          visible: false
+        }));
       }, []);
-      return { tooltip, showTooltip, moveTooltip, hideTooltip };
+
+      return {
+        tooltip,
+        showTooltip,
+        moveTooltip,
+        hideTooltip
+      };
     }
 
     function Tooltip({ tooltip }) {
@@ -2883,7 +2961,7 @@
 
           <td style={{ maxWidth: '420px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span title={title} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '0 1 auto', minWidth: '0' }}>{title}</span>
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '0 1 auto', minWidth: '0' }}>{title}</span>
               <span
                 style={{
                   color: storyPoints === null || storyPoints === undefined ? 'var(--risk)' : '#696969',
@@ -3047,23 +3125,11 @@
               'roadmap-feature-snapshot__target',
               `roadmap-feature-snapshot__target--${targetStatus.tone}`
             ].join(' ')}
-            title={
-              targetStatus.days === null
-                ? 'No Target Date assigned'
-                : `Target Date: ${targetText}`
-            }
           >
             <strong>Target:</strong> {targetText}
           </span>
     
-          <span
-            className="roadmap-feature-snapshot__progress"
-            title={
-              summary
-                ? `Delivery progress: ${progressText}`
-                : 'Delivery progress is unavailable'
-            }
-          >
+          <span className="roadmap-feature-snapshot__progress">
             {progressText}
           </span>
         </div>
@@ -3204,7 +3270,7 @@
           </td>
 
           <td className="roadmap-feature-title-cell">
-            <div className="roadmap-feature-title" title={title}
+            <div className="roadmap-feature-title"
               onMouseEnter={(event) =>
                 showTooltip &&
                 showTooltip(
@@ -3594,7 +3660,6 @@
             <div className="mobile-feature-card__identity">
               <span
                 className="mobile-feature-card__priority"
-                title="Priority"
               >
                 {feature.priority || '—'}
               </span>
