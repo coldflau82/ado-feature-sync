@@ -7839,15 +7839,28 @@
       const [readinessDropdownFilter, setReadinessDropdownFilter] = useState('All');
       const [healthRuleFilter, setHealthRuleFilter] = useState('All');
       const [areAdvancedFiltersOpen, setAreAdvancedFiltersOpen] = useState(false);
+      
       const FILTER_STORAGE_KEY = 'featureTracker_myFilter';
       /*  Referencia al único contenedor desplazable de resultados. En desktop/tablet este será el único scroll vertical disponible. */
       const resultsScrollRef = useRef(null);
       const roadmapGanttRef = useRef(null);
+      /* Cada carga de /api/features recibe un número consecutivo. Si una solicitud anterior termina después de otra más reciente, su resultado se ignora. Esto evita que una respuesta antigua
+        sobrescriba el resultado de Refresh Live. */
+      const loadRequestSequenceRef = useRef(0);
       /*  Protege contra solicitudes duplicadas antes de que React alcance a actualizar loadingStoriesIds en el siguiente render. */
       const storiesRequestInFlightRef = useRef(new Set());
       const scrollResultsToTop = (behavior = 'auto') => { resultsScrollRef.current?.scrollTo({ top: 0, left: 0, behavior }); };
       /* Restablece la navegación y los paneles abiertos después de cambiar cualquier filtro principal. */
-      const resetResultsAfterMainFilterChange = () => { setFeaturesPage(1); setRoadmapPage(1); setExpandedFeatureId(null); setExpandedRoadmapFeatureId(null); requestAnimationFrame(() => { scrollResultsToTop('smooth'); }); };
+      const resetResultsAfterMainFilterChange = () => {
+        setFeaturesPage(1);
+        setRoadmapPage(1);
+        setExpandedFeatureId(null);
+        setExpandedRoadmapFeatureId(null);
+      
+        requestAnimationFrame(() => {
+          scrollResultsToTop('smooth');
+        });
+      };
       /* Limpia todos los filtros KPI y los dropdowns relacionados con Readiness / Delivery Health. No modifica Search ni los filtros estructurales: Area Path, Iteration Path, Assigned To, State, Target Date y Release Fix Version. */
       const clearReadinessAndHealthFilters = () => { setReadinessKpiFilter('All'); setHealthGroupKpiFilter('All'); setReadinessDropdownFilter('All'); setHealthRuleFilter('All'); };
       const resetAllDashboardFilters = () => {
@@ -8143,9 +8156,30 @@
       }, [currentPage]);
       
       async function loadFeatures(forceRefresh = false) {
+        /* Cada ejecución obtiene un identificador único.
+          Solo la solicitud más reciente puede modificar:
+          - Features;
+          - KPIs;
+          - warnings;
+          - cacheInfo;
+          - estados loading / refreshing;
+          - errores visibles.
+          Esto evita que una respuesta antigua llegue tarde y reemplace información más reciente obtenida por Refresh Live. */
+        const requestSequence =
+          loadRequestSequenceRef.current + 1;
+
+        loadRequestSequenceRef.current =
+          requestSequence;
+
+        /* Se guarda al inicio para distinguir correctamente entre:
+          - error durante carga inicial;
+          - error durante Refresh Live, cuando ya existe un portafolio válido que debe permanecer visible. */
+        const hasExistingPortfolio =
+          features.length > 0;
+
         /* Una carga inicial y un Refresh Live tienen comportamientos distintos ante un error:
           - Carga inicial: no hay datos previos; se muestra loadError.
-          - Refresh Live: se conservan los datos válidos ya visibles y se muestra refreshError como advertencia no bloqueante. */
+          - Refresh Live: se mantienen los datos y se muestra una advertencia no bloqueante. */
         if (forceRefresh) {
           setRefreshing(true);
           setRefreshError('');
@@ -8155,14 +8189,32 @@
         }
 
         try {
+          /* refresh=1 informa al backend que debe consultar la ventana Live configurada. El parámetro _request evita reutilizar una respuesta HTTP anterior cuyo URL fuera
+          exactamente /api/features?refresh=1. cache: 'no-store' solicita al navegador no usar ni guardar una respuesta local para esta petición. */
+          const requestTimestamp = Date.now();
+
           const url = forceRefresh
-            ? '/api/features?refresh=1'
-            : '/api/features';
+            ? `/api/features?refresh=1&_request=${requestTimestamp}`
+            : `/api/features?_request=${requestTimestamp}`;
 
-          const response = await fetch(url);
+          const response = await fetch(url, {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache',
+              Pragma: 'no-cache'
+            }
+          });
 
-          /* Un endpoint puede devolver body vacío, HTML o JSON inválido ante un error de infraestructura. El parse protegido evita que el dashboard falle con un error técnico poco útil. */
+          /* Un endpoint puede responder body vacío, HTML o JSON inválido ante errores de infraestructura. El parse protegido evita que el dashboard falle con un error técnico poco útil. */
           const json = await response.json().catch(() => ({}));
+
+          /* Si una solicitud posterior empezó mientras esta estaba en curso, esta respuesta ya está obsoleta y no debe reemplazar el estado actual del dashboard. */
+          if (
+            requestSequence !==
+            loadRequestSequenceRef.current
+          ) {
+            return;
+          }
 
           if (!response.ok) {
             throw new Error(
@@ -8171,8 +8223,7 @@
             );
           }
 
-          /* Una respuesta HTTP 200 sin arreglo features no debe tratarse como un portafolio vacío válido.
-            Esto protege los datos visibles ante contratos inválidos, proxies, respuestas parciales o regresiones del backend. */
+          /* Una respuesta HTTP 200 sin arreglo features no debe tratarse como un portafolio vacío válido. */
           if (!Array.isArray(json.features)) {
             throw new Error(
               'The dashboard received an invalid Features response.'
@@ -8183,16 +8234,16 @@
             ? json.warnings
             : [];
 
-          /* El backend es la fuente de verdad de la zona de negocio.
-            Se actualiza antes de guardar Features para que el siguiente render interprete Target Dates y métricas con la misma zona. */
+          /* El backend conserva la fuente de verdad para fechas, umbrales y calendario de releases. */
           if (
             json.dashboard?.timeZone &&
-            DateTime.now().setZone(json.dashboard.timeZone).isValid
+            DateTime.now().setZone(
+              json.dashboard.timeZone
+            ).isValid
           ) {
             dashboardTimeZone = json.dashboard.timeZone;
           }
 
-          /* Delivery Health y frontend comparten el mismo threshold para "Target Date near". Si la configuración backend cambia, la UI se actualiza sin requerir un cambio de frontend. */
           const receivedTargetDateNearDays = Number(
             json.dashboard?.thresholds?.targetDateNearDays
           );
@@ -8211,29 +8262,42 @@
             releaseCalendar = json.dashboard.releaseCalendar;
           }
 
-          /* Solo una respuesta completamente válida reemplaza el portafolio actualmente visible. */
+          /* Solo una respuesta válida y vigente reemplaza los datos visibles. React recalculará automáticamente:
+            - KPIs;
+            - filtros;
+            - Delivery Health;
+            - Readiness;
+            - alarmas mostradas por Feature;
+            - Risk Score basado en los datos de Feature. */
           setFeatures(json.features);
           setCacheInfo(json.cacheInfo || null);
           setWarnings(receivedWarnings);
 
-          /* Una respuesta exitosa elimina cualquier error previo, tanto de carga inicial como de un Refresh Live anterior. */
           setLoadError('');
           setRefreshError('');
 
-          /* Este timestamp representa el momento en que este navegador recibió exitosamente una respuesta que incluye la revisión Live de Features editadas en los últimos 10 días. */
+          /* Indica que esta sesión recibió y aplicó correctamente una respuesta nueva del endpoint Live. */
           setLastLiveCheckAt(new Date());
 
-          /* Una nueva carga exitosa debe volver a mostrar advertencias vigentes entregadas por backend, aunque se hubieran cerrado. */
+          /* Una carga válida vuelve a mostrar las advertencias actuales del backend, aunque el usuario hubiera cerrado una anterior. */
           setAreWarningsDismissed(false);
         } catch (error) {
+          /* Si una solicitud posterior ya está activa, este error también corresponde a una petición obsoleta y no debe alterar la UI. */
+          if (
+            requestSequence !==
+            loadRequestSequenceRef.current
+          ) {
+            return;
+          }
+
           console.error('Error loading features:', error);
 
           const safeErrorMessage =
             error?.message ||
             'Unable to load Features from Azure DevOps.';
 
-          /* Si Refresh Live falla y ya existe información válida, NO borramos el dashboard. El usuario conserva el último portafolio conocido, incluyendo Roadmap, timelines, Progress, filtros y paginación. */
-          if (forceRefresh && features.length > 0) {
+          /* Si falla Refresh Live y ya había información válida, no se borra nada. El usuario continúa operando sobre el último portafolio exitoso. */
+          if (forceRefresh && hasExistingPortfolio) {
             setRefreshError(
               'Live refresh failed. Showing the last successfully loaded portfolio data.'
             );
@@ -8241,14 +8305,20 @@
             return;
           }
 
-          /* Si falla la carga inicial, no hay datos confiables que conservar. En ese único escenario mostramos el estado de error de página completa. */
+          /* Si falla la carga inicial, no existe un portafolio confiable que pueda permanecer visible. */
           setFeatures([]);
           setWarnings([]);
           setCacheInfo(null);
           setLoadError(safeErrorMessage);
         } finally {
-          setLoading(false);
-          setRefreshing(false);
+          /* Una solicitud obsoleta no puede apagar el loading de una solicitud más reciente que todavía continúa en progreso. */
+          if (
+            requestSequence ===
+            loadRequestSequenceRef.current
+          ) {
+            setLoading(false);
+            setRefreshing(false);
+          }
         }
       }
 
