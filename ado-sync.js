@@ -6564,10 +6564,6 @@ app.post('/api/stories-history-batch', async (req, res) => {
       });
     }
 
-    /*
-      Normaliza, elimina IDs inválidos y evita llamadas repetidas
-      si el mismo Story/Bug aparece más de una vez.
-    */
     const ids = [
       ...new Set(
         req.body.ids
@@ -6578,12 +6574,15 @@ app.post('/api/stories-history-batch', async (req, res) => {
 
     if (ids.length > MAX_HISTORY_BATCH_IDS) {
       return res.status(400).json({
-        error: `A maximum of ${MAX_HISTORY_BATCH_IDS} IDs is allowed per history batch request.`
+        error:
+          `A maximum of ${MAX_HISTORY_BATCH_IDS} IDs is allowed ` +
+          'per history batch request.'
       });
     }
 
     const c = getAdoClient();
     const results = {};
+    const unavailableWorkItemIds = new Set();
 
     await mapWithConcurrency(
       ids,
@@ -6591,31 +6590,39 @@ app.post('/api/stories-history-batch', async (req, res) => {
       async id => {
         try {
           const revisionsResponse = await withAdoRetry(() =>
-            c.get(`/wit/workitems/${id}/revisions?api-version=7.0`)
+            c.get(
+              `/wit/workitems/${id}/revisions?api-version=7.0`
+            )
           );
 
           results[id] = getStateChangesFromRevisions(
             revisionsResponse.data?.value || []
           );
         } catch (error) {
-          /*
-            Se degrada solo este Story/Bug; el resto de la respuesta
-            batch continúa disponible.
-          */
-          console.error('ERROR fetching Story history from ADO', {
-            storyId: id,
-            adoStatus: error.response?.status || null,
-            adoStatusText: error.response?.statusText || null,
-            adoResponse: error.response?.data || null,
-            message: error.message
-          });
+          console.error(
+            'ERROR fetching Story/Bug history from ADO',
+            {
+              workItemId: id,
+              adoStatus: error.response?.status || null,
+              adoStatusText: error.response?.statusText || null,
+              adoResponse: error.response?.data || null,
+              message: error.message
+            }
+          );
 
+          /* Conservamos [] para que results tenga una forma estable, pero unavailableWorkItemIds diferencia este error técnico de una Story/Bug sin cambios de estado. */
           results[id] = [];
+          unavailableWorkItemIds.add(id);
         }
       }
     );
 
-    return res.json({ results });
+    return res.json({
+      results,
+      unavailableWorkItemIds: [
+        ...unavailableWorkItemIds
+      ]
+    });
   } catch (error) {
     console.error('ERROR /api/stories-history-batch', {
       message: error.message,
