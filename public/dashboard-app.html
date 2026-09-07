@@ -4460,8 +4460,8 @@
             feature={feature}
             states={featureHistory}
             loading={loadingFeatureHistory}
-            timelineStart={timelineStart}
-            timelineEnd={timelineEnd}
+            timelineStart={weekTimelineStart}
+            timelineEnd={weekTimelineEnd}
           />
           
           </MobileFeatureCardHeader>
@@ -4504,8 +4504,8 @@
                         states={storyHistoryCache[story.id] || []}
                         loading={!!loadingStoryHistoryIds[story.id]}
                         adoLink={adoLink}
-                        timelineStart={timelineStart}
-                        timelineEnd={timelineEnd}
+                        timelineStart={weekTimelineStart}
+                        timelineEnd={weekTimelineEnd}
                       />
                     ))}
                   </div>
