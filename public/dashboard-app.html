@@ -917,6 +917,27 @@
     .gantt-bar--story { top: 8px; }
     .gantt-bar:hover { filter: brightness(1.06) saturate(1.1); }
     @media (prefers-reduced-motion: reduce) { .gantt-bar { transition: none; }}
+    /* ── Roadmap Feature delivery snapshot ────────────────────────── */
+    .gantt-bar--feature { top: 13px; }
+    /* La fila Feature ahora usa dos líneas: 1. título; 2. snapshot de Health, Target y Progress. */
+    .roadmap-feature-title-cell { padding: 6px 8px 6px 12px !important; vertical-align: middle; }
+    .roadmap-feature-title { overflow: hidden; color: var(--text-primary); font-size: var(--step-0); font-weight: 700; line-height: 1.25;
+      text-overflow: ellipsis; white-space: nowrap; }
+    .roadmap-feature-snapshot { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 5px 7px; min-width: 0;
+      margin-top: 4px; color: var(--text-tertiary); font-size: var(--step--2); line-height: 1.2; }
+    .roadmap-feature-snapshot__health { min-width: 0; }
+    /* El badge ya tiene semántica por color e icono. En Roadmap se compacta levemente para coexistir con Target y Progress. */
+    .roadmap-feature-snapshot__health .delivery-badge { padding: 2px 5px 2px 3px; font-size: 9px; }
+    .roadmap-feature-snapshot__health .delivery-badge__icon { width: 13px; height: 13px; flex-basis: 13px; font-size: 8px; }
+    .roadmap-feature-snapshot__target { min-width: 0; overflow: hidden; color: var(--text-secondary); text-overflow: ellipsis; white-space: nowrap; }
+    .roadmap-feature-snapshot__target strong { color: var(--text-tertiary); font-weight: 700; }
+    .roadmap-feature-snapshot__target--overdue { color: #b91c1c; font-weight: 700; }
+    .roadmap-feature-snapshot__target--today { color: var(--risk); font-weight: 700; }
+    .roadmap-feature-snapshot__target--near { color: var(--warn); font-weight: 700; }
+    .roadmap-feature-snapshot__target--done { color: var(--ok); font-weight: 700; }
+    .roadmap-feature-snapshot__progress { color: var(--text-secondary); font-size: var(--step--2); font-weight: 800; white-space: nowrap; }
+    /* La altura del timeline de la Feature acompaña la nueva altura de la fila, manteniendo la barra visualmente centrada. */
+    .gantt-feature-timeline-canvas { min-height: 46px; }
     /* ── Target Date: fecha absoluta + urgencia operativa ───────── */
     .target-cell { display: grid; gap: 1px; line-height: 1.25; min-width: 0; }
     .target-cell__date { color: var(--text-secondary); font-size: var(--step--1); }
@@ -1054,6 +1075,24 @@
     /* Identifica la columna que debe medir useTimelineColumnBox(). También servirá como superficie de interacción cuando se implemente
       el pan horizontal del punto 3.2. */
     .gantt-timeline-cell { position: relative; }
+    /* ── Protección contra overflow horizontal en cards móviles ───── */
+    @media (max-width: 820px) { html, body, #root { width: 100%; max-width: 100%; }
+      .container.dashboard-shell, .dashboard-fixed-content, .dashboard-results-scroll, .mobile-feature-list, .mobile-roadmap-list, .mobile-feature-card,
+      .mobile-feature-card__header, .mobile-feature-card__details, .feature-detail-panel, .delivery-details, .delivery-details__overview-grid,
+      .feature-work-items-panel, .feature-work-items-panel__top-grid, .feature-work-items-panel__controls-card, .feature-work-items-panel__alignment,
+      .feature-work-items-panel__results, .delivery-work-grid, .delivery-work-group, .mobile-story-timeline-card { min-width: 0; max-width: 100%; }
+      /* border-box ya está definido globalmente, por lo que width: 100% incluye padding y bordes; evita que la card se expanda por ellos. */
+      .mobile-feature-card,.mobile-story-timeline-card { width: 100%; }
+      /* Los hijos de un grid pueden conservar min-width:auto y forzar un ancho mayor que su contenedor cuando incluyen textos largos. */
+      .mobile-feature-card__info-grid > *,.delivery-details__overview-grid > *,.feature-work-items-panel__top-grid > *,
+      .delivery-work-grid > * { min-width: 0; }
+      /* Fuerza una columna real de ancho disponible. Evita que minmax() heredados o contenido largo extiendan los Work Item cards. */
+      .delivery-work-grid { grid-template-columns: minmax(0, 1fr); }
+      .mobile-feature-card__info-value,.mobile-feature-card__rfv,.feature-story-card__release-fix-version,.delivery-inline-alert__reason,
+      .delivery-inline-alert__detail-value { max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
+      /* La fila horizontal de filtros conserva scroll propio, pero no debe ensanchar el layout general de la página. */
+      .mobile-workspace-controls,.mobile-workspace-controls__filters { min-width: 0; max-width: 100%; }
+      .mobile-workspace-controls__input { max-width: calc(100vw - 84px); }}
    
   </style>
 </head>
@@ -2856,8 +2895,90 @@
         </tr>
       );
     }
-
-    function FeatureRow({ featureId, title,  assignedTo, targetDate, releaseFixVersion, techGoLiveRFV, estimation, priority, formatDate, timelineStart, timelineEnd, adoLink, isExpanded, onToggleExpand, states, loading, showTooltip, moveTooltip, hideTooltip }) {
+    
+    function RoadmapFeatureSnapshot({
+      feature,
+      summary,
+      formatDate,
+      showTooltip,
+      moveTooltip,
+      hideTooltip
+    }) {
+      const targetStatus = getTargetDateStatus(
+        feature.targetDate,
+        feature.state
+      );
+    
+      const includedWorkItems =
+        Number(summary?.includedWorkItems) || 0;
+    
+      const completedForProgress =
+        Number(summary?.completedForProgressWorkItems) || 0;
+    
+      const progressPercent = Math.max(
+        0,
+        Math.min(
+          100,
+          Number(summary?.progressPercent) || 0
+        )
+      );
+    
+      const progressText = !summary
+        ? 'Progress unavailable'
+        : includedWorkItems === 0
+          ? 'No work items'
+          : `${completedForProgress}/${includedWorkItems} · ${progressPercent}%`;
+    
+      const targetText =
+        targetStatus.days === null
+          ? 'No target date'
+          : `${formatDate(feature.targetDate)} · ${targetStatus.text}`;
+    
+      return (
+        <div
+          className="roadmap-feature-snapshot"
+          aria-label={`Delivery snapshot for Feature ${feature.id}`}
+        >
+          <div className="roadmap-feature-snapshot__health">
+            <DeliveryHealthBadge
+              feature={feature}
+              compact
+              showTooltip={showTooltip}
+              moveTooltip={moveTooltip}
+              hideTooltip={hideTooltip}
+            />
+          </div>
+    
+          <span
+            className={[
+              'roadmap-feature-snapshot__target',
+              `roadmap-feature-snapshot__target--${targetStatus.tone}`
+            ].join(' ')}
+            title={
+              targetStatus.days === null
+                ? 'No Target Date assigned'
+                : `Target Date: ${targetText}`
+            }
+          >
+            <strong>Target:</strong> {targetText}
+          </span>
+    
+          <span
+            className="roadmap-feature-snapshot__progress"
+            title={
+              summary
+                ? `Delivery progress: ${progressText}`
+                : 'Delivery progress is unavailable'
+            }
+          >
+            {progressText}
+          </span>
+        </div>
+      );
+    }
+    
+    function FeatureRow({ featureId, feature, deliverySummary, title, assignedTo, targetDate, releaseFixVersion, techGoLiveRFV, estimation,
+      priority, formatDate, timelineStart, timelineEnd, adoLink, isExpanded, onToggleExpand, states, loading, showTooltip, moveTooltip, hideTooltip }) {
       const stateColors = {
         'New': '#94a3b8',
         'In Shaping': '#fbbf24',
@@ -2989,28 +3110,56 @@
             </a>
           </td>
 
-          <td
-            style={{
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              maxWidth: '300px',
-              cursor: 'default'
-            }}
-            onMouseEnter={(e) => showTooltip && showTooltip(e, (
-              <div>
-                <div style={{ marginBottom: '6px', maxWidth: '240px', whiteSpace: 'normal', lineHeight: '1.4' }}>{title}</div>
-                <div style={{ color: '#94a3b8', fontSize: '10px' }}>👤 Assigned to: {getShortAssignedToName(assignedTo)}</div>
-                {targetDate && <div style={{ color: '#94a3b8', fontSize: '10px', marginTop: '2px' }}>🎯 Target: {formatDate(targetDate)}</div>}
-                {releaseFixVersion && <div style={{ color: '#94a3b8', fontSize: '10px', marginTop: '2px' }}>🚀 RFV: {releaseFixVersion}</div>}
-                {techGoLiveRFV && ( <div style={{ color: '#94a3b8', fontSize: '10px', marginTop: '2px' }}>📣 Tech Go Live: {techGoLiveRFV}</div>)}
-              </div>
-            ))}
-            onMouseMove={(e) => moveTooltip && moveTooltip(e)}
-            onMouseLeave={() => hideTooltip && hideTooltip()}
-          >{title}</td>
+          <td className="roadmap-feature-title-cell">
+            <div className="roadmap-feature-title" title={title}
+              onMouseEnter={(event) =>
+                showTooltip &&
+                showTooltip(
+                  event,
+                  <div>
+                    <div style={{ marginBottom: '6px', maxWidth: '240px', whiteSpace: 'normal', lineHeight: '1.4' }}>
+                      {title}
+                    </div>
+                    <div style={{ color: '#94a3b8', fontSize: '10px' }}>
+                      👤 Assigned to: {getShortAssignedToName(assignedTo)}
+                    </div>
+                    {targetDate && (
+                      <div style={{ color: '#94a3b8', fontSize: '10px', marginTop: '2px'}}>
+                        🎯 Target: {formatDate(targetDate)}
+                      </div>
+                    )}
+                    {releaseFixVersion && (
+                      <div style={{ color: '#94a3b8', fontSize: '10px', marginTop: '2px' }}>
+                        🚀 RFV: {releaseFixVersion}
+                      </div>
+                    )}
+          
+                    {techGoLiveRFV && (
+                      <div style={{ color: '#94a3b8', fontSize: '10px', marginTop: '2px' }}>
+                        📣 Tech Go Live: {techGoLiveRFV}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+              onMouseMove={(event) => moveTooltip && moveTooltip(event)}
+              onMouseLeave={() => hideTooltip && hideTooltip()}
+            >
+              {title}
+            </div>
+
+            <RoadmapFeatureSnapshot
+              feature={feature}
+              summary={deliverySummary}
+              formatDate={formatDate}
+              showTooltip={showTooltip}
+              moveTooltip={moveTooltip}
+              hideTooltip={hideTooltip}
+            />
+          </td>
           <td className="gantt-timeline-cell" style={{ padding: '4px 6px', overflow: 'hidden' }}>
-            <div className="gantt-timeline-canvas" style={{ minHeight: '32px', background: isExpanded ? '#e0e0e0' : '#f9f9f9', borderRadius: '4px', 
+            <div className="gantt-timeline-canvas gantt-feature-timeline-canvas"
+              style={{ minHeight: '46px', background: isExpanded ? '#e0e0e0' : '#f9f9f9', borderRadius: '4px', 
               padding: '0', overflow: 'hidden', position: 'relative' }}>
               {!loading && targetDate && (() => {
                 const target = parseDashboardDate(targetDate);
@@ -3038,10 +3187,7 @@
                   }
               
                   const releasePercent =
-                    ((releaseDate - timelineStart) /
-                      (1000 * 60 * 60 * 24) /
-                      timelineTotalDays) *
-                    100;
+                    ((releaseDate - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
               
                   if (releasePercent < 0 || releasePercent > 100) {
                     return null;
@@ -3129,7 +3275,7 @@
               ) : segments.length === 0 ? (
                 <span style={{ fontSize: '11px', color: '#999' }}>No data</span>
               ) : (
-                <div style={{ width: '100%', position: 'relative', height: '20px' }}>
+                <div style={{ width: '100%', position: 'relative', height: '46px' }}>
                   {segments.map((seg, idx) => {
                     const est = estimation || {};
                     const tooltipContent = (
@@ -3143,8 +3289,7 @@
                       </div>
                     );
                     return (
-                      <div key={idx} className="gantt-bar" style={{
-                          top: '8px',
+                      <div key={idx} className="gantt-bar gantt-bar--feature" style={{
                           left: `${seg.startPercent}%`,
                           width: `${seg.widthPercent}%`,
                           background: seg.color,
@@ -10872,6 +11017,8 @@
                           <React.Fragment key={f.id}>
                             <FeatureRow
                               featureId={f.id}
+                              feature={f}
+                              deliverySummary={getFeatureDeliverySummary( f, storiesCache, unavailableStoriesIds )}
                               title={f.title}
                               assignedTo={f.assignedTo}
                               targetDate={f.targetDate}
