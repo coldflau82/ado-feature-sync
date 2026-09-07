@@ -1172,6 +1172,10 @@
   font-weight: 800;
   transform: translateY(-0.5px);
 }
+    .dashboard-interaction-hint__message--mobile { display: none;}
+    @media (max-width: 820px) { .dashboard-interaction-hint__legend { display: none; }
+      .dashboard-interaction-hint__message--desktop { display: none; }
+      .dashboard-interaction-hint__message--mobile { display: inline; }}
     /* ── Protección contra overflow horizontal en cards móviles ───── */
     @media (max-width: 820px) { html, body, #root { width: 100%; max-width: 100%; }
       .container.dashboard-shell, .dashboard-fixed-content, .dashboard-results-scroll, .mobile-feature-list, .mobile-roadmap-list, .mobile-feature-card,
@@ -1190,10 +1194,7 @@
       /* La fila horizontal de filtros conserva scroll propio, pero no debe ensanchar el layout general de la página. */
       .mobile-workspace-controls,.mobile-workspace-controls__filters { min-width: 0; max-width: 100%; }
       .mobile-workspace-controls__input { max-width: calc(100vw - 84px); }}
-    @media (max-width: 820px) {
-  .roadmap-legend {
-    align-items: flex-start;
-  }
+    @media (max-width: 820px) { .dashboard-interaction-hint__legend { display: none; } }
 
   .roadmap-legend__items {
     flex-basis: 100%;
@@ -10758,7 +10759,15 @@
               <div className="dashboard-interaction-hint">
                 <span className="dashboard-interaction-hint__message">
                   <strong>Tip:</strong>{' '}
-                  Select a Feature card to view Story and Bug timelines. Drag timeline to browse, arrows move one unit; Home returns to Today.
+                
+                  <span className="dashboard-interaction-hint__message--desktop">
+                    Select a Feature row to view Story and Bug timelines. Drag
+                    timeline to browse, arrows move one unit; Home returns to Today.
+                  </span>
+                
+                  <span className="dashboard-interaction-hint__message--mobile">
+                    Select a Feature card to view Story and Bug timelines.
+                  </span>
                 </span>
               
                 <span
