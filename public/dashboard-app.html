@@ -523,8 +523,14 @@
     .feature-readiness-summary__message--missing { color: #b91c1c;}
     .feature-readiness-summary__message--unknown { color: var(--text-secondary); }
     .feature-detail-panel__divider { height: 1px; margin: 14px 0; background: var(--line-hairline); }
-    .dashboard-interaction-hint { margin: 8px 0; padding: 7px 10px; border-radius: 6px; font-size: 11px; line-height: 1.4; background: var(--surface-sunken);
-      color: var(--text-secondary); border: 1px solid var(--line-hairline); }
+    .dashboard-interaction-hint { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 8px; }
+    .dashboard-interaction-hint__legend { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-left: 4px;
+      color: var(--text-secondary); font-size: var(--step--2); font-weight: 700; }
+    .dashboard-interaction-hint__legend-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+    .dashboard-interaction-hint__today-marker { width: 2px; height: 14px; background: var(--accent-strong); box-shadow: 0 0 3px rgba(29, 78, 216, 0.32); }
+    .dashboard-interaction-hint__rfv-marker { width: 10px; height: 10px; background: #1e3a8a; transform: rotate(45deg); }
+    .dashboard-interaction-hint__tech-go-live-marker { display: inline-flex; align-items: center; justify-content: center; width: 12px; color: #f59e0b;
+      font-size: 17px; font-weight: 800; line-height: 1; text-shadow: 0 0 1px #78350f, 0 1px 2px rgba(15, 23, 42, 0.35); }
     .dashboard-interaction-hint strong { color: #1e3a8a;}
     /* Estados visibles del área principal de resultados: loading; sin resultados por filtros; sin Features disponibles; error de carga. Se reutilizan tanto para Feature List como para Roadmap. */
     .dashboard-results-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 260px;
@@ -1023,15 +1029,17 @@
       - grilla vertical de meses/semanas;
       - línea única de Today;
       - futuras mejoras de pan directo.*/
-    .gantt-horizontal-scroll { position: relative; }
+    .gantt-horizontal-scroll { position: relative; isolation: isolate; }
     /* La regla sólo ocupa la columna temporal. No cubre Priority, ID ni Feature title; tampoco intercepta clics, hover o tooltips. */
-    .gantt-ruler { position: absolute; top: 0; bottom: 0; z-index: 50;  pointer-events: none; }
+    .gantt-ruler { position: absolute; top: 0; bottom: 0; z-index: 70;  pointer-events: none; }
     .roadmap-table { position: relative; z-index: 1; }
+    .dashboard-results-scroll .roadmap-table thead th { z-index: 80; }
     /* Divisiones alineadas con las doce unidades del encabezado. Son deliberadamente sutiles: proporcionan estructura temporal sin competir con las barras, los markers ni los estados.*/
     .gantt-ruler__grid { position: absolute; inset: 0; opacity: 0.72; background: repeating-linear-gradient( to right, transparent 0,
       transparent calc(var(--gantt-unit) - 1px), var(--line-hairline) calc(var(--gantt-unit) - 1px), var(--line-hairline) var(--gantt-unit) ); }
     /* Today es una sola línea continua para toda la altura del Roadmap. Se lee como una referencia temporal global, no como quince segmentos independientes dentro de las filas. */
-    .gantt-ruler__today { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent-strong); opacity: 0.72; }
+    .gantt-ruler__today { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent-strong); opacity: 1;  box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.5), 0 0 7px rgba(29, 78, 216, 0.3); }
     .gantt-ruler__today::before { content: 'Today'; position: absolute; top: 4px; left: 50%; padding: 1px 6px; border-radius: 4px;
       background: var(--accent-strong); color: #ffffff; font-size: var(--step--2); font-weight: 700; line-height: 1.3; white-space: nowrap;
       transform: translateX(-50%); box-shadow: var(--shadow-chip); }
@@ -7627,6 +7635,7 @@
       /* -7 conserva el encuadre actual: siete unidades antes de hoy y cinco unidades futuras. */
       const resetTimelineToToday = () => { setTimelineOffset(-7); setWeekOffset(-7); };
       const timelinePan = useTimelinePan({ unitCount: 12, offset: timelineUnitOffset, onOffsetChange: setTimelineUnitOffset, minOffset: -60, maxOffset: 36 });
+      const setRoadmapGanttNode = (node) => { roadmapGanttRef.current = node; timelinePan.panHandlers.ref.current = node; };
             
       useEffect(() => {
         if (currentPage !== 'roadmap') {
@@ -10182,8 +10191,38 @@
             ) : (
               <>
                 <div className="dashboard-interaction-hint">
-                  <strong>Tip:</strong> Tap a Feature card to view Readiness,
-                  Delivery Health, Delivery Activity, and associated Stories and Bugs.
+                  <strong>Tip:</strong>{' '}
+                  Drag timeline to browse. Arrows move one unit; Home returns to Today.
+                  <span
+                    className="dashboard-interaction-hint__legend"
+                    aria-label="Roadmap marker legend"
+                  >
+                    <span className="dashboard-interaction-hint__legend-item">
+                      <span
+                        className="dashboard-interaction-hint__today-marker"
+                        aria-hidden="true"
+                      />
+                      Today
+                    </span>
+                
+                    <span className="dashboard-interaction-hint__legend-item">
+                      <span
+                        className="dashboard-interaction-hint__rfv-marker"
+                        aria-hidden="true"
+                      />
+                      RFV
+                    </span>
+                
+                    <span className="dashboard-interaction-hint__legend-item">
+                      <span
+                        className="dashboard-interaction-hint__tech-go-live-marker"
+                        aria-hidden="true"
+                      >
+                        ★
+                      </span>
+                      Tech Go Live RFV
+                    </span>
+                  </span>
                 </div>
 
                 {/* Vista exclusiva para móvil. En desktop/tablet se oculta
@@ -10720,10 +10759,17 @@
               <div className="table-wrapper">
                 {/* ── TABLA PRINCIPAL DEL ROADMAP ── */}
                 {/* El header permanece sticky dentro del único panel de resultados. */}
-                <div ref={roadmapGanttRef} className={[ 'gantt-horizontal-scroll', timelinePan.isDragging ? 'gantt-horizontal-scroll--dragging' : '' ]
+                <div
+                  {...timelinePan.panHandlers}
+                  ref={setRoadmapGanttNode}
+                  className={[
+                    'gantt-horizontal-scroll',
+                    timelinePan.isDragging
+                      ? 'gantt-horizontal-scroll--dragging'
+                      : ''
+                  ]
                     .filter(Boolean)
                     .join(' ')}
-                  {...timelinePan.panHandlers}
                   style={{
                     '--gantt-drag-offset': `${timelinePan.dragOffsetPx}px`
                   }}
