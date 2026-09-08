@@ -122,6 +122,7 @@ function validateDeliveryHealthRules(config) {
     'needsEstimate',
     'noStories',
     'noActiveWork',
+    'toReleasePending',
     'unestimatedWork',
     'healthy',
     'unableToEvaluate'
@@ -3142,6 +3143,34 @@ function buildDeliveryHealth(feature) {
     inProgressWorkItems === 0
   ) {
     alerts.push(createRuleAlert('noActiveWork'));
+  }
+    /* To Release cuenta como trabajo completado para Progress, pero no equivale necesariamente a trabajo desplegado o cerrado.
+    Esta alerta detecta una Feature abierta cuyo alcance restante está exclusivamente listo para release:
+    - Tiene uno o más Stories/Bugs en To Release.
+    - No tiene trabajo In Planning.
+    - No tiene trabajo In Progress.
+    - La Feature no está Closed.
+    No se activa mientras exista trabajo todavía en planificación o ejecución; en esos casos To Release representa progreso normal,
+    no necesariamente una retención de release. */
+  const toReleasePendingRule = getDeliveryHealthRule( 'toReleasePending' );
+
+  if (
+    toReleasePendingRule.enabled &&
+    !isClosed &&
+    toReleaseWorkItems > 0 &&
+    inPlanningWorkItems === 0 &&
+    inProgressWorkItems === 0
+  ) {
+    alerts.push(
+      createRuleAlert(
+        'toReleasePending',
+        {
+          reasonValues: {
+            count: toReleaseWorkItems
+          }
+        }
+      )
+    );
   }
 
   const unestimatedWorkRule = getDeliveryHealthRule(
