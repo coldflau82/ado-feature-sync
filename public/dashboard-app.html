@@ -511,7 +511,7 @@
     /* ── Sticky Feature Context Row ────────────────────────────────
     No modifica la fila original de la tabla. Es una copia visual independiente que sólo aparece mientras el encabezado original
     de una Feature expandida está oculto detrás del header de columnas. */
-    .sticky-feature-context { position: fixed; z-index: 59; overflow: hidden; border: 1px solid #bfdbfe; border-left: 3px solid var(--feature-state-color, #94a3b8);
+    .sticky-feature-context { position: fixed; z-index: 61; overflow: hidden; border: 1px solid #bfdbfe; border-left: 3px solid var(--feature-state-color, #94a3b8);
       background: #f2f7ff; box-shadow: 0 8px 18px -12px rgba(15, 23, 42, 0.72); }
     /* Desktop amplio: réplica visual de las catorce columnas. */
     .sticky-feature-context--full { min-height: 48px; }
@@ -1098,6 +1098,17 @@
     .release-alignment-indicator { appearance: none; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; flex: 0 0 16px;
       margin-top: 1px; padding: 0; border: 0; border-radius: 50%; background: var(--text-tertiary); color: var(--surface-raised); cursor: pointer;
       font: inherit; font-size: 9px; font-weight: 800; line-height: 1; touch-action: manipulation; -webkit-tap-highlight-color: transparent;}
+    /* Versión no interactiva usada exclusivamente por StickyFeatureContextRow. Comunica el mismo estado RFV Alignment sin sugerir que el usuario puede
+    abrir, cerrar o modificar el detalle desde ese ícono. */
+    .release-alignment-status-indicator { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
+      flex: 0 0 16px; margin-top: 1px; border-radius: 50%; background: var(--text-tertiary); color: var(--surface-raised);
+      font-size: 9px; font-weight: 800; line-height: 1; }
+    .release-alignment-status-indicator__icon { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 100%;}
+    .release-alignment-status-indicator.release-alignment-badge--aligned { background: var(--ok); }
+    .release-alignment-status-indicator.release-alignment-badge--at-risk { background: var(--warn); }
+    .release-alignment-status-indicator.release-alignment-badge--missed,.release-alignment-status-indicator.release-alignment-badge--release-passed {
+      background: var(--risk);}
+    .release-alignment-status-indicator.release-alignment-badge--unavailable { background: var(--text-tertiary); }
     .release-alignment-indicator__icon { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: inherit;
       font-size: inherit; font-weight: inherit; line-height: 1;}
     /* El color se pinta en el botón, no en el span interno. */
@@ -1491,6 +1502,42 @@
             {meta.icon}
           </span>
         </button>
+      );
+    }
+
+    function ReleaseAlignmentStatusIndicator({
+      releaseAlignment
+    }) {
+      const status = String(
+        releaseAlignment?.status || ''
+      ).trim();
+    
+      /* Igual que en la tabla original: si no aplica o no existe estado, no agregamos ruido visual. */
+      if (
+        !status ||
+        status === 'not-applicable'
+      ) {
+        return null;
+      }
+    
+      const meta = getReleaseAlignmentMeta(status);
+    
+      return (
+        <span
+          className={[
+            'release-alignment-status-indicator',
+            meta.className
+          ].join(' ')}
+          aria-label={`Release Alignment: ${meta.label}`}
+          title={`Release Alignment: ${meta.label}`}
+        >
+          <span
+            className="release-alignment-status-indicator__icon"
+            aria-hidden="true"
+          >
+            {meta.icon}
+          </span>
+        </span>
       );
     }
         
@@ -5761,7 +5808,6 @@
           storiesCache,
           unavailableStoriesIds,
           onCollapse,
-          onToggle,
           showTooltip,
           moveTooltip,
           hideTooltip
@@ -5905,14 +5951,11 @@
                       value={feature.releaseFixVersion}
                     />
     
-                    <ReleaseAlignmentIndicator
-                      releaseAlignment={
-                        feature.deliverySummary?.releaseAlignment
-                      }
-                      featureId={feature.id}
-                      isExpanded
-                      onToggle={onToggle}
-                    />
+                  <ReleaseAlignmentStatusIndicator
+                    releaseAlignment={
+                      feature.deliverySummary?.releaseAlignment
+                    }
+                  />
                   </div>
                 </div>
     
@@ -9855,16 +9898,24 @@
           return;
         }
     
-        const headerRect = headerRow.getBoundingClientRect();
+        /* featureListHeaderRef apunta al <tr>, pero el sticky real está aplicado individualmente sobre cada <th>.
+          Un <tr> continúa desplazándose aunque sus <th> permanezcan visibles. Por eso debemos medir una celda <th> sticky real, no el <tr>.*/
+        const stickyHeaderCell = headerRow.cells?.[0];
+        
+        if (!stickyHeaderCell) {
+          clearStickyContext();
+          return;
+        }
+        
+        const stickyHeaderRect = stickyHeaderCell.getBoundingClientRect();
+        
         const featureRowRect = featureRow.getBoundingClientRect();
         const detailRowRect = detailRow.getBoundingClientRect();
         const tableRect = table.getBoundingClientRect();
-        const scrollContainerRect =
-          scrollContainer.getBoundingClientRect();
-    
-        /* El header es sticky dentro de dashboard-results-scroll.
-          bottom es el límite real debajo del cual debe aparecer el contexto de la Feature. */
-        const stickyTop = Math.round(headerRect.bottom);
+        const scrollContainerRect = scrollContainer.getBoundingClientRect();
+        
+        /* stickyHeaderRect.bottom representa el borde inferior real y visible de los títulos de columnas mientras se hace scroll. */
+        const stickyTop = Math.round(stickyHeaderRect.bottom);
       
         const isFullMode = window.innerWidth >= 1340;
     
@@ -9917,14 +9968,16 @@
           const isSameFeatureAlreadySticky =
             previous?.featureId === Number(expandedFeatureId);
     
-          /* Histéresis:
-            - Mostrar cuando la fila cruzó 2px arriba del header.
-            - Mantenerla visible hasta que vuelva 6px debajo del header. */
-          const featureRowHasPassedHeader =
-            featureRowRect.top <=
-            stickyTop +
-              (isSameFeatureAlreadySticky ? 6 : -2);
-    
+        /* Mostrar cuando la fila original ya cruzó el borde inferior de los títulos de columna.
+          Si la barra ya está visible, usamos +6px para evitar que desaparezca por pequeñas variaciones de subpíxeles 
+          durante scroll lento, zoom, trackpad o momentum scrolling. */
+        const showThreshold = isSameFeatureAlreadySticky
+          ? stickyTop + 6
+          : stickyTop - 2;
+        
+        const featureRowHasPassedHeader =
+          featureRowRect.top <= showThreshold;
+            
           /* La barra desaparece cuando ya no queda detalle suficiente debajo de ella. Usa su altura real, no la altura de la fila
             original de la tabla.*/
           const detailStillVisible =
@@ -10001,18 +10054,21 @@
             scheduleStickyContextUpdate
           );
       
-          [
-            resultsScrollRef.current,
-            featureListHeaderRef.current,
-            featureListTableRef.current,
-            featureListRowRefs.current.get(
-              Number(expandedFeatureId)
-            ),
-            featureListDetailRowRefs.current.get(
-              Number(expandedFeatureId)
-            ),
-            stickyFeatureContextRef.current
-          ]
+        [
+          resultsScrollRef.current,
+        
+          /* Observamos el <tr> y también el primer <th> sticky real.  El primero ayuda si cambia la estructura; el segundo controla
+            la geometría que realmente se usa para posicionar el overlay. */
+          featureListHeaderRef.current, 
+          featureListHeaderRef.current?.cells?.[0],
+        
+          featureListTableRef.current,
+          featureListRowRefs.current.get( Number(expandedFeatureId) ),
+        
+          featureListDetailRowRefs.current.get( Number(expandedFeatureId) ),
+        
+          stickyFeatureContextRef.current
+        ]
             .filter(Boolean)
             .forEach(element => {
               resizeObserver.observe(element);
@@ -11931,11 +11987,6 @@
                 storiesCache={storiesCache}
                 unavailableStoriesIds={unavailableStoriesIds}
                 onCollapse={() =>
-                  toggleFeatureDetails(
-                    stickyFeatureContext.featureId
-                  )
-                }
-                onToggle={() =>
                   toggleFeatureDetails(
                     stickyFeatureContext.featureId
                   )
