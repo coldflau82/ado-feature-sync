@@ -194,7 +194,7 @@
     .feature-list-table td { white-space: nowrap;}
     /* Risk Indicator: Tres barras de altura creciente comunican severidad también por forma,
     no exclusivamente por color. Esto mejora legibilidad en escala de grises y para usuarios con diferencias en percepción de color.*/
-    .risk-indicator { display: inline-flex; align-items: flex-end; justify-content: center; gap: 2px; height: 14px; cursor: help;}
+    .risk-indicator { display: inline-flex; align-items: flex-end; justify-content: center; gap: 2px; height: 14px; }
     .risk-indicator__bar { width: 3px; border-radius: 1px; background: var(--line-strong); transition: background var(--response-ui) var(--ease-ui);}
     .risk-indicator__bar:nth-child(1) { height: 6px; }
     .risk-indicator__bar:nth-child(2) { height: 10px; }
@@ -508,6 +508,43 @@
       .dashboard-kpi-all-features { max-width: none; }
       .dashboard-kpis .readiness-overview-card--all { min-height: 56px; }
       .dashboard-navigation .view-switcher__button { height: 74px; min-height: 74px; }}
+    /* ── Sticky Feature Context Row ────────────────────────────────
+    No modifica la fila original de la tabla. Es una copia visual independiente que sólo aparece mientras el encabezado original
+    de una Feature expandida está oculto detrás del header de columnas. */
+    .sticky-feature-context { position: fixed; z-index: 59; overflow: hidden; border: 1px solid #bfdbfe; border-left: 3px solid var(--feature-state-color, #94a3b8);
+      background: #f2f7ff; box-shadow: 0 8px 18px -12px rgba(15, 23, 42, 0.72); }
+    /* Desktop amplio: réplica visual de las catorce columnas. */
+    .sticky-feature-context--full { min-height: 48px; }
+    .sticky-feature-context__full-grid { display: grid; min-width: max-content; align-items: stretch; }
+    .sticky-feature-context__cell {  display: flex; align-items: center; min-width: 0; padding: 7px; overflow: hidden; line-height: 1.25;
+      border-right: 1px solid rgba(203, 213, 225, 0.8); color: var(--text-primary);font-size: 11px; text-overflow: ellipsis; white-space: nowrap;}
+    .sticky-feature-context__cell:last-child { border-right: 0; }
+    .sticky-feature-context__cell--center { justify-content: center; text-align: center; }
+    .sticky-feature-context__cell--title { display: block; padding-top: 8px; padding-bottom: 8px; font-weight: 700; line-height: 1.3; }
+    .sticky-feature-context__cell--title span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sticky-feature-context__state { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+    .sticky-feature-context__state-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sticky-feature-context__progress { display: grid; width: 100%; gap: 3px; }
+    .sticky-feature-context__progress-label { color: var(--text-secondary); font-size: 10px; font-weight: 700; }
+    /* Tablet: contexto operativo compacto. */
+    .sticky-feature-context--compact { display: grid; grid-template-columns: auto auto minmax(150px, 1fr) 
+      auto; grid-template-areas: "disclosure risk identity progress" "disclosure risk title status"; 
+      align-items: center; gap: 5px 10px; min-height: 58px; padding: 7px 10px; }
+    .sticky-feature-context__compact-disclosure { grid-area: disclosure; }
+    .sticky-feature-context__compact-risk { grid-area: risk; }
+    .sticky-feature-context__compact-identity { grid-area: identity; min-width: 0; overflow: hidden; color: var(--text-secondary); font-size: 10px;
+      font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .sticky-feature-context__compact-title { grid-area: title; min-width: 0; overflow: hidden; color: var(--text-primary); font-size: 12px; font-weight: 700;
+      line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+    .sticky-feature-context__compact-progress { grid-area: progress; min-width: 92px; }
+    .sticky-feature-context__compact-status { grid-area: status; display: flex; align-items: center; justify-content: flex-end; gap: 5px;
+      min-width: 0; overflow: hidden; }
+    .sticky-feature-context__compact-estimates { color: var(--text-secondary); font-size: 10px; font-weight: 700; white-space: nowrap; }
+    .sticky-feature-context__compact-status .readiness-badge,.sticky-feature-context__compact-status .delivery-badge { flex: 0 1 auto; min-width: 0; }
+    /* La barra sticky sólo existe para desktop y tablet.
+     En móvil ya usamos cards y mobile-workspace-controls sticky. */
+    @media (max-width: 820px) { .sticky-feature-context { display: none; } }
+    @media (prefers-reduced-transparency: reduce) { .sticky-feature-context { background: var(--surface-raised); } }
     /* Filas expandibles y detalle consolidado ── */
     .feature-row--expandable, .roadmap-feature-row--expandable {cursor: pointer;}
     .feature-row--expandable:hover,.roadmap-feature-row--expandable:hover { background: #f8fbff !important;}
@@ -5604,6 +5641,7 @@
     - In Progress: azul.
     - In Planning: gris.
     La fuente puede cambiar silenciosamente de deliverySummary del backend a storiesCache, y flex-grow anima la proporción ajustada. */
+
     function DeliveryProgressBar({
       summary,
       compact = false,
@@ -5678,11 +5716,7 @@
             </div>
           )}
 
-          <div
-            className="delivery-progress__track"
-            role="img"
-            aria-label={`Delivery progress: ${description}`}
-          >
+          <div className="delivery-progress__track" role="img" aria-label={`Delivery progress: ${description}`}>
             {segments.map(segment => (
               <span
                 key={segment.key}
@@ -5717,6 +5751,329 @@
       );
     }
 
+    const StickyFeatureContextRow = React.forwardRef(
+      function StickyFeatureContextRow(
+        {
+          feature,
+          context,
+          adoLink,
+          formatDate,
+          storiesCache,
+          unavailableStoriesIds,
+          onCollapse,
+          onToggle,
+          showTooltip,
+          moveTooltip,
+          hideTooltip
+        },
+        ref
+      ) {
+        if (!feature || !context) {
+          return null;
+        }
+    
+        const featureStateColor = getFeatureStateColor(
+          feature.state
+        );
+    
+        const summary = getFeatureDeliverySummary(
+          feature,
+          storiesCache,
+          unavailableStoriesIds
+        );
+    
+        const riskScore = getFeatureRiskScore(
+          feature,
+          storiesCache,
+          unavailableStoriesIds
+        );
+    
+        const riskBreakdown = getFeatureRiskBreakdown(
+          feature,
+          storiesCache,
+          unavailableStoriesIds
+        );
+    
+        const progressPercent = Math.max(
+          0,
+          Math.min(
+            100,
+            Number(summary?.progressPercent) || 0
+          )
+        );
+    
+        const isFullMode = context.mode === 'full';
+    
+        const fullGridStyle = isFullMode
+          ? {
+              gridTemplateColumns: context.columnWidths
+                .map(width => `${width}px`)
+                .join(' ')
+            }
+          : undefined;
+    
+        return (
+          <section
+            ref={ref}
+            className={[
+              'sticky-feature-context',
+              isFullMode
+                ? 'sticky-feature-context--full'
+                : 'sticky-feature-context--compact'
+            ].join(' ')}
+            style={{
+              top: `${context.top}px`,
+              left: `${context.left}px`,
+              width: `${context.width}px`,
+              '--feature-state-color': featureStateColor
+            }}
+            aria-label={`Expanded Feature ${feature.id} context`}
+          >
+            {isFullMode ? (
+              <div
+                className="sticky-feature-context__full-grid"
+                style={fullGridStyle}
+              >
+                <div className="sticky-feature-context__cell sticky-feature-context__cell--center">
+                  <button
+                    type="button"
+                    className="disclosure-button disclosure-button--expanded"
+                    onClick={onCollapse}
+                    aria-label={`Collapse details for Feature ${feature.id}`}
+                    title="Collapse Feature details"
+                  >
+                    <svg
+                      viewBox="0 0 16 16"
+                      width="14"
+                      height="14"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 6.5l4 4 4-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+    
+                <div className="sticky-feature-context__cell sticky-feature-context__cell--center">
+                  <RiskIndicator
+                    score={riskScore}
+                    breakdown={riskBreakdown}
+                    showTooltip={showTooltip}
+                    moveTooltip={moveTooltip}
+                    hideTooltip={hideTooltip}
+                  />
+                </div>
+    
+                <div className="sticky-feature-context__cell sticky-feature-context__cell--center">
+                  {feature.priority || '-'}
+                </div>
+    
+                <div className="sticky-feature-context__cell">
+                  <a
+                    href={adoLink(feature.id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Open Feature ${feature.id} in Azure DevOps`}
+                  >
+                    {feature.id}
+                  </a>
+                </div>
+    
+                <div className="sticky-feature-context__cell sticky-feature-context__cell--title">
+                  <span title={feature.title || 'Untitled Feature'}>
+                    {feature.title || 'Untitled Feature'}
+                  </span>
+                </div>
+    
+                <div className="sticky-feature-context__cell">
+                  <TargetDateCell
+                    targetDate={feature.targetDate}
+                    featureState={feature.state}
+                    formatDate={formatDate}
+                  />
+                </div>
+    
+                <div className="sticky-feature-context__cell">
+                  <div className="release-fix-version-with-alignment">
+                    <ReleaseFixVersionCell
+                      value={feature.releaseFixVersion}
+                    />
+    
+                    <ReleaseAlignmentIndicator
+                      releaseAlignment={
+                        feature.deliverySummary?.releaseAlignment
+                      }
+                      featureId={feature.id}
+                      isExpanded
+                      onToggle={onToggle}
+                    />
+                  </div>
+                </div>
+    
+                <div className="sticky-feature-context__cell sticky-feature-context__cell--center">
+                  {feature.estimation?.be || '-'}
+                </div>
+    
+                <div className="sticky-feature-context__cell sticky-feature-context__cell--center">
+                  {feature.estimation?.fe || '-'}
+                </div>
+    
+                <div className="sticky-feature-context__cell sticky-feature-context__cell--center">
+                  {feature.estimation?.qa || '-'}
+                </div>
+    
+                <div className="sticky-feature-context__cell">
+                  <span className="sticky-feature-context__state">
+                    <span
+                      className="feature-state-dot"
+                      style={{ background: featureStateColor }}
+                    />
+    
+                    <span className="sticky-feature-context__state-label">
+                      {feature.state || '-'}
+                    </span>
+                  </span>
+                </div>
+    
+                <div className="sticky-feature-context__cell sticky-feature-context__cell--center">
+                  <ReadinessBadge
+                    readiness={getFeatureReadiness(feature)}
+                    feature={feature}
+                    showTooltip={showTooltip}
+                    moveTooltip={moveTooltip}
+                    hideTooltip={hideTooltip}
+                  />
+                </div>
+    
+                <div className="sticky-feature-context__cell sticky-feature-context__cell--center">
+                  <DeliveryHealthBadge
+                    feature={feature}
+                    compact
+                    showTooltip={showTooltip}
+                    moveTooltip={moveTooltip}
+                    hideTooltip={hideTooltip}
+                  />
+                </div>
+    
+                <div className="sticky-feature-context__cell sticky-feature-context__cell--center">
+                  <div className="sticky-feature-context__progress">
+                    <span className="sticky-feature-context__progress-label">
+                      {summary
+                        ? `${progressPercent}%`
+                        : 'Unavailable'}
+                    </span>
+    
+                    <DeliveryProgressBar
+                      summary={summary}
+                      compact
+                      showFlags={false}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="sticky-feature-context__compact-disclosure">
+                  <button
+                    type="button"
+                    className="disclosure-button disclosure-button--expanded"
+                    onClick={onCollapse}
+                    aria-label={`Collapse details for Feature ${feature.id}`}
+                    title="Collapse Feature details"
+                  >
+                    <svg
+                      viewBox="0 0 16 16"
+                      width="14"
+                      height="14"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 6.5l4 4-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+    
+                <div className="sticky-feature-context__compact-risk">
+                  <RiskIndicator
+                    score={riskScore}
+                    breakdown={riskBreakdown}
+                    showTooltip={showTooltip}
+                    moveTooltip={moveTooltip}
+                    hideTooltip={hideTooltip}
+                  />
+                </div>
+    
+                <div className="sticky-feature-context__compact-identity">
+                  #{feature.id} · P{feature.priority || '—'} ·{' '}
+                  {feature.state || 'No state'}
+                </div>
+    
+                <div
+                  className="sticky-feature-context__compact-title"
+                  title={feature.title || 'Untitled Feature'}
+                >
+                  {feature.title || 'Untitled Feature'}
+                </div>
+    
+                <div className="sticky-feature-context__compact-progress">
+                  <div className="sticky-feature-context__progress">
+                    <span className="sticky-feature-context__progress-label">
+                      {summary
+                        ? `${progressPercent}% progress`
+                        : 'Progress unavailable'}
+                    </span>
+    
+                    <DeliveryProgressBar
+                      summary={summary}
+                      compact
+                      showFlags={false}
+                    />
+                  </div>
+                </div>
+    
+                <div className="sticky-feature-context__compact-status">
+                  <span className="sticky-feature-context__compact-estimates">
+                    BE {feature.estimation?.be || '—'} · FE{' '}
+                    {feature.estimation?.fe || '—'} · QA{' '}
+                    {feature.estimation?.qa || '—'}
+                  </span>
+    
+                  <ReadinessBadge
+                    readiness={getFeatureReadiness(feature)}
+                    feature={feature}
+                    iconOnly
+                    showTooltip={showTooltip}
+                    moveTooltip={moveTooltip}
+                    hideTooltip={hideTooltip}
+                  />
+    
+                  <DeliveryHealthBadge
+                    feature={feature}
+                    compact
+                    showTooltip={showTooltip}
+                    moveTooltip={moveTooltip}
+                    hideTooltip={hideTooltip}
+                  />
+                </div>
+              </>
+            )}
+          </section>
+        );
+      }
+    );
+                    
     function getShortAssignedToName(value) {
       if (!value) { return 'Unassigned'; }
 
@@ -7837,6 +8194,9 @@
       const [currentPage, setCurrentPage] = useState('roadmap');
       /* Solo una Feature puede estar expandida a la vez en Feature List. El detalle consolidado contiene Readiness y Delivery Health.*/
       const [expandedFeatureId, setExpandedFeatureId] = useState(null);
+      /* Contexto visual independiente de la Feature expandida. null significa que la fila original todavía está visible o que
+        el detalle ya terminó de pasar por el área desplazable. */
+      const [stickyFeatureContext, setStickyFeatureContext] = useState(null);
       const [searchTitle, setSearchTitle] = useState('');
       const [searchInput, setSearchInput] = useState('');
       const [sortColumn, setSortColumn] = useState('priority');
@@ -8244,6 +8604,9 @@
       const toggleFeatureDetails = (featureId) => {
         const isAlreadyOpen = expandedFeatureId === featureId;
       
+        /* Evita mostrar por un frame el contexto de la Feature anterior cuando se colapsa o se selecciona una nueva. */
+        setStickyFeatureContext(null);
+      
         if (isAlreadyOpen) {
           setExpandedFeatureId(null);
           return;
@@ -8283,6 +8646,8 @@
       const featureListRowRefs = useRef(new Map());
       const featureListDetailRowRefs = useRef(new Map());
       const featureListTableRef = useRef(null);
+      /* Permite medir la altura real del overlay sticky, incluso cuando cambia entre los modos full y compact. */
+      const stickyFeatureContextRef = useRef(null);
 
       const roadmapGanttRef = useRef(null);
 
@@ -8299,6 +8664,7 @@
         setRoadmapPage(1);
         setExpandedFeatureId(null);
         setExpandedRoadmapFeatureId(null);
+        setStickyFeatureContext(null);
       
         requestAnimationFrame(() => {
           scrollResultsToTop('smooth');
@@ -8756,7 +9122,7 @@
 
       useEffect(() => { loadFeatures(false); }, []);
       useEffect(() => { setExpandedRoadmapFeatureId(null); }, [roadmapPage]);
-      useEffect(() => { setExpandedFeatureId(null); }, [featuresPage]);
+      useEffect(() => { setExpandedFeatureId(null); setStickyFeatureContext(null); }, [featuresPage]);
 
       const areaPaths = [...new Set(features.map(f => f.areaPath).filter(a => a))].sort();
       const iterations = [...new Set(features.map(f => f.iterationPath).filter(a => a))].sort();
@@ -9434,6 +9800,250 @@
       const featuresStartIdx = (featuresPage - 1) * featuresItemsPerPage;
       const featuresPageItems = sortedFiltered.slice(featuresStartIdx, featuresStartIdx + featuresItemsPerPage);
 
+      /* Sticky Context Row independiente.
+      No hace sticky la fila <tr> original ni ninguno de sus <td>.
+      Sólo mide:
+      - el header de columnas;
+      - la fila original expandida;
+      - la fila de detalle;
+      - la tabla;
+      - el contenedor con scroll.
+    La histéresis de 2px / 6px evita alternancias visuales cerca del límite del header por subpíxeles, zoom o momentum scrolling. */
+        
+    useEffect(() => {
+      let animationFrameId = 0;
+      let resizeObserver = null;
+    
+      const clearStickyContext = () => {
+        setStickyFeatureContext(previous =>
+          previous === null
+            ? previous
+            : null
+        );
+      };
+    
+      const updateStickyContext = () => {
+        animationFrameId = 0;
+    
+        if (
+          currentPage !== 'features' ||
+          !expandedFeatureId ||
+          window.innerWidth <= 820
+        ) {
+          clearStickyContext();
+          return;
+        }
+    
+        const scrollContainer = resultsScrollRef.current;
+        const headerRow = featureListHeaderRef.current;
+        const featureRow = featureListRowRefs.current.get(
+          Number(expandedFeatureId)
+        );
+        const detailRow = featureListDetailRowRefs.current.get(
+          Number(expandedFeatureId)
+        );
+        const table = featureListTableRef.current;
+    
+        if (
+          !scrollContainer ||
+          !headerRow ||
+          !featureRow ||
+          !detailRow ||
+          !table
+        ) {
+          clearStickyContext();
+          return;
+        }
+    
+        const headerRect = headerRow.getBoundingClientRect();
+        const featureRowRect = featureRow.getBoundingClientRect();
+        const detailRowRect = detailRow.getBoundingClientRect();
+        const tableRect = table.getBoundingClientRect();
+        const scrollContainerRect =
+          scrollContainer.getBoundingClientRect();
+    
+        /* El header es sticky dentro de dashboard-results-scroll.
+          bottom es el límite real debajo del cual debe aparecer el contexto de la Feature. */
+        const stickyTop = Math.round(headerRect.bottom);
+      
+        const isFullMode = window.innerWidth >= 1340;
+    
+        /* En desktop amplio, el overlay conserva el ancho completo de la tabla para mantenerse alineado con sus columnas.
+          En tablet, la vista compacta usa sólo el tramo visible del contenedor; así no crea una barra de 1280px sobre una pantalla
+          más estrecha. */
+        const compactLeft = Math.max(
+          tableRect.left,
+          scrollContainerRect.left
+        );
+    
+        const compactRight = Math.min(
+          tableRect.right,
+          scrollContainerRect.right,
+          window.innerWidth
+        );
+    
+        const contextLeft = isFullMode
+          ? tableRect.left
+          : compactLeft;
+    
+        const contextWidth = isFullMode
+          ? tableRect.width
+          : compactRight - compactLeft;
+    
+        if (contextWidth <= 0) {
+          clearStickyContext();
+          return;
+        }
+    
+        const columnWidths = isFullMode
+          ? Array.from(headerRow.cells).map(cell =>
+              Number(
+                cell
+                  .getBoundingClientRect()
+                  .width
+                  .toFixed(2)
+              )
+            )
+          : [];
+    
+        /* En el primer frame todavía puede no existir el overlay.
+          56px es una estimación conservadora; al renderizarse, el ResizeObserver mide su altura real y vuelve a calcular. */
+        const stickyHeight =
+          stickyFeatureContextRef.current
+            ?.getBoundingClientRect()
+            .height || 56;
+    
+        setStickyFeatureContext(previous => {
+          const isSameFeatureAlreadySticky =
+            previous?.featureId === Number(expandedFeatureId);
+    
+          /* Histéresis:
+            - Mostrar cuando la fila cruzó 2px arriba del header.
+            - Mantenerla visible hasta que vuelva 6px debajo del header. */
+          const featureRowHasPassedHeader =
+            featureRowRect.top <=
+            stickyTop +
+              (isSameFeatureAlreadySticky ? 6 : -2);
+    
+          /* La barra desaparece cuando ya no queda detalle suficiente debajo de ella. Usa su altura real, no la altura de la fila
+            original de la tabla.*/
+          const detailStillVisible =
+            detailRowRect.bottom > stickyTop + stickyHeight + 4;
+    
+          if (
+            !featureRowHasPassedHeader ||
+            !detailStillVisible
+          ) {
+            return null;
+          }
+    
+          const nextContext = {
+            featureId: Number(expandedFeatureId),
+            mode: isFullMode ? 'full' : 'compact',
+            top: stickyTop,
+            left: Number(contextLeft.toFixed(2)),
+            width: Number(contextWidth.toFixed(2)),
+            columnWidths
+          };
+    
+          const hasSameColumnWidths =
+            previous?.columnWidths?.length ===
+              nextContext.columnWidths.length &&
+            previous.columnWidths.every(
+              (width, index) =>
+                width === nextContext.columnWidths[index]
+            );
+    
+          const hasSameLayout =
+            previous &&
+            previous.featureId === nextContext.featureId &&
+            previous.mode === nextContext.mode &&
+            previous.top === nextContext.top &&
+            previous.left === nextContext.left &&
+            previous.width === nextContext.width &&
+            hasSameColumnWidths;
+    
+          /* No crear un nuevo estado durante cada evento de scroll si la geometría real no cambió. Esto reduce renders y ayuda
+            a eliminar el parpadeo.*/
+          return hasSameLayout
+            ? previous
+            : nextContext;
+          });
+        };
+  
+        const scheduleStickyContextUpdate = () => {
+          if (animationFrameId) {
+            return;
+          }
+      
+          animationFrameId = requestAnimationFrame(
+            updateStickyContext
+          );
+        };
+      
+        scheduleStickyContextUpdate();
+      
+        const scrollContainer = resultsScrollRef.current;
+      
+        scrollContainer?.addEventListener(
+          'scroll',
+          scheduleStickyContextUpdate,
+          { passive: true }
+        );
+      
+        window.addEventListener(
+          'resize',
+          scheduleStickyContextUpdate
+        );
+      
+        if (typeof ResizeObserver !== 'undefined') {
+          resizeObserver = new ResizeObserver(
+            scheduleStickyContextUpdate
+          );
+      
+          [
+            resultsScrollRef.current,
+            featureListHeaderRef.current,
+            featureListTableRef.current,
+            featureListRowRefs.current.get(
+              Number(expandedFeatureId)
+            ),
+            featureListDetailRowRefs.current.get(
+              Number(expandedFeatureId)
+            ),
+            stickyFeatureContextRef.current
+          ]
+            .filter(Boolean)
+            .forEach(element => {
+              resizeObserver.observe(element);
+            });
+        }
+      
+        return () => {
+          if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+          }
+      
+          scrollContainer?.removeEventListener(
+            'scroll',
+            scheduleStickyContextUpdate
+          );
+      
+          window.removeEventListener(
+            'resize',
+            scheduleStickyContextUpdate
+          );
+      
+          resizeObserver?.disconnect();
+        };
+      }, [
+        currentPage,
+        expandedFeatureId,
+        featuresPage,
+        stickyFeatureContext?.featureId,
+        stickyFeatureContext?.mode
+      ]);
+              
        /* Los dos handlers centralizan:
         - límites mínimos y máximos;
         - cierre de paneles expandidos;
@@ -9443,6 +10053,7 @@
         if (targetPage === featuresPage) { return; }
         setFeaturesPage(targetPage);
         setExpandedFeatureId(null);
+        setStickyFeatureContext(null);
 
         requestAnimationFrame(() => { scrollResultsToTop('smooth'); });
       };
@@ -9767,7 +10378,9 @@
 
         setFeaturesPage(1);
         setRoadmapPage(1);
-
+        setExpandedFeatureId(null);
+        setStickyFeatureContext(null);
+              
         requestAnimationFrame(() => {
           scrollResultsToTop('smooth');
         });
@@ -10257,6 +10870,7 @@
                       setRoadmapPage(1);
                       setExpandedFeatureId(null);
                       setExpandedRoadmapFeatureId(null);
+                      setStickyFeatureContext(null);
                     }}
                     title="Filter Features by readiness status"
                   >
@@ -10285,6 +10899,7 @@
                   setRoadmapPage(1);
                   setExpandedFeatureId(null);
                   setExpandedRoadmapFeatureId(null);
+                  setStickyFeatureContext(null);
                 }}
                 title="Filter Features by a specific Delivery Health rule"
               >
@@ -10753,6 +11368,7 @@
           setRoadmapPage(1);
           setExpandedFeatureId(null);
           setExpandedRoadmapFeatureId(null);
+         setStickyFeatureContext(null);
         }}
         healthValue={healthRuleFilter}
         onHealthChange={(value) => {
@@ -10766,6 +11382,7 @@
           setRoadmapPage(1);
           setExpandedFeatureId(null);
           setExpandedRoadmapFeatureId(null);
+         setStickyFeatureContext(null);
         }}
         activeAdvancedFiltersCount={activeAdvancedFiltersCount}
         onOpenAdvancedFilters={() =>
@@ -11300,6 +11917,34 @@
                   </tbody>
                </table>
             </div>
+            {stickyFeatureContext && (
+              <StickyFeatureContextRow
+                ref={stickyFeatureContextRef}
+                feature={featuresPageItems.find(
+                  feature =>
+                    Number(feature.id) ===
+                    Number(stickyFeatureContext.featureId)
+                )}
+                context={stickyFeatureContext}
+                adoLink={adoLink}
+                formatDate={formatDate}
+                storiesCache={storiesCache}
+                unavailableStoriesIds={unavailableStoriesIds}
+                onCollapse={() =>
+                  toggleFeatureDetails(
+                    stickyFeatureContext.featureId
+                  )
+                }
+                onToggle={() =>
+                  toggleFeatureDetails(
+                    stickyFeatureContext.featureId
+                  )
+                }
+                showTooltip={showTooltip}
+                moveTooltip={moveTooltip}
+                hideTooltip={hideTooltip}
+              />
+            )}
             </>
           )}
         </>
