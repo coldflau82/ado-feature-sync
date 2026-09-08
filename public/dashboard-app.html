@@ -8244,6 +8244,10 @@
       const [featuresPage, setFeaturesPage] = useState(1);
       const [legendExpanded, setLegendExpanded] = useState(false);
       const [refreshing, setRefreshing] = useState(false);
+      /* Se activa sólo cuando Refresh Live termina correctamente. El useEffect correspondiente espera al siguiente render, cuando
+        features, página actual y estados unavailable ya están disponibles, y reintenta exclusivamente timelines que fallaron previamente. */
+      const [retryUnavailableTimelinesAfterRefresh, setRetryUnavailableTimelinesAfterRefresh] = useState(false);
+
       /* Representa la última respuesta exitosa recibida por este navegador durante la sesión actual.
         No es la edad de Redis ni un timestamp compartido entre usuarios: /api/features siempre vuelve a consultar la ventana Live de los últimos 10 días.*/
       const [lastLiveCheckAt, setLastLiveCheckAt] = useState(null);
@@ -8674,6 +8678,13 @@
 
           /* Indica que esta sesión recibió y aplicó correctamente una respuesta nueva del endpoint Live. */
           setLastLiveCheckAt(new Date());
+
+          /* Sólo un Refresh Live exitoso debe recuperar timelines que previamente estuvieron temporalmente indisponibles.
+            No se ejecuta durante la carga inicial. Tampoco se activa si el Refresh Live falla, porque el catch conserva el portafolio
+            anterior y no debe iniciar solicitudes adicionales. */
+          if (forceRefresh) {
+            setRetryUnavailableTimelinesAfterRefresh(true);
+          }
 
           /* Una carga válida vuelve a mostrar las advertencias actuales del backend, aunque el usuario hubiera cerrado una anterior. */
           setAreWarningsDismissed(false);
@@ -9584,6 +9595,77 @@
     
       const expandedRoadmapStories = expandedRoadmapFeatureId ? (storiesCache[expandedRoadmapFeatureId] || []) : [];
       const expandedStoryIds = expandedRoadmapStories.map(s => s.id).join(',');
+
+      /*Después de un Refresh Live exitoso, reintenta únicamente los timelines que ya estaban marcados como temporalmente unavailable.
+        Alcance deliberadamente limitado:
+        - Features visibles en la página actual del Roadmap.
+        - Stories/Bugs de la Feature actualmente expandida.
+        - No recarga timelines sanos.
+        - No consulta Stories/Bugs ni Relationship Graph.
+        - No se repite automáticamente: la señal se apaga al finalizar. */
+      useEffect(() => {
+        if (!retryUnavailableTimelinesAfterRefresh) {
+          return;
+        }
+
+        /* El alcance acordado existe únicamente en Roadmap. Si el usuario cambió a Feature List antes de que el efecto se ejecute, se
+          consume la señal sin hacer solicitudes innecesarias. */
+        if (currentPage !== 'roadmap') {
+          setRetryUnavailableTimelinesAfterRefresh(false);
+          return;
+        }
+
+        const visibleFeatureIdsToRetry = pageItems
+          .map(feature => Number(feature.id))
+          .filter(featureId =>
+            Number.isInteger(featureId) &&
+            unavailableFeatureHistoryIds[featureId]
+          );
+
+        /* Sólo reintentamos Stories/Bugs si la Feature expandida continúa perteneciendo a la página visible actual del Roadmap. */
+        const expandedFeatureIsVisible =
+          Number.isInteger(
+            Number(expandedRoadmapFeatureId)
+          ) &&
+          pageItems.some(
+            feature =>
+              Number(feature.id) ===
+              Number(expandedRoadmapFeatureId)
+          );
+
+        const expandedStoryIdsToRetry =
+          expandedFeatureIsVisible
+            ? expandedRoadmapStories
+                .map(story => Number(story.id))
+                .filter(storyId =>
+                  Number.isInteger(storyId) &&
+                  unavailableStoryHistoryIds[storyId]
+                )
+            : [];
+
+        if (visibleFeatureIdsToRetry.length > 0) {
+          loadFeatureHistoryForFeatures(
+            visibleFeatureIdsToRetry,
+            { retry: true }
+          );
+        }
+
+        if (expandedStoryIdsToRetry.length > 0) {
+          loadStoryHistoryForWorkItems(
+            expandedStoryIdsToRetry,
+            { retry: true }
+          );
+        }
+
+        /* Evita loops automáticos si ADO sigue fallando. Los IDs que fallen permanecerán unavailable y conservarán su acción manual Retry. */
+        setRetryUnavailableTimelinesAfterRefresh(false);
+      }, [
+        retryUnavailableTimelinesAfterRefresh,
+        currentPage,
+        pageItemIds,
+        expandedRoadmapFeatureId,
+        expandedStoryIds
+      ]);
     
       /* Carga únicamente los timelines de Features visibles en Roadmap que todavía no existen en caché.
         historyCache[id] = []:
