@@ -4181,23 +4181,25 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
         return;
       }
 
-      getVisualRelations(firstLevelWorkItem).forEach(
-        storyRelation => {
-          nestedRelations.push({
-            sourceId: Number(firstLevelWorkItem.id),
-            targetId: storyRelation.targetId,
-            relationType: storyRelation.relationType,
-            rawRelationType: storyRelation.rawRelationType
-          });
-
-          secondLevelIds.add(storyRelation.targetId);
-        }
-      );
-    });
-
-    secondLevelRelationsByFeature.set(featureId, nestedRelations);
-  });
-
+    /* Para el segundo nivel sólo necesitamos relaciones Related desde una User Story hija directa hacia un posible Bug.
+      No consultamos Child, Parent, Task, Test Case u otros tipos de relación porque no forman parte de la vista de Linked Items y un fallo al cargar
+      uno de esos elementos no debe marcar toda la Feature como unavailable. */
+    getVisualRelations(firstLevelWorkItem)
+      .filter(
+        storyRelation =>
+          storyRelation.relationType === 'related'
+      )
+      .forEach(storyRelation => {
+        nestedRelations.push({
+          sourceId: Number(firstLevelWorkItem.id),
+          targetId: storyRelation.targetId,
+          relationType: storyRelation.relationType,
+          rawRelationType: storyRelation.rawRelationType
+        });
+    
+        secondLevelIds.add(storyRelation.targetId);
+      });
+    
   /* Paso 5: Obtener los targets de segundo nivel. Después se filtrarán para conservar exclusivamente Bugs. */
   const {
     workItemsById: secondLevelWorkItemsById,
