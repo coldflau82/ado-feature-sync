@@ -514,19 +514,6 @@
     /* Feature List conserva el clic sobre la fila como atajo, pero el control semántico para expandir/contraer es disclosure-button.
       Por eso la fila ya no recibe focus ni pretende ser un botón. */
     .feature-row--expanded,.roadmap-feature-row--expanded { background: #f2f7ff !important;}
-    /* Sticky Feature Header — Feature List solamente. La clase feature-row--sticky-active se aplica mediante JavaScript
-      únicamente mientras:
-      - la Feature expandida ya pasó por debajo del header de columnas;
-      - el detalle de esa Feature continúa visible;
-      - Feature List sigue siendo la vista activa.
-      Cada celda se vuelve sticky para conservar el ancho y la alineación exacta de las columnas originales de la tabla.*/
-    .feature-row--sticky-active > td { position: sticky; top: var(--feature-list-sticky-top, 36px); z-index: 55; background: #f2f7ff !important;
-      border-bottom-color: #bfdbfe; box-shadow: 0 7px 12px -10px rgba(15, 23, 42, 0.72); animation: feature-list-sticky-enter 180ms var(--ease-ui) both;}
-    /* El primer TD conserva la referencia visual del estado del Feature. El color llega desde el style inline de la fila mediante la variable --feature-state-color.*/
-    .feature-row--sticky-active > td:first-child { box-shadow: inset 3px 0 0 var(--feature-state-color, #94a3b8), 0 7px 12px -10px rgba(15, 23, 42, 0.72);}
-    /* La animación sólo comunica que la fila pasó al contexto sticky. No se anima la altura, el ancho ni el layout de la tabla.*/
-    @keyframes feature-list-sticky-enter {from { opacity: 0; transform: translateY(-6px);}
-      to { opacity: 1; transform: translateY(0); }}
     .feature-list-disclosure-cell,.feature-list-disclosure-header,.roadmap-disclosure-cell,.roadmap-disclosure-header { padding: 0 !important; text-align: center;}
     .roadmap-disclosure-header { width: 30px;}
     .roadmap-disclosure-cell { width: 30px;}
@@ -884,7 +871,7 @@
       *, *::before, *::after { animation-duration: 0.01ms !important;  animation-iteration-count: 1 !important; transition-duration: 140ms !important; scroll-behavior: auto !important; }
       .readiness-overview-card:hover,.health-overview-card:hover,.dashboard-kpis .readiness-overview-card:hover,.dashboard-kpis .health-overview-card:hover,
       .view-switcher__button:hover:not(.view-switcher__button--active),.dashboard-pagination__button:active:not(:disabled) { transform: none; }
-      .refresh-button--loading span, .feature-row--sticky-active > td { animation: none; }}
+      .refresh-button--loading span { animation: none; }}
     /* prefers-reduced-transparency no tiene soporte uniforme en todos los navegadores; los navegadores que no lo soporten simplemente
       ignorarán este bloque sin afectar la interfaz. */
     @media (prefers-reduced-transparency: reduce) {
@@ -8253,6 +8240,20 @@
             });
           });
       };
+
+      const toggleFeatureDetails = (featureId) => {
+        const isAlreadyOpen = expandedFeatureId === featureId;
+      
+        if (isAlreadyOpen) {
+          setExpandedFeatureId(null);
+          return;
+        }
+      
+        setExpandedFeatureId(featureId);
+      
+        loadStoriesForFeatures([featureId]);
+        loadRelationshipGraphForFeatures([featureId]);
+      };
       
       const [featuresPage, setFeaturesPage] = useState(1);
       const [legendExpanded, setLegendExpanded] = useState(false);
@@ -8281,9 +8282,7 @@
       const featureListHeaderRef = useRef(null);
       const featureListRowRefs = useRef(new Map());
       const featureListDetailRowRefs = useRef(new Map());
-
-      const [isExpandedFeatureSticky, setIsExpandedFeatureSticky] = useState(false);
-      const [featureListStickyTop, setFeatureListStickyTop] = useState(36);
+      const featureListTableRef = useRef(null);
 
       const roadmapGanttRef = useRef(null);
 
@@ -8580,142 +8579,7 @@
           scrollResultsToTop('auto');
         });
       }, [currentPage]);
-
-      /* Sticky Feature Header — Feature List desktop/tablet.
-        La fila original se conserva dentro de la tabla. Sólo recibe la clase sticky mientras el usuario está leyendo su detalle:
-        1. La fila ya alcanzó el borde inferior del header de columnas.
-        2. El detalle expandido todavía tiene contenido visible debajo.
-        3. La vista activa sigue siendo Feature List.
-        Cuando el detalle termina, se quita la clase para evitar que la fila continúe cubriendo las Features siguientes. */
-      useEffect(() => {
-        if (
-          currentPage !== 'features' ||
-          !expandedFeatureId
-        ) {
-          setIsExpandedFeatureSticky(false);
-          return;
-        }
-
-        const resultsContainer = resultsScrollRef.current;
-        const headerRow = featureListHeaderRef.current;
-        const featureRow = featureListRowRefs.current.get(
-          Number(expandedFeatureId)
-        );
-        const detailRow = featureListDetailRowRefs.current.get(
-          Number(expandedFeatureId)
-        );
-
-        if (
-          !resultsContainer ||
-          !headerRow ||
-          !featureRow ||
-          !detailRow
-        ) {
-          setIsExpandedFeatureSticky(false);
-          return;
-        }
-
-        let animationFrameId = null;
-
-        const updateStickyFeatureHeader = () => {
-          const headerRect = headerRow.getBoundingClientRect();
-          const featureRowRect = featureRow.getBoundingClientRect();
-          const detailRowRect = detailRow.getBoundingClientRect();
-
-          /* El top CSS debe coincidir con la altura real del header sticky. Esto evita usar una altura fija que pueda romperse si cambian
-            fuentes, zoom del navegador o columnas. */
-          const headerHeight = Math.max(
-            0,
-            Math.ceil(headerRect.height)
-          );
-
-          setFeatureListStickyTop(previousTop =>
-            previousTop === headerHeight
-              ? previousTop
-              : headerHeight
-          );
-
-          const stickyBoundary =
-            headerRect.bottom;
-
-          const featureReachedStickyBoundary =
-            featureRowRect.top <= stickyBoundary;
-
-          /* La fila permanece sticky sólo mientras el detalle aún pasa por debajo de ella. Al salir del detalle, se libera para que
-            no cubra las Features posteriores. */
-          const detailStillVisible =
-            detailRowRect.bottom >
-            stickyBoundary + featureRowRect.height;
-
-          const shouldBeSticky =
-            featureReachedStickyBoundary &&
-            detailStillVisible;
-
-          setIsExpandedFeatureSticky(previousValue =>
-            previousValue === shouldBeSticky
-              ? previousValue
-              : shouldBeSticky
-          );
-        };
-
-        const scheduleStickyUpdate = () => {
-          if (animationFrameId !== null) {
-            return;
-          }
-
-          animationFrameId = requestAnimationFrame(() => {
-            animationFrameId = null;
-            updateStickyFeatureHeader();
-          });
-        };
-
-        updateStickyFeatureHeader();
-
-        resultsContainer.addEventListener(
-          'scroll',
-          scheduleStickyUpdate,
-          { passive: true }
-        );
-
-        window.addEventListener(
-          'resize',
-          scheduleStickyUpdate
-        );
-
-        const resizeObserver =
-          typeof ResizeObserver !== 'undefined'
-            ? new ResizeObserver(scheduleStickyUpdate)
-            : null;
-
-        resizeObserver?.observe(resultsContainer);
-        resizeObserver?.observe(headerRow);
-        resizeObserver?.observe(featureRow);
-        resizeObserver?.observe(detailRow);
-
-        return () => {
-          if (animationFrameId !== null) {
-            cancelAnimationFrame(animationFrameId);
-          }
-
-          resultsContainer.removeEventListener(
-            'scroll',
-            scheduleStickyUpdate
-          );
-
-          window.removeEventListener(
-            'resize',
-            scheduleStickyUpdate
-          );
-
-          resizeObserver?.disconnect();
-        };
-      }, [
-        currentPage,
-        expandedFeatureId,
-        featuresPage,
-        pageItemIds
-      ]);
-      
+    
       async function loadFeatures(forceRefresh = false) {
         /* Cada ejecución obtiene un identificador único.
           Solo la solicitud más reciente puede modificar:
@@ -9545,29 +9409,6 @@
               return next;
             });
           });
-      };
-
-      const toggleFeatureDetails = (featureId) => {
-        const isAlreadyOpen = expandedFeatureId === featureId;
-
-        if (isAlreadyOpen) {
-          /* La fila sticky debe desaparecer inmediatamente al colapsar, incluso antes de que React desmonte el detalle expandido.*/
-          setIsExpandedFeatureSticky(false);
-          setExpandedFeatureId(null);
-          return;
-        }
-
-        /* Al abrir otra Feature se reinicia el estado sticky. La nueva fila sólo se fijará si el usuario baja hasta su detalle. */
-        setIsExpandedFeatureSticky(false);
-        setExpandedFeatureId(featureId);
-
-        /* Ambas solicitudes son independientes y pueden ejecutarse en paralelo. Cada función ya tiene protección contra:
-          - datos existentes en caché;
-          - solicitudes en progreso;
-          - duplicados generados por renders consecutivos. */
-        loadStoriesForFeatures([featureId]);
-
-        loadRelationshipGraphForFeatures([featureId]);
       };
 
     const deliveryHealthRuleOptions = [
@@ -10994,12 +10835,8 @@
                 </section>
 
                 {/* Tabla exclusiva para desktop/tablet. */}
-                <div className="table-wrapper feature-list-table-wrapper"
-                  style={{
-                    '--feature-list-sticky-top':
-                      `${featureListStickyTop}px`
-                  }}>
-                  <table className="feature-list-table">
+                <div className="table-wrapper feature-list-table-wrapper">
+                  <table ref={featureListTableRef} className="feature-list-table">
                     <colgroup>
                       {/* Control accesible para expandir o contraer detalle. */}
                       <col style={{ width: '30px' }} />
@@ -11182,10 +11019,6 @@
                                 'feature-row--expandable',
                                 isFeatureExpanded
                                   ? 'feature-row--expanded'
-                                  : '',
-                                isFeatureExpanded &&
-                                isExpandedFeatureSticky
-                                  ? 'feature-row--sticky-active'
                                   : ''
                               ].filter(Boolean).join(' ')}
                               style={{
