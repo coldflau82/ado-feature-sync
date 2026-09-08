@@ -206,7 +206,9 @@
     .risk-indicator__list { margin: 5px 0 0; padding-left: 16px;}
     .risk-indicator__list li + li { margin-top: 2px;}
     /* El título puede reducirse con ellipsis, pero el texto completo queda disponible en el tooltip que ya usa FeatureTooltipContent.*/
-    .feature-list-title-cell { min-width: 0; }
+    .feature-list-title-cell { min-width: 0; white-space: normal !important; }
+    .feature-list-title-cell .feature-title { display: -webkit-box; overflow: hidden; color: var(--text-primary); line-height: 1.3;
+      text-overflow: ellipsis; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
     /* Estado: punto de color + nombre del estado. Además de esta indicación, la fila conserva su línea de color izquierda según el estado. */
     .feature-state-cell { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
     .feature-state-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; display: inline-block; }
@@ -483,6 +485,11 @@
     .dashboard-kpi-group--delivery { min-width: 410px; }
     .dashboard-kpi-group--delivery .health-overview--exclusive { display: flex; align-items: stretch; gap: 6px; width: 100%; margin: 0; }
     .dashboard-kpi-group--delivery .health-overview--exclusive .health-overview-card { flex: 1 1 0; width: auto; min-width: 0; }
+    /* Delivery Health tiene etiquetas más largas que Readiness. Permitimos dos líneas para que "Requires Action" y "Requires Attention" se lean completos dentro de su tarjeta.*/
+    .dashboard-kpi-group--delivery.health-overview-card__label { align-items: flex-start; white-space: normal; line-height: 1.1; }
+    .dashboard-kpi-group--delivery.health-overview-card__label-text { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; 
+    -webkit-line-clamp: 2; white-space: normal; text-overflow: clip; }
+    .dashboard-kpi-group--delivery.health-overview-card__count { margin-top: 2px; font-size: 19px; line-height: 1; }
     .dashboard-kpi-group--delivery .health-overview-card--compact { flex: 0 0 76px; width: 76px; min-width: 76px; padding: 6px 5px; text-align: center; }
     .dashboard-kpi-group--delivery .health-overview-card--compact .health-overview-card__label { justify-content: center; gap: 3px; font-size: 9px; line-height: 1.1; white-space: normal; }
     .dashboard-kpi-group--delivery .health-overview-card--compact .health-overview-card__label-text { display: inline; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -826,6 +833,7 @@
       .dashboard-kpi-group__title { display: none; }
       .dashboard-kpis .readiness-overview-card, .dashboard-kpis .health-overview-card { width: 100%; min-width: 0; height: 45px; min-height: 45px;
         padding: 6px 8px; border-radius: 6px; }
+      .dashboard-kpi-group--delivery .health-overview-card { padding: 5px 8px; }
       .dashboard-kpi-group--delivery .health-overview-card--compact { padding: 6px 2px; }     
       .dashboard-kpis .readiness-overview-card__count, .dashboard-kpis .health-overview-card__count { margin-top: 3px; font-size: 18px; line-height: 18px; }
       .dashboard-kpi-group--delivery .health-overview-card--compact .health-overview-card__label { font-size: 8px; }
@@ -11813,12 +11821,6 @@
                             <td className="feature-list-title-cell">
                               <span
                                 className="feature-title"
-                                style={{
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                  display: 'block'
-                                }}
                                 onMouseEnter={(event) =>
                                   showTooltip(
                                     event,
