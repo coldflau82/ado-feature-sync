@@ -4138,7 +4138,16 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
         unavailableWorkItemIds: new Set()
       };
   
-  /* Paso 4: Identificar Bugs de segundo nivel: User Story -> Child / Related -> Bug. */
+  /*Paso 4: identificar relaciones de segundo nivel. Sólo recorremos:
+      Feature -> Child -> User Story
+      User Story -> Related -> posible Bug
+    No recorremos:
+    - Stories relacionadas directamente con la Feature;
+    - Bugs hijos directos de la Feature;
+    - relaciones Child de la Story, por ejemplo Tasks;
+    - Parent, Test Case, Duplicate, Predecessor, etc.
+    Esto es importante porque las relaciones no-Child son únicamente informativas para Linked Items; no deben alterar Delivery Health,
+    Progress ni hacer fallar el grafo por elementos fuera del alcance. */
   const secondLevelRelationsByFeature = new Map();
   const secondLevelIds = new Set();
 
@@ -4167,12 +4176,7 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
         featureRelation.targetId
       );
 
-      /* Sólo recorremos relaciones desde User Stories hijas directas.      
-        No recorremos:
-        - Stories relacionadas directamente al Feature;
-        - Bugs directos del Feature;
-        - Tasks;
-        - otros tipos de Work Item.  */
+      /* Sólo una User Story que sea Child directo de la Feature puede  aportar relaciones informativas de segundo nivel. */
       if (
         featureRelation.relationType !== 'child' ||
         firstLevelWorkItem?.fields?.['System.WorkItemType'] !==
@@ -4181,24 +4185,27 @@ async function fetchRelationshipGraphsForFeaturesBatch(c, featureIds) {
         return;
       }
 
-    /* Para el segundo nivel sólo necesitamos relaciones Related desde una User Story hija directa hacia un posible Bug.
-      No consultamos Child, Parent, Task, Test Case u otros tipos de relación porque no forman parte de la vista de Linked Items y un fallo al cargar
-      uno de esos elementos no debe marcar toda la Feature como unavailable. */
-    getVisualRelations(firstLevelWorkItem)
-      .filter(
-        storyRelation =>
-          storyRelation.relationType === 'related'
-      )
-      .forEach(storyRelation => {
-        nestedRelations.push({
-          sourceId: Number(firstLevelWorkItem.id),
-          targetId: storyRelation.targetId,
-          relationType: storyRelation.relationType,
-          rawRelationType: storyRelation.rawRelationType
+      /* De la Story sólo se toman relaciones Related. Una relación Child desde la Story normalmente representa Tasks u
+        otros elementos de ejecución. No debe mostrarse como Linked Item de la Feature ni afectar la disponibilidad del relationship graph. */
+      getVisualRelations(firstLevelWorkItem)
+        .filter(
+          storyRelation =>
+            storyRelation.relationType === 'related'
+        )
+        .forEach(storyRelation => {
+          nestedRelations.push({
+            sourceId: Number(firstLevelWorkItem.id),
+            targetId: storyRelation.targetId,
+            relationType: storyRelation.relationType,
+            rawRelationType: storyRelation.rawRelationType
+          });
+
+          secondLevelIds.add(storyRelation.targetId);
         });
-    
-        secondLevelIds.add(storyRelation.targetId);
-      });
+    });
+
+    secondLevelRelationsByFeature.set( featureId, nestedRelations);
+  });
     
   /* Paso 5: Obtener los targets de segundo nivel. Después se filtrarán para conservar exclusivamente Bugs. */
   const {
