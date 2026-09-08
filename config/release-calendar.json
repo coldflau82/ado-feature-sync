@@ -144,11 +144,46 @@
       "status": "published"
     },
     {
+      "rfv": "CE-2027-JAN",
+      "date": "2027-01-11",
+      "sequence": 20270101,
+      "label": "January 2027",
+      "status": "published"
+    },
+    {
+      "rfv": "CE-2027-JAN-SEMIMONTHLY",
+      "date": "2027-01-25",
+      "sequence": 20270102,
+      "label": "January 2027 Semimonthly",
+      "status": "published"
+    },
+    {
       "rfv": "CE-2027-FEB",
       "date": "2027-02-08",
       "sequence": 20270201,
       "label": "February 2027",
-      "status": "provisional"
+      "status": "published"
+    },
+    {
+      "rfv": "CE-2027-FEB-SEMIMONTHLY",
+      "date": "2027-02-22",
+      "sequence": 20270202,
+      "label": "February 2027 Semimonthly",
+      "status": "published"
+    },
+    {
+      "rfv": "CE-2027-MAR-SEMIMONTHLY",
+      "date": "2027-03-22",
+      "sequence": 20270302,
+      "label": "March 2027 Semimonthly",
+      "status": "published"
+    },
+    {
+      "rfv": "CE-2027-APR",
+      "date": "2027-04-12",
+      "sequence": 20270401,
+      "label": "April 2027",
+      "status": "published"
     }
   ],
 
