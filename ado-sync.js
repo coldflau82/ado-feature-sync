@@ -6,9 +6,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { DateTime } = require('luxon');
 
-/*
-  Zona horaria oficial del dashboard.
-
+/* Zona horaria oficial del dashboard.
   Todas las reglas que trabajan con "día de negocio" usan esta zona:
   - Overdue;
   - Target Date near;
@@ -16,11 +14,9 @@ const { DateTime } = require('luxon');
   - rangos WIQL;
   - snapshots futuros;
   - fecha operativa mostrada al frontend.
-
   No usar process.env.TZ como fuente de verdad: esa variable modifica el
   proceso Node, pero no garantiza que el navegador ni Azure DevOps usen
-  la misma interpretación temporal.
-*/
+  la misma interpretación temporal. */
 const DASHBOARD_TIME_ZONE = String(
   process.env.DASHBOARD_TIME_ZONE || 'America/Chicago'
 ).trim();
