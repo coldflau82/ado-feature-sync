@@ -326,21 +326,21 @@
       "name": "Sprint 24",
       "startDate": "2026-11-18",
       "endDate": "2026-12-01",
-      "deliveryRfv": "CE-2027-FEB"
+      "deliveryRfv": "CE-2027-JAN"
     },
     {
       "id": "2026-sprint-25",
       "name": "Sprint 25",
       "startDate": "2026-12-02",
       "endDate": "2026-12-15",
-      "deliveryRfv": "CE-2027-FEB"
+      "deliveryRfv": "CE-2027-JAN-SEMIMONTHLY"
     },
     {
       "id": "2026-sprint-26",
       "name": "Sprint 26",
       "startDate": "2026-12-16",
       "endDate": "2026-12-29",
-      "deliveryRfv": "CE-2027-FEB"
+      "deliveryRfv": "CE-2027-JAN-SEMIMONTHLY"
     },
     {
       "id": "2027-sprint-1",
@@ -354,7 +354,28 @@
       "name": "2027 Sprint 2",
       "startDate": "2027-01-13",
       "endDate": "2027-01-26",
-      "deliveryRfv": "CE-2027-FEB"
+      "deliveryRfv": "CE-2027-FEB-SEMIMONTHLY"
+    },
+    {
+      "id": "2027-sprint-3",
+      "name": "2027 Sprint 3",
+      "startDate": "2027-01-27",
+      "endDate": "2027-02-09",
+      "deliveryRfv": "CE-2027-MAR-SEMIMONTHLY"
+    },
+    {
+      "id": "2027-sprint-4",
+      "name": "2027 Sprint 4",
+      "startDate": "2027-02-10",
+      "endDate": "2027-02-23",
+      "deliveryRfv": "CE-2027-MAR-SEMIMONTHLY"
+    },
+    {
+      "id": "2027-sprint-5",
+      "name": "2027 Sprint 5",
+      "startDate": "2027-02-24",
+      "endDate": "2027-03-09",
+      "deliveryRfv": "CE-2027-APR"
     }
   ]
 }
