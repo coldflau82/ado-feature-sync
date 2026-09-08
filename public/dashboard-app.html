@@ -512,7 +512,10 @@
     No modifica la fila original de la tabla. Es una copia visual independiente que sólo aparece mientras el encabezado original
     de una Feature expandida está oculto detrás del header de columnas. */
     .sticky-feature-context { position: fixed; z-index: 61; overflow: hidden; border: 1px solid #bfdbfe; border-left: 3px solid var(--feature-state-color, #94a3b8);
-      background: #f2f7ff; box-shadow: 0 8px 18px -12px rgba(15, 23, 42, 0.72); }
+      background: #f2f7ff; box-shadow: 0 8px 18px -12px rgba(15, 23, 42, 0.72); cursor: pointer; }
+    .sticky-feature-context:hover { background: #eaf2ff; }
+    /* Los controles que sí tienen acción propia no deben heredar la apariencia de un área genérica de colapso. */
+    .sticky-feature-context a,.sticky-feature-context button { cursor: pointer;}
     /* Desktop amplio: réplica visual de las catorce columnas. */
     .sticky-feature-context--full { min-height: 48px; }
     .sticky-feature-context__full-grid { display: grid; min-width: max-content; align-items: stretch; }
@@ -5857,6 +5860,20 @@
                 .join(' ')
             }
           : undefined;
+
+        /* La barra sticky es una copia operativa de la fila expandida. Cualquier clic sobre contenido no interactivo colapsa la Feature,
+        igual que la fila original. Los enlaces y botones conservan su comportamiento normal*/
+        const handleContextRowClick = event => {
+          if (event.target.closest('a, button')) {
+            return;
+          }
+        
+          if (window.getSelection()?.toString()) {
+            return;
+          }
+        
+          onCollapse();
+        };
     
         return (
           <section
@@ -5873,7 +5890,8 @@
               width: `${context.width}px`,
               '--feature-state-color': featureStateColor
             }}
-            aria-label={`Expanded Feature ${feature.id} context`}
+            onClick={handleContextRowClick}
+            aria-label={`Expanded Feature ${feature.id} context` + 'Select the row to collapse Feature details.'}
           >
             {isFullMode ? (
               <div
@@ -5884,7 +5902,7 @@
                   <button
                     type="button"
                     className="disclosure-button disclosure-button--expanded"
-                    onClick={onCollapse}
+                    onClick={(event) => { event.stopPropagation(); onCollapse();}}
                     aria-label={`Collapse details for Feature ${feature.id}`}
                     title="Collapse Feature details"
                   >
@@ -6026,7 +6044,7 @@
                   <button
                     type="button"
                     className="disclosure-button disclosure-button--expanded"
-                    onClick={onCollapse}
+                    onClick={(event) => { event.stopPropagation(); onCollapse();}}
                     aria-label={`Collapse details for Feature ${feature.id}`}
                     title="Collapse Feature details"
                   >
