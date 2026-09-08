@@ -485,11 +485,16 @@
     .dashboard-kpi-group--delivery { min-width: 410px; }
     .dashboard-kpi-group--delivery .health-overview--exclusive { display: flex; align-items: stretch; gap: 6px; width: 100%; margin: 0; }
     .dashboard-kpi-group--delivery .health-overview--exclusive .health-overview-card { flex: 1 1 0; width: auto; min-width: 0; }
-    /* Delivery Health tiene etiquetas más largas que Readiness. Permitimos dos líneas para que "Requires Action" y "Requires Attention" se lean completos dentro de su tarjeta.*/
-    .dashboard-kpi-group--delivery .health-overview-card__label { align-items: flex-start; gap: 4px; min-width: 0; white-space: normal; line-height: 1.1; }
-    .dashboard-kpi-group--delivery .health-overview-card__label-text { display: -webkit-box; flex: 1 1 auto; min-width: 0; overflow: hidden; 
-      -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; text-overflow: clip; overflow-wrap: anywhere; }
-    .dashboard-kpi-group--delivery .health-overview-card__count { margin-top: 2px; font-size: 19px; line-height: 1; }
+    /* Delivery Health: La etiqueta y el count viven en columnas distintas. El count conserva su tamaño grande, pero su ancho queda reservado, así que nunca se superpone con un label de dos líneas.*/
+    .dashboard-kpi-group--delivery .health-overview-card:not(.health-overview-card--compact) { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr); column-gap: 6px;
+      align-items: stretch; }
+    /* Columna izquierda: icono + etiqueta con un máximo de dos líneas. */
+    .dashboard-kpi-group--delivery .health-overview-card:not(.health-overview-card--compact) .health-overview-card__label { display: flex; align-items: flex-start; gap: 4px; min-width: 0; white-space: normal; }
+    /* El texto ocupa únicamente el espacio disponible antes del número. */
+    .dashboard-kpi-group--delivery .health-overview-card:not(.health-overview-card--compact) .health-overview-card__label-text { display: -webkit-box; min-width: 0; overflow: hidden; white-space: normal;
+      text-overflow: clip; line-height: 1.05;  -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+    /*  Columna derecha: el número conserva la tipografía global grande definida al final del CSS (--step-3 / 27px), pero queda alineado abajo a la derecha. */
+    .dashboard-kpi-group--delivery .health-overview-card:not(.health-overview-card--compact) .health-overview-card__count { align-self: end; justify-self: end; margin-top: 0; white-space: nowrap; }
     .dashboard-kpi-group--delivery .health-overview-card--compact { flex: 0 0 76px; width: 76px; min-width: 76px; padding: 6px 5px; text-align: center; }
     .dashboard-kpi-group--delivery .health-overview-card--compact .health-overview-card__label { justify-content: center; gap: 3px; font-size: 9px; line-height: 1.1; white-space: normal; }
     .dashboard-kpi-group--delivery .health-overview-card--compact .health-overview-card__label-text { display: inline; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -515,6 +520,12 @@
       .dashboard-kpi-all-features { max-width: none; }
       .dashboard-kpis .readiness-overview-card--all { min-height: 56px; }
       .dashboard-navigation .view-switcher__button { height: 74px; min-height: 74px; }}
+    /* En móvil, cuatro tarjetas de Delivery Health en una sola fila son demasiado estrechas para labels de dos líneas + número grande. Dos columnas preservan jerarquía, legibilidad y área táctil.*/
+    @media (max-width: 820px) { .dashboard-kpi-group--delivery .health-overview--exclusive { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .dashboard-kpi-group--delivery .health-overview--exclusive .health-overview-card, .dashboard-kpi-group--delivery .health-overview--exclusive .health-overview-card--compact { grid-column: auto;
+        width: 100%; min-width: 0; }
+      /* En 45px de alto, alinear verticalmente el número al centro evita que quede pegado al borde inferior, manteniendo el mismo tamaño. */
+      .dashboard-kpi-group--delivery .health-overview-card:not(.health-overview-card--compact) .health-overview-card__count { align-self: center; }}
     /* ── Sticky Feature Context Row ────────────────────────────────
     No modifica la fila original de la tabla. Es una copia visual independiente que sólo aparece mientras el encabezado original
     de una Feature expandida está oculto detrás del header de columnas. */
