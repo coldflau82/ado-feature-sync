@@ -61,10 +61,10 @@ Click a Feature row to expand and reveal individual Story/Bug timelines beneath 
 *Legend:*
 
 *Marker	Meaning*
-Blue vertical line	Today
-Red triangle	      Target Date
-Blue diamond	      Release Fix Version date
-Gold star	          Tech Go-Live RFV date
+Blue vertical line  	Today
+Red triangle	        Target Date
+Blue diamond	        Release Fix Version date
+Gold star	           Tech Go-Live RFV date
 
 *Delivery Health Engine*
 Overview: A rules-driven classification system (configured entirely in delivery-health-rules.json) that evaluates each Feature against 14+ conditions — Overdue, Needs Estimate, Release Commitment Missed, To Release Aging, etc. — and surfaces the highest-priority alert plus all accumulated alerts.
@@ -72,9 +72,13 @@ Overview: A rules-driven classification system (configured entirely in delivery-
 *Categories (mutually exclusive at the KPI level):*
 
 🔴 Requires Action — Overdue, release commitments missed, dates passed with open work
+
 🟠 Requires Attention — Needs estimate, no Stories, pending release, aging in To Release
+
 🔵 Not Started — New Features with no associated work yet
+
 🟢 Healthy — No risks detected
+
 Usage: Click any KPI card at the top of the dashboard to filter the Feature List/Roadmap to that exact category.
 
 *Release / Sprint Alignment*
