@@ -2609,10 +2609,7 @@ async function enrichFeaturesWithToReleaseAging(
               }
             );
           } catch (cacheError) {
-            /*
-              El cálculo de ADO es válido; únicamente no se pudo
-              persistir en Redis para reutilizarlo más adelante.
-            */
+            /* El cálculo de ADO es válido; únicamente no se pudo persistir en Redis para reutilizarlo más adelante. */
             console.error(
               'Unable to write To Release Aging cache to Redis.',
               {
@@ -2693,10 +2690,7 @@ async function enrichFeaturesWithToReleaseAging(
             agingItems.length - knownAgingItems.length,
           maxDaysInToRelease,
 
-          /*
-            No se envían títulos ni datos sensibles. Este detalle permite
-            una futura visualización de los IDs bloqueados en To Release.
-          */
+          /* No se envían títulos ni datos sensibles. Este detalle permite una futura visualización de los IDs bloqueados en To Release. */
           workItems: agingItems.map(item => ({
             id: item.workItemId,
             state: item.currentState,
@@ -3910,7 +3904,7 @@ async function enrichFeaturesWithAging(c, features) {
             );
           } catch (cacheError) {
             /* El cálculo obtenido desde Azure DevOps sigue siendo válido aunque Redis no esté disponible para persistirlo. */
-            console.error(
+           console.error(
               'Unable to write Feature Aging cache to Redis.',
               {
                 featureId,
@@ -3918,7 +3912,8 @@ async function enrichFeaturesWithAging(c, features) {
               }
             );
           }
-        } catch (error) {
+        } 
+      } catch (error) {
         console.error(
           'Unable to retrieve Feature Aging history from ADO.',
           {
