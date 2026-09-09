@@ -295,7 +295,10 @@
     .gantt-timeline-cell { touch-action: pan-y; cursor: grab; }
     /* Durante el gesto, Feature rows y Story rows se comportan como un único objeto temporal: el contenido se mueve con el puntero antes de que el
         offset se confirme al soltar. */
-    .gantt-horizontal-scroll--dragging .gantt-timeline-canvas { transform: translate3d(var(--gantt-drag-offset, 0px), 0, 0); transition: none; will-change: transform; }
+    .gantt-horizontal-scroll--dragging .gantt-timeline-canvas, .gantt-horizontal-scroll--dragging .gantt-timeline-header-canvas
+      { transform: translate3d(var(--gantt-drag-offset, 0px), 0, 0); transition: none; will-change: transform; }
+    .gantt-timeline-header-cell { overflow: hidden; }
+    .gantt-timeline-header-viewport { width: 100%; min-width: 0; overflow: hidden; }
     .gantt-horizontal-scroll--dragging .gantt-timeline-cell { cursor: grabbing; user-select: none; }
     /* Las barras no deben seguir mostrando tooltips mientras el usuario está arrastrando. El gesto tiene prioridad sobre el hover. */
     .gantt-horizontal-scroll--dragging .gantt-bar { pointer-events: none; }
@@ -979,8 +982,17 @@
     @media (prefers-reduced-motion: reduce) { .gantt-bar { transition: none; }}
     /* ── Roadmap Feature delivery snapshot ────────────────────────── */
     .gantt-bar--feature { top: 13px; }
-    /* La fila Feature ahora usa dos líneas: 1. título; 2. snapshot de Health, Target y Progress. */
-    .roadmap-feature-title-cell { width: 420px; min-width: 420px; max-width: 420px; padding: 6px 8px 6px 12px !important; vertical-align: middle; }
+    /* Distribución Roadmap: 150px fijos: disclosure, priority e ID. La zona Feature ocupa el resto necesario para completar el 60%.
+      El Gantt conserva el 40% del ancho total. */
+    .roadmap-table { --roadmap-fixed-columns-width: 150px; }
+    .roadmap-col--disclosure { width: 30px; }
+    .roadmap-col--priority { width: 40px; }
+    .roadmap-col--id { width: 80px; }
+    .roadmap-col--feature { width: calc(60% - var(--roadmap-fixed-columns-width)); }
+    .roadmap-col--timeline { width: 40%; }
+    .roadmap-feature-title-cell { width: auto; min-width: 0; max-width: none; padding: 6px 8px 6px 12px !important; vertical-align: middle; }
+    .roadmap-work-item-title-cell { min-width: 0; overflow: hidden; }
+    .roadmap-feature-header-cell { min-width: 0; }
     .roadmap-feature-title { min-width: 0; overflow: hidden; color: var(--text-primary); font-size: var(--step-0); font-weight: 600; line-height: 1.25;
       text-overflow: ellipsis; white-space: nowrap; }
     .roadmap-feature-snapshot { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 5px 7px; min-width: 0;
@@ -3165,7 +3177,7 @@
             </a>
           </td>
 
-          <td style={{ maxWidth: '420px' }}>
+          <td className="roadmap-work-item-title-cell">
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '0 1 auto', minWidth: '0' }}>{title}</span>
               <span
@@ -10783,7 +10795,7 @@
           }
 
           return (
-            <div className="gantt-timeline-canvas" style={{ width: '100%', minWidth: 0 }}>
+            <div className="gantt-timeline-header-canvas" style={{ width: '100%', minWidth: 0 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
                 {groups.map((g, gi) => (
                   <div
@@ -10844,7 +10856,7 @@
         }
 
         return (
-          <div style={{ width: '100%', minWidth: 0 }}>
+          <div className="gantt-timeline-header-canvas" style={{ width: '100%', minWidth: 0 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
               {groups.map((g, gi) => (
                 <div key={gi} style={{
@@ -12379,6 +12391,14 @@
                 >
 
                 <table className="roadmap-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+                  <colgroup>
+                    <col className="roadmap-col--disclosure" />
+                    <col className="roadmap-col--priority" />
+                    <col className="roadmap-col--id" />
+                    <col className="roadmap-col--feature" />
+                    <col className="roadmap-col--timeline" />
+                  </colgroup>
+                
                   <thead>
                     <tr>
                       <th scope="col" className="roadmap-disclosure-header" >
@@ -12413,8 +12433,8 @@
                         ID
                       </th>
                   
-                      <th style={{ width: '420px', padding: '12px 4px 12px 12px' }} >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%'}} >
+                      <th className="roadmap-feature-header-cell" style={{ padding: '12px 4px 12px 12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', height: '100%', minWidth: 0}}>
                           <span>Feature</span>
                           <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                             <TimelineScaleControl
@@ -12426,13 +12446,7 @@
                         </div>
                       </th>
                   
-                      <th
-                        style={{
-                          padding: '4px 6px',
-                          verticalAlign: 'middle',
-                          fontWeight: 'normal'
-                        }}
-                      >
+                      <th className="gantt-timeline-header-cell" style={{padding: '4px 6px', verticalAlign: 'middle', fontWeight: 'normal'}} >
                       <TimelineSubHeader
                         isWeekMode={isWeekScale}
                         timelineOffset={timelineOffset}
@@ -12514,49 +12528,24 @@
                               <tr
                                 id={`roadmap-feature-details-${f.id}`}
                                 className="roadmap-detail-row"
-                                style={{
-                                  borderBottom: '1px solid #eee',
-                                  background: '#f2f2f2'
-                                }}
-                              >
+                                style={{borderBottom: '1px solid #eee', background: '#f2f2f2' }}>
                                 <td className="roadmap-disclosure-cell" />
 
                                 <td />
 
-                                <td
-                                  style={{
-                                    color: 'var(--text-tertiary)',
-                                    fontSize: '10px',
-                                    fontWeight: '700',
-                                    textAlign: 'center'
-                                  }}
-                                  aria-label="No child work items"
-                                  title="No Stories or Bugs"
-                                >
+                                <td style={{ color: 'var(--text-tertiary)', fontSize: '10px', fontWeight: '700', textAlign: 'center'}}
+                                  aria-label="No child work items" title="No Stories or Bugs">
                                   —
                                 </td>
 
-                                <td style={{ maxWidth: '420px', padding: '10px 12px' }}>
+                                <td className="roadmap-work-item-title-cell" style={{ padding: '10px 12px' }}>
                                   <strong
-                                    style={{
-                                      display: 'block',
-                                      color: '#334155',
-                                      fontSize: '10px',
-                                      lineHeight: '1.15'
-                                    }}
-                                  >
+                                    style={{ display: 'block',color: '#334155',  lineHeight: '1.15' }}>
                                     No Stories or Bugs are associated with this Feature.
                                   </strong>
 
                                   <span
-                                    style={{
-                                      display: 'block',
-                                      marginTop: '3px',
-                                      color: 'var(--text-tertiary)',
-                                      fontSize: '10px',
-                                      lineHeight: '1.15'
-                                    }}
-                                  >
+                                    style={{ display: 'block', marginTop: '3px', color: 'var(--text-tertiary)', fontSize: '10px', lineHeight: '1.15'}}>
                                     Click the Feature row again to collapse it.
                                   </span>
                                 </td>
