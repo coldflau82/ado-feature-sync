@@ -221,7 +221,11 @@
     .feature-detail-panel-warning { padding: 10px 0; font-size: 12px; color: var(--warn); }
     .feature-story-card__assigned-to { color: var(--text-secondary); font-size: 10px; }
     .feature-story-card__release-fix-version { min-width: 0; max-width: 100%; color: var(--text-secondary); font-size: 10px; line-height: 1.3; overflow-wrap: anywhere; }
-    .delivery-details { margin: 0; } 
+    .delivery-details { margin: 0; }
+    /* Antigüedad de Stories/Bugs que permanecen en el grupo To Release. Verde/gris: información operativa. Ámbar: excedió el threshold configurado en backend. */
+    .feature-story-card__to-release-aging { display: inline-flex; align-items: center; max-width: 100%; padding: 2px 6px; border: 1px solid #bbf7d0;
+      border-radius: 999px; background: var(--ok-soft); color: #166534; font-size: 10px; font-weight: 700; line-height: 1.3; white-space: nowrap; }
+    .feature-story-card__to-release-aging--aged { border-color: #fbbf24; background: var(--warn-soft); color: #854d0e; }
     /* Contenedor de Stories and Bugs:Agrupa filtros y resultados directos de una Feature en una misma superficie visual, separada de Feature Status y Delivery Activity. */
     .feature-work-items-panel { min-width: 0; padding: 0px; border: 0px; border-radius: 0px; background: var(--surface-raised); border: 1px solid var(--line-hairline); }
     .feature-work-items-panel__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0;}
@@ -4438,8 +4442,7 @@
                     <div className="feature-detail-panel__divider" />
 
                     <div className="feature-detail-panel-warning">
-                      Stories and Bugs could not be fully retrieved from
-                      Azure DevOps. Delivery Health remains based on the
+                      Stories and Bugs could not be fully retrieved from Azure DevOps. Delivery Health remains based on the
                       server-provided Feature summary.
                     </div>
                   </>
@@ -4449,6 +4452,7 @@
                     stories={storiesCache[feature.id] || []}
                     deliveryTeamFilter={deliveryTeamFilter}
                     adoLink={adoLink}
+                    formatDate={formatDate}
                     relationshipGraph={relationshipGraph}
                     relationshipLoading={relationshipLoading}
                     relationshipUnavailable={relationshipUnavailable}
@@ -5222,6 +5226,55 @@
       }
     
       return 'inPlanning';
+    }
+
+    /* Busca el dato de antigüedad calculado por backend para un Story/Bug actualmente en To Release.
+       No recalcula días en frontend: el backend sigue siendo la fuente de verdad para:
+      - fecha de entrada al grupo To Release;
+      - días transcurridos;
+      - threshold;
+      - condición isAged. */
+    function getToReleaseWorkItemAging(
+      feature,
+      workItemId
+    ) {
+      const toReleaseAging =
+        feature?.deliverySummary?.toReleaseAging;
+    
+      const workItems = Array.isArray(
+        toReleaseAging?.workItems
+      )
+        ? toReleaseAging.workItems
+        : [];
+    
+      const numericWorkItemId = Number(workItemId);
+    
+      const match = workItems.find(workItem =>
+        Number(workItem?.id) === numericWorkItemId
+      );
+    
+      if (
+        !match ||
+        match.source !== 'ok' ||
+        !Number.isInteger(Number(match.daysInToRelease)) ||
+        Number(match.daysInToRelease) < 0
+      ) {
+        return null;
+      }
+    
+      return {
+        thresholdDays: Number(
+          toReleaseAging?.thresholdDays
+        ) || null,
+    
+        enteredToReleaseAt:
+          match.enteredToReleaseAt || null,
+    
+        daysInToRelease:
+          Number(match.daysInToRelease),
+    
+        isAged: Boolean(match.isAged)
+      };
     }
 
     function getWorkItemsDeliverySummary(workItems = []) {
@@ -6339,8 +6392,10 @@
     }
 
     function DeliveryWorkItemCard({
+      feature,
       story,
       adoLink,
+      formatDate,
       linkedItemCount,
       relationshipLoading,
       relationshipUnavailable,
@@ -6351,6 +6406,14 @@
 
       const isBug = story.workItemType === 'Bug';
 
+      const toReleaseAging =
+        getWorkItemDeliveryCategory(story) === 'toRelease'
+          ? getToReleaseWorkItemAging(
+              feature,
+              story.id
+            )
+          : null;
+            
       const sprintLabel = (() => {
         const match =
           story.iterationPath &&
@@ -6494,6 +6557,43 @@
               </span>
             )}
 
+            {toReleaseAging && (
+              <span className={[
+                  'feature-story-card__to-release-aging',
+                  toReleaseAging.isAged
+                    ? 'feature-story-card__to-release-aging--aged'
+                    : ''
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                title={[
+                  `${toReleaseAging.daysInToRelease} day${
+                    toReleaseAging.daysInToRelease === 1
+                      ? ''
+                      : 's'
+                  } in To Release`,
+            
+                  toReleaseAging.enteredToReleaseAt
+                    ? `since ${formatDate(
+                        toReleaseAging.enteredToReleaseAt
+                      )}`
+                    : '',
+            
+                  toReleaseAging.thresholdDays
+                    ? `Threshold: more than ${toReleaseAging.thresholdDays} days`
+                    : ''
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              >
+                ⏱ {toReleaseAging.daysInToRelease} day
+                {toReleaseAging.daysInToRelease === 1 ? '' : 's'}
+                {' '}in To Release
+            
+                {toReleaseAging.isAged && ' · Delayed'}
+              </span>
+            )}
+                        
             {canShowLinkedItemsButton && (
               <button
                 type="button"
@@ -6524,6 +6624,7 @@
       title,
       stories,
       adoLink,
+      formatDate,
       getLinkedItemCount,
       relationshipLoading,
       relationshipUnavailable,
@@ -6544,8 +6645,10 @@
               {stories.map(story => (
                 <DeliveryWorkItemCard
                   key={story.id}
+                  feature={feature}
                   story={story}
                   adoLink={adoLink}
+                  formatDate={formatDate}
                   linkedItemCount={
                     typeof getLinkedItemCount === 'function'
                       ? getLinkedItemCount(story.id)
@@ -6680,7 +6783,8 @@
       feature, 
       stories,
       deliveryTeamFilter = [],
-      adoLink, 
+      adoLink,
+      formatDate,
       relationshipGraph,
       relationshipLoading,
       relationshipUnavailable,
@@ -7238,8 +7342,10 @@
               {inPlanningStories.length > 0 && (
                 <DeliveryWorkItemGroup
                   title="In Planning"
+                  feature={feature}
                   stories={inPlanningStories}
                   adoLink={adoLink}
+                  formatDate={formatDate}
                   getLinkedItemCount={getLinkedItemCountForStory}
                   relationshipLoading={relationshipLoading}
                   relationshipUnavailable={relationshipUnavailable}
@@ -7250,8 +7356,10 @@
               {inProgressStories.length > 0 && (
                 <DeliveryWorkItemGroup
                   title="In Progress"
+                  feature={feature}
                   stories={inProgressStories}
                   adoLink={adoLink}
+                  formatDate={formatDate}
                   getLinkedItemCount={getLinkedItemCountForStory}
                   relationshipLoading={relationshipLoading}
                   relationshipUnavailable={relationshipUnavailable}
@@ -7262,8 +7370,10 @@
               {toReleaseStories.length > 0 && (
                 <DeliveryWorkItemGroup
                   title="To Release"
+                  feature={feature}
                   stories={toReleaseStories}
                   adoLink={adoLink}
+                  formatDate={formatDate}
                   getLinkedItemCount={getLinkedItemCountForStory}
                   relationshipLoading={relationshipLoading}
                   relationshipUnavailable={relationshipUnavailable}
@@ -7274,8 +7384,10 @@
               {completedStories.length > 0 && (
                 <DeliveryWorkItemGroup
                   title="Completed"
+                  feature={feature}
                   stories={completedStories}
                   adoLink={adoLink}
+                  formatDate={formatDate}
                   getLinkedItemCount={getLinkedItemCountForStory}
                   relationshipLoading={relationshipLoading}
                   relationshipUnavailable={relationshipUnavailable}
@@ -7332,11 +7444,13 @@
                     <>
                       {linkedItemsForSelectedStory.length > 0 && (
                         <DeliveryWorkItemGroup
+                          feature={feature}
                           title="Linked Items"
                           stories={sortDeliveryWorkItemsByTypeAndId(
                             linkedItemsForSelectedStory
                           )}
                           adoLink={adoLink}
+                          formatDate={formatDate}
                         />
                       )}
 
@@ -7353,11 +7467,13 @@
                       {!linkedStoryFilterId &&
                       linkedStories.length > 0 && (
                         <DeliveryWorkItemGroup
+                          feature={feature}
                           title="Related User Stories"
                           stories={sortDeliveryWorkItemsByTypeAndId(
                             linkedStories
                           )}
                           adoLink={adoLink}
+                          formatDate={formatDate}
                         />
                       )}
                     </>
@@ -7896,6 +8012,7 @@
               <option value="no-stories">No Stories</option>
               <option value="no-active-work">No active work</option>
               <option value="to-release-pending">Pending release</option>
+              <option value="to-release-aging">Release delayed</option>
               <option value="unestimated-work">No estimated work</option>
               <option value="not-started">Not started</option>
               <option value="unable-to-evaluate">Unable to evaluate</option>
@@ -9916,6 +10033,7 @@
       { key: 'no-stories', label: 'No Stories' },
       { key: 'no-active-work', label: 'No active work' },
       { key: 'to-release-pending', label: 'Pending release' },
+      { key: 'to-release-aging', label: 'Release delayed' },
       { key: 'unestimated-work', label: 'No estimated work' },
       { key: 'not-started', label: 'Not started' }
     ];
