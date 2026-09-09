@@ -90,7 +90,7 @@
       -webkit-font-smoothing: antialiased;
       font-optical-sizing: auto;
     }
-    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
     .header { background: var(--surface-raised); }
     .header h1 { font-size: 24px; }
     .warnings { position: relative; background: #fff3cd; color: #856404; padding: 15px 46px 15px 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffc107;}
@@ -303,7 +303,7 @@
     /* ── Header del dashboard y KPI cards ──── Desktop/laptop:
        Una sola franja horizontal; altura total de 60px; títulos de grupo dentro de la misma altura; KPI cards compactas y aún clicables; Feature List y Roadmap conservan protagonismo visual.*/
     .dashboard-header { display: grid; grid-template-columns: 112px minmax(0, 1fr) 236px; grid-template-areas: "title kpis navigation"; align-items: stretch;
-      10px; min-height: 60px; margin-bottom: 8px;}
+      min-height: 60px; margin-bottom: 8px;}
     .dashboard-title { grid-area: title; align-self: center; min-width: 0; margin: 0; color: var(--text-primary); font-size: 18px; line-height: 1.04;
       letter-spacing: -0.02em; white-space: nowrap;}
     .dashboard-kpis { grid-area: kpis; min-width: 0; height: 60px;}
@@ -382,7 +382,7 @@
       - el dashboard ocupa el alto completo disponible;
       - solamente .dashboard-results-scroll puede desplazarse. */
     @media (min-width: 821px) { html, body, #root { height: 100%; overflow: hidden; } html { overflow-y: hidden; scrollbar-gutter: auto; } 
-      .container.dashboard-shell { height: 100dvh; max-width: 1400px; display: flex; flex-direction: column; overflow: hidden; }
+      .container.dashboard-shell { height: 100dvh; max-width: 1600px; display: flex; flex-direction: column; overflow: hidden; }
       /* Header, filtros y resumen. No pueden crecer ni tomar el espacio destinado a resultados. */
       .dashboard-fixed-content { flex: 0 0 auto; min-width: 0; }
       /* Único scroll vertical del dashboard. min-height: 0 es indispensable: sin él, un hijo flex no se reduce correctamente y el overflow vertical puede no aparecer. */
