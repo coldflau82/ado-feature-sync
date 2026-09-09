@@ -55,6 +55,7 @@ Defines the business logic for classifying Feature delivery risk. Key sections:
 > Editing this file requires restarting the server — it is validated and loaded once at boot via validateDeliveryHealthRules().
 
 
+
 **Release Calendar (config/release-calendar.json)**
 
 Defines the RFV (Release Fix Version) publishing calendar and Sprint-to-release mapping used for Release/Sprint Alignment calculations:
@@ -63,6 +64,7 @@ Defines the RFV (Release Fix Version) publishing calendar and Sprint-to-release 
 * sprints[]: Each entry has id, startDate, endDate, optional commitmentCutoffDate (defaults to startDate), and deliveryRfv (which release this Sprint delivers into).
 
 > TimeZone in this file must match DASHBOARD_TIME_ZONE exactly — the app throws a startup error otherwise, to guarantee consistent "day of business" calculations across Overdue, Target Date, and Release Alignment rules.
+
 
 
 ## Functionality Documentation
@@ -105,6 +107,7 @@ Gold star	           Tech Go-Live RFV date
 
 ### Delivery Health Engine
 Overview: A rules-driven classification system (configured entirely in delivery-health-rules.json) that evaluates each Feature against 14+ conditions — Overdue, Needs Estimate, Release Commitment Missed, To Release Aging, etc. — and surfaces the highest-priority alert plus all accumulated alerts.
+
 
 **Categories (mutually exclusive at the KPI level):**
 
