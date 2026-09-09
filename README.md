@@ -46,75 +46,108 @@ Troubleshooting
 
 
 ## Installation
+
 	1. Clone the repository: 
 
-   git clone <repo-url>
-   cd ado-dec-dashboard
+   		git clone <repo-url>
+   		cd ado-dec-dashboard
 	
- 2. Install dependencies:
+	2. Install dependencies:
 
-  npm install
+  		npm install
 
 	3. Create a .env file in the project root:
 
-  *Azure DevOps (required)*
-  ADO_ORG=your-org-name
-  ADO_PROJECT=your-project-name
-  ADO_PAT=your-personal-access-token
-
-  *Redis (Upstash)*
-  KV_REST_API_URL=https://your-instance.upstash.io
-  KV_REST_API_TOKEN=your-upstash-token
-
-  *Internal sync endpoint protection*
-  CRON_SECRET=a-long-random-string
-
-  *Optional*
-  DASHBOARD_TIME_ZONE=America/Chicago
-  CACHE_AUDIT_WATCH_FEATURE_IDS=1290868
+		*Azure DevOps (required)*
+		ADO_ORG=your-org-name
+		ADO_PROJECT=your-project-name
+		ADO_PAT=your-personal-access-token
+		
+		*Redis (Upstash)*
+		KV_REST_API_URL=https://your-instance.upstash.io
+		KV_REST_API_TOKEN=your-upstash-token
+		
+		*Internal sync endpoint protection*
+		CRON_SECRET=a-long-random-string
+		
+		*Optional*
+		DASHBOARD_TIME_ZONE=America/Chicago
+		CACHE_AUDIT_WATCH_FEATURE_IDS=1290868
 	
- 4. Verify your business rule configuration files exist:
+	4. Verify your business rule configuration files exist:
 
-  /config/delivery-health-rules.json
-  /config/release-calendar.json
+  		/config/delivery-health-rules.json
+  		/config/release-calendar.json
   
->⚠️ The application will not start if these files are missing or fail schema validation — this is intentional, to prevent running Delivery Health calculations against an incomplete policy.
+		>⚠️ The application will not start if these files are missing or fail schema validation — this is 
+		intentional, to prevent running Delivery Health calculations against an incomplete policy.
 
 	5. Start the application:
 
-  npm start
+		npm start
   
 	6. Navigate to:
 
-http://localhost:3000/dashboard-app
+		http://localhost:3000/dashboard-app
+		
 
-**First-Time Setup Guide**
+## First-Time Setup Guide
 
-	1. On first load, the dashboard fetches Features changed in the last 10 days live from Azure DevOps — no manual seeding required.
+	1. On first load, the dashboard fetches Features changed in the last 10 days live from Azure DevOps — no manual 
+	seeding required.
  
-	2. Historical Features (10–730 days) are populated by the nightly Cron job hitting /api/internal/sync-feature-caches. Locally, trigger this manually: 
+	2. Historical Features (10–730 days) are populated by the nightly Cron job hitting /api/internal/sync-feature-caches. 
+	Locally, trigger this manually: 
  
-  curl -H "Authorization: Bearer $CRON_SECRET" \
-  http://localhost:3000/api/internal/sync-feature-caches
+  		curl -H "Authorization: Bearer $CRON_SECRET" \
+  		http://localhost:3000/api/internal/sync-feature-caches
   
 	3. Configure your default filter view via the Advanced Filters panel, then click Save as My filter to persist it for future sessions.
- 
-**Common Troubleshooting**
 
-| Issue | Likely Cause	| Fix |
-|--------------------------------------------------------------------------------------------------------------------------------------------------|
-| App fails to start with Missing required environment variable| .env incomplete |	Confirm ADO_ORG, ADO_PROJECT, ADO_PAT, CRON_SECRET are all set  |
-|--------------------------------------------------------------------------------------------------------------------------------------------------|
-|Unable to load config/delivery-health-rules.json |	File missing/invalid JSON	| Validate JSON syntax; confirm file is deployed alongside server.js |
-|--------------------------------------------------------------------------------------------------------------------------------------------------|
-|Dashboard shows "Historical Features could not be fully retrieved" (503) |	Redis cache empty and Cron hasn't run yet |	Manually trigger /api/internal/sync-feature-caches with a valid CRON_SECRET |
-|--------------------------------------------------------------------------------------------------------------------------------------------------|
-| Features show "Unable to evaluate" Delivery Health	| ADO batch request failures (throttling/network) |	Check server logs for 429/5xx from Azure DevOps; retries are automatic via withAdoRetry |
-|--------------------------------------------------------------------------------------------------------------------------------------------------|
-| Target Dates appear off by one day	| Timezone mismatch	| Confirm DASHBOARD_TIME_ZONE matches release-calendar.json's timeZone field — the app validates this at startup and will refuse to start otherwise |
-|--------------------------------------------------------------------------------------------------------------------------------------------------|
 
-## Architecture Overview
+## Common Troubleshooting
+
+**Issue:** App fails to start with Missing required environment variable|
+
+**Likely Cause:** .env incomplete
+
+**Fix:** Confirm ADO_ORG, ADO_PROJECT, ADO_PAT, CRON_SECRET are all set
+
+
+
+**Issue:** Unable to load config/delivery-health-rules.json
+
+**Likely Cause:** File missing/invalid JSON
+
+**Fix:** Validate JSON syntax; confirm file is deployed alongside server.js
+
+
+
+**Issue:** Dashboard shows "Historical Features could not be fully retrieved" (503)
+
+**Likely Cause:** Redis cache empty and Cron hasn't run yet
+
+**Fix:** Manually trigger /api/internal/sync-feature-caches with a valid CRON_SECRET
+
+
+
+**Issue:** Features show "Unable to evaluate" Delivery Health
+
+**Likely Cause:** ADO batch request failures (throttling/network)
+
+**Fix:** Check server logs for 429/5xx from Azure DevOps; retries are automatic via withAdoRetry
+
+
+
+**Issue:** Target Dates appear off by one day
+
+**Likely Cause:** Timezone mismatch
+
+**Fix:** Confirm DASHBOARD_TIME_ZONE matches release-calendar.json's timeZone field — the app validates this at startup and will refuse to start otherwise
+
+
+
+# Architecture Overview
 
 * Backend: Express.js server proxying Azure DevOps REST API (workitemsbatch, wiql, revisions) with retry/backoff logic (withAdoRetry) and concurrency-limited batch fetching.
 * Cache layer: Upstash Redis stores incremental historical Feature shards (5 rolling date ranges), Feature/Story Aging data, and a persistent Cron sync audit trail.
@@ -150,7 +183,7 @@ Defines the RFV (Release Fix Version) publishing calendar and Sprint-to-release 
 
 
 
-## Functionality Documentation
+# Functionality Documentation
 
 
 ### Feature List
