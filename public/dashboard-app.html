@@ -216,7 +216,7 @@
     .feature-list-centered-cell { text-align: center; padding: 8px !important; }
     .feature-list-progress-cell { text-align: center; padding: 8px !important; white-space: normal !important; }
     /* Paneles de Readiness y Delivery Health. History ya no forma parte de Feature List. */
-    .feature-detail-panel {   background: var(--surface-sunken); border: 1px solid var(--line-hairline);}
+    .feature-detail-panel { padding: 10px 0; font-size: 12px; color: var(--text-tertiary); }
     .feature-detail-panel-message { padding: 10px 0; font-size: 12px; color: var(--text-tertiary); }
     .feature-detail-panel-warning { padding: 10px 0; font-size: 12px; color: var(--warn); }
     .feature-story-card__assigned-to { color: var(--text-secondary); font-size: 10px; }
@@ -1095,25 +1095,29 @@
     .release-alignment-indicator:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.32); outline-offset: 2px;}
     .release-alignment-indicator:active { transform: scale(0.94);}
     @media (prefers-reduced-motion: reduce) {.release-alignment-indicator:hover,.release-alignment-indicator:active { transform: none; }}
-    /* ── Stories and Bugs + Release Alignment: tarjetas gemelas ─── */
+    /* Stories and Bugs deja de ser un panel visual externo.
+      Este elemento sólo organiza: la tercera y cuarta tarjetas; el panel independiente de resultados.
+      De esta forma no existe un borde exterior que se cruce visualmente con los bordes de Stories and Bugs, Release Alignment o Results.*/
+    .feature-work-items-panel { min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+    /* Tarjetas 3 y 4: Stories and Bugs; Release Alignment */
     .feature-work-items-panel__top-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: stretch; min-width: 0; }
-    .feature-work-items-panel__controls-card,.feature-work-items-panel__alignment { min-width: 0; padding: 12px;  border: 1px solid var(--line-hairline);
+    .feature-work-items-panel__controls-card, .feature-work-items-panel__alignment { min-width: 0; padding: 12px; border: 1px solid var(--line-hairline);
       border-radius: 7px; background: var(--surface-raised); }
     .feature-work-items-panel__controls-card { display: flex; flex-direction: column; align-items: stretch; }
-    /*  Los botones pueden ocupar una segunda o tercera línea si no caben.No se reducen de manera ilegible.*/
-    .feature-work-items-panel__controls-card.feature-work-items-panel__filters { margin-top: 11px;}
-    .feature-work-items-panel__controls-card.delivery-details__summary { align-items: flex-start;}
-    /* ReleaseAlignmentDetails ya está dentro de una tarjeta. Por eso no debe dibujar un segundo divisor interno.*/
-    .feature-work-items-panel__alignment.release-alignment-details { margin-top: 0; padding-top: 0; border-top: 0;}
-    /* La lista de Stories/Bugs se conserva en su propia superficie, debajo de las dos tarjetas superiores.*/
-    .feature-work-items-panel__divider { display: none;}
-    .feature-work-items-panel__results { min-width: 0; margin-top: 10px; padding: 12px; border: 1px solid var(--line-hairline); border-radius: 7px; background: var(--surface-raised);}
-    .feature-work-items-panel__results.delivery-work-group:first-child { margin-top: 0;}
-    @media (max-width: 980px) {.feature-work-items-panel__top-grid { grid-template-columns: 1fr; gap: 10px; }}
-    .release-fix-version-with-alignment { display: flex; align-items: flex-start; gap: 4px; min-width: 0;}
-    .release-fix-version-with-alignment .release-fix-version-cell,.release-fix-version-with-alignment .release-fix-version-cell__empty {
-      flex: 1 1 auto; min-width: 0; }
-    .release-fix-version-with-alignment .release-alignment-indicator { flex: 0 0 16px; margin-top: 1px; }
+    /* Los filtros pueden ocupar múltiples líneas sin comprimir sus labels ni salir de la tarjeta. */
+    .feature-work-items-panel__controls-card.feature-work-items-panel__filters { margin-top: 11px; }
+    .feature-work-items-panel__controls-card.delivery-details__summary { align-items: flex-start; }
+    /* ReleaseAlignmentDetails ya vive dentro de la tarjeta lateral. No debe generar un segundo borde/divisor en la parte superior. */
+    .feature-work-items-panel__alignment.release-alignment-details { margin-top: 0; padding-top: 0; border-top: 0; }
+    /* El divisor anterior pertenecía al antiguo panel exterior. Ya no es necesario: el espacio entre tarjetas y resultados
+        lo define margin-top del panel de resultados. */
+    .feature-work-items-panel__divider { display: none; }
+    /* Área independiente para los grupos: In Planning, In Progress, To Release, Completed, Linked Items y Related User Stories. */
+    .feature-work-items-panel__results { min-width: 0; margin-top: 10px; padding: 12px; border: 1px solid var(--line-hairline); border-radius: 7px;
+      background: var(--surface-raised); }
+    .feature-work-items-panel__results .delivery-work-group:first-child { margin-top: 0; }
+    @media (max-width: 980px) { .feature-work-items-panel__top-grid { grid-template-columns: 1fr; gap: 10px; } }
+    .release-fix-version-with-alignment { display: flex; align-items: flex-start; gap: 4px; min-width: 0; }
     /* ── Regla temporal(tiempo) única del Roadmap ─────────────────────────── */
       /* El wrapper del Gantt es la referencia de posición para:
       - grilla vertical de meses/semanas;
