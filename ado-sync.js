@@ -979,7 +979,10 @@ function createUnknownToReleaseAging(workItem = {}) {
   };
 }
 
-function materializeToReleaseAging(aging, workItem = {}) {
+function materializeToReleaseWorkItemAging(
+  aging,
+  workItem = {}
+) {
   const currentState = String(workItem.state || '').trim();
   const enteredToReleaseAt = String(
     aging?.enteredToReleaseAt || ''
@@ -1105,13 +1108,9 @@ function getCalendarDaysBetweenDateKeys(
   );
 }
 
-/*
-  Convierte la información estable guardada en caché a la forma pública
-  consumida por el frontend.
+/* Convierte la información estable guardada en caché a la forma pública consumida por el frontend.
+  daysInCurrentState se calcula en tiempo de respuesta para que el valor avance diariamente incluso si enteredCurrentStateAt proviene de Redis. */
 
-  daysInCurrentState se calcula en tiempo de respuesta para que el valor
-  avance diariamente incluso si enteredCurrentStateAt proviene de Redis.
-*/
 function materializeFeatureAging(aging) {
   const currentState = String(
     aging?.currentState || ''
@@ -1153,6 +1152,136 @@ function materializeFeatureAging(aging) {
     currentState,
     enteredCurrentStateAt,
     daysInCurrentState
+  };
+}
+
+function materializeToReleaseAging(
+  toReleaseAging,
+  toReleaseWorkItems = 0
+) {
+  const thresholdDays =
+    Number(
+      toReleaseAging?.thresholdDays ??
+      deliveryHealthRules.thresholds.toReleaseMaxDays
+    ) ||
+    deliveryHealthRules.thresholds.toReleaseMaxDays;
+
+  const expectedToReleaseWorkItems = Number(
+    toReleaseWorkItems || 0
+  );
+
+  const hasStoredWorkItems = Array.isArray(
+    toReleaseAging?.workItems
+  );
+
+  /* Compatibilidad con Features que fueron guardadas en Redis antes de implementar To Release Aging.
+    Si hay Work Items en To Release, pero no existe el detalle histórico workItems, no se debe considerar evaluable. */
+  if (!hasStoredWorkItems) {
+    return {
+      source:
+        expectedToReleaseWorkItems > 0
+          ? 'unknown'
+          : 'ok',
+
+      thresholdDays,
+      agedWorkItems: 0,
+
+      unknownWorkItems:
+        expectedToReleaseWorkItems > 0
+          ? expectedToReleaseWorkItems
+          : 0,
+
+      maxDaysInToRelease: null,
+      workItems: []
+    };
+  }
+
+  const storedWorkItems = toReleaseAging.workItems;
+
+  /* Una lista explícita vacía significa que no hay Work Items actuales en To Release, por lo que el resultado es evaluable y sano.*/
+  if (storedWorkItems.length === 0) {
+    return {
+      source: 'ok',
+      thresholdDays,
+      agedWorkItems: 0,
+      unknownWorkItems: 0,
+      maxDaysInToRelease: 0,
+      workItems: []
+    };
+  }
+
+  const workItems = storedWorkItems.map(workItem => {
+    const enteredToReleaseAt = String(
+      workItem?.enteredToReleaseAt || ''
+    ).trim();
+
+    const canCalculateDays =
+      workItem?.source === 'ok' &&
+      /^\d{4}-\d{2}-\d{2}$/.test(enteredToReleaseAt);
+
+    const daysInToRelease = canCalculateDays
+      ? getCalendarDaysBetweenDateKeys(enteredToReleaseAt)
+      : null;
+
+    const isKnown =
+      Number.isInteger(daysInToRelease) &&
+      daysInToRelease >= 0;
+
+    return {
+      id: Number(workItem?.id) || null,
+      state: String(workItem?.state || '').trim(),
+
+      enteredToReleaseAt: isKnown
+        ? enteredToReleaseAt
+        : null,
+
+      daysInToRelease: isKnown
+        ? daysInToRelease
+        : null,
+
+      source: isKnown
+        ? 'ok'
+        : 'unknown',
+
+      isAged:
+        isKnown &&
+        daysInToRelease > thresholdDays
+    };
+  });
+
+  const knownWorkItems = workItems.filter(
+    workItem => workItem.source === 'ok'
+  );
+
+  const unknownWorkItems =
+    workItems.length - knownWorkItems.length;
+
+  const maxDaysInToRelease =
+    knownWorkItems.length > 0
+      ? Math.max(
+          ...knownWorkItems.map(
+            workItem => workItem.daysInToRelease
+          )
+        )
+      : null;
+
+  return {
+    source:
+      knownWorkItems.length === workItems.length
+        ? 'ok'
+        : knownWorkItems.length > 0
+          ? 'partial'
+          : 'unknown',
+
+    thresholdDays,
+
+    agedWorkItems: knownWorkItems.filter(
+      workItem => workItem.isAged
+    ).length,
+
+    unknownWorkItems,
+    maxDaysInToRelease,
+    workItems
   };
 }
 
@@ -2558,7 +2687,7 @@ async function enrichFeaturesWithToReleaseAging(
     if (cacheIsValid) {
       agingByWorkItemId.set(
         Number(workItem.id),
-        materializeToReleaseAging(cached, workItem)
+        materializeToReleaseWorkItemAging(cached, workItem)
       );
     } else {
       workItemsNeedingHistory.push(workItem);
@@ -2584,10 +2713,7 @@ async function enrichFeaturesWithToReleaseAging(
           workItemId
         );
 
-        const materialized = materializeToReleaseAging(
-          aging,
-          workItem
-        );
+        const materialized = materializeToReleaseWorkItemAging( aging, workItem );
 
         agingByWorkItemId.set(workItemId, materialized);
 
@@ -3551,6 +3677,49 @@ function buildDeliveryHealth(feature) {
     );
   }
 
+  /* To Release Aging: detecta Stories/Bugs que llevan más tiempo del permitido dentro del grupo To Release.
+  A diferencia de toReleasePending, esta alerta puede coexistir con trabajo In Planning o In Progress: basta con que haya al menos un
+  Work Item confirmado como retenido en release. */
+  const toReleaseAgingRule = getDeliveryHealthRule('toReleaseAging');
+
+  const toReleaseAging = summary.toReleaseAging || {
+    source: 'unknown',
+
+    thresholdDays:
+      deliveryHealthRules.thresholds.toReleaseMaxDays,
+
+    agedWorkItems: 0,
+    unknownWorkItems: 0
+  };
+
+  if (
+    toReleaseAgingRule.enabled &&
+    !isClosed &&
+    (
+      toReleaseAging.source === 'ok' ||
+      toReleaseAging.source === 'partial'
+    ) &&
+    Number(toReleaseAging.agedWorkItems || 0) > 0
+  ) {
+    alerts.push(
+      createRuleAlert(
+        'toReleaseAging',
+        {
+          reasonValues: {
+            count: Number(
+              toReleaseAging.agedWorkItems || 0
+            ),
+
+            days: Number(
+              toReleaseAging.thresholdDays ||
+              deliveryHealthRules.thresholds.toReleaseMaxDays
+            )
+          }
+        }
+      )
+    );
+  }
+  
   const unestimatedWorkRule = getDeliveryHealthRule(
     'unestimatedWork'
   );
@@ -7375,10 +7544,34 @@ app.get('/api/features', async (req, res) => {
 
     /* Las entradas cacheadas conservan enteredCurrentStateAt. Los días se recalculan aquí contra el día de negocio actual para que Aging no
       quede congelado entre ejecuciones del Cron. */
-    const allFeatures = [...featuresById.values()].map(feature => ({
-      ...feature,
-      aging: materializeFeatureAging(feature.aging)
-    }));
+    const allFeatures = [...featuresById.values()].map(feature => {
+      const deliverySummary = {
+        ...(feature.deliverySummary || {}),
+    
+        /* enteredToReleaseAt se conserva desde Redis / ADO.
+          daysInToRelease se recalcula en cada respuesta según el día de negocio actual, sin nuevas llamadas a Azure DevOps. */
+        toReleaseAging: materializeToReleaseAging(
+          feature.deliverySummary?.toReleaseAging,
+          feature.deliverySummary?.toReleaseWorkItems
+        )
+      };
+    
+      const materializedFeature = {
+        ...feature,
+    
+        /* Feature Aging también avanza diariamente sin refrescar ADO. */
+        aging: materializeFeatureAging(feature.aging),
+    
+        deliverySummary
+      };
+    
+      /* Las Features históricas se almacenan ya mapeadas en Redis, incluyendo deliveryHealth. Como To Release Aging cambia cada día, se debe volver
+        a calcular Delivery Health después de materializar los días. */
+      return {
+        ...materializedFeature,
+        deliveryHealth: buildDeliveryHealth(materializedFeature)
+      };
+    });
 
     // 6. Combinar conteos, detalles técnicos y advertencias.
     const activeOldRangeKey =
@@ -7439,10 +7632,9 @@ app.get('/api/features', async (req, res) => {
         businessDate: getTodayDateKey(),
 
         /* Los umbrales se publican para que el frontend use exactamente la misma política de negocio que Delivery Health. */
-        thresholds: {
-          targetDateNearDays:
-            deliveryHealthRules.thresholds.targetDateNearDays
-        },
+        thresholds: { targetDateNearDays: deliveryHealthRules.thresholds.targetDateNearDays,
+          toReleaseMaxDays:
+            deliveryHealthRules.thresholds.toReleaseMaxDays },
 
         /* El calendario se publica con la respuesta principal para evitar una segunda llamada HTTP desde el frontend. */
         releaseCalendar: releaseCalendarByRfv
