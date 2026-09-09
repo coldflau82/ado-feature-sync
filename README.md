@@ -1,12 +1,10 @@
 # ado-feature-sync
 
-***ADO DEC Dashboard***
+##***ADO DEC Dashboard***
 
 A real-time delivery health and roadmap visualization dashboard for Azure DevOps Features, built to surface Readiness gaps, Delivery Health risks, and Release/Sprint alignment issues across the Commercial Engineering portfolio.
 
-**Table of Contents**
-
-Quick Start
+###**Table of Contents**
 
 Architecture Overview
 
@@ -35,7 +33,7 @@ Authentication (Enterprise SSO)
 Troubleshooting
 
 
-***Architecture Overview***
+###***Architecture Overview***
 
 * Backend: Express.js server proxying Azure DevOps REST API (workitemsbatch, wiql, revisions) with retry/backoff logic (withAdoRetry) and concurrency-limited batch fetching.
 * Cache layer: Upstash Redis stores incremental historical Feature shards (5 rolling date ranges), Feature/Story Aging data, and a persistent Cron sync audit trail.
@@ -69,7 +67,7 @@ Defines the RFV (Release Fix Version) publishing calendar and Sprint-to-release 
 timeZone in this file must match DASHBOARD_TIME_ZONE exactly — the app throws a startup error otherwise, to guarantee consistent "day of business" calculations across Overdue, Target Date, and Release Alignment rules.
 
 
-***Functionality Documentation***
+###***Functionality Documentation***
 
 
 **Feature List**
