@@ -1,33 +1,40 @@
 # ado-feature-sync
 ADO features visibility Acquisition
 
-**Architecture Overview**
-Backend: Express.js server proxying Azure DevOps REST API (workitemsbatch, wiql, revisions) with retry/backoff logic (withAdoRetry) and concurrency-limited batch fetching.
-Cache layer: Upstash Redis stores incremental historical Feature shards (5 rolling date ranges), Feature/Story Aging data, and a persistent Cron sync audit trail.
-Frontend: Single-file React app (via Babel Standalone, no build step) rendering Feature List and Roadmap (Gantt) views.
-Scheduling: Vercel Cron triggers /api/internal/sync-feature-caches nightly to refresh historical caches without impacting live user requests.
-Configuration
-Delivery Health Rules (config/delivery-health-rules.json)
+***Architecture Overview***
+
+* Backend: Express.js server proxying Azure DevOps REST API (workitemsbatch, wiql, revisions) with retry/backoff logic (withAdoRetry) and concurrency-limited batch fetching.
+* Cache layer: Upstash Redis stores incremental historical Feature shards (5 rolling date ranges), Feature/Story Aging data, and a persistent Cron sync audit trail.
+* Frontend: Single-file React app (via Babel Standalone, no build step) rendering Feature List and Roadmap (Gantt) views.
+* Scheduling: Vercel Cron triggers /api/internal/sync-feature-caches nightly to refresh historical caches without impacting live user requests.
+
+**Configuration**
+
+**Delivery Health Rules (config/delivery-health-rules.json)**
 Defines the business logic for classifying Feature delivery risk. Key sections:
 
-workItemStates: Maps Azure DevOps states to delivery categories (inPlanning, inProgress, toRelease, completed, removed).
-featureStates: Maps Feature-level states to lifecycle stages (execution, closed, notStarted).
-thresholds:
-targetDateNearDays (default 14) — window for the "Target date near" alert.
-toReleaseMaxDays (default 45) — max allowed days a work item can sit in "To Release" before flagging as aged.
-rules: Each rule (e.g., overdue, releaseCommitmentMissed) defines enabled, group (requires-action / requires-attention / healthy / not-started), label, reason/reasonTemplate, and recommendedAction.
+* workItemStates: Maps Azure DevOps states to delivery categories (inPlanning, inProgress, toRelease, completed, removed).
+* featureStates: Maps Feature-level states to lifecycle stages (execution, closed, notStarted).
+* thresholds:
+  * targetDateNearDays (default 14) — window for the "Target date near" alert.
+  * toReleaseMaxDays (default 45) — max allowed days a work item can sit in "To Release" before flagging as aged.
+* rules: Each rule (e.g., overdue, releaseCommitmentMissed) defines enabled, group (requires-action / requires-attention / healthy / not-started), label, reason/reasonTemplate, and recommendedAction.
+
 Editing this file requires restarting the server — it is validated and loaded once at boot via validateDeliveryHealthRules().
 
-Release Calendar (config/release-calendar.json)
+**Release Calendar (config/release-calendar.json)**
+
 Defines the RFV (Release Fix Version) publishing calendar and Sprint-to-release mapping used for Release/Sprint Alignment calculations:
 
-releases[]: Each entry has rfv, date (YYYY-MM-DD), sequence (used for ordering comparisons), and status (published/provisional).
-sprints[]: Each entry has id, startDate, endDate, optional commitmentCutoffDate (defaults to startDate), and deliveryRfv (which release this Sprint delivers into).
+* releases[]: Each entry has rfv, date (YYYY-MM-DD), sequence (used for ordering comparisons), and status (published/provisional).
+* sprints[]: Each entry has id, startDate, endDate, optional commitmentCutoffDate (defaults to startDate), and deliveryRfv (which release this Sprint delivers into).
+
 timeZone in this file must match DASHBOARD_TIME_ZONE exactly — the app throws a startup error otherwise, to guarantee consistent "day of business" calculations across Overdue, Target Date, and Release Alignment rules.
 
-**Functionality Documentation**
+***Functionality Documentation***
 
 **Feature List**
+
 Overview: Tabular view of all Features in scope, with sortable columns for Priority, Target Date, Release Fix Version, Estimates, State, Readiness, Delivery Health, and Progress.
 
 *Usage:*
@@ -41,6 +48,7 @@ Release Alignment status and metrics
 Full Stories and Bugs breakdown, filterable by delivery stage or execution team
 
 **Roadmap View**
+
 Overview: Gantt-style timeline visualization plotting Feature state history, Target Dates, Release Fix Version markers, and Tech Go-Live markers across a scrollable time axis.
 
 *Usage:*
@@ -49,7 +57,8 @@ Switch to Roadmap from the navigation.
 Use the Months/Weeks toggle to change timeline granularity.
 Drag horizontally on the timeline to pan, use arrow keys to move one unit at a time, or press Home to snap back to Today.
 Click a Feature row to expand and reveal individual Story/Bug timelines beneath it.
-Legend:
+
+*Legend:*
 
 *Marker	Meaning*
 Blue vertical line	Today
