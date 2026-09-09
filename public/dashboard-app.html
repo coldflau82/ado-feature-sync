@@ -1061,17 +1061,26 @@
       background: var(--surface-sunken); }
     /* Dentro del panel lateral ya existe una tarjeta propia. No debe repetir el borde superior ni crear separación extra. */
     .feature-work-items-panel__alignment.release-alignment-details { margin-top: 0; padding-top: 0; border-top: 0; }
-    @media (max-width: 980px) { .feature-work-items-panel__top-grid { grid-template-columns: 1fr; gap: 12px; }}
-    /* ── Evita que textos largos de Delivery Health se desborden ─── */
-    .feature-status-details__alerts,.delivery-inline-alert,.delivery-inline-alert__summary,.delivery-inline-alert__summary-content { min-width: 0; max-width: 100%;}
-    .delivery-inline-alert__summary {  width: 100%;}
+    @media (max-width: 980px) { .feature-work-items-panel__top-grid { grid-template-columns: 1fr; gap: 12px; } }
+    /*Evita que textos largos de Delivery Health se desborden ───
+      Las alertas pueden contener acciones recomendadas extensas, RFVs largos o textos sin espacios suficientes. Todos los
+      contenedores intermedios deben poder reducirse dentro de la tarjeta para que el contenido continúe en una nueva línea.*/
+    .feature-status-details__alerts, .delivery-inline-alert, .delivery-inline-alert__summary, .delivery-inline-alert__summary-content, 
+        .delivery-inline-alert__details, .delivery-inline-alert__detail, .delivery-inline-alert__detail-value {  min-width: 0; max-width: 100%; }
+    .delivery-inline-alert__summary { width: 100%; }
     .delivery-inline-alert__summary-content { flex: 1 1 0; }
-    .delivery-inline-alert__title,.delivery-inline-alert__reason,.delivery-inline-alert__detail-value { overflow-wrap: anywhere; word-break: break-word; }
-    .delivery-inline-alert__reason { white-space: normal; }
+    /* Action y Owner mantienen una primera columna ajustada a su label. La segunda columna puede reducirse a cero y hacer wrap sin
+      extender el ancho de Feature Status Details. */
+    .delivery-inline-alert__detail { width: 100%; grid-template-columns: fit-content(72px) minmax(0, 1fr); }
+    .delivery-inline-alert__title, .delivery-inline-alert__reason, .delivery-inline-alert__detail-value { min-width: 0; white-space: normal;
+      overflow-wrap: anywhere; word-break: break-word; }
+    /* display:block garantiza que el span que contiene el valor de Action use realmente la segunda columna del grid y no conserve
+      un ancho inline basado en su contenido. */
+    .delivery-inline-alert__detail-value { display: block; width: 100%; }
     /* Indicador compacto y clicable dentro de la columna RFV. No usa tooltip: al hacer clic abre el detalle completo de la Feature. */
-    .release-alignment-indicator { appearance: none; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; flex: 0 0 16px;
-      margin-top: 1px; padding: 0; border: 0; border-radius: 50%; background: var(--text-tertiary); color: var(--surface-raised); cursor: pointer;
-      font: inherit; font-size: 9px; font-weight: 800; line-height: 1; touch-action: manipulation; -webkit-tap-highlight-color: transparent;}
+    .release-alignment-indicator { appearance: none; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
+      flex: 0 0 16px; margin-top: 1px; padding: 0; border: 0; border-radius: 50%; background: var(--text-tertiary); color: var(--surface-raised);
+      cursor: pointer; font: inherit; font-size: 9px; font-weight: 800; line-height: 1; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     /* Versión no interactiva usada exclusivamente por StickyFeatureContextRow. Comunica el mismo estado RFV Alignment sin sugerir que el usuario puede
     abrir, cerrar o modificar el detalle desde ese ícono. */
     .release-alignment-status-indicator { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
