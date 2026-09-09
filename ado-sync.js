@@ -2592,21 +2592,35 @@ async function enrichFeaturesWithToReleaseAging(
         agingByWorkItemId.set(workItemId, materialized);
 
         if (aging.source === 'ok') {
-          await redis.set(
-            getToReleaseAgingCacheKey(workItemId),
-            {
-              source: 'ok',
-              currentState: aging.currentState,
-              currentChangedDate: getChangedDateCacheValue(
-                workItem.changedDate
-              ),
-              enteredToReleaseAt: aging.enteredToReleaseAt,
-              updatedAt: new Date().toISOString()
-            },
-            {
-              ex: TO_RELEASE_AGING_CACHE_TTL_SECONDS
-            }
-          );
+          try {
+            await redis.set(
+              getToReleaseAgingCacheKey(workItemId),
+              {
+                source: 'ok',
+                currentState: aging.currentState,
+                currentChangedDate: getChangedDateCacheValue(
+                  workItem.changedDate
+                ),
+                enteredToReleaseAt: aging.enteredToReleaseAt,
+                updatedAt: new Date().toISOString()
+              },
+              {
+                ex: TO_RELEASE_AGING_CACHE_TTL_SECONDS
+              }
+            );
+          } catch (cacheError) {
+            /*
+              El cálculo de ADO es válido; únicamente no se pudo
+              persistir en Redis para reutilizarlo más adelante.
+            */
+            console.error(
+              'Unable to write To Release Aging cache to Redis.',
+              {
+                workItemId,
+                message: cacheError.message
+              }
+            );
+          }
         }
       } catch (error) {
         console.error(
@@ -3882,32 +3896,20 @@ async function enrichFeaturesWithAging(c, features) {
         if (aging.source === 'ok') {
           try {
             await redis.set(
-              getToReleaseAgingCacheKey(workItemId),
+              getFeatureAgingCacheKey(featureId),
               {
                 source: 'ok',
                 currentState: aging.currentState,
-                currentChangedDate: getChangedDateCacheValue(
-                  workItem.changedDate
-                ),
-                enteredToReleaseAt: aging.enteredToReleaseAt,
+                enteredCurrentStateAt:
+                  aging.enteredCurrentStateAt,
                 updatedAt: new Date().toISOString()
               },
               {
-                ex: TO_RELEASE_AGING_CACHE_TTL_SECONDS
+                ex: FEATURE_AGING_CACHE_TTL_SECONDS
               }
             );
           } catch (cacheError) {
-            /* El cálculo obtenido desde ADO sigue siendo válido aunque Redis no esté disponible para persistirlo.  */
-            console.error(
-              'Unable to write To Release Aging cache to Redis.',
-              {
-                workItemId,
-                message: cacheError.message
-              }
-            );
-          }
-        } catch (cacheError) {
-            /* El resultado correcto de ADO sigue siendo válido aunque no haya sido posible persistirlo para futuras solicitudes. */
+            /* El cálculo obtenido desde Azure DevOps sigue siendo válido aunque Redis no esté disponible para persistirlo. */
             console.error(
               'Unable to write Feature Aging cache to Redis.',
               {
@@ -3916,8 +3918,7 @@ async function enrichFeaturesWithAging(c, features) {
               }
             );
           }
-        }
-      } catch (error) {
+        } catch (error) {
         console.error(
           'Unable to retrieve Feature Aging history from ADO.',
           {
