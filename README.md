@@ -1,5 +1,39 @@
 # ado-feature-sync
-ADO features visibility Acquisition
+
+***ADO DEC Dashboard***
+
+A real-time delivery health and roadmap visualization dashboard for Azure DevOps Features, built to surface Readiness gaps, Delivery Health risks, and Release/Sprint alignment issues across the Commercial Engineering portfolio.
+
+**Table of Contents**
+
+Quick Start
+
+Architecture Overview
+
+Configuration
+
+Functionality Documentation
+
+Feature List
+
+Roadmap View
+
+Delivery Health Engine
+
+Release / Sprint Alignment
+
+Readiness Validation
+
+Advanced Filtering
+
+Caching & Background Sync
+
+API Reference
+
+Authentication (Enterprise SSO)
+
+Troubleshooting
+
 
 ***Architecture Overview***
 
@@ -8,7 +42,9 @@ ADO features visibility Acquisition
 * Frontend: Single-file React app (via Babel Standalone, no build step) rendering Feature List and Roadmap (Gantt) views.
 * Scheduling: Vercel Cron triggers /api/internal/sync-feature-caches nightly to refresh historical caches without impacting live user requests.
 
+
 **Configuration**
+
 
 **Delivery Health Rules (config/delivery-health-rules.json)**
 Defines the business logic for classifying Feature delivery risk. Key sections:
@@ -22,6 +58,7 @@ Defines the business logic for classifying Feature delivery risk. Key sections:
 
 Editing this file requires restarting the server — it is validated and loaded once at boot via validateDeliveryHealthRules().
 
+
 **Release Calendar (config/release-calendar.json)**
 
 Defines the RFV (Release Fix Version) publishing calendar and Sprint-to-release mapping used for Release/Sprint Alignment calculations:
@@ -31,7 +68,9 @@ Defines the RFV (Release Fix Version) publishing calendar and Sprint-to-release 
 
 timeZone in this file must match DASHBOARD_TIME_ZONE exactly — the app throws a startup error otherwise, to guarantee consistent "day of business" calculations across Overdue, Target Date, and Release Alignment rules.
 
+
 ***Functionality Documentation***
+
 
 **Feature List**
 
@@ -46,6 +85,7 @@ Feature Readiness status and missing/unknown checks
 Delivery Health alerts with recommended actions
 Release Alignment status and metrics
 Full Stories and Bugs breakdown, filterable by delivery stage or execution team
+
 
 **Roadmap View**
 
@@ -66,7 +106,8 @@ Red triangle	        Target Date
 Blue diamond	        Release Fix Version date
 Gold star	           Tech Go-Live RFV date
 
-*Delivery Health Engine*
+
+**Delivery Health Engine**
 Overview: A rules-driven classification system (configured entirely in delivery-health-rules.json) that evaluates each Feature against 14+ conditions — Overdue, Needs Estimate, Release Commitment Missed, To Release Aging, etc. — and surfaces the highest-priority alert plus all accumulated alerts.
 
 *Categories (mutually exclusive at the KPI level):*
@@ -81,12 +122,16 @@ Overview: A rules-driven classification system (configured entirely in delivery-
 
 Usage: Click any KPI card at the top of the dashboard to filter the Feature List/Roadmap to that exact category.
 
-*Release / Sprint Alignment*
+
+**Release / Sprint Alignment**
+
 Overview: Validates whether a Feature's pending Stories/Bugs are assigned to Sprints and Release Fix Versions compatible with the Feature's own committed RFV, using the release-calendar.json Sprint-cutoff logic.
 
 Statuses: Aligned · At Risk · Commitment Missed · Release Date Passed · Unavailable · Not Applicable
 
 Usage: Expand any Feature row and review the Release Alignment panel for affected work item counts, cutoff dates, and the suggested next viable RFV.
 
-*Readiness Validation*
+
+**Readiness Validation**
+
 Overview: Confirms each Feature has the minimum required fields before entering delivery: Description, Acceptance Criteria, Customer Benefit, Parent link,
