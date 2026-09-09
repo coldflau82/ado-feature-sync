@@ -2634,7 +2634,8 @@ async function enrichFeaturesWithToReleaseAging(
             deliveryHealthRules.thresholds.toReleaseMaxDays,
           agedWorkItems: 0,
           unknownWorkItems: 0,
-          maxDaysInToRelease: 0
+          maxDaysInToRelease: 0,
+          workItems: []
         }
       }
     }));
