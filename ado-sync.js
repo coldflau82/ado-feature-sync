@@ -108,11 +108,8 @@ function validateDeliveryHealthRules(config) {
     'targetDateNearUnscheduledDiscovery',
     'targetNextMonthWithoutRelease',
 
-    /*
-      Release / Sprint Alignment rules.
-      These rules are evaluated from the Feature RFV, child work item
-      RFVs, assigned Sprint, and the Sprint-to-RFV planning calendar.
-    */
+    /* Release / Sprint Alignment rules. These rules are evaluated from the Feature RFV, child work item
+      RFVs, assigned Sprint, and the Sprint-to-RFV planning calendar. */
     'releaseAlignmentAtRisk',
     'releaseCommitmentMissed',
     'releaseDatePassedWithOpenWork',
@@ -123,6 +120,7 @@ function validateDeliveryHealthRules(config) {
     'noStories',
     'noActiveWork',
     'toReleasePending',
+    'toReleaseAging',
     'unestimatedWork',
     'healthy',
     'unableToEvaluate'
@@ -224,11 +222,19 @@ function validateDeliveryHealthRules(config) {
     config.thresholds.targetDateNearDays < 1
   ) {
     throw new Error(
-      'Delivery Health configuration "thresholds.targetDateNearDays" ' +
-      'must be a positive integer.'
+      'Delivery Health configuration "thresholds.targetDateNearDays" ' +  'must be a positive integer.'
     );
   }
 
+  if (
+    !Number.isInteger(config.thresholds?.toReleaseMaxDays) ||
+    config.thresholds.toReleaseMaxDays < 1
+  ) {
+    throw new Error(
+      'Delivery Health configuration "thresholds.toReleaseMaxDays" ' +  'must be a positive integer.'
+    );
+  }
+    
   if (
     !config.rules ||
     typeof config.rules !== 'object'
@@ -786,8 +792,13 @@ const FEATURE_AGING_CONCURRENCY = 3;
   El estado actual de la Feature se valida siempre antes de reutilizar una entrada. Si la Feature cambió de estado, la caché se reconstruye.*/
 const FEATURE_AGING_CACHE_PREFIX = 'featureAging:v1';
 
-const FEATURE_AGING_CACHE_TTL_SECONDS =
-  90 * 24 * 60 * 60;
+const FEATURE_AGING_CACHE_TTL_SECONDS = 90 * 24 * 60 * 60;
+
+const TO_RELEASE_AGING_CACHE_PREFIX = 'toReleaseAging:v1';
+
+const TO_RELEASE_AGING_CACHE_TTL_SECONDS = 90 * 24 * 60 * 60;
+
+const TO_RELEASE_AGING_CONCURRENCY = 3;
 
 /* Máximo de consultas WIQL históricas simultáneas durante la creación del caché de Features antiguas.
 Se inicia deliberadamente con 2 para reducir el tiempo de refresh sin generar una carga excesiva sobre Azure DevOps. No aumentar este valor
@@ -954,13 +965,124 @@ function createUnknownFeatureAging(currentState = '') {
   };
 }
 
-/*
-  Calcula días calendario entre dos claves YYYY-MM-DD usando la misma zona
-  de negocio del dashboard.
+function getToReleaseAgingCacheKey(workItemId) {
+  return `${TO_RELEASE_AGING_CACHE_PREFIX}:${workItemId}`;
+}
 
-  No usa milisegundos fijos de 24 horas porque los cambios de horario de
-  verano pueden producir días de 23 o 25 horas.
-*/
+function createUnknownToReleaseAging(workItem = {}) {
+  return {
+    source: 'unknown',
+    workItemId: Number(workItem.id) || null,
+    currentState: String(workItem.state || '').trim(),
+    enteredToReleaseAt: null,
+    daysInToRelease: null
+  };
+}
+
+function materializeToReleaseAging(aging, workItem = {}) {
+  const currentState = String(workItem.state || '').trim();
+  const enteredToReleaseAt = String(
+    aging?.enteredToReleaseAt || ''
+  ).trim();
+
+  if (
+    aging?.source !== 'ok' ||
+    !TO_RELEASE_WORK_STATES.includes(currentState) ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(enteredToReleaseAt)
+  ) {
+    return createUnknownToReleaseAging(workItem);
+  }
+
+  const daysInToRelease = getCalendarDaysBetweenDateKeys(
+    enteredToReleaseAt
+  );
+
+  if (!Number.isInteger(daysInToRelease)) {
+    return createUnknownToReleaseAging(workItem);
+  }
+
+  return {
+    source: 'ok',
+    workItemId: Number(workItem.id),
+    currentState,
+    enteredToReleaseAt,
+    daysInToRelease
+  };
+}
+
+function getToReleaseAgingFromRevisions(
+  revisions,
+  expectedCurrentState,
+  workItemId
+) {
+  const currentState = String(
+    expectedCurrentState || ''
+  ).trim();
+
+  if (!TO_RELEASE_WORK_STATES.includes(currentState)) {
+    return createUnknownToReleaseAging({
+      id: workItemId,
+      state: currentState
+    });
+  }
+
+  const stateChanges = getStateChangesFromRevisions(
+    revisions
+  );
+
+  const latestStateChange =
+    stateChanges[stateChanges.length - 1];
+
+  /* Evita calcular antigüedad con un historial desactualizado si el Work Item cambió entre la consulta de campos y revisiones.  */
+  if (
+    !latestStateChange ||
+    String(latestStateChange.state || '').trim() !== currentState
+  ) {
+    return createUnknownToReleaseAging({
+      id: workItemId,
+      state: currentState
+    });
+  }
+
+  let previousCategory = null;
+  let enteredToReleaseAt = null;
+
+  stateChanges.forEach(stateChange => {
+    const category = getDeliveryWorkItemCategory(
+      stateChange.state
+    );
+
+    /* Sólo reinicia la fecha cuando entra desde una categoría diferente. Cambiar entre estados del mismo grupo To Release conserva la
+      primera entrada de ese ciclo de release. */
+    if (
+      category === 'toRelease' &&
+      previousCategory !== 'toRelease'
+    ) {
+      enteredToReleaseAt = getDateKey(
+        stateChange.changedDate
+      );
+    }
+
+    previousCategory = category;
+  });
+
+  if (!enteredToReleaseAt) {
+    return createUnknownToReleaseAging({
+      id: workItemId,
+      state: currentState
+    });
+  }
+
+  return {
+    source: 'ok',
+    workItemId: Number(workItemId),
+    currentState,
+    enteredToReleaseAt
+  };
+}
+
+/* Calcula días calendario entre dos claves YYYY-MM-DD usando la misma zona de negocio del dashboard.
+  No usa milisegundos fijos de 24 horas porque los cambios de horario de verano pueden producir días de 23 o 25 horas. */
 function getCalendarDaysBetweenDateKeys(
   startDateKey,
   endDateKey = getTodayDateKey()
@@ -1236,6 +1358,7 @@ const DELIVERY_WORK_ITEM_FIELDS = [
   'System.Id',
   'System.WorkItemType',
   'System.State',
+  'System.ChangedDate',
   'System.AreaPath',
   'System.IterationPath',
   /* Required to validate alignment between: Feature RFV ↔ Story/Bug RFV ↔ Sprint delivery RFV. */
@@ -1404,17 +1527,11 @@ function hasFeatureEstimate(feature) {
   });
 }
 
-/*
-  Convierte un valor de Azure DevOps a una fecha de negocio YYYY-MM-DD.
-
+/* Convierte un valor de Azure DevOps a una fecha de negocio YYYY-MM-DD.
   Reglas:
-  - Si ADO devuelve YYYY-MM-DD, ese valor ya representa una fecha de
-    negocio y se conserva literalmente.
-  - Si ADO devuelve un timestamp, se convierte a America/Chicago antes
-    de extraer el día.
-  - Nunca se usa toISOString() para obtener la fecha operativa porque
-    toISOString() siempre convierte a UTC.
-*/
+  - Si ADO devuelve YYYY-MM-DD, ese valor ya representa una fecha de negocio y se conserva literalmente.
+  - Si ADO devuelve un timestamp, se convierte a America/Chicago antes de extraer el día.
+  - Nunca se usa toISOString() para obtener la fecha operativa porque toISOString() siempre convierte a UTC. */
 function getDateKey(value) {
   if (!value) {
     return null;
@@ -1437,6 +1554,24 @@ function getDateKey(value) {
   return parsedDate
     .setZone(DASHBOARD_TIME_ZONE)
     .toISODate();
+}
+
+function getChangedDateCacheValue(value) {
+  const rawValue = String(value || '').trim();
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const parsedDate = DateTime.fromISO(rawValue, {
+    setZone: true
+  });
+
+  if (!parsedDate.isValid) {
+    return null;
+  }
+
+  return parsedDate.toUTC().toISO();
 }
 
 /* Normaliza Area Paths e Iteration Paths para comparaciones seguras. Azure DevOps puede entregar rutas con o sin "\" inicial según el
@@ -2349,6 +2484,221 @@ function priorityCheck(sourceStatus, value) {
   return Number(value) > 0;
 }
 
+async function enrichFeaturesWithToReleaseAging(
+  c,
+  features
+) {
+  const toReleaseWorkItems = features.flatMap(feature =>
+    Array.isArray(feature._toReleaseWorkItems)
+      ? feature._toReleaseWorkItems
+      : []
+  );
+
+  if (toReleaseWorkItems.length === 0) {
+    return features.map(feature => ({
+      ...feature,
+      deliverySummary: {
+        ...feature.deliverySummary,
+        toReleaseAging: {
+          source: 'ok',
+          thresholdDays:
+            deliveryHealthRules.thresholds.toReleaseMaxDays,
+          agedWorkItems: 0,
+          unknownWorkItems: 0,
+          maxDaysInToRelease: 0
+        }
+      }
+    }));
+  }
+
+  const uniqueWorkItems = [
+    ...new Map(
+      toReleaseWorkItems.map(workItem => [
+        Number(workItem.id),
+        workItem
+      ])
+    ).values()
+  ];
+
+  const cacheKeys = uniqueWorkItems.map(workItem =>
+    getToReleaseAgingCacheKey(workItem.id)
+  );
+
+  let cachedEntries = [];
+
+  try {
+    cachedEntries = await redis.mget(...cacheKeys);
+  } catch (error) {
+    console.error(
+      'Unable to read To Release Aging cache from Redis.',
+      { message: error.message }
+    );
+  }
+
+  const agingByWorkItemId = new Map();
+  const workItemsNeedingHistory = [];
+
+  uniqueWorkItems.forEach((workItem, index) => {
+    const cached = Array.isArray(cachedEntries)
+      ? cachedEntries[index]
+      : null;
+
+    const currentState = String(workItem.state || '').trim();
+    const currentChangedDate = getChangedDateCacheValue( workItem.changedDate );
+
+    const cacheIsValid =
+      cached?.source === 'ok' &&
+      cached.currentState === currentState &&
+      currentChangedDate &&
+      cached.currentChangedDate === currentChangedDate &&
+      /^\d{4}-\d{2}-\d{2}$/.test(
+        String(cached.enteredToReleaseAt || '')
+      );
+
+    if (cacheIsValid) {
+      agingByWorkItemId.set(
+        Number(workItem.id),
+        materializeToReleaseAging(cached, workItem)
+      );
+    } else {
+      workItemsNeedingHistory.push(workItem);
+    }
+  });
+
+  await mapWithConcurrency(
+    workItemsNeedingHistory,
+    TO_RELEASE_AGING_CONCURRENCY,
+    async workItem => {
+      const workItemId = Number(workItem.id);
+
+      try {
+        const revisionsResponse = await withAdoRetry(() =>
+          c.get(
+            `/wit/workitems/${workItemId}/revisions?api-version=7.0`
+          )
+        );
+
+        const aging = getToReleaseAgingFromRevisions(
+          revisionsResponse.data?.value || [],
+          workItem.state,
+          workItemId
+        );
+
+        const materialized = materializeToReleaseAging(
+          aging,
+          workItem
+        );
+
+        agingByWorkItemId.set(workItemId, materialized);
+
+        if (aging.source === 'ok') {
+          await redis.set(
+            getToReleaseAgingCacheKey(workItemId),
+            {
+              source: 'ok',
+              currentState: aging.currentState,
+              currentChangedDate: getChangedDateCacheValue(
+                workItem.changedDate
+              ),
+              enteredToReleaseAt: aging.enteredToReleaseAt,
+              updatedAt: new Date().toISOString()
+            },
+            {
+              ex: TO_RELEASE_AGING_CACHE_TTL_SECONDS
+            }
+          );
+        }
+      } catch (error) {
+        console.error(
+          'Unable to retrieve To Release Aging history from ADO.',
+          {
+            workItemId,
+            adoStatus: error.response?.status || null,
+            adoStatusText: error.response?.statusText || null,
+            message: error.message
+          }
+        );
+
+        agingByWorkItemId.set(
+          workItemId,
+          createUnknownToReleaseAging(workItem)
+        );
+      }
+    }
+  );
+
+  return features.map(feature => {
+    const featureToReleaseWorkItems =
+      Array.isArray(feature._toReleaseWorkItems)
+        ? feature._toReleaseWorkItems
+        : [];
+
+    const agingItems = featureToReleaseWorkItems.map(workItem =>
+      agingByWorkItemId.get(Number(workItem.id)) ||
+      createUnknownToReleaseAging(workItem)
+    );
+
+    const knownAgingItems = agingItems.filter(
+      item => item.source === 'ok'
+    );
+
+    const thresholdDays =
+      deliveryHealthRules.thresholds.toReleaseMaxDays;
+
+    const agedWorkItems = knownAgingItems.filter(
+      item => item.daysInToRelease > thresholdDays
+    );
+
+    const maxDaysInToRelease = knownAgingItems.length > 0
+      ? Math.max(
+          ...knownAgingItems.map(
+            item => item.daysInToRelease
+          )
+        )
+      : null;
+
+    return {
+      ...feature,
+
+      deliverySummary: {
+        ...feature.deliverySummary,
+
+        toReleaseAging: {
+          source:
+            agingItems.length === 0
+              ? 'ok'
+              : knownAgingItems.length === agingItems.length
+                ? 'ok'
+                : knownAgingItems.length > 0
+                  ? 'partial'
+                  : 'unknown',
+
+          thresholdDays,
+          agedWorkItems: agedWorkItems.length,
+          unknownWorkItems:
+            agingItems.length - knownAgingItems.length,
+          maxDaysInToRelease,
+
+          /*
+            No se envían títulos ni datos sensibles. Este detalle permite
+            una futura visualización de los IDs bloqueados en To Release.
+          */
+          workItems: agingItems.map(item => ({
+            id: item.workItemId,
+            state: item.currentState,
+            enteredToReleaseAt: item.enteredToReleaseAt,
+            daysInToRelease: item.daysInToRelease,
+            source: item.source,
+            isAged:
+              item.source === 'ok' &&
+              item.daysInToRelease > thresholdDays
+          }))
+        }
+      }
+    };
+  });
+}
+
 // ===== Mapeo de un work item crudo -> objeto de salida =====
 function mapFeature(i) {
   const fields = i.fields || {};
@@ -2460,6 +2810,16 @@ function mapFeature(i) {
       unestimatedWorkItems: null,
       discoveryWithoutSprintWorkItems: null,
       workItemsPendingDelivery: null,
+
+      toReleaseAging: {
+        source: 'unknown',
+        thresholdDays:
+          deliveryHealthRules.thresholds.toReleaseMaxDays,
+        agedWorkItems: 0,
+        unknownWorkItems: null,
+        maxDaysInToRelease: null,
+        workItems: []
+      },
       
       /* API contract fallback. A current backend response should normally receive releaseAlignment from buildDeliverySummary(). */
       releaseAlignment: createReleaseAlignmentResult(
@@ -2657,6 +3017,16 @@ function buildDeliverySummary(
     unestimatedWorkItems: null,
     discoveryWithoutSprintWorkItems: null,
     workItemsPendingDelivery: null,
+
+    toReleaseAging: {
+      source: 'unknown',
+      thresholdDays:
+        deliveryHealthRules.thresholds.toReleaseMaxDays,
+      agedWorkItems: 0,
+      unknownWorkItems: null,
+      maxDaysInToRelease: null,
+      workItems: []
+    },
     
     /* Fase 3: executionTeams representa los equipos que realmente ejecutan Stories/Bugs, basado en System.AreaPath de cada hijo directo. */
     executionTeams: null,
@@ -3250,16 +3620,11 @@ async function fetchDeliveryWorkItemsBatch(c, ids) {
           id: workItem.id,
           workItemType: fields['System.WorkItemType'] || '',
           state: fields['System.State'] || '',
+          changedDate: fields['System.ChangedDate'] || '',
           areaPath: fields['System.AreaPath'] || '',
           iterationPath: fields['System.IterationPath'] || '',
-
-          /*
-            This field is not displayed from /api/features. It is used
-            only to calculate the Feature-level Release Alignment result.
-          */
           releaseFixVersion:
             fields['Custom.ReleaseFixVersion'] || '',
-
           storyPoints: normalizeStoryPoints(
             fields['Microsoft.VSTS.Scheduling.StoryPoints']
           ),
@@ -3368,13 +3733,27 @@ async function enrichFeaturesWithDeliverySummary(c, features, iterationsByPath =
       .map(childId => workItemsById.get(childId))
       .filter(Boolean);
 
+    const deliverySummary = buildDeliverySummary(
+      deliveryWorkItems,
+      'ok',
+      iterationsByPath,
+      feature
+    );
+
     return {
       ...feature,
-      deliverySummary: buildDeliverySummary(
-        deliveryWorkItems,
-        'ok',
-        iterationsByPath,
-        feature
+      deliverySummary,
+    
+      /* Campo interno: existe sólo hasta completar enrichFeaturesWithToReleaseAging().
+      mapFeature() no lo expone al frontend.  */
+      _toReleaseWorkItems: deliveryWorkItems.filter(
+        workItem =>
+          (
+            workItem.workItemType === 'User Story' ||
+            workItem.workItemType === 'Bug'
+          ) &&
+          getDeliveryWorkItemCategory(workItem.state) ===
+            'toRelease'
       )
     };
   });
@@ -3503,19 +3882,31 @@ async function enrichFeaturesWithAging(c, features) {
         if (aging.source === 'ok') {
           try {
             await redis.set(
-              getFeatureAgingCacheKey(featureId),
+              getToReleaseAgingCacheKey(workItemId),
               {
                 source: 'ok',
                 currentState: aging.currentState,
-                enteredCurrentStateAt:
-                  aging.enteredCurrentStateAt,
+                currentChangedDate: getChangedDateCacheValue(
+                  workItem.changedDate
+                ),
+                enteredToReleaseAt: aging.enteredToReleaseAt,
                 updatedAt: new Date().toISOString()
               },
               {
-                ex: FEATURE_AGING_CACHE_TTL_SECONDS
+                ex: TO_RELEASE_AGING_CACHE_TTL_SECONDS
               }
             );
           } catch (cacheError) {
+            /* El cálculo obtenido desde ADO sigue siendo válido aunque Redis no esté disponible para persistirlo.  */
+            console.error(
+              'Unable to write To Release Aging cache to Redis.',
+              {
+                workItemId,
+                message: cacheError.message
+              }
+            );
+          }
+        } catch (cacheError) {
             /* El resultado correcto de ADO sigue siendo válido aunque no haya sido posible persistirlo para futuras solicitudes. */
             console.error(
               'Unable to write Feature Aging cache to Redis.',
@@ -4914,7 +5305,7 @@ async function fetchFeatureDetailsBatch(c, ids) {
     );
 
     // Conservamos todos los IDs solicitados, incluso si ADO omitió alguno.
-        const mergedFeatures = currentIds.map(id => {
+      const mergedFeatures = currentIds.map(id => {
       const fieldsWorkItem = fieldsById.get(id);
       const relationsWorkItem = relationsById.get(id);
 
@@ -4967,6 +5358,47 @@ async function fetchFeatureDetailsBatch(c, ids) {
         adoResponse: error.response?.data || null,
         stack: error.stack || null
       });
+    }
+
+    /* To Release Aging depende de los Stories/Bugs directos identificados durante enrichFeaturesWithDeliverySummary().    
+      Debe ejecutarse:
+      - después de Delivery Summary, porque ahí se construye _toReleaseWorkItems;
+      - antes de Feature Aging, para mantener el pipeline de enriquecimiento completo antes de mapFeature(). */
+    try {
+      enrichedFeatures = await enrichFeaturesWithToReleaseAging(
+        c,
+        enrichedFeatures
+      );
+    } catch (error) {
+      console.error(
+        'ERROR enriching Features with To Release Aging data',
+        {
+          batchStart: i,
+          batchSize: currentIds.length,
+          errorName: error.name || 'Error',
+          message: error.message || 'Unknown error',
+          stack: error.stack || null
+        }
+      );
+    
+      /* Delivery Health existente sigue funcionando. Sólo la evaluación de antigüedad en To Release queda desconocida. */
+      enrichedFeatures = enrichedFeatures.map(feature => ({
+        ...feature,
+        deliverySummary: {
+          ...feature.deliverySummary,
+          toReleaseAging: {
+            source: 'unknown',
+            thresholdDays:
+              deliveryHealthRules.thresholds.toReleaseMaxDays,
+            agedWorkItems: 0,
+            unknownWorkItems: Number(
+              feature.deliverySummary?.toReleaseWorkItems || 0
+            ),
+            maxDaysInToRelease: null,
+            workItems: []
+          }
+        }
+      }));
     }
 
     /* Aging no debe bloquear la carga principal de Features ni Delivery Health. Si una revisión no puede recuperarse, únicamente el Aging
