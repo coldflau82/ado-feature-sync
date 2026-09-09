@@ -1257,6 +1257,13 @@
     .dashboard-kpis .readiness-overview-card__label-text, .dashboard-kpis .health-overview-card__label-text { line-height: 10px; }
     .dashboard-kpis .readiness-overview-card__count, .dashboard-kpis .health-overview-card__count { align-self: end; justify-self: end; margin-top: 0;
       font-size: var(--step-3); line-height: 1; white-space: nowrap; } }
+    /* ── Ajuste final del header desktop/tablet ── Más aire entre el título y las KPI, sin afectar el layout móvil. */
+    @media (min-width: 821px) {.dashboard-header { grid-template-columns: 165px minmax(0, 1fr) 336px; column-gap: 24px; }
+      /* Readiness y Delivery Health reservan espacio superior para su título de categoría. All Features debe reservar exactamente el mismo espacio
+        para que su tarjeta comience y termine en la misma línea visual. */
+      .dashboard-kpis .dashboard-kpi-all-features { display: flex; align-items: stretch; min-width: 0; height: 73px; padding: 17px 0 6px; }
+      .dashboard-kpis .dashboard-kpi-all-features .readiness-overview { display: flex; width: 100%; height: 50px; min-height: 50px; }
+      .dashboard-kpis .dashboard-kpi-all-features .readiness-overview-card--all { flex: 1 1 auto; width: 100%; height: 50px; min-height: 50px; margin: 0; }}
     
   </style>
 </head>
