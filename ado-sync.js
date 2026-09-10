@@ -3045,8 +3045,9 @@ async function enrichFeaturesWithToReleaseAging(
         toReleaseAging: materializedToReleaseAging
       }
     };
-  }
+  });
 }
+
 
 /* ===== Mapeo de un work item crudo -> objeto de salida ===== */
 function mapFeature(i) {
