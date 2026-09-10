@@ -58,10 +58,10 @@
   ]
 },
 
-  "thresholds": {
+   "thresholds": {
     "targetDateNearDays": 14,
-    "toReleaseMaxDays": 45
-  },
+    "toReleasePostReleaseGraceBusinessDays": 2
+  }
 
   "rules": {
     "notStarted": {
