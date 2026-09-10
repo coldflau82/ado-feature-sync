@@ -137,7 +137,7 @@
     },
 
     "toReleasePending": {
-      "enabled": true,
+      "enabled": false,
       "group": "requires-attention",
       "label": "Pending release",
       "shortLabel": "To Release",
