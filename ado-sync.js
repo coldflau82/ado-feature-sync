@@ -7471,20 +7471,12 @@ app.get('/api/features', async (req, res) => {
     const liveRefreshRequested = req.query.refresh === '1';
     const now = Date.now();
 
-    if (liveRefreshRequested) {
-      console.log(
-        'Manual refresh requested. Refreshing Live Features only.'
-      );
-    }
+    if (liveRefreshRequested) {debugLog( 'Manual refresh requested. Refreshing Live Features only.' );}
 
-    /*
-      1. Leer el caché histórico legado.
-
-      Esta clave se conserva temporalmente para que el primer deploy con
-      shards incrementales no tenga riesgo de mostrar datos incompletos.
-      Cuando confirmemos que los shards v2 están estables durante varios
-      ciclos de TTL, esta lectura podrá eliminarse.
-    */
+    /*  1. Leer el caché histórico legado.
+      Esta clave se conserva temporalmente para que el primer deploy con shards incrementales no tenga riesgo de mostrar 
+      datos incompletos. Cuando confirmemos que los shards v2 están estables durante varios
+      ciclos de TTL, esta lectura podrá eliminarse. */
     const legacyOldFeaturesCache = await redis.get(
       LEGACY_OLD_FEATURES_CACHE_KEY
     );
