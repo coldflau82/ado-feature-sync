@@ -1189,63 +1189,29 @@ function getFeatureTargetDate(feature) {
   3. unavailable, cuando no existe una fecha segura para evaluar.
   Importante:
   Si existe RFV pero falta en release-calendar.json, NO se usa Target Date como fallback. Eso ocultaría un problema real de Release Alignment.*/
-function getToReleaseCommitment(
-  feature,
-  workItem = {}
-) {
-  const workItemRfv = String(
-    workItem?.releaseFixVersion || ''
-  ).trim();
+function getToReleaseCommitment(feature) {
+  const featureRfv = getFeatureReleaseFixVersion(feature);
 
-  const featureRfv = getFeatureReleaseFixVersion(
-    feature
-  );
-
-  /* Prioridad 1: Si el Story/Bug define su propio RFV, ese es su compromiso explícito de despliegue. */
-  if (workItemRfv) {
-    const workItemRelease =
-      releaseCalendarReleaseByRfv.get(workItemRfv);
-
-    if (!workItemRelease?.date) {
-      return {
-        source: 'work-item-rfv-unavailable',
-        expectedDate: null,
-        expectedRfv: workItemRfv,
-        inheritedFromFeature: false
-      };
-    }
-
-    return {
-      source: 'work-item-rfv',
-      expectedDate: workItemRelease.date,
-      expectedRfv: workItemRfv,
-      inheritedFromFeature: false
-    };
-  }
-
-  /* Prioridad 2: Si el Story/Bug no tiene RFV, puede usar el RFV de su Feature. Esto representa una herencia operativa explícita en el dashboard. */
   if (featureRfv) {
-    const featureRelease =
-      releaseCalendarReleaseByRfv.get(featureRfv);
+    const release = releaseCalendarReleaseByRfv.get(
+      featureRfv
+    );
 
-    if (!featureRelease?.date) {
+    if (!release?.date) {
       return {
-        source: 'feature-rfv-unavailable',
+        source: 'rfv-unavailable',
         expectedDate: null,
-        expectedRfv: featureRfv,
-        inheritedFromFeature: true
+        expectedRfv: featureRfv
       };
     }
 
     return {
-      source: 'feature-rfv',
-      expectedDate: featureRelease.date,
-      expectedRfv: featureRfv,
-      inheritedFromFeature: true
+      source: 'rfv',
+      expectedDate: release.date,
+      expectedRfv: featureRfv
     };
   }
 
-  /* Prioridad 3: Target Date se usa solamente cuando ni el Story/Bug ni la Feature tienen un RFV utilizable. */
   const targetDate = getDateKey(
     getFeatureTargetDate(feature)
   );
@@ -1254,21 +1220,20 @@ function getToReleaseCommitment(
     return {
       source: 'target-date',
       expectedDate: targetDate,
-      expectedRfv: '',
-      inheritedFromFeature: false
+      expectedRfv: ''
     };
   }
 
   return {
     source: 'unavailable',
     expectedDate: null,
-    expectedRfv: '',
-    inheritedFromFeature: false
+    expectedRfv: ''
   };
 }
 
 /* Convierte la información estable guardada en caché a la forma pública consumida por el frontend.
-  daysInCurrentState se calcula en tiempo de respuesta para que el valor avance diariamente incluso si enteredCurrentStateAt proviene de Redis. */
+  daysInCurrentState se calcula en tiempo de respuesta para que el valor avance diariamente incluso si 
+  enteredCurrentStateAt proviene de Redis. */
 
 function materializeFeatureAging(aging) {
   const currentState = String(
@@ -1374,40 +1339,59 @@ function materializeToReleaseAging(
     };
   }
 
-  const commitment = getToReleaseCommitment(feature);
-
-  const expectedDateTime = commitment.expectedDate
-    ? DateTime.fromISO(commitment.expectedDate, {
-        zone: DASHBOARD_TIME_ZONE
-      }).startOf('day')
-    : null;
-
-  const expectedDateIsValid =
-    expectedDateTime &&
-    expectedDateTime.isValid;
-
-  /* Con grace = 0:
-    - la fecha de RFV/Target Date sigue siendo válida;
-    - se marca delayed en el siguiente día hábil. */
-  const firstBusinessDayAfterCommitment =
-    expectedDateIsValid
-      ? getNextBusinessDay(expectedDateTime)
-      : null;
-
-  const evaluationDate =
-    firstBusinessDayAfterCommitment
-      ? addBusinessDays(
-          firstBusinessDayAfterCommitment,
-          graceBusinessDays
-        )
-      : null;
-
   const today = DateTime
     .now()
     .setZone(DASHBOARD_TIME_ZONE)
     .startOf('day');
 
   const workItems = toReleaseAging.workItems.map(workItem => {
+    /* La fecha esperada viene siempre de la Feature:
+      - Feature RFV, si existe y está en release-calendar.json;
+      - Target Date, sólo si la Feature no tiene RFV. */
+    const commitment = getToReleaseCommitment(feature);
+
+    const featureRfv = getFeatureReleaseFixVersion(feature);
+
+    const workItemRfv = String(
+      workItem?.releaseFixVersion || ''
+    ).trim();
+
+    /* Política de alineación estricta: Si la Feature tiene RFV, cada Story/Bug To Release debe tener
+      el mismo RFV para considerarse alineado.
+      Un RFV vacío se considera no alineado. Esto evita ocultar información incompleta como si la Story/Bug estuviera programada
+      correctamente para el release de la Feature. */
+    const isRfvAligned =
+      !featureRfv ||
+      workItemRfv === featureRfv;
+
+    const expectedDateTime = commitment.expectedDate
+      ? DateTime.fromISO(commitment.expectedDate, {
+          zone: DASHBOARD_TIME_ZONE
+        }).startOf('day')
+      : null;
+
+    const expectedDateIsValid =
+      expectedDateTime &&
+      expectedDateTime.isValid;
+
+    /* La evaluación inicia el siguiente día hábil después de la fecha comprometida, más los días hábiles de gracia configurados.
+      Ejemplo con graceBusinessDays: 2
+      RFV viernes 11 de septiembre de 2026:
+      - primer día hábil posterior: lunes 14 de septiembre de 2026
+      - + 2 días de gracia: miércoles 16 de septiembre de 2026 */
+    const firstBusinessDayAfterCommitment =
+      expectedDateIsValid
+        ? getNextBusinessDay(expectedDateTime)
+        : null;
+
+    const evaluationDate =
+      firstBusinessDayAfterCommitment
+        ? addBusinessDays(
+            firstBusinessDayAfterCommitment,
+            graceBusinessDays
+          )
+        : null;
+
     const enteredToReleaseAt = String(
       workItem?.enteredToReleaseAt || ''
     ).trim();
@@ -1428,12 +1412,14 @@ function materializeToReleaseAging(
       Number.isInteger(daysInToRelease) &&
       daysInToRelease >= 0;
 
-    /* A delayed item requires:
-      - confirmed To Release Aging;
-      - a valid RFV or Target Date commitment;
-      - current business date on/after evaluation date. */
+    /* Un Story/Bug sólo activa Release delayed si:
+      1. Se pudo confirmar cuándo entró a To Release.
+      2. La Feature tiene RFV/Target Date válido.
+      3. Si la Feature tiene RFV, el RFV del Story/Bug está alineado.
+      4. Ya llegó el día de evaluación posterior al compromiso. */
     const isDelayed = Boolean(
       isKnown &&
+      isRfvAligned &&
       evaluationDate &&
       today >= evaluationDate
     );
@@ -1461,12 +1447,18 @@ function materializeToReleaseAging(
       expectedDateSource: commitment.source,
       expectedRfv: commitment.expectedRfv,
 
+      /* Datos aditivos para frontend y diagnóstico. No rompen el HTML actual. */
+      workItemRfv,
+      isRfvAligned,
+
       evaluationDate: evaluationDate
         ? evaluationDate.toISODate()
         : null,
 
+      /* Sólo debe mostrarse como "scheduled" cuando el RFV del work item está alineado con la Feature. */
       isScheduled: Boolean(
         isKnown &&
+        isRfvAligned &&
         evaluationDate &&
         today < evaluationDate
       ),
@@ -3054,9 +3046,33 @@ async function enrichFeaturesWithToReleaseAging(
         ? feature._toReleaseWorkItems
         : [];
 
-    const agingItems = featureToReleaseWorkItems.map(workItem =>
-      agingByWorkItemId.get(Number(workItem.id)) ||
-      createUnknownToReleaseAging(workItem)
+    const agingItems = featureToReleaseWorkItems.map(
+      workItem => {
+        const aging =
+          agingByWorkItemId.get(Number(workItem.id)) ||
+          createUnknownToReleaseAging(workItem);
+
+        /* aging contiene información del historial:
+          - enteredToReleaseAt
+          - daysInToRelease
+          - source
+
+          workItem contiene campos actuales de ADO:
+          - releaseFixVersion
+          - state
+          - iterationPath
+          - assignedTo
+
+          Se combinan para que la evaluación pueda validar el RFV
+          individual de cada Story/Bug. */
+        return {
+          ...aging,
+          releaseFixVersion:
+            String(
+              workItem.releaseFixVersion || ''
+            ).trim()
+        };
+      }
     );
 
     const materializedToReleaseAging =
@@ -3066,7 +3082,13 @@ async function enrichFeaturesWithToReleaseAging(
             id: item.workItemId,
             state: item.currentState,
             enteredToReleaseAt: item.enteredToReleaseAt,
-            source: item.source
+            source: item.source,
+
+            /*
+              Obligatorio para validar alineación:
+              Story/Bug RFV frente al Feature RFV.
+            */
+            releaseFixVersion: item.releaseFixVersion
           }))
         },
         featureToReleaseWorkItems.length,
