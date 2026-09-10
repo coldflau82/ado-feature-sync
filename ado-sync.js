@@ -1594,12 +1594,10 @@ const FEATURE_NOT_STARTED_STATES =
 const FEATURE_NO_ACTIVE_WORK_STATES =
   deliveryHealthRules.featureStates.noActiveWork;
 
-/*
-  Preserva la diferencia entre:
+/* Preserva la diferencia entre:
   - null: ADO no tiene Story Points informados;
   - 0: el work item tiene una estimación de cero.
-  La política actual considera ambos casos como no estimados cuando el estado requiere estimación.
-*/
+  La política actual considera ambos casos como no estimados cuando el estado requiere estimación. */
 function normalizeStoryPoints(value) {
   if (value === null || value === undefined || value === '') {
     return null;
@@ -1608,6 +1606,46 @@ function normalizeStoryPoints(value) {
   const parsed = Number(value);
 
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function mapAdoIdentity(value) {
+  if (typeof value === 'string') {
+    return {
+      id: '',
+      descriptor: '',
+      displayName: value,
+      uniqueName: value
+    };
+  }
+
+  return {
+    id: String(value?.id || '').trim(),
+    descriptor: String(value?.descriptor || '').trim(),
+    displayName: String(
+      value?.displayName ||
+      value?.uniqueName ||
+      ''
+    ).trim(),
+    uniqueName: String(value?.uniqueName || '').trim()
+  };
+}
+
+function getAdoIdentityKey(identity) {
+  const id = String(identity?.id || '').trim();
+
+  if (id) {
+    return `ado:${id}`;
+  }
+
+  const uniqueName = String(
+    identity?.uniqueName || ''
+  )
+    .trim()
+    .toLowerCase();
+
+  return uniqueName
+    ? `upn:${uniqueName}`
+    : '';
 }
 
 function workItemRequiresEstimate(state) {
@@ -2849,14 +2887,14 @@ async function enrichFeaturesWithToReleaseAging(
   });
 }
 
-// ===== Mapeo de un work item crudo -> objeto de salida =====
+/* ===== Mapeo de un work item crudo -> objeto de salida ===== */
 function mapFeature(i) {
   const fields = i.fields || {};
 
-  // Compatibilidad: si un objeto no tiene _healthSource,
-  // asumimos que sus datos llegaron correctamente.
+  /* Compatibilidad: si un objeto no tiene _healthSource, asumimos que sus datos llegaron correctamente. */
   const fieldsSource = i._healthSource?.fields || 'ok';
   const relationsSource = i._healthSource?.relations || 'ok';
+  const featureOwnerIdentity = mapAdoIdentity(fields['System.AssignedTo']);
 
   const requiredFields = {
     acceptanceCriteria: fieldCheck(
@@ -2929,7 +2967,10 @@ function mapFeature(i) {
     releaseFixVersion: fields['Custom.ReleaseFixVersion'] || '',
     techGoLiveRFV: fields['Custom.TechGoLiveRFV'] || '',
     tags: fields['System.Tags'] || '',
-    assignedTo: fields['System.AssignedTo']?.displayName || '',
+    /* Legacy display value retained for current UI and saved filters. */
+    assignedTo: featureOwnerIdentity.displayName,
+    /* Stable identity contract for My Work and future Microsoft Entra ID. */
+    assignedToIdentity: featureOwnerIdentity,
 
     estimation: {
       be: fields['Custom.BEEstimate'] || '',
@@ -3808,6 +3849,7 @@ async function fetchDeliveryWorkItemsBatch(c, ids) {
 
       returnedWorkItems.forEach(workItem => {
         const fields = workItem.fields || {};
+        const assignedToIdentity = mapAdoIdentity(fields['System.AssignedTo']);
 
         workItemsById.set(workItem.id, {
           id: workItem.id,
@@ -3816,17 +3858,10 @@ async function fetchDeliveryWorkItemsBatch(c, ids) {
           changedDate: fields['System.ChangedDate'] || '',
           areaPath: fields['System.AreaPath'] || '',
           iterationPath: fields['System.IterationPath'] || '',
-          releaseFixVersion:
-            fields['Custom.ReleaseFixVersion'] || '',
-          storyPoints: normalizeStoryPoints(
-            fields['Microsoft.VSTS.Scheduling.StoryPoints']
-          ),
-          assignedTo:
-            typeof fields['System.AssignedTo'] === 'string'
-              ? fields['System.AssignedTo']
-              : fields['System.AssignedTo']?.displayName ||
-                fields['System.AssignedTo']?.uniqueName ||
-                ''
+          releaseFixVersion: fields['Custom.ReleaseFixVersion'] || '',
+          storyPoints: normalizeStoryPoints(fields['Microsoft.VSTS.Scheduling.StoryPoints']),
+          assignedTo: mapAdoIdentity(fields['System.AssignedTo']).displayName,
+          assignedToIdentity
         });
       });
 
@@ -4138,20 +4173,9 @@ function mapFeatureStoryWorkItem(workItem) {
   const fields = workItem.fields || {};
   const assignedToField = fields['System.AssignedTo'];
   const state = fields['System.State'] || '';
-  const storyPoints = normalizeStoryPoints(
-    fields['Microsoft.VSTS.Scheduling.StoryPoints']
-  );
+  const storyPoints = normalizeStoryPoints(fields['Microsoft.VSTS.Scheduling.StoryPoints']);
 
-  /* Normaliza Assigned To porque ADO puede devolver:
-    - un objeto IdentityRef con displayName;
-    - un texto;
-    - uniqueName como fallback. */
-  const assignedTo =
-    typeof assignedToField === 'string'
-      ? assignedToField
-      : assignedToField?.displayName ||
-        assignedToField?.uniqueName ||
-        '';
+  const assignedToIdentity = mapAdoIdentity(assignedToField);
 
   const deliveryWorkItem = {
     id: workItem.id,
@@ -4169,7 +4193,8 @@ function mapFeatureStoryWorkItem(workItem) {
     iterationPath: fields['System.IterationPath'] || '',
     releaseFixVersion: fields['Custom.ReleaseFixVersion'] || '',
     tags: fields['System.Tags'] || '',
-    assignedTo,
+    assignedTo: assignedToIdentity.displayName,
+    assignedToIdentity,
   
     deliveryCategory: getDeliveryWorkItemCategory(state),
   
