@@ -1189,29 +1189,63 @@ function getFeatureTargetDate(feature) {
   3. unavailable, cuando no existe una fecha segura para evaluar.
   Importante:
   Si existe RFV pero falta en release-calendar.json, NO se usa Target Date como fallback. Eso ocultaría un problema real de Release Alignment.*/
-function getToReleaseCommitment(feature) {
-  const featureRfv = getFeatureReleaseFixVersion(feature);
+function getToReleaseCommitment(
+  feature,
+  workItem = {}
+) {
+  const workItemRfv = String(
+    workItem?.releaseFixVersion || ''
+  ).trim();
 
-  if (featureRfv) {
-    const release = releaseCalendarReleaseByRfv.get(
-      featureRfv
-    );
+  const featureRfv = getFeatureReleaseFixVersion(
+    feature
+  );
 
-    if (!release?.date) {
+  /* Prioridad 1: Si el Story/Bug define su propio RFV, ese es su compromiso explícito de despliegue. */
+  if (workItemRfv) {
+    const workItemRelease =
+      releaseCalendarReleaseByRfv.get(workItemRfv);
+
+    if (!workItemRelease?.date) {
       return {
-        source: 'rfv-unavailable',
+        source: 'work-item-rfv-unavailable',
         expectedDate: null,
-        expectedRfv: featureRfv
+        expectedRfv: workItemRfv,
+        inheritedFromFeature: false
       };
     }
 
     return {
-      source: 'rfv',
-      expectedDate: release.date,
-      expectedRfv: featureRfv
+      source: 'work-item-rfv',
+      expectedDate: workItemRelease.date,
+      expectedRfv: workItemRfv,
+      inheritedFromFeature: false
     };
   }
 
+  /* Prioridad 2: Si el Story/Bug no tiene RFV, puede usar el RFV de su Feature. Esto representa una herencia operativa explícita en el dashboard. */
+  if (featureRfv) {
+    const featureRelease =
+      releaseCalendarReleaseByRfv.get(featureRfv);
+
+    if (!featureRelease?.date) {
+      return {
+        source: 'feature-rfv-unavailable',
+        expectedDate: null,
+        expectedRfv: featureRfv,
+        inheritedFromFeature: true
+      };
+    }
+
+    return {
+      source: 'feature-rfv',
+      expectedDate: featureRelease.date,
+      expectedRfv: featureRfv,
+      inheritedFromFeature: true
+    };
+  }
+
+  /* Prioridad 3: Target Date se usa solamente cuando ni el Story/Bug ni la Feature tienen un RFV utilizable. */
   const targetDate = getDateKey(
     getFeatureTargetDate(feature)
   );
@@ -1220,14 +1254,16 @@ function getToReleaseCommitment(feature) {
     return {
       source: 'target-date',
       expectedDate: targetDate,
-      expectedRfv: ''
+      expectedRfv: '',
+      inheritedFromFeature: false
     };
   }
 
   return {
     source: 'unavailable',
     expectedDate: null,
-    expectedRfv: ''
+    expectedRfv: '',
+    inheritedFromFeature: false
   };
 }
 
