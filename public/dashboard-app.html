@@ -6472,17 +6472,6 @@
               story.id
             )
           : null;
-      if (getWorkItemDeliveryCategory(story) === 'toRelease') {
-        console.log('To Release Aging debug', {
-          featureId: feature?.id,
-          storyId: story.id,
-          storyState: story.state,
-          deliveryCategory: getWorkItemDeliveryCategory(story),
-          toReleaseAgingPayload:
-            feature?.deliverySummary?.toReleaseAging,
-          resolvedAging: toReleaseAging
-        });
-      }  
       
       const sprintLabel = (() => {
         const match =
@@ -6956,18 +6945,6 @@
             .includes(numericStoryId)
         ).length;
       };
-
-      /* Debug temporal. Si ya no necesitas investigar la Feature #1165429, puedes eliminar este bloque completo después de validar relaciones. */
-      if (Number(feature.id) === 1165429) {
-        console.log('[Relationship debug]', {
-          featureId: feature.id,
-          directFeatureChildBugs:
-            normalizedRelationshipGraph?.directFeatureChildBugs,
-          linkedItems,
-          storyLinkedItems,
-          linkedStories
-        });
-      }
 
       const showLinkedItemsForStory = (storyId) => {
         setLinkedStoryFilterId(Number(storyId));
