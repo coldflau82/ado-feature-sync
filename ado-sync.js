@@ -249,6 +249,17 @@ function validateDeliveryHealthRules(config) {
       'Delivery Health configuration "thresholds.toReleaseMaxDays" ' +  'must be a positive integer.'
     );
   }
+
+  if (
+    !Number.isInteger(config.thresholds?.toReleasePostReleaseGraceBusinessDays) ||
+    config.thresholds.toReleasePostReleaseGraceBusinessDays < 0
+  ) {
+    throw new Error(
+      'Delivery Health configuration ' +
+      '"thresholds.toReleasePostReleaseGraceBusinessDays" ' +
+      'must be a non-negative integer.'
+    );
+  }
     
   if (
     !config.rules ||
@@ -1123,6 +1134,103 @@ function getCalendarDaysBetweenDateKeys(
   );
 }
 
+/* Devuelve el siguiente día hábil después de una fecha operativa. Por ahora sólo omite sábado y domingo. Si más adelante se requiere
+  considerar feriados corporativos, este helper es el punto correcto para incorporar un calendario adicional.*/
+function getNextBusinessDay(dateTime) {
+  let nextDay = dateTime
+    .plus({ days: 1 })
+    .startOf('day');
+
+  while ( nextDay.weekday === 6 || nextDay.weekday === 7
+  ) {
+    nextDay = nextDay.plus({ days: 1 });
+  }
+
+  return nextDay;
+}
+
+/* Agrega días hábiles a una fecha ya normalizada. Con days = 0 devuelve la misma fecha. */
+function addBusinessDays(dateTime, days) {
+  let result = dateTime.startOf('day');
+
+  for (
+    let index = 0;
+    index < Math.max(0, Number(days) || 0);
+    index += 1
+  ) {
+    result = getNextBusinessDay(result);
+  }
+
+  return result;
+}
+
+/* Obtiene valores de Feature tanto cuando la Feature todavía es el objeto crudo de Azure DevOps como cuando ya fue mapeada para el API/cache. */
+function getFeatureReleaseFixVersion(feature) {
+  return String(
+    feature?.releaseFixVersion ||
+    feature?.fields?.['Custom.ReleaseFixVersion'] ||
+    ''
+  ).trim();
+}
+
+function getFeatureTargetDate(feature) {
+  return String(
+    feature?.targetDate ||
+    feature?.fields?.[
+      'Microsoft.VSTS.Scheduling.TargetDate'
+    ] ||
+    ''
+  ).trim();
+}
+
+/* Prioridad del compromiso para evaluar To Release:
+  1. RFV de la Feature, si existe y está configurado en release-calendar.
+  2. Target Date, únicamente cuando la Feature no tiene RFV.
+  3. unavailable, cuando no existe una fecha segura para evaluar.
+  Importante:
+  Si existe RFV pero falta en release-calendar.json, NO se usa Target Date como fallback. Eso ocultaría un problema real de Release Alignment.*/
+function getToReleaseCommitment(feature) {
+  const featureRfv = getFeatureReleaseFixVersion(feature);
+
+  if (featureRfv) {
+    const release = releaseCalendarReleaseByRfv.get(
+      featureRfv
+    );
+
+    if (!release?.date) {
+      return {
+        source: 'rfv-unavailable',
+        expectedDate: null,
+        expectedRfv: featureRfv
+      };
+    }
+
+    return {
+      source: 'rfv',
+      expectedDate: release.date,
+      expectedRfv: featureRfv
+    };
+  }
+
+  const targetDate = getDateKey(
+    getFeatureTargetDate(feature)
+  );
+
+  if (targetDate) {
+    return {
+      source: 'target-date',
+      expectedDate: targetDate,
+      expectedRfv: ''
+    };
+  }
+
+  return {
+    source: 'unavailable',
+    expectedDate: null,
+    expectedRfv: ''
+  };
+}
+
 /* Convierte la información estable guardada en caché a la forma pública consumida por el frontend.
   daysInCurrentState se calcula en tiempo de respuesta para que el valor avance diariamente incluso si enteredCurrentStateAt proviene de Redis. */
 
@@ -1172,25 +1280,27 @@ function materializeFeatureAging(aging) {
 
 function materializeToReleaseAging(
   toReleaseAging,
-  toReleaseWorkItems = 0
+  toReleaseWorkItems = 0,
+  feature = null
 ) {
-  const thresholdDays =
-    Number(
-      toReleaseAging?.thresholdDays ??
-      deliveryHealthRules.thresholds.toReleaseMaxDays
-    ) ||
-    deliveryHealthRules.thresholds.toReleaseMaxDays;
-
   const expectedToReleaseWorkItems = Number(
     toReleaseWorkItems || 0
+  );
+
+  const graceBusinessDays = Math.max(
+    0,
+    Number(
+      deliveryHealthRules.thresholds
+        .toReleasePostReleaseGraceBusinessDays
+    ) || 0
   );
 
   const hasStoredWorkItems = Array.isArray(
     toReleaseAging?.workItems
   );
 
-  /* Compatibilidad con Features que fueron guardadas en Redis antes de implementar To Release Aging.
-    Si hay Work Items en To Release, pero no existe el detalle histórico workItems, no se debe considerar evaluable. */
+  /* Compatibilidad con Features cacheadas antes de implementar To Release Aging. No afirmar que están sanas si hay trabajo
+    To Release, pero no existe la información necesaria. */
   if (!hasStoredWorkItems) {
     return {
       source:
@@ -1198,7 +1308,11 @@ function materializeToReleaseAging(
           ? 'unknown'
           : 'ok',
 
-      thresholdDays,
+      /* Legacy field retained temporarily for frontend compatibility. It is no longer a release-delay threshold. */
+      thresholdDays: null,
+
+      graceBusinessDays,
+      delayedWorkItems: 0,
       agedWorkItems: 0,
 
       unknownWorkItems:
@@ -1211,13 +1325,12 @@ function materializeToReleaseAging(
     };
   }
 
-  const storedWorkItems = toReleaseAging.workItems;
-
-  /* Una lista explícita vacía significa que no hay Work Items actuales en To Release, por lo que el resultado es evaluable y sano.*/
-  if (storedWorkItems.length === 0) {
+  if (toReleaseAging.workItems.length === 0) {
     return {
       source: 'ok',
-      thresholdDays,
+      thresholdDays: null,
+      graceBusinessDays,
+      delayedWorkItems: 0,
       agedWorkItems: 0,
       unknownWorkItems: 0,
       maxDaysInToRelease: 0,
@@ -1225,22 +1338,69 @@ function materializeToReleaseAging(
     };
   }
 
-  const workItems = storedWorkItems.map(workItem => {
+  const commitment = getToReleaseCommitment(feature);
+
+  const expectedDateTime = commitment.expectedDate
+    ? DateTime.fromISO(commitment.expectedDate, {
+        zone: DASHBOARD_TIME_ZONE
+      }).startOf('day')
+    : null;
+
+  const expectedDateIsValid =
+    expectedDateTime &&
+    expectedDateTime.isValid;
+
+  /* Con grace = 0:
+    - la fecha de RFV/Target Date sigue siendo válida;
+    - se marca delayed en el siguiente día hábil. */
+  const firstBusinessDayAfterCommitment =
+    expectedDateIsValid
+      ? getNextBusinessDay(expectedDateTime)
+      : null;
+
+  const evaluationDate =
+    firstBusinessDayAfterCommitment
+      ? addBusinessDays(
+          firstBusinessDayAfterCommitment,
+          graceBusinessDays
+        )
+      : null;
+
+  const today = DateTime
+    .now()
+    .setZone(DASHBOARD_TIME_ZONE)
+    .startOf('day');
+
+  const workItems = toReleaseAging.workItems.map(workItem => {
     const enteredToReleaseAt = String(
       workItem?.enteredToReleaseAt || ''
     ).trim();
 
     const canCalculateDays =
       workItem?.source === 'ok' &&
-      /^\d{4}-\d{2}-\d{2}$/.test(enteredToReleaseAt);
+      /^\d{4}-\d{2}-\d{2}$/.test(
+        enteredToReleaseAt
+      );
 
     const daysInToRelease = canCalculateDays
-      ? getCalendarDaysBetweenDateKeys(enteredToReleaseAt)
+      ? getCalendarDaysBetweenDateKeys(
+          enteredToReleaseAt
+        )
       : null;
 
     const isKnown =
       Number.isInteger(daysInToRelease) &&
       daysInToRelease >= 0;
+
+    /* A delayed item requires:
+      - confirmed To Release Aging;
+      - a valid RFV or Target Date commitment;
+      - current business date on/after evaluation date. */
+    const isDelayed = Boolean(
+      isKnown &&
+      evaluationDate &&
+      today >= evaluationDate
+    );
 
     return {
       id: Number(workItem?.id) || null,
@@ -1258,9 +1418,27 @@ function materializeToReleaseAging(
         ? 'ok'
         : 'unknown',
 
-      isAged:
+      expectedDate: expectedDateIsValid
+        ? expectedDateTime.toISODate()
+        : null,
+
+      expectedDateSource: commitment.source,
+      expectedRfv: commitment.expectedRfv,
+
+      evaluationDate: evaluationDate
+        ? evaluationDate.toISODate()
+        : null,
+
+      isScheduled: Boolean(
         isKnown &&
-        daysInToRelease > thresholdDays
+        evaluationDate &&
+        today < evaluationDate
+      ),
+
+      isDelayed,
+
+      /* Legacy compatibility: current HTML reads isAged. Its meaning is now "Release delayed", not "over 45 days". */
+      isAged: isDelayed
     };
   });
 
@@ -1270,6 +1448,10 @@ function materializeToReleaseAging(
 
   const unknownWorkItems =
     workItems.length - knownWorkItems.length;
+
+  const delayedWorkItems = knownWorkItems.filter(
+    workItem => workItem.isDelayed
+  );
 
   const maxDaysInToRelease =
     knownWorkItems.length > 0
@@ -1288,11 +1470,16 @@ function materializeToReleaseAging(
           ? 'partial'
           : 'unknown',
 
-    thresholdDays,
+    thresholdDays: null,
+    graceBusinessDays,
 
-    agedWorkItems: knownWorkItems.filter(
-      workItem => workItem.isAged
-    ).length,
+    delayedWorkItems: delayedWorkItems.length,
+
+    /*
+      Legacy field retained so buildDeliveryHealth() and the current
+      frontend do not break during rollout.
+    */
+    agedWorkItems: delayedWorkItems.length,
 
     unknownWorkItems,
     maxDaysInToRelease,
@@ -2683,8 +2870,15 @@ async function enrichFeaturesWithToReleaseAging(
         ...feature.deliverySummary,
         toReleaseAging: {
           source: 'ok',
-          thresholdDays:
-            deliveryHealthRules.thresholds.toReleaseMaxDays,
+          thresholdDays: null,
+          graceBusinessDays: Math.max(
+            0,
+            Number(
+              deliveryHealthRules.thresholds
+                .toReleasePostReleaseGraceBusinessDays
+            ) || 0
+          ),
+          delayedWorkItems: 0,
           agedWorkItems: 0,
           unknownWorkItems: 0,
           maxDaysInToRelease: 0,
@@ -2829,62 +3023,29 @@ async function enrichFeaturesWithToReleaseAging(
       createUnknownToReleaseAging(workItem)
     );
 
-    const knownAgingItems = agingItems.filter(
-      item => item.source === 'ok'
-    );
-
-    const thresholdDays =
-      deliveryHealthRules.thresholds.toReleaseMaxDays;
-
-    const agedWorkItems = knownAgingItems.filter(
-      item => item.daysInToRelease > thresholdDays
-    );
-
-    const maxDaysInToRelease = knownAgingItems.length > 0
-      ? Math.max(
-          ...knownAgingItems.map(
-            item => item.daysInToRelease
-          )
-        )
-      : null;
-
-    return {
-      ...feature,
-
-      deliverySummary: {
-        ...feature.deliverySummary,
-
-        toReleaseAging: {
-          source:
-            agingItems.length === 0
-              ? 'ok'
-              : knownAgingItems.length === agingItems.length
-                ? 'ok'
-                : knownAgingItems.length > 0
-                  ? 'partial'
-                  : 'unknown',
-
-          thresholdDays,
-          agedWorkItems: agedWorkItems.length,
-          unknownWorkItems:
-            agingItems.length - knownAgingItems.length,
-          maxDaysInToRelease,
-
-          /* No se envían títulos ni datos sensibles. Este detalle permite una futura visualización de los IDs bloqueados en To Release. */
+    const materializedToReleaseAging =
+      materializeToReleaseAging(
+        {
           workItems: agingItems.map(item => ({
             id: item.workItemId,
             state: item.currentState,
             enteredToReleaseAt: item.enteredToReleaseAt,
-            daysInToRelease: item.daysInToRelease,
-            source: item.source,
-            isAged:
-              item.source === 'ok' &&
-              item.daysInToRelease > thresholdDays
+            source: item.source
           }))
-        }
+        },
+        featureToReleaseWorkItems.length,
+        feature
+      );
+
+      return {
+    ...feature,
+  
+      deliverySummary: {
+        ...feature.deliverySummary,
+        toReleaseAging: materializedToReleaseAging
       }
     };
-  });
+  }
 }
 
 /* ===== Mapeo de un work item crudo -> objeto de salida ===== */
@@ -3741,36 +3902,32 @@ function buildDeliveryHealth(feature) {
 
   const toReleaseAging = summary.toReleaseAging || {
     source: 'unknown',
-
-    thresholdDays:
-      deliveryHealthRules.thresholds.toReleaseMaxDays,
-
+    thresholdDays: null,
+    delayedWorkItems: 0,
+  
+    /*
+      Compatibilidad con cache/contratos anteriores.
+    */
     agedWorkItems: 0,
     unknownWorkItems: 0
   };
 
-  if (
-    toReleaseAgingRule.enabled &&
-    !isClosed &&
-    (
-      toReleaseAging.source === 'ok' ||
-      toReleaseAging.source === 'partial'
-    ) &&
-    Number(toReleaseAging.agedWorkItems || 0) > 0
+  const delayedToReleaseWorkItems = Number(
+    toReleaseAging.delayedWorkItems ??
+    toReleaseAging.agedWorkItems ??
+    0
+  );
+
+  if ( toReleaseAgingRule.enabled && !isClosed &&
+    (toReleaseAging.source === 'ok' || toReleaseAging.source === 'partial') &&
+    delayedToReleaseWorkItems > 0
   ) {
     alerts.push(
       createRuleAlert(
         'toReleaseAging',
         {
           reasonValues: {
-            count: Number(
-              toReleaseAging.agedWorkItems || 0
-            ),
-
-            days: Number(
-              toReleaseAging.thresholdDays ||
-              deliveryHealthRules.thresholds.toReleaseMaxDays
-            )
+            count: delayedToReleaseWorkItems
           }
         }
       )
@@ -7578,7 +7735,8 @@ app.get('/api/features', async (req, res) => {
           daysInToRelease se recalcula en cada respuesta según el día de negocio actual, sin nuevas llamadas a Azure DevOps. */
         toReleaseAging: materializeToReleaseAging(
           feature.deliverySummary?.toReleaseAging,
-          feature.deliverySummary?.toReleaseWorkItems
+          feature.deliverySummary?.toReleaseWorkItems,
+          feature
         )
       };
     
