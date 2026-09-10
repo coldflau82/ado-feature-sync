@@ -58,11 +58,10 @@
   ]
 },
 
-   "thresholds": {
+  "thresholds": {
     "targetDateNearDays": 14,
-    "toReleaseMaxDays": 45,
-    "toReleasePostReleaseGraceBusinessDays": 1
-  }
+    "toReleaseMaxDays": 45
+  },
 
   "rules": {
     "notStarted": {
@@ -137,12 +136,14 @@
       "recommendedAction": "Confirm the next Story or Bug entering active development."
     },
 
-     "toReleasePending": {
+    "toReleasePending": {
       "enabled": true,
       "group": "requires-attention",
       "label": "Pending release",
-      "reasonTemplate": "{count} associated work item(s) are ready for release, but no remaining work is currently in planning or in progress."
-    }
+      "shortLabel": "To Release",
+      "reasonTemplate": "{count} associated work item(s) are ready for release, but no remaining work is currently in planning or in progress.",
+      "recommendedAction": "Confirm the production release plan, deployment ownership, release approvals, and the expected closure date for the remaining work."
+    },
     
     "toReleaseAging": {
       "enabled": true,
