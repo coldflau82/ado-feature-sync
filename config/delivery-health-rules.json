@@ -60,7 +60,8 @@
 
   "thresholds": {
     "targetDateNearDays": 14,
-    "toReleaseMaxDays": 45
+    "toReleaseMaxDays": 45,
+    "toReleasePostReleaseGraceBusinessDays": 2
   },
 
   "rules": {
@@ -137,7 +138,7 @@
     },
 
     "toReleasePending": {
-      "enabled": true,
+      "enabled": false,
       "group": "requires-attention",
       "label": "Pending release",
       "shortLabel": "To Release",
@@ -150,10 +151,10 @@
       "group": "requires-attention",
       "label": "Release delayed",
       "shortLabel": "Release delayed",
-      "reasonTemplate": "{count} associated work item(s) have remained in To Release for more than {days} days.",
-      "recommendedAction": "Confirm the deployment blocker, release ownership, approvals, and whether the Feature Release Fix Version should be updated."
+      "reasonTemplate": "{count} associated work item(s) remain in To Release after their committed Release Fix Version or Target Date.",
+      "recommendedAction": "Confirm whether deployment completed, close deployed work items, or move the Feature and affected work items to the next valid Release Fix Version."
     },
-
+    
     "unestimatedWork": {
       "enabled": true,
       "group": "requires-attention",
