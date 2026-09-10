@@ -89,6 +89,21 @@ try {
   );
 }
 
+/* Debug logging is disabled by default in production. Enable it only for controlled troubleshooting:
+  DEBUG_DASHBOARD=true */
+const DEBUG_DASHBOARD =
+  String(process.env.DEBUG_DASHBOARD || '')
+    .trim()
+    .toLowerCase() === 'true';
+
+function debugLog(message, details = {}) {
+  if (!DEBUG_DASHBOARD) {
+    return;
+  }
+
+  console.info(message, details);
+}
+
 /*
   Valida la estructura mínima antes de aceptar reglas de negocio.
   Es preferible detener el servidor durante el arranque a calcular
@@ -3307,7 +3322,7 @@ function buildDeliverySummary(
     releaseAlignment.status !== 'aligned' &&
     releaseAlignment.status !== 'not-applicable'
   ) {
-    console.log('Release Alignment evaluation', {
+    debugLog('Release Alignment evaluation', {
       featureId: feature?.id,
       featureRfv:
         feature?.fields?.['Custom.ReleaseFixVersion'] || '',
@@ -5377,7 +5392,7 @@ async function fetchIdsForRange(
     subRanges: internalResult.leafRanges
   };
 
-  console.log('WIQL Feature range completed', {
+  debugLog('WIQL Feature range completed', {
     range: getWiqlRangeLabel(range),
     ...rangeDetail
   });
@@ -5649,31 +5664,24 @@ async function fetchRecentFeatures(c) {
   consulta Live. */
 async function getLiveFeatures(c) {
   if (liveFeaturesFetchInFlight) {
-    console.log(
-      'Reusing in-flight Live Features request.'
-    );
-
+    debugLog('Reusing in-flight Live Features request.');
+  
     return liveFeaturesFetchInFlight;
   }
 
   liveFeaturesFetchInFlight = (async () => {
   const startedAt = Date.now();  
     try {
-      console.log(
-        'Starting Live Features request.'
-      );    
+     debugLog('Starting Live Features request.'); 
     
     const result = await fetchRecentFeatures(c);
 
-    console.log(
-      'Live Features request completed.',
-      {
-        durationMs: Date.now() - startedAt,
-        featureCount: result.features.length,
-        rangeCounts: result.rangeCounts,
-        rangeDetails: result.rangeDetails
-      }
-    );
+    debugLog('Live Features request completed.', {
+      durationMs: Date.now() - startedAt,
+      featureCount: result.features.length,
+      rangeCounts: result.rangeCounts,
+      rangeDetails: result.rangeDetails
+    });
 
     return result;
     } finally {
@@ -7037,7 +7045,7 @@ app.get('/api/feature-history/:id', async (req, res) => {
 
     const c = getAdoClient();
 
-    console.log('Fetching history for feature:', featureId);
+    debugLog('Fetching Feature history.', { featureId });
 
     const revisionsResponse = await withAdoRetry(() =>
       c.get(`/wit/workitems/${featureId}/revisions?api-version=7.0`)
