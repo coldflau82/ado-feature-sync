@@ -60,7 +60,8 @@
 
    "thresholds": {
     "targetDateNearDays": 14,
-    "toReleaseMaxDays": 45
+    "toReleaseMaxDays": 45,
+    "toReleasePostReleaseGraceBusinessDays": 1
   }
 
   "rules": {
