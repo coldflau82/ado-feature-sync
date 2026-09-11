@@ -12171,6 +12171,10 @@
                                     featureId={f.id}
                                     isExpanded={isFeatureExpanded}
                                     onToggle={() => toggleFeatureDetails(f.id)}
+                                    title={ releaseAlignment?.status === 'release-passed'
+                                        ? `RFV ${releaseAlignment.featureRfv} has passed with ${releaseAlignment.affectedWorkItems} work item(s) still not released.`
+                                        : `Release Alignment: ${meta.label}`
+                                    }
                                   />
                                 
                                   <ReleaseFixVersionCell
