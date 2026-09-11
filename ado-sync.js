@@ -2620,20 +2620,21 @@ function buildReleaseAlignment(
     isPendingReleaseAlignmentWorkItem
   );
 
-  /*
-    No pending work means there is no remaining scope that can jeopardize
-    the Feature release commitment.
-  */
-  if (pendingWorkItems.length === 0) {
-    return createReleaseAlignmentResult(
-      'aligned',
-      {
-        featureRfv,
-        pendingWorkItems: 0
-      }
+  /* To Release no bloquea la planificación de Sprint, pero sí bloquea el cumplimiento real de un RFV: el trabajo todavía no está Closed ni se
+    ha confirmado como liberado.
+    Se usa específicamente para detectar un RFV cuya fecha ya pasó con trabajo aún retenido en To Release. */
+  const unreleasedWorkItems = workItems.filter(workItem => {
+    const category = getDeliveryWorkItemCategory(
+      workItem?.state
     );
-  }
-
+  
+    return (
+      category === 'inPlanning' ||
+      category === 'inProgress' ||
+      category === 'toRelease'
+    );
+  });
+    
   const release = releaseCalendarReleaseByRfv.get(
     featureRfv
   );
@@ -2641,17 +2642,17 @@ function buildReleaseAlignment(
   const commitmentCutoffDate =
     getEffectiveCommitmentCutoffForRfv(featureRfv);
 
-  /*
-    The Feature RFV itself must exist in the calendar and have at least
-    one planned Sprint/cutoff before an alignment assessment is possible.
-  */
+  /* The Feature RFV itself must exist in the calendar and have at least one planned Sprint/cutoff before an alignment assessment is possible. */
   if (!release || !commitmentCutoffDate) {
     return createReleaseAlignmentResult(
       'unavailable',
       {
         featureRfv,
         featureReleaseDate: release?.date || null,
-        pendingWorkItems: pendingWorkItems.length,
+  
+        /* Para la UI, Pending representa ahora cualquier trabajo que todavía puede impedir completar el RFV. */
+        pendingWorkItems: unreleasedWorkItems.length,
+  
         nextViableRfv: getNextViableReleaseFixVersion(
           featureRfv,
           pendingWorkItems
@@ -2669,10 +2670,50 @@ function buildReleaseAlignment(
 
   const todayDateKey = getTodayDateKey();
 
-  /*
-    The cutoff date itself is treated as closed:
-    today >= cutoff means new/uncommitted pending work is too late.
-  */
+    /* El RFV ya pasó y aún existe trabajo sin liberar/cerrar. To Release se excluye de la evaluación de planificación/cutoff, pero
+    no puede tratarse como entrega exitosa después de que la fecha del RFV ya pasó. */
+  if (
+    release.date < todayDateKey &&
+    unreleasedWorkItems.length > 0
+  ) {
+    return createReleaseAlignmentResult(
+      'release-passed',
+      {
+        featureRfv,
+        featureReleaseDate: release.date,
+        commitmentCutoffDate,
+  
+        /* Affected equivale a los ítems que siguen impidiendo cerrar el compromiso de release. */
+        affectedWorkItems: unreleasedWorkItems.length,
+        pendingWorkItems: unreleasedWorkItems.length,
+  
+        reasons: {
+          noSprint: 0,
+          unmappedSprint: 0,
+          sprintRfvMismatch: 0,
+          workItemRfvMismatch: 0
+        },
+  
+        nextViableRfv: getNextViableReleaseFixVersion(
+          featureRfv,
+          pendingWorkItems
+        )
+      }
+    );
+  }
+  
+  /*No pending work means there is no remaining scope that can jeopardize the Feature release commitment. */
+  if (pendingWorkItems.length === 0) {
+    return createReleaseAlignmentResult(
+      'aligned',
+      {
+        featureRfv,
+        pendingWorkItems: 0
+      }
+    );
+  }
+
+  /* The cutoff date itself is treated as closed: today >= cutoff means new/uncommitted pending work is too late. */
   const isCommitmentCutoffReached =
     todayDateKey >= commitmentCutoffDate;
 
