@@ -226,6 +226,7 @@
     .feature-story-card__to-release-aging { display: inline-flex; align-items: center; width: fit-content; margin-top: 1px; max-width: 100%; padding: 2px 6px; 
       border: 1px solid #bbf7d0; border-radius: 999px; background: var(--ok-soft); color: #166534; font-size: 10px; font-weight: 700; line-height: 1.3; white-space: nowrap; }
     .feature-story-card__to-release-aging--aged { border-color: #fbbf24; background: var(--warn-soft); color: #854d0e; }
+    .feature-story-card__to-release-aging--unavailable { border-color: var(--line-strong); background: var(--neutral-soft); color: var(--text-secondary);}
     /* Contenedor de Stories and Bugs:Agrupa filtros y resultados directos de una Feature en una misma superficie visual, separada de Feature Status y Delivery Activity. */
     .feature-work-items-panel { min-width: 0; padding: 0px; border: 0px; border-radius: 0px; background: var(--surface-raised); border: 1px solid var(--line-hairline); }
     .feature-work-items-panel__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0;}
@@ -5300,20 +5301,15 @@
         Number(workItem?.id) === numericWorkItemId
       );
     
-      /*source puede existir en el resumen global del backend, no necesariamente en cada Work Item individual.    
-        Sólo ocultamos el badge si explícitamente el backend indicó que no pudo calcular la información. */
-      const source =
-        match?.source ||
-        toReleaseAging?.source ||
-        'ok';
+      if (!match) {
+        return null;
+      }
     
       const daysInToRelease = Number(
         match?.daysInToRelease
       );
     
       if (
-        !match ||
-        source !== 'ok' ||
         !Number.isFinite(daysInToRelease) ||
         daysInToRelease < 0
       ) {
@@ -5321,9 +5317,7 @@
       }
     
       return {
-        thresholdDays: Number(
-          toReleaseAging?.thresholdDays
-        ) || null,
+        source: match.source || 'unknown',
     
         enteredToReleaseAt:
           match.enteredToReleaseAt ||
@@ -5332,7 +5326,39 @@
     
         daysInToRelease: Math.floor(daysInToRelease),
     
-        isAged: Boolean(match.isAged)
+        expectedDate: match.expectedDate || null,
+    
+        expectedDateSource:
+          match.expectedDateSource || '',
+    
+        expectedRfv:
+          match.expectedRfv || '',
+    
+        workItemRfv:
+          match.workItemRfv || '',
+    
+        inheritedFromFeature: Boolean(
+          match.inheritedFromFeature
+        ),
+    
+        isRfvAligned:
+          match.isRfvAligned !== false,
+    
+        evaluationDate:
+          match.evaluationDate || null,
+    
+        isScheduled: Boolean(match.isScheduled),
+    
+        isDelayed: Boolean(
+          match.isDelayed || match.isAged
+        ),
+    
+        /*
+          Compatibilidad con cualquier componente heredado.
+        */
+        isAged: Boolean(
+          match.isDelayed || match.isAged
+        )
       };
     }
 
@@ -6125,15 +6151,15 @@
     
                 <div className="sticky-feature-context__cell">
                   <div className="release-fix-version-with-alignment">
+                    <ReleaseAlignmentStatusIndicator
+                      releaseAlignment={
+                        feature.deliverySummary?.releaseAlignment
+                      }
+                    />
+                  
                     <ReleaseFixVersionCell
                       value={feature.releaseFixVersion}
                     />
-    
-                  <ReleaseAlignmentStatusIndicator
-                    releaseAlignment={
-                      feature.deliverySummary?.releaseAlignment
-                    }
-                  />
                   </div>
                 </div>
     
@@ -6617,10 +6643,21 @@
             )}
 
             {toReleaseAging && (
-              <span className={[
-                  'feature-story-card__to-release-aging',
-                  toReleaseAging.isAged
+              <span className={['feature-story-card__to-release-aging',
+            
+                  toReleaseAging.isDelayed
                     ? 'feature-story-card__to-release-aging--aged'
+                    : '',
+            
+                  !toReleaseAging.isDelayed &&
+                  toReleaseAging.isRfvAligned === false
+                    ? 'feature-story-card__to-release-aging--mismatch'
+                    : '',
+            
+                  !toReleaseAging.isDelayed &&
+                  toReleaseAging.isRfvAligned !== false &&
+                  !toReleaseAging.isScheduled
+                    ? 'feature-story-card__to-release-aging--unavailable'
                     : ''
                 ]
                   .filter(Boolean)
@@ -6633,23 +6670,69 @@
                   } in To Release`,
             
                   toReleaseAging.enteredToReleaseAt
-                    ? `since ${formatDate(
+                    ? `Since: ${formatDate(
                         toReleaseAging.enteredToReleaseAt
                       )}`
                     : '',
             
-                  toReleaseAging.thresholdDays
-                    ? `Threshold: more than ${toReleaseAging.thresholdDays} days`
+                  toReleaseAging.workItemRfv
+                    ? `Story/Bug RFV: ${toReleaseAging.workItemRfv}`
+                    : '',
+            
+                  toReleaseAging.expectedRfv
+                    ? `Expected RFV: ${toReleaseAging.expectedRfv}`
+                    : '',
+            
+                  toReleaseAging.expectedDate
+                    ? `Committed date: ${formatDate(
+                        toReleaseAging.expectedDate
+                      )}`
+                    : '',
+            
+                  toReleaseAging.evaluationDate
+                    ? `Delayed from: ${formatDate(
+                        toReleaseAging.evaluationDate
+                      )}`
                     : ''
                 ]
                   .filter(Boolean)
                   .join(' · ')}
               >
-                ⏱ {toReleaseAging.daysInToRelease} day
-                {toReleaseAging.daysInToRelease === 1 ? '' : 's'}
-                {' '}in To Release
-            
-                {toReleaseAging.isAged && ' · Delayed'}
+                {toReleaseAging.isDelayed ? (
+                  <>
+                    ⏱ Release delayed ·{' '}
+                    {toReleaseAging.daysInToRelease} day
+                    {toReleaseAging.daysInToRelease === 1 ? '' : 's'}
+                    {' '}in To Release
+                  </>
+                ) : toReleaseAging.isRfvAligned === false ? (
+                  <>
+                    ⚠ RFV mismatch
+                  </>
+                ) : toReleaseAging.isScheduled &&
+                  toReleaseAging.expectedRfv &&
+                  toReleaseAging.inheritedFromFeature ? (
+                  <>
+                    ✓ Scheduled for Feature RFV{' '}
+                    {toReleaseAging.expectedRfv}
+                  </>
+                ) : toReleaseAging.isScheduled &&
+                  toReleaseAging.expectedRfv ? (
+                  <>
+                    ✓ Scheduled for RFV{' '}
+                    {toReleaseAging.expectedRfv}
+                  </>
+                ) : toReleaseAging.isScheduled &&
+                  toReleaseAging.expectedDate ? (
+                  <>
+                    ✓ Scheduled for{' '}
+                    {formatDate(toReleaseAging.expectedDate)}
+                  </>
+                ) : (
+                  <>
+                    ? Release commitment unavailable
+                  </>
+                )}
               </span>
             )}
                         
@@ -12080,10 +12163,6 @@
         
                               <td className="feature-list-date-cell">
                                 <div className="release-fix-version-with-alignment">
-                                  <ReleaseFixVersionCell
-                                    value={f.releaseFixVersion}
-                                  />
-                              
                                   <ReleaseAlignmentIndicator
                                     releaseAlignment={
                                       f.deliverySummary?.releaseAlignment
@@ -12091,6 +12170,10 @@
                                     featureId={f.id}
                                     isExpanded={isFeatureExpanded}
                                     onToggle={() => toggleFeatureDetails(f.id)}
+                                  />
+                                
+                                  <ReleaseFixVersionCell
+                                    value={f.releaseFixVersion}
                                   />
                                 </div>
                               </td>
