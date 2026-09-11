@@ -1540,14 +1540,8 @@
       isExpanded,
       onToggle
     }) {
-      const status = String(
-        releaseAlignment?.status || ''
-      ).trim();
-    
-      /*
-        Sin RFV o Feature cerrada/no aplicable:
-        no se agrega ruido visual en la tabla.
-      */
+      const status = String( releaseAlignment?.status || '' ).trim();
+      /* Sin RFV o Feature cerrada/no aplicable: no se agrega ruido visual en la tabla. */
       if (
         !status ||
         status === 'not-applicable'
@@ -1557,6 +1551,47 @@
     
       const meta = getReleaseAlignmentMeta(status);
     
+      const affectedWorkItems = Number(
+        releaseAlignment?.affectedWorkItems || 0
+      );
+    
+      const pendingWorkItems = Number(
+        releaseAlignment?.pendingWorkItems || 0
+      );
+    
+      const featureRfv = String(
+        releaseAlignment?.featureRfv || ''
+      ).trim();
+    
+      /* El tooltip explica el estado sin obligar al usuario a expandir la Feature. El click continúa abriendo el detalle completo. */
+      const title =
+        status === 'release-passed'
+          ? [
+              `Release date passed for RFV ${featureRfv || 'not assigned'}.`,
+              `${pendingWorkItems} work item${
+                pendingWorkItems === 1 ? '' : 's'
+              } still not released.`
+            ].join(' ')
+          : status === 'missed'
+            ? [
+                `Release commitment missed for RFV ${
+                  featureRfv || 'not assigned'
+                }.`,
+                `${affectedWorkItems} affected work item${
+                  affectedWorkItems === 1 ? '' : 's'
+                }.`
+              ].join(' ')
+            : status === 'at-risk'
+              ? [
+                  `Release alignment at risk for RFV ${
+                    featureRfv || 'not assigned'
+                  }.`,
+                  `${affectedWorkItems} affected work item${
+                    affectedWorkItems === 1 ? '' : 's'
+                  }.`
+                ].join(' ')
+              : `Release Alignment: ${meta.label}.`;
+    
       return (
         <button
           type="button"
@@ -1565,7 +1600,10 @@
             meta.className
           ].join(' ')}
           onClick={(event) => {
-            /* La fila también tiene un onClick para expandir. Detener la propagación evita ejecutar el toggle dos veces. */
+            /*
+              La fila también tiene onClick para expandir.
+              Evita ejecutar el toggle dos veces.
+            */
             event.stopPropagation();
             onToggle();
           }}
@@ -1573,9 +1611,10 @@
           aria-controls={`feature-details-panel-${featureId}`}
           aria-label={
             isExpanded
-              ? `Collapse Feature ${featureId} details. Release Alignment: ${meta.label}.`
-              : `Expand Feature ${featureId} details. Release Alignment: ${meta.label}.`
+              ? `Collapse Feature ${featureId} details. ${title}`
+              : `Expand Feature ${featureId} details. ${title}`
           }
+          title={title}
         >
           <span
             className="release-alignment-indicator__icon"
@@ -12171,10 +12210,6 @@
                                     featureId={f.id}
                                     isExpanded={isFeatureExpanded}
                                     onToggle={() => toggleFeatureDetails(f.id)}
-                                    title={ releaseAlignment?.status === 'release-passed'
-                                        ? `RFV ${releaseAlignment.featureRfv} has passed with ${releaseAlignment.affectedWorkItems} work item(s) still not released.`
-                                        : `Release Alignment: ${meta.label}`
-                                    }
                                   />
                                 
                                   <ReleaseFixVersionCell
