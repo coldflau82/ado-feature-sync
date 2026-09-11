@@ -8490,21 +8490,29 @@
         return null;
       }
     
-      const totalMs = timelineEnd - timelineStart;
+      /* timelineStart es inclusivo y timelineEnd es exclusivo. No usamos diferencias de milisegundos ni bloques de 24 horas.
+        getTimelinePercent() calcula la posición usando días calendario dentro de dashboardTimeZone, igual que:
+        - barras de Feature;
+        - barras de Story/Bug;
+        - Target Date;
+        - RFV;
+        - Tech Go Live;
+        - timelines móviles. */
+      const todayPercent = getTimelinePercent(
+        getDashboardToday(),
+        timelineStart,
+        timelineEnd
+      );
     
-      if (totalMs <= 0) {
-        return null;
-      }
-    
-      const todayMs =
-        getDashboardToday() - timelineStart;
-    
-      const todayPercent =
-        (todayMs / totalMs) * 100;
-    
+      /*  100% representa timelineEnd, que es exclusivo. Por eso Today debe estar dentro de [0, 100), no en 100.
+        Ejemplo:
+        - timelineEnd = October 1, 2026
+        - último día visible = September 30, 2026
+        - si Today fuera October 1, no se dibuja dentro del período anterior. */
       const isTodayVisible =
+        todayPercent !== null &&
         todayPercent >= 0 &&
-        todayPercent <= 100;
+        todayPercent < 100;
     
       return (
         <div
@@ -8515,19 +8523,13 @@
           }}
           aria-hidden="true"
         >
-          <div
-            className="gantt-ruler__grid"
-            style={{
-              '--gantt-unit': `${100 / unitCount}%`
-            }}
+          <div className="gantt-ruler__grid"
+            style={{'--gantt-unit': `${100 / unitCount}%`}}
           />
     
           {isTodayVisible && (
-            <div
-              className="gantt-ruler__today"
-              style={{
-                left: `${todayPercent}%`
-              }}
+            <div className="gantt-ruler__today"
+              style={{left: `${todayPercent}%`}}
             />
           )}
         </div>
