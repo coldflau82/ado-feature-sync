@@ -1681,6 +1681,91 @@
         .toJSDate();
     }
 
+    /*── Utilidades temporales compartidas del Roadmap ──────────────
+      Regla única:
+      - timelineStart es inclusivo.
+      - timelineEnd es exclusivo.
+      - Las posiciones se calculan por días calendario en la zona oficial del dashboard, nunca por bloques fijos de 24 horas.
+      Esto evita desplazamientos durante cambios DST: un día de 23 horas; un día de 25 horas. */
+    function getTimelineDateTime(value) {
+      if (!value) {
+        return null;
+      }
+
+      const dateTime = DateTime.isDateTime(value)
+        ? value
+        : value instanceof Date
+          ? DateTime.fromJSDate(value)
+          : DateTime.fromISO(String(value), {
+              setZone: true
+            });
+
+      if (!dateTime.isValid) {
+        return null;
+      }
+
+      return dateTime
+        .setZone(dashboardTimeZone)
+        .startOf('day');
+    }
+
+    function getTimelineDayCount(
+      timelineStart,
+      timelineEnd
+    ) {
+      const start = getTimelineDateTime(timelineStart);
+      const end = getTimelineDateTime(timelineEnd);
+
+      if (!start || !end) {
+        return 0;
+      }
+
+      const totalDays = end.diff(start, 'days').days;
+
+      return totalDays > 0
+        ? totalDays
+        : 0;
+    }
+
+    function getTimelineDayOffset(
+      date,
+      timelineStart
+    ) {
+      const timelineDate = getTimelineDateTime(date);
+      const start = getTimelineDateTime(timelineStart);
+
+      if (!timelineDate || !start) {
+        return null;
+      }
+
+      return timelineDate.diff(start, 'days').days;
+    }
+
+    function getTimelinePercent(
+      date,
+      timelineStart,
+      timelineEnd
+    ) {
+      const totalDays = getTimelineDayCount(
+        timelineStart,
+        timelineEnd
+      );
+
+      const daysFromStart = getTimelineDayOffset(
+        date,
+        timelineStart
+      );
+
+      if (
+        totalDays <= 0 ||
+        daysFromStart === null
+      ) {
+        return null;
+      }
+
+      return (daysFromStart / totalDays) * 100;
+    }
+
     function formatDashboardMonth(date, options = {}) {
       return DateTime
         .fromJSDate(date)
@@ -3135,46 +3220,85 @@
       moveTooltip,
       hideTooltip
     }) {
-      const today = getDashboardToday();
-      const timelineTotalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
-      
-      const segments = [];
-      if (states.length > 0) {
-        states.forEach((st, idx) => {
-          const stateStart = parseDashboardDate(st.changedDate);
-          const stateEnd = idx === states.length - 1
-            ? today
-            : parseDashboardDate(states[idx + 1].changedDate);
+    const today = getDashboardToday();
 
-          if (!stateStart || !stateEnd) {
-            return;
-          }
+    /* timelineEnd es exclusivo. La duración se calcula en días calendario de dashboardTimeZone, no mediante una división fija entre 24 horas. */
+    const timelineTotalDays = getTimelineDayCount(
+      timelineStart,
+      timelineEnd
+    );
+    
+    const segments = [];
 
-          const daysFromStart = (stateStart - timelineStart) / (1000 * 60 * 60 * 24);
-          const daysToEnd = (stateEnd - timelineStart) / (1000 * 60 * 60 * 24);
-          const rawStartPercent = (daysFromStart / timelineTotalDays) * 100;
-          const rawEndPercent = (daysToEnd / timelineTotalDays) * 100;
-          if (rawStartPercent < 100 && rawEndPercent > 0) {
-            const clampedStart = Math.max(0, rawStartPercent);
-            const clampedEnd = Math.min(100, rawEndPercent);
-            segments.push({
-              color: storyStateColors[st.state] || '#cccccc',
-              state: st.state,
-              startPercent: clampedStart,
-              widthPercent: Math.max(1, clampedEnd - clampedStart)
-            });
-          }
-        });
-      }
+    if (states.length > 0 && timelineTotalDays > 0) {
+      states.forEach((st, idx) => {
+        const stateStart = parseDashboardDate(st.changedDate);
+        const stateEnd = idx === states.length - 1
+          ? today
+          : parseDashboardDate(states[idx + 1].changedDate);
 
-      const sprintInfo = getStorySprintInfo(iterationPath);
-      const sprintStart = sprintInfo.start;
-      const sprintEnd = sprintInfo.end;
-      const sprintLabel = sprintInfo.label;
-      const getSprintPercent = (date) => {
-        const days = (date - timelineStart) / (1000 * 60 * 60 * 24);
-        return (days / timelineTotalDays) * 100;
-      };
+        if (!stateStart || !stateEnd) {
+          return;
+        }
+
+        const rawStartPercent = getTimelinePercent(
+          stateStart,
+          timelineStart,
+          timelineEnd
+        );
+
+        const rawEndPercent = getTimelinePercent(
+          stateEnd,
+          timelineStart,
+          timelineEnd
+        );
+
+        if (
+          rawStartPercent === null ||
+          rawEndPercent === null
+        ) {
+          return;
+        }
+         if (rawStartPercent < 100 && rawEndPercent > 0) {
+          const clampedStart = Math.max(
+            0,
+            rawStartPercent
+          );
+
+          const clampedEnd = Math.min(
+            100,
+            rawEndPercent
+          );
+
+          segments.push({
+            color: storyStateColors[st.state] || '#cccccc',
+            state: st.state,
+
+            /* Se preservan las fechas reales para el tooltip. Así tampoco debemos reconstruirlas usando milisegundos. */
+            startDate: stateStart,
+            endDate: stateEnd,
+
+            startPercent: clampedStart,
+            widthPercent: Math.max(
+              1,
+              clampedEnd - clampedStart
+            )
+          });
+        }
+      });
+    }
+
+    const sprintInfo = getStorySprintInfo(iterationPath);
+    const sprintStart = sprintInfo.start;
+    const sprintEnd = sprintInfo.end;
+    const sprintLabel = sprintInfo.label;
+
+    const getSprintPercent = date =>
+      getTimelinePercent(
+        date,
+        timelineStart,
+        timelineEnd
+      );
 
       let sprintStartPercent = null;
       let sprintEndPercent = null;
@@ -3185,11 +3309,13 @@
         const rawStart = getSprintPercent(sprintStart);
         const rawEnd = getSprintPercent(sprintEnd);
       
-        /*
-          Sólo se dibujan las dos líneas cuando el Sprint completo
-          cabe dentro de la ventana de 12 semanas.
-        */
-        if (rawStart >= 0 && rawEnd <= 100) {
+        /* Sólo se dibujan las dos líneas cuando el Sprint completo cabe dentro de la ventana visible. */
+        if (
+          rawStart !== null &&
+          rawEnd !== null &&
+          rawStart >= 0 &&
+          rawEnd <= 100
+        ) {
           sprintStartPercent = rawStart;
           sprintEndPercent = rawEnd;
           sprintMidPercent =
@@ -3237,9 +3363,20 @@
             <div className="gantt-timeline-canvas" style={{ height: '36px', background: '#e0e0e0', borderRadius: '4px', overflow: 'hidden', 
               position: 'relative' }}>
               {!loading && segments.map((seg, idx) => {
-                const segStartDate = new Date(timelineStart.getTime() + (seg.startPercent / 100) * (timelineEnd - timelineStart));
-                const segEndDate = new Date(timelineStart.getTime() + ((seg.startPercent + seg.widthPercent) / 100) * (timelineEnd - timelineStart));
-                const diffDays = Math.round((segEndDate - segStartDate) / (1000 * 60 * 60 * 24));
+                const segStartDate = seg.startDate;
+                const segEndDate = seg.endDate;
+
+                /* Igual que la posición visual, la duración se mide por días de calendario y no por milisegundos. */
+                const diffDays = Math.max(
+                  0,
+                  Math.round(
+                    getTimelineDayOffset(
+                      segEndDate,
+                      segStartDate
+                    ) || 0
+                  )
+                );
+
                 const tooltipContent = (
                 <div>
                   <div style={{ fontWeight: 'bold', marginBottom: '4px', color: seg.color, fontSize: '12px' }}>
@@ -3439,23 +3576,49 @@
       };
 
       const today = getDashboardToday();
-      const timelineTotalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
+
+      /* Todos los elementos del Roadmap usan la misma duración calendario y el mismo límite exclusivo. */
+      const timelineTotalDays = getTimelineDayCount(
+        timelineStart,
+        timelineEnd
+      );
 
       const segments = [];
-      if (states.length > 0) {
+
+      if (states.length > 0 && timelineTotalDays > 0) {
         states.forEach((state, idx) => {
-          const stateStart = parseDashboardDate(state.changedDate);
+          const stateStart = parseDashboardDate(
+            state.changedDate
+          );
+
           const stateEnd = idx === states.length - 1
             ? today
-            : parseDashboardDate(states[idx + 1].changedDate);
+            : parseDashboardDate(
+                states[idx + 1].changedDate
+              );
 
           if (!stateStart || !stateEnd) {
             return;
           }
-          const daysFromStart = (stateStart - timelineStart) / (1000 * 60 * 60 * 24);
-          const daysToEnd = (stateEnd - timelineStart) / (1000 * 60 * 60 * 24);
-          const rawStartPercent = (daysFromStart / timelineTotalDays) * 100;
-          const rawEndPercent = (daysToEnd / timelineTotalDays) * 100;
+
+          const rawStartPercent = getTimelinePercent(
+            stateStart,
+            timelineStart,
+            timelineEnd
+          );
+
+          const rawEndPercent = getTimelinePercent(
+            stateEnd,
+            timelineStart,
+            timelineEnd
+          );
+
+          if (
+            rawStartPercent === null ||
+            rawEndPercent === null
+          ) {
+            return;
+          }
           if (rawStartPercent < 100 && rawEndPercent > 0) {
             const clampedStart = Math.max(0, rawStartPercent);
             const clampedEnd = Math.min(100, rawEndPercent);
@@ -3613,10 +3776,25 @@
               padding: '0', overflow: 'hidden', position: 'relative' }}>
               {!loading && targetDate && (() => {
                 const target = parseDashboardDate(targetDate);
-                  if (!target) { return null;}
-          
-                const targetPercent = ((target - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
-                if (targetPercent < 0 || targetPercent > 100) return null;
+
+                if (!target) {
+                  return null;
+                }
+
+                const targetPercent = getTimelinePercent(
+                  target,
+                  timelineStart,
+                  timelineEnd
+                );
+
+                if (
+                  targetPercent === null ||
+                  targetPercent < 0 ||
+                  targetPercent > 100
+                ) {
+                  return null;
+                }
+
                 return (
                   <div style={{ position: 'absolute', top: '-4px', left: targetPercent + '%', transform: 'translateX(-50%)', zIndex: 11, 
                     width: '0', height: '0', borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '12px solid #f43f5e' }} 
@@ -3631,15 +3809,21 @@
                   const releaseDate = parseDashboardDate(
                     getReleaseDate(releaseFixVersion)
                   );
-              
-                  if (!releaseDate) {
+                                if (!releaseDate) {
                     return null;
                   }
+
+                  const releasePercent = getTimelinePercent(
+                    releaseDate,
+                    timelineStart,
+                    timelineEnd
+                  );
               
-                  const releasePercent =
-                    ((releaseDate - timelineStart) / (1000 * 60 * 60 * 24) / timelineTotalDays) * 100;
-              
-                  if (releasePercent < 0 || releasePercent > 100) {
+                  if (
+                    releasePercent === null ||
+                    releasePercent < 0 ||
+                    releasePercent > 100
+                  ) {
                     return null;
                   }
               
@@ -3675,14 +3859,15 @@
                   if (!techGoLiveDate) {
                     return null;
                   }
-              
-                  const techGoLivePercent =
-                    ((techGoLiveDate - timelineStart) /
-                      (1000 * 60 * 60 * 24) /
-                      timelineTotalDays) *
-                    100;
+
+                  const techGoLivePercent = getTimelinePercent(
+                    techGoLiveDate,
+                    timelineStart,
+                    timelineEnd
+                  );
               
                   if (
+                    techGoLivePercent === null ||
                     techGoLivePercent < 0 ||
                     techGoLivePercent > 100
                   ) {
@@ -4213,18 +4398,18 @@
       };
     
       const today = getDashboardToday();
+
+      const totalTimelineDays = getTimelineDayCount(
+        timelineStart,
+        timelineEnd
+      );
     
-      const totalTimelineDays =
-        (timelineEnd - timelineStart) /
-        (1000 * 60 * 60 * 24);
-    
-      const getPercent = (date) => {
-        const daysFromStart =
-          (date - timelineStart) /
-          (1000 * 60 * 60 * 24);
-    
-        return (daysFromStart / totalTimelineDays) * 100;
-      };
+      const getPercent = date =>
+        getTimelinePercent(
+          date,
+          timelineStart,
+          timelineEnd
+        );
     
       const formatTimelineDate = (date) =>
         DateTime
@@ -4257,7 +4442,12 @@
           const rawStart = getPercent(stateStart);
           const rawEnd = getPercent(stateEnd);
     
-          if (rawStart < 100 && rawEnd > 0) {
+          if (
+            rawStart !== null &&
+            rawEnd !== null &&
+            rawStart < 100 &&
+            rawEnd > 0
+          ) {
             const startPercent = Math.max(0, rawStart);
             const endPercent = Math.min(100, rawEnd);
     
@@ -4275,7 +4465,7 @@
         });
       }
     
-      const rawTodayPercent = getPercent(today);
+      const rawTodayPercent = getPercent(today) ?? 0;
     
       const todayPercent = Math.max(
         0,
@@ -4564,26 +4754,24 @@
         return null;
       }
 
-      const startMs = timelineStart.toMillis();
-      const endMs = timelineEnd.toMillis();
-      const dateMs = date.toMillis();
+      /* Los tres valores pueden ser DateTime de Luxon. getTimelinePercent() los normaliza al día calendario de dashboardTimeZone y aplica el contrato end-exclusive. */
+      const percent = getTimelinePercent(
+        date,
+        timelineStart,
+        timelineEnd
+      );
 
-      if (dateMs < startMs || dateMs > endMs) {
-        return null;
-      }
-
-      const total = endMs - startMs;
-
-      if (total <= 0) {
+      if (
+        percent === null ||
+        percent < 0 ||
+        percent > 100
+      ) {
         return null;
       }
 
       return Math.max(
         0,
-        Math.min(
-          100,
-          ((dateMs - startMs) / total) * 100
-        )
+        Math.min(100, percent)
       );
     }
 
@@ -4797,18 +4985,18 @@
         storyStateColors[story.state] || '#94a3b8';
     
       const today = getDashboardToday();
+
+      const totalTimelineDays = getTimelineDayCount(
+        timelineStart,
+        timelineEnd
+      );
     
-      const totalTimelineDays =
-        (timelineEnd - timelineStart) /
-        (1000 * 60 * 60 * 24);
-    
-      const getPercent = (date) => {
-        const daysFromStart =
-          (date - timelineStart) /
-          (1000 * 60 * 60 * 24);
-    
-        return (daysFromStart / totalTimelineDays) * 100;
-      };
+      const getPercent = date =>
+        getTimelinePercent(
+          date,
+          timelineStart,
+          timelineEnd
+        );
     
       const formatTimelineDate = (date) =>
         DateTime
@@ -4841,7 +5029,12 @@
           const startPercent = getPercent(stateStart);
           const endPercent = getPercent(stateEnd);
     
-          if (startPercent < 100 && endPercent > 0) {
+          if (
+            startPercent !== null &&
+            endPercent !== null &&
+            startPercent < 100 &&
+            endPercent > 0
+          ) {
             const clampedStart = Math.max(0, startPercent);
             const clampedEnd = Math.min(100, endPercent);
     
@@ -4860,7 +5053,7 @@
         });
       }
     
-      const todayPercent = getPercent(today);
+      const todayPercent = getPercent(today) ?? 0;
     
       const clampedTodayPercent = Math.max(
         0,
@@ -4894,6 +5087,8 @@
           están dentro de la escala actual.
         */
         if (
+          rawSprintStart !== null &&
+          rawSprintEnd !== null &&
           rawSprintStart >= 0 &&
           rawSprintEnd <= 100
         ) {
@@ -4906,10 +5101,7 @@
         }
       }
     
-      /*
-        timelineEnd es exclusivo: mostramos el día anterior para que
-        la fecha final indicada sea la última fecha realmente visible.
-      */
+      /* timelineEnd es exclusivo: mostramos el día anterior para que la fecha final indicada sea la última fecha realmente visible. */
       const visibleTimelineEnd = DateTime
         .fromJSDate(timelineEnd)
         .setZone(dashboardTimeZone)
@@ -10590,29 +10782,33 @@
       const pageItems = sortedFiltered.slice(startIdx, startIdx + itemsPerPage);
       const pageItemIds = pageItems.map(item => item.id).join(',');
       const roadmapDashboardToday = getDashboardNow().startOf('day');
+
+      /* Regla temporal única: start: inclusivo; end: exclusivo.
+        Ejemplo:
+        start = September 1, 2026
+        end   = September 1, 2027
+        último día visible = August 31, 2027 */
       const monthTimelineStart = roadmapDashboardToday
         .startOf('month')
         .plus({ months: timelineOffset })
         .toJSDate();
+
       const monthTimelineEnd = roadmapDashboardToday
         .startOf('month')
         .plus({ months: timelineOffset + 12 })
-        .minus({ days: 1 })
-        .endOf('day')
         .toJSDate();
+
       const weekTimelineStart = roadmapDashboardToday
         .startOf('week')
         .plus({ weeks: weekOffset })
         .toJSDate();
+
       const weekTimelineEnd = roadmapDashboardToday
         .startOf('week')
         .plus({ weeks: weekOffset + 12 })
         .toJSDate();
       
-      /*
-        Fuente única de verdad de la ventana temporal activa:
-        header, Features, Stories y regla global.
-      */
+      /* Fuente única de verdad de la ventana temporal activa: header, Features, Stories y regla global. */
       const timelineStart = isWeekScale
         ? weekTimelineStart
         : monthTimelineStart;
