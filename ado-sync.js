@@ -2886,11 +2886,9 @@ function buildReleaseAlignment(
     );
   }
 
-  /*
-    Everything that is pending is either:
+  /* Everything that is pending is either:
     - explicitly planned for the Feature RFV or earlier, or
-    - still legitimately uncommitted before cutoff.
-  */
+    - still legitimately uncommitted before cutoff. */
   if (affectedWorkItems === 0) {
     return createReleaseAlignmentResult(
       'aligned',
@@ -2905,10 +2903,7 @@ function buildReleaseAlignment(
     );
   }
 
-  /*
-    If affected work remains before cutoff, it can still be corrected.
-    On or after cutoff, it is a missed release commitment.
-  */
+  /* If affected work remains before cutoff, it can still be corrected. On or after cutoff, it is a missed release commitment. */
   const status = isCommitmentCutoffReached
     ? 'missed'
     : 'at-risk';
@@ -2928,6 +2923,82 @@ function buildReleaseAlignment(
       )
     }
   );
+}
+
+/* Corrige Release Alignment para Features leídas desde Redis. Los Features históricos se almacenan ya mapeados y no conservan los
+  detalles completos de cada Story/Bug necesarios para recalcular toda la validación de Sprint/RFV.
+  Sin embargo, hay una condición que sí puede y debe reevaluarse en cada respuesta: si el RFV ya pasó y aún existe trabajo no cerrado, la
+  Feature no puede seguir apareciendo como Aligned. */
+function reconcileCachedReleaseAlignment(
+  feature,
+  existingAlignment,
+  deliverySummary
+) {
+  const currentAlignment =
+    existingAlignment ||
+    createReleaseAlignmentResult('unavailable');
+
+  const featureState = String(
+    feature?.state ||
+    feature?.fields?.['System.State'] ||
+    ''
+  ).trim();
+
+  const featureRfv = getFeatureReleaseFixVersion(feature);
+
+  const isFeatureClosed =
+    FEATURE_CLOSED_STATES.includes(featureState);
+
+  /* No se evalúan Features cerradas o sin RFV, igual que la lógica principal de buildReleaseAlignment(). */
+  if (isFeatureClosed || !featureRfv) {
+    return currentAlignment;
+  }
+
+  const release = releaseCalendarReleaseByRfv.get(
+    featureRfv
+  );
+
+  /* Si el RFV no existe en el calendario, mantenemos el resultado existente. No debemos inventar una fecha ni ocultar un problema de configuración. */
+  if (!release?.date) {
+    return currentAlignment;
+  }
+
+  const unreleasedWorkItems =
+    Number(deliverySummary?.inPlanningWorkItems || 0) +
+    Number(deliverySummary?.inProgressWorkItems || 0) +
+    Number(deliverySummary?.toReleaseWorkItems || 0);
+
+  const todayDateKey = getTodayDateKey();
+
+  /* Regla crítica: RFV vencido + Stories/Bugs no cerrados = Release date passed.
+    Incluye To Release porque el trabajo aún no se ha desplegado/cerrado. */
+  if (
+    release.date < todayDateKey &&
+    unreleasedWorkItems > 0
+  ) {
+    return createReleaseAlignmentResult(
+      'release-passed',
+      {
+        featureRfv,
+        featureReleaseDate: release.date,
+
+        commitmentCutoffDate:
+          currentAlignment.commitmentCutoffDate ||
+          getEffectiveCommitmentCutoffForRfv(featureRfv),
+
+        affectedWorkItems: unreleasedWorkItems,
+        pendingWorkItems: unreleasedWorkItems,
+
+        /* Conservamos las razones existentes si estaban disponibles.
+          Para Features antiguas puede que todas sean cero, porque Redis no conserva el detalle de Sprint/RFV de cada hijo. */
+        reasons: currentAlignment.reasons || {},
+
+        nextViableRfv: currentAlignment.nextViableRfv || null
+      }
+    );
+  }
+
+  return currentAlignment;
 }
 
 /* ===== Determina si el Feature tiene un Parent jerárquico =====
@@ -7919,29 +7990,44 @@ app.get('/api/features', async (req, res) => {
     /* Las entradas cacheadas conservan enteredCurrentStateAt. Los días se recalculan aquí contra el día de negocio actual para que Aging no
       quede congelado entre ejecuciones del Cron. */
     const allFeatures = [...featuresById.values()].map(feature => {
-      const deliverySummary = {
-        ...(feature.deliverySummary || {}),
-    
-        /* enteredToReleaseAt se conserva desde Redis / ADO.
-          daysInToRelease se recalcula en cada respuesta según el día de negocio actual, sin nuevas llamadas a Azure DevOps. */
-        toReleaseAging: materializeToReleaseAging(
+      const materializedToReleaseAging =
+        materializeToReleaseAging(
           feature.deliverySummary?.toReleaseAging,
           feature.deliverySummary?.toReleaseWorkItems,
           feature
-        )
+        );
+
+      const baseDeliverySummary = {
+        ...(feature.deliverySummary || {}),
+        toReleaseAging: materializedToReleaseAging
+      };
+    
+      /* Las Features históricas pueden conservar en Redis un Release Alignment calculado antes de la regla "RFV vencido + trabajo To Release".
+        Reconciliamos ese resultado usando los conteos actuales disponibles en deliverySummary, sin requerir nuevas consultas a Azure DevOps. */
+      const releaseAlignment =
+        reconcileCachedReleaseAlignment(
+          feature,
+          baseDeliverySummary.releaseAlignment,
+          baseDeliverySummary
+        );
+    
+      const deliverySummary = {
+        ...baseDeliverySummary,
+        releaseAlignment
       };
     
       const materializedFeature = {
         ...feature,
     
-        /* Feature Aging también avanza diariamente sin refrescar ADO. */
+        /* Feature Aging también avanza diariamente sin refrescar Azure DevOps. */
         aging: materializeFeatureAging(feature.aging),
     
         deliverySummary
       };
     
-      /* Las Features históricas se almacenan ya mapeadas en Redis, incluyendo deliveryHealth. Como To Release Aging cambia cada día, se debe volver
-        a calcular Delivery Health después de materializar los días. */
+      /* Delivery Health debe recalcularse después de:
+        - actualizar días en To Release;
+        - reconciliar Release Alignment. */
       return {
         ...materializedFeature,
         deliveryHealth: buildDeliveryHealth(materializedFeature)
@@ -7961,13 +8047,8 @@ app.get('/api/features', async (req, res) => {
       ...recentResult.rangeCounts
     };
 
-    /*
-      Nueva información técnica y aditiva.
-
-      El frontend actual no necesita consumirla todavía. Se incluye desde
-      ahora para que pueda revisarse directamente en /api/features y para
-      preparar una futura visualización opcional en el dashboard.
-    */
+    /* Nueva información técnica y aditiva. El frontend actual no necesita consumirla todavía. Se incluye desde
+      ahora para que pueda revisarse directamente en /api/features y para preparar una futura visualización opcional en el dashboard. */
     const rangeDetails = {
       [activeOldRangeKey]:
         activeOldFeaturesCache.rangeDetail,
@@ -7975,13 +8056,8 @@ app.get('/api/features', async (req, res) => {
       ...recentResult.rangeDetails
     };
 
-    /*
-      Un conteo >= 200 ya no es warning por sí mismo: la función WIQL
-      divide automáticamente los rangos saturados.
-
-      También agregamos advertencias transitorias si un refresh falló
-      parcialmente y fue necesario conservar el último caché válido.
-    */
+    /*  Un conteo >= 200 ya no es warning por sí mismo: la función WIQL divide automáticamente los rangos saturados.
+      También agregamos advertencias transitorias si un refresh falló parcialmente y fue necesario conservar el último caché válido. */
     const rangeWarnings = Object.entries(rangeCounts)
       .filter(([, count]) =>
         typeof count === 'string' &&
