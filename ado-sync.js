@@ -1356,13 +1356,32 @@ function materializeToReleaseAging(
       workItem?.releaseFixVersion || ''
     ).trim();
 
-    /* Política de alineación estricta: Si la Feature tiene RFV, cada Story/Bug To Release debe tener
-      el mismo RFV para considerarse alineado.
+    /* Política de alineación estricta: Si la Feature tiene RFV, cada Story/Bug To Release debe tener el mismo RFV para considerarse alineado.
       Un RFV vacío se considera no alineado. Esto evita ocultar información incompleta como si la Story/Bug estuviera programada
       correctamente para el release de la Feature. */
+    const featureRelease = featureRfv
+      ? releaseCalendarReleaseByRfv.get(featureRfv)
+      : null;
+    
+    const workItemRelease = workItemRfv
+      ? releaseCalendarReleaseByRfv.get(workItemRfv)
+      : null;
+    
+    /*
+      Si no hay RFV en Feature, el item puede evaluarse contra Target Date.
+      Si la Feature sí tiene RFV:
+      - Story/Bug sin RFV hereda el RFV de la Feature.
+      - RFV anterior o igual es compatible.
+      - RFV posterior es desalineado.
+    */
     const isRfvAligned =
       !featureRfv ||
-      workItemRfv === featureRfv;
+      !workItemRfv ||
+      (
+        featureRelease &&
+        workItemRelease &&
+        workItemRelease.sequence <= featureRelease.sequence
+      );
 
     const expectedDateTime = commitment.expectedDate
       ? DateTime.fromISO(commitment.expectedDate, {
@@ -3224,9 +3243,21 @@ function mapFeature(i) {
 
       toReleaseAging: {
         source: 'unknown',
-        thresholdDays:
-          deliveryHealthRules.thresholds.toReleaseMaxDays,
+        thresholdDays: null,
+      
+        graceBusinessDays: Math.max(
+          0,
+          Number(
+            deliveryHealthRules.thresholds
+              .toReleasePostReleaseGraceBusinessDays
+          ) || 0
+        ),
+      
+        delayedWorkItems: 0,
+      
+        /* Compatibilidad con el frontend actual. "isAged" ahora representa Release delayed. */
         agedWorkItems: 0,
+      
         unknownWorkItems: null,
         maxDaysInToRelease: null,
         workItems: []
@@ -3431,8 +3462,17 @@ function buildDeliverySummary(
 
     toReleaseAging: {
       source: 'unknown',
-      thresholdDays:
-        deliveryHealthRules.thresholds.toReleaseMaxDays,
+      thresholdDays: null,
+    
+      graceBusinessDays: Math.max(
+        0,
+        Number(
+          deliveryHealthRules.thresholds
+            .toReleasePostReleaseGraceBusinessDays
+        ) || 0
+      ),
+    
+      delayedWorkItems: 0,
       agedWorkItems: 0,
       unknownWorkItems: null,
       maxDaysInToRelease: null,
@@ -5808,14 +5848,25 @@ async function fetchFeatureDetailsBatch(c, ids) {
         ...feature,
         deliverySummary: {
           ...feature.deliverySummary,
-          toReleaseAging: {
+           toReleaseAging: {
             source: 'unknown',
-            thresholdDays:
-              deliveryHealthRules.thresholds.toReleaseMaxDays,
+            thresholdDays: null,
+          
+            graceBusinessDays: Math.max(
+              0,
+              Number(
+                deliveryHealthRules.thresholds
+                  .toReleasePostReleaseGraceBusinessDays
+              ) || 0
+            ),
+          
+            delayedWorkItems: 0,
             agedWorkItems: 0,
+          
             unknownWorkItems: Number(
               feature.deliverySummary?.toReleaseWorkItems || 0
             ),
+          
             maxDaysInToRelease: null,
             workItems: []
           }
@@ -7874,14 +7925,17 @@ app.get('/api/features', async (req, res) => {
         timeZone: DASHBOARD_TIME_ZONE,
         businessDate: getTodayDateKey(),
 
-        /* Los umbrales se publican para que el frontend use exactamente la misma política de negocio que Delivery Health. */
-        thresholds: { targetDateNearDays: deliveryHealthRules.thresholds.targetDateNearDays,
-          toReleaseMaxDays:
-            deliveryHealthRules.thresholds.toReleaseMaxDays },
-
-        /* El calendario se publica con la respuesta principal para evitar una segunda llamada HTTP desde el frontend. */
-        releaseCalendar: releaseCalendarByRfv
-      },
+        thresholds: {
+          targetDateNearDays:
+            deliveryHealthRules.thresholds.targetDateNearDays,
+        
+          /* Legacy: se conserva temporalmente para evitar romper algún consumidor externo que todavía lo lea. Ya no se usa para decidir Release delayed.*/
+          toReleaseMaxDays: deliveryHealthRules.thresholds.toReleaseMaxDays,
+        
+          /* Nueva política de Release delayed: días hábiles adicionales después del primer día hábil posterior al RFV o Target Date. */
+          toReleasePostReleaseGraceBusinessDays: deliveryHealthRules.thresholds
+              .toReleasePostReleaseGraceBusinessDays
+        },
 
       rangeCounts,
       rangeDetails,
