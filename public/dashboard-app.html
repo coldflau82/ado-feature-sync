@@ -10228,6 +10228,13 @@
       let animationFrameId = 0;
       let resizeObserver = null;
     
+      /* Esta referencia debe vivir en el scope del useEffect.
+        Se reutiliza en:
+        - updateStickyContext();
+        - addEventListener('scroll', ...);
+        - removeEventListener('scroll', ...). */
+      const scrollContainer = resultsScrollRef.current;
+    
       const clearStickyContext = () => {
         setStickyFeatureContext(previous =>
           previous === null
