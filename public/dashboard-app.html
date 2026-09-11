@@ -3310,11 +3310,14 @@
         const rawEnd = getSprintPercent(sprintEnd);
       
         /* Sólo se dibujan las dos líneas cuando el Sprint completo cabe dentro de la ventana visible. */
+        /* El Sprint sólo está completamente dentro de la ventana si:
+          - comienza en timelineStart o después;
+          - termina antes de timelineEnd, que es exclusivo.*/
         if (
           rawStart !== null &&
           rawEnd !== null &&
           rawStart >= 0 &&
-          rawEnd <= 100
+          rawEnd < 100
         ) {
           sprintStartPercent = rawStart;
           sprintEndPercent = rawEnd;
@@ -3787,10 +3790,11 @@
                   timelineEnd
                 );
 
+                /* timelineEnd es exclusivo. Un 100% representa exactamente ese límite y no un día visible del Roadmap. */
                 if (
                   targetPercent === null ||
                   targetPercent < 0 ||
-                  targetPercent > 100
+                  targetPercent >= 100
                 ) {
                   return null;
                 }
@@ -3819,10 +3823,11 @@
                     timelineEnd
                   );
               
+                  /* timelineEnd es exclusivo: 100% queda fuera de la ventana visible y no debe renderizar un marcador RFV. */
                   if (
                     releasePercent === null ||
                     releasePercent < 0 ||
-                    releasePercent > 100
+                    releasePercent >= 100
                   ) {
                     return null;
                   }
@@ -3866,10 +3871,11 @@
                     timelineEnd
                   );
               
+                  /* timelineEnd es exclusivo. Si Tech Go Live cae exactamente en 100%, pertenece al período siguiente. */
                   if (
                     techGoLivePercent === null ||
                     techGoLivePercent < 0 ||
-                    techGoLivePercent > 100
+                    techGoLivePercent >= 100
                   ) {
                     return null;
                   }
@@ -3880,8 +3886,7 @@
                       getReleaseDate(techGoLiveRFV);
               
                   return (
-                    <span
-                      style={{
+                    <span style={{
                         position: 'absolute',
                         top: '55%',
                         left: `${techGoLivePercent}%`,
@@ -4465,17 +4470,25 @@
         });
       }
     
-      const rawTodayPercent = getPercent(today) ?? 0;
+      /* Today sólo debe mostrarse si pertenece a la ventana: [timelineStart, timelineEnd).
+        No usamos ?? 0 porque eso dibujaría incorrectamente la línea Today al inicio cuando se navega a un período pasado o futuro. */
+      const rawTodayPercent = getPercent(today);
+
+      const isTodayVisible =
+        rawTodayPercent !== null &&
+        rawTodayPercent >= 0 &&
+        rawTodayPercent < 100;
     
-      const todayPercent = Math.max(
-        0,
-        Math.min(100, rawTodayPercent)
-      );
+      const todayPercent = isTodayVisible
+        ? rawTodayPercent
+        : null;
     
-      const todayLabelPercent = Math.max(
-        8,
-        Math.min(92, todayPercent)
-      );
+      const todayLabelPercent = isTodayVisible
+        ? Math.max(
+            8,
+            Math.min(92, todayPercent)
+          )
+        : null;
     
       const visibleTimelineEnd = DateTime
         .fromJSDate(timelineEnd)
@@ -4513,7 +4526,7 @@
                   />
                 ))}
     
-              {!loading && (
+              {!loading && isTodayVisible && (
                 <span
                   className="mobile-feature-activity__today"
                   style={{
@@ -4524,7 +4537,7 @@
               )}
             </div>
     
-            {!loading && (
+            {!loading && isTodayVisible && (
               <span
                 className="mobile-feature-activity__today-label"
                 style={{
@@ -4761,10 +4774,11 @@
         timelineEnd
       );
 
+      /* timelineEnd es exclusivo. Un marcador en 100% corresponde exactamente al primer día fuera de la ventana mostrada. */
       if (
         percent === null ||
         percent < 0 ||
-        percent > 100
+        percent >= 100
       ) {
         return null;
       }
@@ -5053,21 +5067,28 @@
         });
       }
     
-      const todayPercent = getPercent(today) ?? 0;
+      /* Today sólo pertenece al timeline si está dentro del rango [timelineStart, timelineEnd). Si no está visible, no se debe convertir artificialmente a 0% o 100%. */
+      const todayPercent = getPercent(today);
     
-      const clampedTodayPercent = Math.max(
-        0,
-        Math.min(100, todayPercent)
-      );
+      const isTodayVisible =
+        todayPercent !== null &&
+        todayPercent >= 0 &&
+        todayPercent < 100;
     
-      /*
-        Evita que la palabra Today sea cortada si su línea queda
-        muy cerca de cualquiera de los extremos.
-      */
-      const todayLabelPercent = Math.max(
-        8,
-        Math.min(92, clampedTodayPercent)
-      );
+      const clampedTodayPercent = isTodayVisible
+        ? Math.max(
+            0,
+            Math.min(100, todayPercent)
+          )
+        : null;
+    
+      /* Evita que la palabra Today sea cortada si su línea queda muy cerca de cualquiera de los extremos. */
+      const todayLabelPercent = isTodayVisible
+        ? Math.max(
+            8,
+            Math.min(92, clampedTodayPercent)
+          )
+        : null;
     
       const sprintInfo = getStorySprintInfo(
         story.iterationPath
@@ -5082,15 +5103,12 @@
         const rawSprintStart = getPercent(sprintInfo.start);
         const rawSprintEnd = getPercent(sprintInfo.end);
     
-        /*
-          Las líneas del Sprint aparecen únicamente si las dos fechas
-          están dentro de la escala actual.
-        */
+        /* timelineEnd es exclusivo; por eso un Sprint que termina exactamente en 100% no está completamente visible. */
         if (
           rawSprintStart !== null &&
           rawSprintEnd !== null &&
           rawSprintStart >= 0 &&
-          rawSprintEnd <= 100
+          rawSprintEnd < 100
         ) {
           sprintStartPercent = rawSprintStart;
           sprintEndPercent = rawSprintEnd;
@@ -5232,7 +5250,7 @@
                 />
               ))}
     
-              {!loading && (
+              {!loading && isTodayVisible && (
                 <span
                   className="mobile-story-timeline-card__today"
                   style={{
@@ -5243,7 +5261,7 @@
               )}
             </div>
     
-            {!loading && (
+            {!loading && isTodayVisible && (
               <span
                 className="mobile-story-timeline-card__today-label"
                 style={{
@@ -10449,7 +10467,6 @@
           return;
         }
     
-        const scrollContainer = resultsScrollRef.current;
         const headerRow = featureListHeaderRef.current;
         const featureRow = featureListRowRefs.current.get(
           Number(expandedFeatureId)
