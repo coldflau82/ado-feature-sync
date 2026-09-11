@@ -10407,6 +10407,8 @@
       
         scheduleStickyContextUpdate();
       
+        /* scrollContainer ya fue declarado al inicio de este useEffect: const scrollContainer = resultsScrollRef.current;
+          Se reutiliza esa misma referencia para registrar el listener. */
         scrollContainer?.addEventListener(
           'scroll',
           scheduleStickyContextUpdate,
