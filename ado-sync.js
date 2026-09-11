@@ -7980,7 +7980,8 @@ app.get('/api/features', async (req, res) => {
           /* Nueva política de Release delayed: días hábiles adicionales después del primer día hábil posterior al RFV o Target Date. */
           toReleasePostReleaseGraceBusinessDays: deliveryHealthRules.thresholds
               .toReleasePostReleaseGraceBusinessDays
-        },
+        }
+      },
 
       rangeCounts,
       rangeDetails,
