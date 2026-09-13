@@ -1075,6 +1075,14 @@
     .release-alignment-details__metric--risk { border-color: #fbbf24; background: var(--warn-soft); color: #854d0e; }
     .release-alignment-details__metric--error { border-color: #fca5a5; background: var(--risk-soft); color: #991b1b; }
     .release-alignment-details__next-release { display: block; margin-top: 8px; color: var(--accent-strong); font-size: 10px; font-weight: 700; line-height: 1.4; }
+    .release-alignment-details__findings { display: grid; gap: 6px; margin-top: 10px; }
+    .release-alignment-details__finding { padding: 7px 8px; border-left: 3px solid var(--warn); border-radius: 4px; 
+      background: var(--warn-soft); color: #854d0e; font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
+    .release-alignment-details__finding--closed { border-left-color: #d97706; }
+    .release-alignment-details__finding-id { color: #78350f; font-weight: 800; }
+    .feature-story-card__alignment-warning { display: inline-flex; align-items: center; width: fit-content; max-width: 100%;
+      padding: 2px 6px; border: 1px solid #fbbf24; border-radius: 999px; background: var(--warn-soft); color: #854d0e; 
+      font-size: 10px; font-weight: 700; line-height: 1.3; white-space: nowrap; }
     @media (max-width: 560px) { .release-alignment-details__metrics { gap: 4px; }
       .release-alignment-details__metric { font-size: 9px; }}
     /* Stories and Bugs header: - Left: heading, description, and state/filter buttons. - Right: Release / Sprint Alignment. */
@@ -2382,7 +2390,14 @@
             icon: '!',
             className: 'release-alignment-badge--at-risk'
           };
-    
+
+        case 'mismatch':
+          return {
+            label: 'RFV mismatch',
+            icon: '!',
+            className: 'release-alignment-badge--at-risk'
+          };
+
         case 'missed':
           return {
             label: 'Commitment missed',
@@ -2460,7 +2475,11 @@
     );
   
     const reasons = normalizedAlignment.reasons || {};
-  
+
+    const findings = Array.isArray( normalizedAlignment.findings )
+      ? normalizedAlignment.findings
+      : [];
+
     const reasonMetrics = [
       {
         key: 'noSprint',
@@ -2485,8 +2504,9 @@
     ].filter(item => item.count > 0);
   
     const isRisk =
-      normalizedAlignment.status === 'at-risk';
-  
+      normalizedAlignment.status === 'at-risk' ||
+      normalizedAlignment.status === 'mismatch';
+
     const isError =
       normalizedAlignment.status === 'missed' ||
       normalizedAlignment.status === 'release-passed';
@@ -2548,7 +2568,46 @@
         <p className="release-alignment-details__summary">
           {summaryText}
         </p>
-  
+
+        {findings.length > 0 && (
+          <div className="release-alignment-details__findings" aria-label="Story and Bug RFV findings">
+            {findings.map((finding, index) => {
+              const isClosedFinding =
+                finding.type ===
+                'closed-story-rfv-mismatch';
+
+              return (
+                <div key={`${finding.id || 'unknown'}-${finding.type}-${index}`}
+                  className={[
+                    'release-alignment-details__finding',
+                    isClosedFinding
+                      ? 'release-alignment-details__finding--closed'
+                      : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  <span className="release-alignment-details__finding-id">
+                    #{finding.id || '—'}
+                  </span>{' '}
+
+                  {isClosedFinding
+                    ? 'Closed Story RFV mismatch'
+                    : 'Story not aligned'}
+
+                  {' · '}
+                  {finding.workItemRfv || 'No RFV'} →{' '}
+                  {finding.featureRfv || 'No Feature RFV'}
+
+                  {finding.state && (
+                    <> · {finding.state}</>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        
         {!isNotApplicable && (
           <div className="release-alignment-details__metrics">
             <span className="release-alignment-details__metric">
@@ -6748,6 +6807,18 @@
               story.id
             )
           : null;
+
+      const releaseAlignmentFindings =
+        feature?.deliverySummary?.releaseAlignment?.findings;
+
+      const releaseAlignmentFinding = Array.isArray(
+        releaseAlignmentFindings
+      )
+        ? releaseAlignmentFindings.find(
+            finding =>
+              Number(finding?.id) === Number(story.id)
+          )
+        : null;
       
       const sprintLabel = (() => {
         const match =
@@ -6892,6 +6963,16 @@
               </span>
             )}
 
+            {releaseAlignmentFinding && (
+              <span className="feature-story-card__alignment-warning" title={releaseAlignmentFinding.message}>
+                ⚠{' '}
+                {releaseAlignmentFinding.type ===
+                'closed-story-rfv-mismatch'
+                  ? 'Closed Story RFV mismatch'
+                  : 'Story not aligned'}
+              </span>
+            )}
+            
             {toReleaseAging && (
               <span className={['feature-story-card__to-release-aging',
             
@@ -6957,7 +7038,7 @@
                   </>
                 ) : toReleaseAging.isRfvAligned === false ? (
                   <>
-                    ⚠ RFV mismatch
+                    ⚠ Release commitment needs review
                   </>
                 ) : toReleaseAging.isScheduled &&
                   toReleaseAging.expectedRfv &&
@@ -8386,6 +8467,8 @@
               <option value="target-date-near-unscheduled-discovery">Target date near</option>
               <option value="target-next-month-without-release">Target date near w/o RFV</option>
               <option value="release-alignment-at-risk">Release alignment at risk</option>
+              <option value="story-not-aligned">Story not aligned</option>
+              <option value="closed-story-rfv-mismatch">Closed Story RFV mismatch</option>
               <option value="release-commitment-missed">Release commitment missed</option>
               <option value="release-date-passed-with-open-work">Release date passed</option>
               <option value="release-alignment-unavailable">Release alignment unavailable</option>
@@ -10407,6 +10490,8 @@
       { key: 'target-date-near-unscheduled-discovery', label: 'Target date near' },
       { key: 'target-next-month-without-release', label: 'Target date near w/o RFV'},
       { key: 'release-alignment-at-risk', label: 'Release alignment at risk'},
+      { key: 'story-not-aligned', label: 'Story not aligned' },
+      { key: 'closed-story-rfv-mismatch', label: 'Closed Story RFV mismatch' },
       { key: 'release-commitment-missed', label: 'Release commitment missed' },
       { key: 'release-date-passed-with-open-work', label: 'Release date passed' },
       { key: 'release-alignment-unavailable', label: 'Release alignment unavailable' },
