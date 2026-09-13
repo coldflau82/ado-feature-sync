@@ -10039,15 +10039,19 @@
               'Unable to validate dashboard session:',
               error
             );
-      
+
             if (!isMounted) {
               return;
             }
-      
+
             setLoading(false);
             setLoadError(
               'Unable to validate dashboard access. Please try again.'
             );
+
+            /* Evita dejar la pantalla permanentemente en "Checking dashboard access..." si /api/auth/session falla.
+            */
+            setAuthStatus('error');
           }
         }
       
@@ -11550,22 +11554,25 @@
 
       if (authStatus === 'checking') {
         return (
-          <div
-            className="dashboard-results-state"
-            role="status"
-            aria-live="polite"
-          >
-            <span
-              className="dashboard-results-state__icon"
-              aria-hidden="true"
-            >
+          <div className="dashboard-results-state" role="status" aria-live="polite">
+            <span className="dashboard-results-state__icon" aria-hidden="true">
               …
             </span>
-      
             <h1 className="dashboard-results-state__title">
               Checking dashboard access...
             </h1>
           </div>
+        );
+      }
+
+     if (authStatus === 'error') {
+        return (
+          <DashboardResultsState
+            type="error"
+            onRetry={() => {
+              window.location.reload();
+            }}
+          />
         );
       }
       
