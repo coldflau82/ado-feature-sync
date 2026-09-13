@@ -3007,6 +3007,15 @@ function reconcileCachedReleaseAlignment(
           Para Features antiguas puede que todas sean cero, porque Redis no conserva el detalle de Sprint/RFV de cada hijo. */
         reasons: currentAlignment.reasons || {},
 
+        /*
+          Preserva los hallazgos individuales calculados durante la
+          sincronización del caché. Así, una alarma roja Release date
+          passed no oculta Story not aligned ni Closed Story RFV mismatch.
+        */
+        findings: Array.isArray(currentAlignment.findings)
+          ? currentAlignment.findings
+          : [],
+
         nextViableRfv: currentAlignment.nextViableRfv || null
       }
     );
@@ -6789,6 +6798,7 @@ function createFeatureCacheSyncAudit(trigger = 'vercel-cron') {
     releaseAlignment: {
       aligned: 0,
       atRisk: 0,
+      mismatch: 0,
       missed: 0,
       releasePassed: 0,
       unavailable: 0,
@@ -6803,21 +6813,24 @@ function createFeatureCacheSyncAudit(trigger = 'vercel-cron') {
 
     deliveryHealthAlerts: {
       releaseAlignmentAtRisk: 0,
+      storyNotAligned: 0,
+      closedStoryRfvMismatch: 0,
       releaseCommitmentMissed: 0,
       releaseDatePassedWithOpenWork: 0,
       releaseAlignmentUnavailable: 0
     },
 
     examples: {
+      aligned: [],
       atRisk: [],
+      mismatch: [],
       missed: [],
       releasePassed: [],
       unavailable: [],
       unknownDeliverySummary: []
     },
 
-    /* Snapshot reducido para Features definidas en CACHE_AUDIT_WATCH_FEATURE_IDS.
-      No se guarda title, description, acceptance criteria, assignedTo ni otros campos sensibles. */
+    /* Snapshot reducido para Features definidas en CACHE_AUDIT_WATCH_FEATURE_IDS. No se guarda title, description, acceptance criteria, assignedTo ni otros campos sensibles. */
     watchedFeatures: [],
 
     error: null,
@@ -6914,8 +6927,36 @@ function createWatchedFeatureAuditSnapshot(feature) {
         workItemRfvMismatch:
           Number(
             releaseAlignment.reasons?.workItemRfvMismatch || 0
+          ),
+
+        toReleaseRfvMismatch:
+          Number(
+            releaseAlignment.reasons?.toReleaseRfvMismatch || 0
+          ),
+
+        closedRfvMismatch:
+          Number(
+            releaseAlignment.reasons?.closedRfvMismatch || 0
           )
-      }
+      },
+
+      /* Snapshot reducido: no guarda títulos ni contenido sensible. Sólo conserva los datos necesarios para auditar el mismatch. */
+      findings: Array.isArray(releaseAlignment.findings)
+        ? releaseAlignment.findings.map(finding => ({
+            id: Number(finding?.id) || null,
+            workItemType: String(
+              finding?.workItemType || ''
+            ).trim(),
+            state: String(finding?.state || '').trim(),
+            type: String(finding?.type || '').trim(),
+            featureRfv: String(
+              finding?.featureRfv || ''
+            ).trim(),
+            workItemRfv: String(
+              finding?.workItemRfv || ''
+            ).trim()
+          }))
+        : []
     },
 
     deliveryHealthAlertKeys: healthAlerts
@@ -7044,6 +7085,16 @@ function populateFeatureCacheSyncAudit(
         );
         break;
 
+      case 'mismatch':
+        audit.releaseAlignment.mismatch += 1;
+
+        addFeatureCacheAuditExample(
+          audit,
+          'mismatch',
+          featureId
+        );
+        break;
+
       case 'missed':
         audit.releaseAlignment.missed += 1;
 
@@ -7095,6 +7146,18 @@ function populateFeatureCacheSyncAudit(
       alertKeys.includes('release-alignment-at-risk')
     ) {
       audit.deliveryHealthAlerts.releaseAlignmentAtRisk += 1;
+    }
+
+    if (
+      alertKeys.includes('story-not-aligned')
+    ) {
+      audit.deliveryHealthAlerts.storyNotAligned += 1;
+    }
+
+    if (
+      alertKeys.includes('closed-story-rfv-mismatch')
+    ) {
+      audit.deliveryHealthAlerts.closedStoryRfvMismatch += 1;
     }
 
     if (
