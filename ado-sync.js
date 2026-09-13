@@ -63,6 +63,61 @@ if (!CRON_SECRET) {
   );
 }
 
+/* ===== Acceso temporal del dashboard =====
+  Esta protección es transitoria mientras se define la integración SSO corporativa con Microsoft Entra ID.
+  No crea usuarios individuales ni almacena credenciales en Redis: compara un único usuario/password de UAT definidos en variables de
+  entorno y emite una cookie de sesión firmada HttpOnly.
+  Para desactivarla temporalmente: DASHBOARD_AUTH_ENABLED=false */
+const DASHBOARD_AUTH_ENABLED =
+  String(process.env.DASHBOARD_AUTH_ENABLED || '')
+    .trim()
+    .toLowerCase() === 'true';
+
+const DASHBOARD_AUTH_USERNAME = String(
+  process.env.DASHBOARD_AUTH_USERNAME || ''
+).trim();
+
+const DASHBOARD_AUTH_PASSWORD = String(
+  process.env.DASHBOARD_AUTH_PASSWORD || ''
+).trim();
+
+const DASHBOARD_AUTH_SECRET = String(
+  process.env.DASHBOARD_AUTH_SECRET || ''
+).trim();
+
+const DASHBOARD_AUTH_COOKIE_NAME =
+  'ado_dec_dashboard_session';
+
+if (DASHBOARD_AUTH_ENABLED) {
+  const missingDashboardAuthEnvVars = [];
+
+  if (!DASHBOARD_AUTH_USERNAME) {
+    missingDashboardAuthEnvVars.push(
+      'DASHBOARD_AUTH_USERNAME'
+    );
+  }
+
+  if (!DASHBOARD_AUTH_PASSWORD) {
+    missingDashboardAuthEnvVars.push(
+      'DASHBOARD_AUTH_PASSWORD'
+    );
+  }
+
+  if (!DASHBOARD_AUTH_SECRET) {
+    missingDashboardAuthEnvVars.push(
+      'DASHBOARD_AUTH_SECRET'
+    );
+  }
+
+  if (missingDashboardAuthEnvVars.length > 0) {
+    throw new Error(
+      'Dashboard authentication is enabled but required ' +
+      'environment variable(s) are missing: ' +
+      missingDashboardAuthEnvVars.join(', ')
+    );
+  }
+}
+
 /* Reglas de negocio de Delivery Health. Ubicación: /config/delivery-health-rules.json */
 let deliveryHealthRules;
 
@@ -747,25 +802,364 @@ function formatDeliveryHealthReason(template, values = {}) {
   );
 }
 
-const app = express();
+/* ===== Helpers de autenticación temporal ===== */
 
-/* Ruta oficial, sin extensión. Mantiene visible /dashboard-app y sirve el HTML real.*/
-app.get('/dashboard-app', (req, res) => {
-  res.sendFile(
-    path.join(process.cwd(), 'public', 'dashboard-app.html')
+function parseRequestCookies(req) {
+  const cookieHeader = String(
+    req.headers.cookie || ''
   );
-});
 
-/* Rutas antiguas o alternativas. Redirigen el navegador a la URL oficial. */
-app.get(['/', '/dashboard', '/dashboard.html', '/dashboard-app.html'], (req, res) => {
-  res.redirect(307, '/dashboard-app');
-});
+  if (!cookieHeader) {
+    return {};
+  }
+
+  return cookieHeader
+    .split(';')
+    .reduce((cookies, item) => {
+      const separatorIndex = item.indexOf('=');
+
+      if (separatorIndex < 0) {
+        return cookies;
+      }
+
+      const key = item
+        .slice(0, separatorIndex)
+        .trim();
+
+      const value = item
+        .slice(separatorIndex + 1)
+        .trim();
+
+      if (!key) {
+        return cookies;
+      }
+
+      try {
+        cookies[key] = decodeURIComponent(value);
+      } catch {
+        cookies[key] = value;
+      }
+
+      return cookies;
+    }, {});
+}
+
+function createDashboardSessionToken() {
+  const payload = {
+    version: 1,
+    authenticated: true,
+
+    /* Cookie de sesión: el navegador la elimina al cerrarse. issuedAt se conserva para diagnóstico y para futuras extensiones. */
+    issuedAt: new Date().toISOString(),
+
+    nonce: crypto.randomBytes(16).toString('hex')
+  };
+
+  const encodedPayload = Buffer
+    .from(JSON.stringify(payload))
+    .toString('base64url');
+
+  const signature = crypto
+    .createHmac('sha256', DASHBOARD_AUTH_SECRET)
+    .update(encodedPayload)
+    .digest('base64url');
+
+  return `${encodedPayload}.${signature}`;
+}
+
+function isValidDashboardSessionToken(token) {
+  if (
+    !DASHBOARD_AUTH_ENABLED ||
+    !token ||
+    typeof token !== 'string'
+  ) {
+    return !DASHBOARD_AUTH_ENABLED;
+  }
+
+  const tokenParts = token.split('.');
+
+  if (tokenParts.length !== 2) {
+    return false;
+  }
+
+  const [encodedPayload, providedSignature] = tokenParts;
+
+  if (!encodedPayload || !providedSignature) {
+    return false;
+  }
+
+  const expectedSignature = crypto
+    .createHmac('sha256', DASHBOARD_AUTH_SECRET)
+    .update(encodedPayload)
+    .digest('base64url');
+
+  const providedBuffer = Buffer.from(
+    providedSignature
+  );
+
+  const expectedBuffer = Buffer.from(
+    expectedSignature
+  );
+
+  if (
+    providedBuffer.length !== expectedBuffer.length ||
+    !crypto.timingSafeEqual(
+      providedBuffer,
+      expectedBuffer
+    )
+  ) {
+    return false;
+  }
+
+  try {
+    const payload = JSON.parse(
+      Buffer
+        .from(encodedPayload, 'base64url')
+        .toString('utf8')
+    );
+
+    return payload?.authenticated === true;
+  } catch {
+    return false;
+  }
+}
+
+function setDashboardSessionCookie(res, token) {
+  const isProduction =
+    String(process.env.NODE_ENV || '')
+      .trim()
+      .toLowerCase() === 'production';
+
+  const cookieParts = [
+    `${DASHBOARD_AUTH_COOKIE_NAME}=` +
+      `${encodeURIComponent(token)}`,
+
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax'
+  ];
+
+  /* Vercel usa HTTPS. Secure evita que la cookie viaje por HTTP. Localhost continúa funcionando porque Secure sólo se agrega en producción. */
+  if (isProduction) {
+    cookieParts.push('Secure');
+  }
+
+  /* No se configura Max-Age ni Expires: es una cookie de sesión y se elimina al cerrar el navegador. */
+  res.setHeader(
+    'Set-Cookie',
+    cookieParts.join('; ')
+  );
+}
+
+function clearDashboardSessionCookie(res) {
+  const isProduction =
+    String(process.env.NODE_ENV || '')
+      .trim()
+      .toLowerCase() === 'production';
+
+  const cookieParts = [
+    `${DASHBOARD_AUTH_COOKIE_NAME}=`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    'Max-Age=0'
+  ];
+
+  if (isProduction) {
+    cookieParts.push('Secure');
+  }
+
+  res.setHeader(
+    'Set-Cookie',
+    cookieParts.join('; ')
+  );
+}
+
+function safeCredentialEquals(
+  providedValue,
+  expectedValue
+) {
+  const providedBuffer = Buffer.from(
+    String(providedValue || ''),
+    'utf8'
+  );
+
+  const expectedBuffer = Buffer.from(
+    String(expectedValue || ''),
+    'utf8'
+  );
+
+  /* timingSafeEqual exige buffers con la misma longitud. Si las longitudes no coinciden, la credencial no coincide. */
+  if (providedBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(
+    providedBuffer,
+    expectedBuffer
+  );
+}
+
+function hasDashboardSession(req) {
+  if (!DASHBOARD_AUTH_ENABLED) {
+    return true;
+  }
+
+  const cookies = parseRequestCookies(req);
+
+  return isValidDashboardSessionToken(
+    cookies[DASHBOARD_AUTH_COOKIE_NAME]
+  );
+}
+
+function requireDashboardAuthentication(
+  req,
+  res,
+  next
+) {
+  if (!DASHBOARD_AUTH_ENABLED) {
+    return next();
+  }
+
+  if (hasDashboardSession(req)) {
+    return next();
+  }
+
+  /*
+    Las rutas API reciben JSON para que el frontend pueda abrir el popup.
+    Las rutas visuales redirigen a la página oficial, que mostrará el
+    mismo popup de acceso.
+  */
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({
+      error: 'Dashboard authentication is required.',
+      code: 'DASHBOARD_AUTH_REQUIRED'
+    });
+  }
+
+  return res.redirect(302, '/dashboard-app');
+}
+
+const app = express();
 
 app.use(express.json());
 
-/* Para desarrollo local, sirve los archivos dentro de /public.
-  En Vercel, los assets de /public se sirven directamente desde CDN. */
+/*  /api/health queda fuera del login para permitir health checks. /api/auth/* queda fuera para que el popup pueda validar y crear sesión. */
+app.get('/api/health', (req, res) => {
+  res.json({ ok: 1 });
+});
+
+/* Todo lo demás queda protegido cuando DASHBOARD_AUTH_ENABLED=true:
+  - dashboard-app;
+  - APIs de Features, Stories, History y Relationship Graph;
+  - endpoints internos del Cron/Audit;
+  - archivos estáticos, incluido /dashboard-app.html. */
+app.use((req, res, next) => {
+  if (
+    req.path === '/api/health' ||
+    req.path.startsWith('/api/auth/')
+  ) {
+    return next();
+  }
+
+  return requireDashboardAuthentication(
+    req,
+    res,
+    next
+  );
+});
+
+/* Ruta oficial, sin extensión. */
+app.get('/dashboard-app', (req, res) => {
+  res.sendFile(
+    path.join(
+      process.cwd(),
+      'public',
+      'dashboard-app.html'
+    )
+  );
+});
+
+/* Rutas antiguas o alternativas. */
+app.get(
+  ['/', '/dashboard', '/dashboard.html', '/dashboard-app.html'],
+  (req, res) => {
+    res.redirect(307, '/dashboard-app');
+  }
+);
+
+/* En local sirve los archivos de /public. Como el middleware de autenticación está antes de express.static, nadie puede acceder directamente a /dashboard-app.html sin sesión.*/
 app.use(express.static(path.join(__dirname, 'public')));
+
+/* ===== Endpoints de autenticación temporal ===== */
+
+/* Indica si la protección temporal está activa y si el navegador actual ya tiene una sesión válida. No revela el usuario configurado.*/
+app.get('/api/auth/session', (req, res) => {
+  return res.json({
+    authenticationEnabled: DASHBOARD_AUTH_ENABLED,
+    authenticated: hasDashboardSession(req)
+  });
+});
+
+/* Login con las credenciales compartidas de UAT. La contraseña sólo viaja por HTTPS en producción y nunca se devuelve, registra ni almacena en el navegador.*/
+app.post('/api/auth/login', (req, res) => {
+  if (!DASHBOARD_AUTH_ENABLED) {
+    return res.json({
+      ok: true,
+      authenticationEnabled: false,
+      authenticated: true
+    });
+  }
+
+  const username = String(
+    req.body?.username || ''
+  ).trim();
+
+  const password = String(
+    req.body?.password || ''
+  );
+
+  const usernameMatches = safeCredentialEquals(
+    username,
+    DASHBOARD_AUTH_USERNAME
+  );
+
+  const passwordMatches = safeCredentialEquals(
+    password,
+    DASHBOARD_AUTH_PASSWORD
+  );
+
+  if (!usernameMatches || !passwordMatches) {
+    console.warn(
+      'Rejected invalid dashboard login attempt.'
+    );
+
+    return res.status(401).json({
+      error:
+        'The username or password is not valid.',
+      code: 'INVALID_DASHBOARD_CREDENTIALS'
+    });
+  }
+
+  const token = createDashboardSessionToken();
+
+  setDashboardSessionCookie(res, token);
+
+  return res.json({
+    ok: true,
+    authenticationEnabled: true,
+    authenticated: true
+  });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  clearDashboardSessionCookie(res);
+
+  return res.json({
+    ok: true,
+    authenticated: false
+  });
+});
 
 const { Redis } = require('@upstash/redis');
 
@@ -7324,13 +7718,8 @@ function hasValidCronAuthorization(req) {
   );
 }
 
-/*
-  Intenta obtener el lock sin sobrescribir un lock vigente.
-
-  Redis devuelve null cuando otro proceso ya posee la clave. El valor
-  exacto devuelto puede variar por cliente, por lo que sólo consideramos
-  adquisición exitosa cualquier respuesta distinta de null.
-*/
+/* Intenta obtener el lock sin sobrescribir un lock vigente. Redis devuelve null cuando otro proceso ya posee la clave. El valor 
+  exacto devuelto puede variar por cliente, por lo que sólo consideramos adquisición exitosa cualquier respuesta distinta de null. */
 async function tryAcquireFeatureCacheSyncLock() {
   const result = await redis.set(
     FEATURE_CACHE_SYNC_LOCK_KEY,
@@ -7345,8 +7734,6 @@ async function tryAcquireFeatureCacheSyncLock() {
 
   return result !== null;
 }
-
-app.get('/api/health', (req, res) => res.json({ ok: 1 }));
 
 /* Endpoint exclusivo para Vercel Cron.
   No utiliza /api/features porque:
