@@ -1049,15 +1049,34 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: 1 });
 });
 
-/* Todo lo demás queda protegido cuando DASHBOARD_AUTH_ENABLED=true:
-  - dashboard-app;
-  - APIs de Features, Stories, History y Relationship Graph;
-  - endpoints internos del Cron/Audit;
-  - archivos estáticos, incluido /dashboard-app.html. */
+/* El HTML base del dashboard debe poder cargarse sin sesión para que React consulte /api/auth/session y, si es necesario, muestre el
+  popup de credenciales.
+
+  Los datos reales permanecen protegidos:
+  - /api/features
+  - /api/features-stories-batch
+  - /api/features-history-batch
+  - /api/stories-history-batch
+  - /api/features-relationship-graph-batch
+  - endpoints individuales de Story/Feature history
+
+  Los endpoints /api/internal/* se excluyen porque Vercel Cron ya usa
+  su propia protección Authorization: Bearer CRON_SECRET. */
 app.use((req, res, next) => {
+  const publicPaths = new Set([
+    '/',
+    '/dashboard',
+    '/dashboard.html',
+    '/dashboard-app',
+    '/dashboard-app.html',
+    '/favicon.png'
+  ]);
+
   if (
+    publicPaths.has(req.path) ||
     req.path === '/api/health' ||
-    req.path.startsWith('/api/auth/')
+    req.path.startsWith('/api/auth/') ||
+    req.path.startsWith('/api/internal/')
   ) {
     return next();
   }
@@ -1067,38 +1086,6 @@ app.use((req, res, next) => {
     res,
     next
   );
-});
-
-/* Ruta oficial, sin extensión. */
-app.get('/dashboard-app', (req, res) => {
-  res.sendFile(
-    path.join(
-      process.cwd(),
-      'public',
-      'dashboard-app.html'
-    )
-  );
-});
-
-/* Rutas antiguas o alternativas. */
-app.get(
-  ['/', '/dashboard', '/dashboard.html', '/dashboard-app.html'],
-  (req, res) => {
-    res.redirect(307, '/dashboard-app');
-  }
-);
-
-/* En local sirve los archivos de /public. Como el middleware de autenticación está antes de express.static, nadie puede acceder directamente a /dashboard-app.html sin sesión.*/
-app.use(express.static(path.join(__dirname, 'public')));
-
-/* ===== Endpoints de autenticación temporal ===== */
-
-/* Indica si la protección temporal está activa y si el navegador actual ya tiene una sesión válida. No revela el usuario configurado.*/
-app.get('/api/auth/session', (req, res) => {
-  return res.json({
-    authenticationEnabled: DASHBOARD_AUTH_ENABLED,
-    authenticated: hasDashboardSession(req)
-  });
 });
 
 /* Login con las credenciales compartidas de UAT. La contraseña sólo viaja por HTTPS en producción y nunca se devuelve, registra ni almacena en el navegador.*/
@@ -1149,6 +1136,38 @@ app.post('/api/auth/login', (req, res) => {
     ok: true,
     authenticationEnabled: true,
     authenticated: true
+  });
+});
+
+/* Ruta oficial, sin extensión. */
+app.get('/dashboard-app', (req, res) => {
+  res.sendFile(
+    path.join(
+      process.cwd(),
+      'public',
+      'dashboard-app.html'
+    )
+  );
+});
+
+/* Rutas antiguas o alternativas. */
+app.get(
+  ['/', '/dashboard', '/dashboard.html', '/dashboard-app.html'],
+  (req, res) => {
+    res.redirect(307, '/dashboard-app');
+  }
+);
+
+/* En local sirve los archivos de /public. Como el middleware de autenticación está antes de express.static, nadie puede acceder directamente a /dashboard-app.html sin sesión.*/
+app.use(express.static(path.join(__dirname, 'public')));
+
+/* ===== Endpoints de autenticación temporal ===== */
+
+/* Indica si la protección temporal está activa y si el navegador actual ya tiene una sesión válida. No revela el usuario configurado.*/
+app.get('/api/auth/session', (req, res) => {
+  return res.json({
+    authenticationEnabled: DASHBOARD_AUTH_ENABLED,
+    authenticated: hasDashboardSession(req)
   });
 });
 
