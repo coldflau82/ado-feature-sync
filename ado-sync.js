@@ -1090,6 +1090,10 @@ app.use((req, res, next) => {
 
 /* Login con las credenciales compartidas de UAT. La contraseña sólo viaja por HTTPS en producción y nunca se devuelve, registra ni almacena en el navegador.*/
 app.post('/api/auth/login', (req, res) => {
+    res.setHeader(
+    'Cache-Control',
+    'no-store, no-cache, must-revalidate, private'
+  );
   if (!DASHBOARD_AUTH_ENABLED) {
     return res.json({
       ok: true,
@@ -1165,6 +1169,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 /* Indica si la protección temporal está activa y si el navegador actual ya tiene una sesión válida. No revela el usuario configurado.*/
 app.get('/api/auth/session', (req, res) => {
+  res.setHeader(
+    'Cache-Control',
+    'no-store, no-cache, must-revalidate, private'
+  );
+
   return res.json({
     authenticationEnabled: DASHBOARD_AUTH_ENABLED,
     authenticated: hasDashboardSession(req)
@@ -1172,6 +1181,11 @@ app.get('/api/auth/session', (req, res) => {
 });
 
 app.post('/api/auth/logout', (req, res) => {
+  res.setHeader(
+    'Cache-Control',
+    'no-store, no-cache, must-revalidate, private'
+  );
+
   clearDashboardSessionCookie(res);
 
   return res.json({
