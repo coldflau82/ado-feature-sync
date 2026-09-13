@@ -1162,7 +1162,8 @@ app.get(
   }
 );
 
-/* En local sirve los archivos de /public. Como el middleware de autenticación está antes de express.static, nadie puede acceder directamente a /dashboard-app.html sin sesión.*/
+/* En local sirve archivos de /public.  dashboard-app.html permanece accesible para que el navegador pueda cargar React y mostrar el popup de acceso. 
+Los datos reales de Azure DevOps siguen protegidos porque los endpoints /api/* funcionales requieren una cookie de sesión válida.*/
 app.use(express.static(path.join(__dirname, 'public')));
 
 /* ===== Endpoints de autenticación temporal ===== */
