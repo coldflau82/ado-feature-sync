@@ -126,6 +126,8 @@ function validateDeliveryHealthRules(config) {
     /* Release / Sprint Alignment rules. These rules are evaluated from the Feature RFV, child work item
       RFVs, assigned Sprint, and the Sprint-to-RFV planning calendar. */
     'releaseAlignmentAtRisk',
+    'storyNotAligned',
+    'closedStoryRfvMismatch',
     'releaseCommitmentMissed',
     'releaseDatePassedWithOpenWork',
     'releaseAlignmentUnavailable',
@@ -2392,22 +2394,20 @@ function isTargetDateInNextCalendarMonth(targetDate) {
   - toRelease: delivery execution is complete.
   - completed: closed work.
   - removed: excluded from delivery scope.*/
+/* Trabajo pendiente que aún puede impedir el compromiso de la Feature.
+  Incluye:
+  - In Planning
+  - In Progress, incluido User Acceptance Testing
+
+  Excluye:
+  - To Release: no bloquea Sprint Alignment, pero sí participa en
+    validaciones individuales de RFV y en Release date passed.
+  - Completed: no bloquea la entrega actual, pero sí participa en la
+    auditoría de RFV cerrado contra RFV de Feature.
+  - Removed: no participa. */
 function isPendingReleaseAlignmentWorkItem(workItem) {
-  const normalizedState = String(
-    workItem?.state || ''
-  ).trim();
-
-  /* Esta exclusión es específica de Release Alignment. No cambia la clasificación general de Delivery Health: 
-  UAT puede seguir siendo In Progress en los indicadores generales, pero no bloquea el cálculo de compromiso de RFV. */
-  if (
-    normalizedState === 'User Acceptance Testing' ||
-    normalizedState === 'User Acceptance Test'
-  ) {
-    return false;
-  }
-
   const category = getDeliveryWorkItemCategory(
-    normalizedState
+    workItem?.state
   );
 
   return (
@@ -2425,6 +2425,7 @@ function createReleaseAlignmentResult(
     affectedWorkItems = 0,
     pendingWorkItems = 0,
     reasons = {},
+    findings = [],
     nextViableRfv = null
   } = {}
 ) {
@@ -2444,8 +2445,25 @@ function createReleaseAlignmentResult(
       ),
       workItemRfvMismatch: Number(
         reasons.workItemRfvMismatch || 0
+      ),
+      toReleaseRfvMismatch: Number(
+        reasons.toReleaseRfvMismatch || 0
+      ),
+      closedRfvMismatch: Number(
+        reasons.closedRfvMismatch || 0
       )
     },
+
+    /*
+      Hallazgos individuales para que el frontend pueda:
+      - marcar la Story/Bug afectada;
+      - diferenciar To Release de Closed;
+      - conservar la señal amarilla incluso si la Feature tiene
+        Release date passed en rojo.
+    */
+    findings: Array.isArray(findings)
+      ? findings
+      : [],
 
     nextViableRfv
   };
@@ -2575,19 +2593,13 @@ function getNextViableReleaseFixVersion(
   return futureCommitmentCandidates[0]?.rfv || null;
 }
 
-/*
-  Evaluates whether pending direct child Stories and Bugs can still
-  support the Feature Release Fix Version.
-
+/* Evaluates whether pending direct child Stories and Bugs can still support the Feature Release Fix Version.
   Compatibility policy:
   - A Story/Bug RFV or Sprint delivering BEFORE the Feature RFV is valid.
   - A Story/Bug RFV or Sprint delivering ON the Feature RFV is valid.
   - A Story/Bug RFV or Sprint delivering AFTER the Feature RFV is a risk.
-  - Before the Feature commitment cutoff, pending work may temporarily
-    have no RFV and/or no Sprint.
-  - On or after the cutoff, pending work must be committed to an RFV
-    and Sprint that can support the Feature RFV.
-*/
+  - Before the Feature commitment cutoff, pending work may temporarily have no RFV and/or no Sprint.
+  - On or after the cutoff, pending work must be committed to an RFV and Sprint that can support the Feature RFV. */
 function buildReleaseAlignment(
   feature,
   workItems = []
@@ -2603,38 +2615,13 @@ function buildReleaseAlignment(
   const isFeatureClosed =
     FEATURE_CLOSED_STATES.includes(featureState);
 
-  /*
-    Closed Features and Features without an RFV are intentionally not
-    evaluated for release alignment.
-  */
   if (isFeatureClosed || !featureRfv) {
     return createReleaseAlignmentResult(
       'not-applicable',
-      {
-        featureRfv
-      }
+      { featureRfv }
     );
   }
 
-  const pendingWorkItems = workItems.filter(
-    isPendingReleaseAlignmentWorkItem
-  );
-
-  /* To Release no bloquea la planificación de Sprint, pero sí bloquea el cumplimiento real de un RFV: el trabajo todavía no está Closed ni se
-    ha confirmado como liberado.
-    Se usa específicamente para detectar un RFV cuya fecha ya pasó con trabajo aún retenido en To Release. */
-  const unreleasedWorkItems = workItems.filter(workItem => {
-    const category = getDeliveryWorkItemCategory(
-      workItem?.state
-    );
-  
-    return (
-      category === 'inPlanning' ||
-      category === 'inProgress' ||
-      category === 'toRelease'
-    );
-  });
-    
   const release = releaseCalendarReleaseByRfv.get(
     featureRfv
   );
@@ -2642,17 +2629,29 @@ function buildReleaseAlignment(
   const commitmentCutoffDate =
     getEffectiveCommitmentCutoffForRfv(featureRfv);
 
-  /* The Feature RFV itself must exist in the calendar and have at least one planned Sprint/cutoff before an alignment assessment is possible. */
+  const pendingWorkItems = workItems.filter(
+    isPendingReleaseAlignmentWorkItem
+  );
+
+  const unreleasedWorkItems = workItems.filter(workItem => {
+    const category = getDeliveryWorkItemCategory(
+      workItem?.state
+    );
+
+    return (
+      category === 'inPlanning' ||
+      category === 'inProgress' ||
+      category === 'toRelease'
+    );
+  });
+
   if (!release || !commitmentCutoffDate) {
     return createReleaseAlignmentResult(
       'unavailable',
       {
         featureRfv,
         featureReleaseDate: release?.date || null,
-  
-        /* Para la UI, Pending representa ahora cualquier trabajo que todavía puede impedir completar el RFV. */
         pendingWorkItems: unreleasedWorkItems.length,
-  
         nextViableRfv: getNextViableReleaseFixVersion(
           featureRfv,
           pendingWorkItems
@@ -2661,17 +2660,113 @@ function buildReleaseAlignment(
     );
   }
 
+  const todayDateKey = getTodayDateKey();
+
   const reasons = {
     noSprint: 0,
     unmappedSprint: 0,
     sprintRfvMismatch: 0,
-    workItemRfvMismatch: 0
+    workItemRfvMismatch: 0,
+    toReleaseRfvMismatch: 0,
+    closedRfvMismatch: 0
   };
 
-  const todayDateKey = getTodayDateKey();
+  const findings = [];
 
-    /* El RFV ya pasó y aún existe trabajo sin liberar/cerrar. To Release se excluye de la evaluación de planificación/cutoff, pero
-    no puede tratarse como entrega exitosa después de que la fecha del RFV ya pasó. */
+  const hasLaterWorkItemRfv = workItem => {
+    const workItemRfv = String(
+      workItem?.releaseFixVersion || ''
+    ).trim();
+
+    if (!workItemRfv) {
+      return {
+        isLater: false,
+        isUnavailable: false,
+        workItemRfv: ''
+      };
+    }
+
+    const workItemRelease =
+      releaseCalendarReleaseByRfv.get(workItemRfv);
+
+    if (!workItemRelease) {
+      return {
+        isLater: false,
+        isUnavailable: true,
+        workItemRfv
+      };
+    }
+
+    return {
+      isLater:
+        workItemRelease.sequence > release.sequence,
+      isUnavailable: false,
+      workItemRfv
+    };
+  };
+
+  /*
+    To Release y Closed no requieren una validación de Sprint:
+    ya no necesitan entrar a un Sprint futuro para cumplir su trabajo.
+    Sin embargo, su RFV explícito debe ser igual o anterior al RFV
+    de la Feature.
+  */
+  workItems.forEach(workItem => {
+    const category = getDeliveryWorkItemCategory(
+      workItem?.state
+    );
+
+    if (
+      category !== 'toRelease' &&
+      category !== 'completed'
+    ) {
+      return;
+    }
+
+    const rfvCheck = hasLaterWorkItemRfv(workItem);
+
+    if (rfvCheck.isUnavailable) {
+      return;
+    }
+
+    if (!rfvCheck.isLater) {
+      return;
+    }
+
+    const findingType =
+      category === 'completed'
+        ? 'closed-story-rfv-mismatch'
+        : 'story-not-aligned';
+
+    findings.push({
+      id: Number(workItem.id) || null,
+      workItemType: String(
+        workItem.workItemType || ''
+      ).trim(),
+      state: String(workItem.state || '').trim(),
+      category,
+      type: findingType,
+      featureRfv,
+      workItemRfv: rfvCheck.workItemRfv,
+      message:
+        category === 'completed'
+          ? `Closed ${workItem.workItemType || 'work item'} RFV ` +
+            `${rfvCheck.workItemRfv} is later than Feature RFV ${featureRfv}.`
+          : `${workItem.workItemType || 'Work item'} RFV ` +
+            `${rfvCheck.workItemRfv} is later than Feature RFV ${featureRfv}.`
+    });
+
+    if (category === 'completed') {
+      reasons.closedRfvMismatch += 1;
+    } else {
+      reasons.toReleaseRfvMismatch += 1;
+    }
+  });
+
+  /*
+    Release date passed always wins as the Feature-level state.
+    Individual yellow findings remain attached in findings.
+  */
   if (
     release.date < todayDateKey &&
     unreleasedWorkItems.length > 0
@@ -2682,18 +2777,10 @@ function buildReleaseAlignment(
         featureRfv,
         featureReleaseDate: release.date,
         commitmentCutoffDate,
-  
-        /* Affected equivale a los ítems que siguen impidiendo cerrar el compromiso de release. */
         affectedWorkItems: unreleasedWorkItems.length,
         pendingWorkItems: unreleasedWorkItems.length,
-  
-        reasons: {
-          noSprint: 0,
-          unmappedSprint: 0,
-          sprintRfvMismatch: 0,
-          workItemRfvMismatch: 0
-        },
-  
+        reasons,
+        findings,
         nextViableRfv: getNextViableReleaseFixVersion(
           featureRfv,
           pendingWorkItems
@@ -2701,41 +2788,16 @@ function buildReleaseAlignment(
       }
     );
   }
-  
-  /*No pending work means there is no remaining scope that can jeopardize the Feature release commitment. */
-  if (pendingWorkItems.length === 0) {
-    return createReleaseAlignmentResult(
-      'aligned',
-      {
-        featureRfv,
-        pendingWorkItems: 0
-      }
-    );
-  }
 
-  /* The cutoff date itself is treated as closed: today >= cutoff means new/uncommitted pending work is too late. */
   const isCommitmentCutoffReached =
     todayDateKey >= commitmentCutoffDate;
 
-  /*
-    A Set ensures a Story/Bug is counted once even if it has multiple
-    causes, such as both a later RFV and a later Sprint.
-  */
   const affectedWorkItemKeys = new Set();
-
-  /*
-    This indicates that ADO contains a non-empty RFV or Sprint which
-    cannot be interpreted using the declared release calendar.
-  */
   let hasUnavailablePlanningData = false;
 
   pendingWorkItems.forEach((workItem, workItemIndex) => {
     const numericWorkItemId = Number(workItem?.id);
 
-    /*
-      IDs should normally exist. The fallback keeps the affected count
-      correct if an unexpected incomplete ADO work item is received.
-    */
     const workItemKey = Number.isInteger(numericWorkItemId)
       ? `id-${numericWorkItemId}`
       : `index-${workItemIndex}`;
@@ -2750,58 +2812,29 @@ function buildReleaseAlignment(
 
     let isAffected = false;
 
-    /*
-      Story/Bug RFV validation.
-
-      Earlier RFVs are acceptable:
-      Feature: CE-2026-DEC
-      Story:   CE-2026-OCT
-    */
     if (workItemRfv) {
       const workItemRelease =
         releaseCalendarReleaseByRfv.get(workItemRfv);
 
       if (!workItemRelease) {
-        /*
-          The work item has an RFV, but it is absent from the configured
-          Release Calendar. This cannot be evaluated reliably.
-        */
         reasons.workItemRfvMismatch += 1;
         hasUnavailablePlanningData = true;
         isAffected = true;
       } else if (workItemRelease.sequence > release.sequence) {
-        /*
-          The Story/Bug is explicitly planned for a later release than
-          the Feature RFV, so it cannot support the Feature commitment.
-        */
         reasons.workItemRfvMismatch += 1;
         isAffected = true;
       }
     } else if (isCommitmentCutoffReached) {
-      /*
-        Blank RFV is permitted during planning before cutoff.
-        Once the cutoff is reached, pending work must be committed.
-      */
       reasons.workItemRfvMismatch += 1;
       isAffected = true;
     }
 
-    /*
-      Sprint validation.
-
-      An earlier Sprint is acceptable because it delivers no later than
-      the Feature RFV. Only a later Sprint creates a release risk.
-    */
     if (iterationPath) {
       const sprint = getPlannedSprintFromIterationPath(
         iterationPath
       );
 
       if (!sprint) {
-        /*
-          A Sprint is assigned in ADO but cannot be resolved against the
-          release calendar. This is planning-data unavailability.
-        */
         reasons.unmappedSprint += 1;
         hasUnavailablePlanningData = true;
         isAffected = true;
@@ -2815,19 +2848,14 @@ function buildReleaseAlignment(
           reasons.unmappedSprint += 1;
           hasUnavailablePlanningData = true;
           isAffected = true;
-        } else if (sprintRelease.sequence > release.sequence) {
-          /*
-            The assigned Sprint delivers after the Feature RFV.
-          */
+        } else if (
+          sprintRelease.sequence > release.sequence
+        ) {
           reasons.sprintRfvMismatch += 1;
           isAffected = true;
         }
       }
     } else if (isCommitmentCutoffReached) {
-      /*
-        No Sprint is acceptable before cutoff during planning. It becomes
-        a missed commitment only once the cutoff has been reached.
-      */
       reasons.noSprint += 1;
       isAffected = true;
     }
@@ -2839,35 +2867,6 @@ function buildReleaseAlignment(
 
   const affectedWorkItems = affectedWorkItemKeys.size;
 
-  /*
-    Release-passed has the highest priority. If the release date has
-    passed while work remains pending, the Feature must not be reported
-    merely as "unavailable".
-  */
-  if (release.date < todayDateKey) {
-    return createReleaseAlignmentResult(
-      'release-passed',
-      {
-        featureRfv,
-        featureReleaseDate: release.date,
-        commitmentCutoffDate,
-        affectedWorkItems:
-          affectedWorkItems || pendingWorkItems.length,
-        pendingWorkItems: pendingWorkItems.length,
-        reasons,
-        nextViableRfv: getNextViableReleaseFixVersion(
-          featureRfv,
-          pendingWorkItems
-        )
-      }
-    );
-  }
-
-  /*
-    The Feature RFV is known, but at least one Story/Bug contains a
-    non-empty RFV or assigned Sprint that cannot be mapped to planning
-    data. Do not claim a normal RFV risk until that data is reconciled.
-  */
   if (hasUnavailablePlanningData) {
     return createReleaseAlignmentResult(
       'unavailable',
@@ -2878,6 +2877,7 @@ function buildReleaseAlignment(
         affectedWorkItems,
         pendingWorkItems: pendingWorkItems.length,
         reasons,
+        findings,
         nextViableRfv: getNextViableReleaseFixVersion(
           featureRfv,
           pendingWorkItems
@@ -2886,41 +2886,55 @@ function buildReleaseAlignment(
     );
   }
 
-  /* Everything that is pending is either:
-    - explicitly planned for the Feature RFV or earlier, or
-    - still legitimately uncommitted before cutoff. */
-  if (affectedWorkItems === 0) {
+  if (affectedWorkItems > 0) {
     return createReleaseAlignmentResult(
-      'aligned',
+      isCommitmentCutoffReached
+        ? 'missed'
+        : 'at-risk',
       {
         featureRfv,
         featureReleaseDate: release.date,
         commitmentCutoffDate,
+        affectedWorkItems,
         pendingWorkItems: pendingWorkItems.length,
         reasons,
-        nextViableRfv: null
+        findings,
+        nextViableRfv: getNextViableReleaseFixVersion(
+          featureRfv,
+          pendingWorkItems
+        )
       }
     );
   }
 
-  /* If affected work remains before cutoff, it can still be corrected. On or after cutoff, it is a missed release commitment. */
-  const status = isCommitmentCutoffReached
-    ? 'missed'
-    : 'at-risk';
+  /*
+    No hay riesgo de Sprint/RFV en trabajo pendiente, pero sí existen
+    inconsistencias de RFV en To Release o Closed.
+  */
+  if (findings.length > 0) {
+    return createReleaseAlignmentResult(
+      'mismatch',
+      {
+        featureRfv,
+        featureReleaseDate: release.date,
+        commitmentCutoffDate,
+        affectedWorkItems: findings.length,
+        pendingWorkItems: pendingWorkItems.length,
+        reasons,
+        findings
+      }
+    );
+  }
 
   return createReleaseAlignmentResult(
-    status,
+    'aligned',
     {
       featureRfv,
       featureReleaseDate: release.date,
       commitmentCutoffDate,
-      affectedWorkItems,
       pendingWorkItems: pendingWorkItems.length,
       reasons,
-      nextViableRfv: getNextViableReleaseFixVersion(
-        featureRfv,
-        pendingWorkItems
-      )
+      findings
     }
   );
 }
@@ -4064,6 +4078,65 @@ function buildDeliveryHealth(feature) {
   ) {
     alerts.push(
       createRuleAlert('releaseAlignmentUnavailable')
+    );
+  }
+
+  /* Hallazgos individuales de RFV.
+    Son Requires Attention / amarillo y se mantienen incluso cuando la Feature tiene una alarma roja como Release date passed.*/
+  const alignmentFindings = Array.isArray(
+    releaseAlignment.findings
+  )
+    ? releaseAlignment.findings
+    : [];
+
+  const storyNotAlignedCount = alignmentFindings.filter(
+    finding => finding.type === 'story-not-aligned'
+  ).length;
+
+  const closedStoryRfvMismatchCount = alignmentFindings.filter(
+    finding =>
+      finding.type === 'closed-story-rfv-mismatch'
+  ).length;
+
+  const storyNotAlignedRule = getDeliveryHealthRule(
+    'storyNotAligned'
+  );
+
+  if (
+    storyNotAlignedRule.enabled &&
+    storyNotAlignedCount > 0
+  ) {
+    alerts.push(
+      createRuleAlert(
+        'storyNotAligned',
+        {
+          reasonValues: {
+            count: storyNotAlignedCount,
+            rfv: releaseAlignment.featureRfv
+          }
+        }
+      )
+    );
+  }
+
+  const closedStoryRfvMismatchRule = getDeliveryHealthRule(
+    'closedStoryRfvMismatch'
+  );
+
+  if (
+    closedStoryRfvMismatchRule.enabled &&
+    closedStoryRfvMismatchCount > 0
+  ) {
+    alerts.push(
+      createRuleAlert(
+        'closedStoryRfvMismatch',
+        {
+          reasonValues: {
+            count: closedStoryRfvMismatchCount,
+            rfv: releaseAlignment.featureRfv
+          }
+        }
+      )
     );
   }
 
