@@ -1288,16 +1288,38 @@
       .dashboard-kpis .dashboard-kpi-all-features .readiness-overview-card--all { flex: 1 1 auto; width: 100%; height: 38px; min-height: 38px; 
         margin: 0; padding: 5px 7px; }}
     /* ── Final desktop KPI group separators and breathing room ─────── */
-@media (min-width: 821px) { .dashboard-kpis { --kpi-group-gap: 24px; column-gap: var(--kpi-group-gap); }
-  /* Los fondos sutiles permanecen dentro de cada grupo, pero se eliminan los bordes laterales heredados para evitar separadores duplicados.*/
-  .dashboard-kpis .dashboard-kpi-group::before { top: 2px; right: 0; bottom: 2px; left: 0; border: 0; }
-  /* Un único separador entre grupos. Se coloca en el centro del gap de 24px: deja aproximadamente 12px de aire entre la última tarjeta del 
-  grupo anterior y la línea, y otros 12px hasta la primera tarjeta del siguiente grupo. */
-  .dashboard-kpis .dashboard-kpi-group--readiness::after, .dashboard-kpis .dashboard-kpi-group--delivery::after { content: ''; position: absolute;
-    top: 4px; right: calc(var(--kpi-group-gap) / -2); bottom: 4px; width: 1px; background: var(--line-hairline); pointer-events: none; }
-  /* Delivery Health ya no necesita una segunda línea a la izquierda. El separador derecho de Readiness es el único divisor entre ambos. */
-  .dashboard-kpis .dashboard-kpi-group--delivery::before { border-left: 0; } }
+    @media (min-width: 821px) { .dashboard-kpis { --kpi-group-gap: 24px; column-gap: var(--kpi-group-gap); }
+      /* Los fondos sutiles permanecen dentro de cada grupo, pero se eliminan los bordes laterales heredados para evitar separadores duplicados.*/
+      .dashboard-kpis .dashboard-kpi-group::before { top: 2px; right: 0; bottom: 2px; left: 0; border: 0; }
+      /* Un único separador entre grupos. Se coloca en el centro del gap de 24px: deja aproximadamente 12px de aire entre la última tarjeta del 
+      grupo anterior y la línea, y otros 12px hasta la primera tarjeta del siguiente grupo. */
+      .dashboard-kpis .dashboard-kpi-group--readiness::after, .dashboard-kpis .dashboard-kpi-group--delivery::after { content: ''; position: absolute;
+        top: 4px; right: calc(var(--kpi-group-gap) / -2); bottom: 4px; width: 1px; background: var(--line-hairline); pointer-events: none; }
+      /* Delivery Health ya no necesita una segunda línea a la izquierda. El separador derecho de Readiness es el único divisor entre ambos. */
+      .dashboard-kpis .dashboard-kpi-group--delivery::before { border-left: 0; } }
+    /* ── Temporary UAT access modal ─────────────────────────────── */
+    .dashboard-auth-overlay { position: fixed; inset: 0; z-index: 20000; display: flex; align-items: center; justify-content: center; padding: 20px;
+      background: rgba(15, 23, 42, 0.58); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+    .dashboard-auth-dialog { width: min(100%, 420px); padding: 24px; border: 1px solid rgba(255, 255, 255, 0.55); border-radius: 12px;
+      background: var(--surface-raised); box-shadow: 0 24px 60px rgba(15, 23, 42, 0.34); }
+    .dashboard-auth-dialog__title { color: var(--text-primary); font-size: 20px; font-weight: 750; line-height: 1.25; }
+    .dashboard-auth-dialog__description { margin-top: 8px; color: var(--text-secondary); font-size: 13px; line-height: 1.55; }
+    .dashboard-auth-dialog__form { display: grid; gap: 13px; margin-top: 20px; }
+    .dashboard-auth-dialog__field { display: grid; gap: 5px; }
+    .dashboard-auth-dialog__label { color: var(--text-secondary); font-size: 12px; font-weight: 700; }
+    .dashboard-auth-dialog__input { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 6px;
+      background: var(--surface-raised); color: var(--text-primary); font: inherit; font-size: 14px; }
+    .dashboard-auth-dialog__input:focus { border-color: var(--accent); outline: 3px solid rgba(37, 99, 235, 0.18); outline-offset: 1px; }
+    .dashboard-auth-dialog__error { padding: 8px 10px; border: 1px solid #fecaca; border-radius: 6px; background: var(--risk-soft); color: #991b1b;
+      font-size: 12px; line-height: 1.45; }
+    .dashboard-auth-dialog__submit { min-height: 40px; padding: 9px 12px; border: 1px solid var(--accent); border-radius: 6px; background: var(--accent);
+      color: #ffffff; cursor: pointer; font: inherit; font-size: 13px; font-weight: 750; }
+    .dashboard-auth-dialog__submit:hover:not(:disabled) { border-color: var(--accent-strong); background: var(--accent-strong); }
+    .dashboard-auth-dialog__submit:disabled { cursor: wait; opacity: 0.7;}
+    .dashboard-auth-dialog__note { margin-top: 14px; color: var(--text-tertiary); font-size: 11px; line-height: 1.45; }
+    /* ── End Temporary UAT access modal ─────────────────────────────── */
     
+  
   </style>
 </head>
 <body>
@@ -8864,9 +8886,178 @@
         isDragging
       };
     }
-        
+
+        function DashboardAccessModal({
+      onAuthenticated
+    }) {
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+      const [submitting, setSubmitting] = useState(false);
+      const [error, setError] = useState('');
+      const usernameInputRef = useRef(null);
+
+      useEffect(() => {
+        usernameInputRef.current?.focus();
+      }, []);
+
+      const handleSubmit = async event => {
+        event.preventDefault();
+
+        if (submitting) {
+          return;
+        }
+
+        setSubmitting(true);
+        setError('');
+
+        try {
+          const response = await fetch(
+            '/api/auth/login',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              credentials: 'same-origin',
+              body: JSON.stringify({
+                username,
+                password
+              })
+            }
+          );
+
+          const data = await parseApiJsonResponse(
+            response,
+            'Unable to validate the access credentials.'
+          );
+
+          if (!data.authenticated) {
+            throw new Error(
+              'The username or password is not valid.'
+            );
+          }
+
+          /*
+            Nunca se guarda user/password en estado global,
+            localStorage ni sessionStorage. El backend conserva
+            solamente una cookie HttpOnly de sesión.
+          */
+          setPassword('');
+          onAuthenticated();
+        } catch (requestError) {
+          setPassword('');
+          setError(
+            requestError?.message ||
+            'Unable to validate the access credentials.'
+          );
+        } finally {
+          setSubmitting(false);
+        }
+      };
+
+      return (
+        <div
+          className="dashboard-auth-overlay"
+          role="presentation"
+        >
+          <section
+            className="dashboard-auth-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dashboard-auth-title"
+            aria-describedby="dashboard-auth-description"
+          >
+            <h1
+              id="dashboard-auth-title"
+              className="dashboard-auth-dialog__title"
+            >
+              Dashboard access
+            </h1>
+
+            <p
+              id="dashboard-auth-description"
+              className="dashboard-auth-dialog__description"
+            >
+              To access please use the UAT environment credentials,
+              that way we will identify you as a TR user.
+            </p>
+
+            <form
+              className="dashboard-auth-dialog__form"
+              onSubmit={handleSubmit}
+            >
+              <label className="dashboard-auth-dialog__field">
+                <span className="dashboard-auth-dialog__label">
+                  Username
+                </span>
+
+                <input
+                  ref={usernameInputRef}
+                  type="text"
+                  className="dashboard-auth-dialog__input"
+                  value={username}
+                  onChange={event =>
+                    setUsername(event.target.value)
+                  }
+                  autoComplete="username"
+                  required
+                  disabled={submitting}
+                />
+              </label>
+
+              <label className="dashboard-auth-dialog__field">
+                <span className="dashboard-auth-dialog__label">
+                  Password
+                </span>
+
+                <input
+                  type="password"
+                  className="dashboard-auth-dialog__input"
+                  value={password}
+                  onChange={event =>
+                    setPassword(event.target.value)
+                  }
+                  autoComplete="current-password"
+                  required
+                  disabled={submitting}
+                />
+              </label>
+
+              {error && (
+                <div
+                  className="dashboard-auth-dialog__error"
+                  role="alert"
+                >
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="dashboard-auth-dialog__submit"
+                disabled={submitting}
+              >
+                {submitting
+                  ? 'Checking access...'
+                  : 'Access dashboard'}
+              </button>
+            </form>
+
+            <p className="dashboard-auth-dialog__note">
+              This is a temporary access control while the dashboard
+              is evaluated for corporate SSO.
+            </p>
+          </section>
+        </div>
+      );
+    }
+    
     function Dashboard() {
       const { tooltip, showTooltip, moveTooltip, hideTooltip } = useTooltip();
+    
+      /*  checking: valida si ya existe cookie de sesión. required: muestra el popup de UAT. authenticated: permite cargar y navegar el dashboard. */
+      const [authStatus, setAuthStatus] = useState('checking');
+    
       const [features, setFeatures] = useState([]);
       const [loading, setLoading] = useState(true);
       /* loadError se reserva para el fallo de carga inicial, cuando no existe un portafolio válido que pueda mantenerse en pantalla. */
@@ -9813,7 +10004,66 @@
         }
       }
 
-      useEffect(() => { loadFeatures(false); }, []);
+      useEffect(() => {
+        let isMounted = true;
+      
+        async function checkDashboardSession() {
+          try {
+            const response = await fetch(
+              '/api/auth/session',
+              {
+                credentials: 'same-origin',
+                cache: 'no-store'
+              }
+            );
+      
+            const data = await parseApiJsonResponse(
+              response,
+              'Unable to validate dashboard access.'
+            );
+      
+            if (!isMounted) {
+              return;
+            }
+      
+            /* Si el toggle está apagado, el backend responde authenticationEnabled: false y authenticated: true. */
+            if (data.authenticated) {
+              setAuthStatus('authenticated');
+              return;
+            }
+      
+            setLoading(false);
+            setAuthStatus('required');
+          } catch (error) {
+            console.error(
+              'Unable to validate dashboard session:',
+              error
+            );
+      
+            if (!isMounted) {
+              return;
+            }
+      
+            setLoading(false);
+            setLoadError(
+              'Unable to validate dashboard access. Please try again.'
+            );
+          }
+        }
+      
+        checkDashboardSession();
+      
+        return () => {
+          isMounted = false;
+        };
+      }, []);
+      useEffect(() => {
+        if (authStatus !== 'authenticated') {
+          return;
+        }
+      
+        loadFeatures(false);
+      }, [authStatus]);
       useEffect(() => { setExpandedRoadmapFeatureId(null); }, [roadmapPage]);
       useEffect(() => { setExpandedFeatureId(null); setStickyFeatureContext(null); }, [featuresPage]);
 
@@ -11298,6 +11548,37 @@
         );
       }
 
+      if (authStatus === 'checking') {
+        return (
+          <div
+            className="dashboard-results-state"
+            role="status"
+            aria-live="polite"
+          >
+            <span
+              className="dashboard-results-state__icon"
+              aria-hidden="true"
+            >
+              …
+            </span>
+      
+            <h1 className="dashboard-results-state__title">
+              Checking dashboard access...
+            </h1>
+          </div>
+        );
+      }
+      
+      if (authStatus === 'required') {
+        return (
+          <DashboardAccessModal
+            onAuthenticated={() => {
+              setAuthStatus('authenticated');
+            }}
+          />
+        );
+      }
+      
       return (
         <div className="container dashboard-shell">
           <div className="dashboard-fixed-content">
