@@ -1,4 +1,3 @@
-cat > .vercelignore <<'EOF'
 # Variantes, borradores, respaldos y notas internas.
 private/
 
@@ -16,10 +15,9 @@ private/
 .env.*
 !.env.example
 
+# Dependencias instaladas localmente por npm.
+node_modules/
+
 # Archivos del sistema.
 .DS_Store
 Thumbs.db
-EOF
-
-# Dependencias instaladas localmente por npm.
-node_modules/
