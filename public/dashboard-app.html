@@ -6883,6 +6883,10 @@
         isStoryLikeWorkItem &&
         typeof onShowLinkedItems === 'function';
 
+      const shouldHideScheduledReleaseBadge =
+        Boolean(releaseAlignmentFinding) &&
+        Boolean(toReleaseAging?.isScheduled);
+
       return (
         <div
           style={{
@@ -7012,7 +7016,7 @@
               </span>
             )}
             
-            {toReleaseAging && (
+            {toReleaseAging && !shouldHideScheduledReleaseBadge && (
               <span className={['feature-story-card__to-release-aging',
             
                   toReleaseAging.isDelayed
