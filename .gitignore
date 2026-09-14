@@ -1,0 +1,17 @@
+# Dependencias instaladas localmente por npm.
+node_modules/
+
+# Variables locales y secretos.
+# Nunca se deben subir al repositorio.
+.env
+.env.*
+!.env.example
+
+# Logs y archivos temporales de npm/yarn.
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Archivos del sistema operativo.
+.DS_Store
+Thumbs.db
