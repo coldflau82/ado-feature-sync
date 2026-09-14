@@ -1945,27 +1945,49 @@ function materializeToReleaseAging(
     .now()
     .setZone(DASHBOARD_TIME_ZONE)
     .startOf('day');
+  
+  const featureRfv = getFeatureReleaseFixVersion(feature);
 
   const workItems = toReleaseAging.workItems.map(workItem => {
     /* Cada Story/Bug puede tener un RFV propio. Si no lo tiene, getToReleaseCommitment() hereda el RFV de la Feature o usa Target Date como último fallback. */
-    const commitment = getToReleaseCommitment(
-      feature,
-      workItem
-    );
-
-    const featureRfv = getFeatureReleaseFixVersion(feature);
-
+    /* La información recién calculada usa releaseFixVersion, mientras que
+      una entrada ya materializada y guardada en Redis conserva workItemRfv.
+      Se soportan ambas propiedades para que una Feature cacheada no pierda
+      el RFV explícito de la Story/Bug al volver a materializarse. */
     const workItemRfv = String(
-      workItem?.releaseFixVersion || ''
+      workItem?.releaseFixVersion ||
+      workItem?.workItemRfv ||
+      ''
     ).trim();
 
-    /* Política de alineación estricta: Si la Feature tiene RFV, cada Story/Bug To Release debe tener el mismo RFV para considerarse alineado.
-      Un RFV vacío se considera no alineado. Esto evita ocultar información incompleta como si la Story/Bug estuviera programada
-      correctamente para el release de la Feature. */
+      const normalizedWorkItem = {
+      ...workItem,
+      releaseFixVersion: workItemRfv
+    };
+
+    const commitment = getToReleaseCommitment(
+      feature,
+      normalizedWorkItem
+    );
+
+    /* Política de alineación:
+    - El RFV de cada Story/Bug se compara contra el RFV de su Feature padre.
+    - Si la Feature no tiene RFV, no hay una fecha de release de referencia
+    para evaluar alineamiento ni para calendarizar la Story/Bug por RFV.
+    - Si el Story/Bug no tiene RFV, hereda el RFV de la Feature.
+    - Si tiene RFV explícito, debe ser igual o anterior al RFV de la Feature.
+    - Un RFV posterior al de la Feature es una desalineación.. */
     const featureRelease = featureRfv
       ? releaseCalendarReleaseByRfv.get(featureRfv)
       : null;
     
+    const featureReleaseDate = featureRelease?.date || null;
+
+    const isFeatureReleasePassed = Boolean(
+      featureReleaseDate &&
+      featureReleaseDate < today.toISODate()
+    );
+
     const workItemRelease = workItemRfv
       ? releaseCalendarReleaseByRfv.get(workItemRfv)
       : null;
@@ -2046,6 +2068,14 @@ function materializeToReleaseAging(
       today >= evaluationDate
     );
 
+    const isScheduled = Boolean(
+      isKnown &&
+      isRfvAligned &&
+      !isFeatureReleasePassed &&
+      evaluationDate &&
+      today < evaluationDate
+    );
+
     return {
       id: Number(workItem?.id) || null,
       state: String(workItem?.state || '').trim(),
@@ -2074,7 +2104,9 @@ function materializeToReleaseAging(
         commitment.inheritedFromFeature
       ),
       
-      /* Datos para mostrar una condición de alineación en frontend. */
+      /* releaseFixVersion es el nombre canónico interno.
+        workItemRfv se mantiene como contrato de UI/compatibilidad. */
+      releaseFixVersion: workItemRfv,
       workItemRfv,
       isRfvAligned,
 
@@ -2083,12 +2115,7 @@ function materializeToReleaseAging(
         : null,
 
       /* Sólo debe mostrarse como "scheduled" cuando el RFV del work item está alineado con la Feature. */
-      isScheduled: Boolean(
-        isKnown &&
-        isRfvAligned &&
-        evaluationDate &&
-        today < evaluationDate
-      ),
+      isScheduled,
 
       isDelayed,
 
@@ -3433,6 +3460,43 @@ function buildReleaseAlignment(
 
   const affectedWorkItems = affectedWorkItemKeys.size;
 
+  /* Prioridad de estados:
+  1. Después del cutoff, cualquier trabajo pendiente afectado implica
+   que el compromiso de RFV ya fue incumplido.
+
+     Esto incluye:
+     - RFV posterior al RFV de la Feature;
+     - Sprint que entrega un RFV posterior;
+     - Story/Bug sin RFV después del cutoff;
+     - Story/Bug sin Sprint después del cutoff;
+     - Sprint/RFV que no se puede mapear.
+  2. Antes del cutoff, información de planificación incompleta sigue
+     siendo Unavailable, porque todavía no se puede afirmar que el
+     compromiso fue incumplido.
+  3. Antes del cutoff, un mismatch confirmado hacia un RFV posterior
+     se muestra como At risk.  */
+  if (
+    isCommitmentCutoffReached &&
+    affectedWorkItems > 0
+  ) {
+    return createReleaseAlignmentResult(
+      'missed',
+      {
+        featureRfv,
+        featureReleaseDate: release.date,
+        commitmentCutoffDate,
+        affectedWorkItems,
+        pendingWorkItems: pendingWorkItems.length,
+        reasons,
+        findings,
+        nextViableRfv: getNextViableReleaseFixVersion(
+          featureRfv,
+          pendingWorkItems
+        )
+      }
+    );
+  }
+
   if (hasUnavailablePlanningData) {
     return createReleaseAlignmentResult(
       'unavailable',
@@ -3454,9 +3518,7 @@ function buildReleaseAlignment(
 
   if (affectedWorkItems > 0) {
     return createReleaseAlignmentResult(
-      isCommitmentCutoffReached
-        ? 'missed'
-        : 'at-risk',
+      'at-risk',
       {
         featureRfv,
         featureReleaseDate: release.date,
@@ -3550,6 +3612,51 @@ function reconcileCachedReleaseAlignment(
 
   const todayDateKey = getTodayDateKey();
 
+  /* Reconciliación para caché histórico:
+  si el detalle de Release Alignment fue calculado antes de corregir
+  la prioridad de estados, no permitimos que "Unavailable" o "At risk"
+  oculten un compromiso ya incumplido después del cutoff.
+
+  No recalculamos los hijos directos desde ADO aquí; reutilizamos los
+  conteos y razones guardados durante la sincronización.*/
+  const commitmentCutoffDate =
+    currentAlignment.commitmentCutoffDate ||
+    getEffectiveCommitmentCutoffForRfv(featureRfv);
+
+  const cachedAffectedWorkItems = Number(
+    currentAlignment.affectedWorkItems || 0
+  );
+
+  const cachedPendingWorkItems = Number(
+    currentAlignment.pendingWorkItems || 0
+  );
+
+  if (
+    commitmentCutoffDate &&
+    todayDateKey >= commitmentCutoffDate &&
+    cachedPendingWorkItems > 0 &&
+    cachedAffectedWorkItems > 0 &&
+    (
+      currentAlignment.status === 'unavailable' ||
+      currentAlignment.status === 'at-risk'
+    )
+  ) {
+    return createReleaseAlignmentResult(
+      'missed',
+      {
+        featureRfv,
+        featureReleaseDate: release.date,
+        commitmentCutoffDate,
+        affectedWorkItems: cachedAffectedWorkItems,
+        pendingWorkItems: cachedPendingWorkItems,
+        reasons: currentAlignment.reasons || {},
+        findings: Array.isArray(currentAlignment.findings)
+          ? currentAlignment.findings
+          : [],
+        nextViableRfv: currentAlignment.nextViableRfv || null
+      }
+    );
+  }
   /* Regla crítica: RFV vencido + Stories/Bugs no cerrados = Release date passed.
     Incluye To Release porque el trabajo aún no se ha desplegado/cerrado. */
   if (
