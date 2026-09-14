@@ -20,3 +20,6 @@ private/
 .DS_Store
 Thumbs.db
 EOF
+
+# Dependencias instaladas localmente por npm.
+node_modules/
