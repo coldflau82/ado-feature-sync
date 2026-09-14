@@ -5,6 +5,7 @@ const axios = require('axios');
 const path = require('path');
 const crypto = require('crypto');
 const { DateTime } = require('luxon');
+const { Ratelimit } = require('@upstash/ratelimit');
 
 /* Zona horaria oficial del dashboard.
   Todas las reglas que trabajan con "día de negocio" usan esta zona:
@@ -1088,12 +1089,15 @@ app.use((req, res, next) => {
   );
 });
 
-/* Login con las credenciales compartidas de UAT. La contraseña sólo viaja por HTTPS en producción y nunca se devuelve, registra ni almacena en el navegador.*/
-app.post('/api/auth/login', (req, res) => {
-    res.setHeader(
+/* Login con las credenciales compartidas de UAT. La contraseña sólo viaja por HTTPS en producción y nunca se devuelve,
+  registra ni almacena en el navegador.
+  El rate limit se evalúa antes de comparar credenciales para limitar automatizaciones y fuerza bruta sobre el endpoint.*/
+app.post('/api/auth/login', async (req, res) => {
+  res.setHeader(
     'Cache-Control',
     'no-store, no-cache, must-revalidate, private'
   );
+
   if (!DASHBOARD_AUTH_ENABLED) {
     return res.json({
       ok: true,
@@ -1102,45 +1106,126 @@ app.post('/api/auth/login', (req, res) => {
     });
   }
 
-  const username = String(
-    req.body?.username || ''
-  ).trim();
+  try {
+    const rateLimitIdentifier =
+      getDashboardLoginRateLimitIdentifier(req);
 
-  const password = String(
-    req.body?.password || ''
-  );
+    const rateLimitResult =
+      await dashboardLoginRateLimit.limit(
+        rateLimitIdentifier
+      );
 
-  const usernameMatches = safeCredentialEquals(
-    username,
-    DASHBOARD_AUTH_USERNAME
-  );
+    /* reset es un timestamp Unix en milisegundos según el contrato de @upstash/ratelimit. Retry-After requiere segundos enteros. */
+    if (!rateLimitResult.success) {
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil(
+          (rateLimitResult.reset - Date.now()) / 1000
+        )
+      );
 
-  const passwordMatches = safeCredentialEquals(
-    password,
-    DASHBOARD_AUTH_PASSWORD
-  );
+      res.setHeader(
+        'Retry-After',
+        String(retryAfterSeconds)
+      );
 
-  if (!usernameMatches || !passwordMatches) {
-    console.warn(
-      'Rejected invalid dashboard login attempt.'
+      return res.status(429).json({
+        error:
+          'Too many access attempts. Please wait a few minutes and try again.',
+        code: 'DASHBOARD_LOGIN_RATE_LIMITED'
+      });
+    }
+
+    const username = String(
+      req.body?.username || ''
+    ).trim();
+
+    const password = String(
+      req.body?.password || ''
     );
 
-    return res.status(401).json({
-      error:
-        'The username or password is not valid.',
-      code: 'INVALID_DASHBOARD_CREDENTIALS'
+    const usernameMatches = safeCredentialEquals(
+      username,
+      DASHBOARD_AUTH_USERNAME
+    );
+
+    const passwordMatches = safeCredentialEquals(
+      password,
+      DASHBOARD_AUTH_PASSWORD
+    );
+
+    if (!usernameMatches || !passwordMatches) {
+      /* No incluir username, IP, password, headers ni payload completo en logs. El mensaje permite detectar actividad sin guardar información sensible.*/
+      console.warn(
+        'Rejected invalid dashboard login attempt.'
+      );
+
+      return res.status(401).json({
+        error:
+          'The username or password is not valid.',
+        code: 'INVALID_DASHBOARD_CREDENTIALS'
+      });
+    }
+
+    const token = createDashboardSessionToken();
+
+    setDashboardSessionCookie(res, token);
+
+    return res.json({
+      ok: true,
+      authenticationEnabled: true,
+      authenticated: true
+    });
+  } catch (error) {
+    /* Si Redis/Upstash no está disponible, no bloqueamos por error a todos los usuarios internos. El login continúa usando la validación
+      normal de credenciales, pero se registra el incidente para soporte. */
+    console.error(
+      'Unable to evaluate dashboard login rate limit.',
+      {
+        message: error.message
+      }
+    );
+
+    const username = String(
+      req.body?.username || ''
+    ).trim();
+
+    const password = String(
+      req.body?.password || ''
+    );
+
+    const usernameMatches = safeCredentialEquals(
+      username,
+      DASHBOARD_AUTH_USERNAME
+    );
+
+    const passwordMatches = safeCredentialEquals(
+      password,
+      DASHBOARD_AUTH_PASSWORD
+    );
+
+    if (!usernameMatches || !passwordMatches) {
+      console.warn(
+        'Rejected invalid dashboard login attempt.'
+      );
+
+      return res.status(401).json({
+        error:
+          'The username or password is not valid.',
+        code: 'INVALID_DASHBOARD_CREDENTIALS'
+      });
+    }
+
+    const token = createDashboardSessionToken();
+
+    setDashboardSessionCookie(res, token);
+
+    return res.json({
+      ok: true,
+      authenticationEnabled: true,
+      authenticated: true
     });
   }
-
-  const token = createDashboardSessionToken();
-
-  setDashboardSessionCookie(res, token);
-
-  return res.json({
-    ok: true,
-    authenticationEnabled: true,
-    authenticated: true
-  });
 });
 
 /* Ruta oficial, sin extensión. */
@@ -1197,10 +1282,63 @@ app.post('/api/auth/logout', (req, res) => {
 
 const { Redis } = require('@upstash/redis');
 
-// Cliente Redis (lee automáticamente las env vars si se llaman KV_REST_API_URL / KV_REST_API_TOKEN)
+/* Cliente Redis (lee automáticamente las env vars si se llaman KV_REST_API_URL / KV_REST_API_TOKEN).*/
 const redis = Redis.fromEnv();
-// Si tus variables tienen otro nombre, usa:
-// const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN });
+
+/* Si tus variables tienen otro nombre, usa:
+   const redis = new Redis({
+   url: process.env.UPSTASH_REDIS_REST_URL,
+   token: process.env.UPSTASH_REDIS_REST_TOKEN
+  }); */
+
+/* ===== Rate limiting persistente para login =====
+  La aplicación se ejecuta en Vercel y puede tener múltiples instancias. Por eso el límite debe vivir en Redis y no en una variable en memoria.
+  La ventana móvil evita que una IP envíe más de cinco intentos al endpoint de login durante quince minutos. Se aplica antes de validar credenciales,
+  de modo que protege tanto intentos fallidos como automatizaciones que conozcan una credencial válida. */
+const DASHBOARD_LOGIN_RATE_LIMIT_MAX_REQUESTS = 10;
+const DASHBOARD_LOGIN_RATE_LIMIT_WINDOW = '15 m';
+
+const dashboardLoginRateLimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(
+    DASHBOARD_LOGIN_RATE_LIMIT_MAX_REQUESTS,
+    DASHBOARD_LOGIN_RATE_LIMIT_WINDOW
+  ),
+
+  /* Prefijo propio para no mezclar estas claves con:
+    - caché de Features;
+    - Aging;
+    - auditorías del Cron;
+    - locks de sincronización. */
+  prefix: 'dashboardLoginRateLimit:v1',
+
+  /* No activamos analytics por ahora:
+    - evita persistir identificadores adicionales;
+    - evita costo/comandos adicionales;
+    - el control de acceso ya queda protegido por Redis. */
+  analytics: false
+});
+
+/* Vercel establece x-forwarded-for con la IP pública del visitante.
+  No almacenamos esa IP en Redis en texto plano: derivamos un identificador HMAC usando el secreto de autenticación ya requerido por el dashboard.*/
+function getDashboardLoginRateLimitIdentifier(req) {
+  const forwardedFor = String(
+    req.get('x-forwarded-for') || ''
+  )
+    .split(',')[0]
+    .trim();
+
+  /* En desarrollo local normalmente no existe x-forwarded-for.
+  req.socket.remoteAddress permite que el límite siga funcionando localmente sin afectar el comportamiento en Vercel. */
+  const clientIp =
+    forwardedFor ||
+    String(req.socket?.remoteAddress || 'unknown').trim();
+
+  return crypto
+    .createHmac('sha256', DASHBOARD_AUTH_SECRET)
+    .update(`dashboard-login:${clientIp}`)
+    .digest('hex');
+}
 
 /* ===== Auditoría persistente del Cron nocturno =====
   Vercel conserva logs por tiempo limitado. Este audit persiste en Redis para poder confirmar posteriormente:
