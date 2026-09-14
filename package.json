@@ -4,8 +4,8 @@
   "description": "Sincronización de Features y User Stories desde Azure DevOps con cálculo de métricas",
   "main": "ado-sync.js",
   "scripts": {
-    "start": "node ado-sync.js",
-    "dev": "nodemon ado-sync.js"
+    "start": "node --use-system-ca ado-sync.js",
+    "dev": "nodemon --exec \"node --use-system-ca\" ado-sync.js"
   },
   "dependencies": {
     "express": "^4.22.2",
