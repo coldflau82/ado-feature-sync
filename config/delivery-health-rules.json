@@ -32,11 +32,11 @@
   "inProgress": [
     "In Process",
     "QA Testing",
-    "Business Sprint Testing",
-    "User Acceptance Testing"
+    "Business Sprint Testing"
   ],
 
   "toRelease": [
+    "User Acceptance Testing",
     "Ready for Deployment",
     "Sprint Complete",
     "Approved for Release"

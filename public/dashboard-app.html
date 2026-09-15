@@ -6468,14 +6468,25 @@
       'Ready for Development'
     ];
     
+    /* User Acceptance Testing vive en toRelease, NO en inProgress.
+
+      Razón de negocio: el trabajo del equipo de desarrollo termina en Sprint
+      Complete. UAT son pruebas que ejecuta otro equipo, así que contarlo como
+      trabajo en curso del equipo distorsionaba las métricas: una Feature con
+      todo en UAT aparecía con trabajo pendiente y, pasado el Target Date, se
+      marcaba en rojo aunque el equipo ya hubiera entregado.
+
+      Debe coincidir con config/delivery-health-rules.json, que es la fuente que
+      usa el backend. Estas listas están duplicadas (deuda conocida, N8): al
+      cambiar una hay que cambiar la otra. */
     const deliveryInProgressStates = [
       'In Process',
       'QA Testing',
-      'Business Sprint Testing',
-      'User Acceptance Testing'
+      'Business Sprint Testing'
     ];
     
     const deliveryToReleaseStates = [
+      'User Acceptance Testing',
       'Ready for Deployment',
       'Sprint Complete',
       'Approved for Release'

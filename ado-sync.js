@@ -3136,11 +3136,13 @@ function isTargetDateInNextCalendarMonth(targetDate) {
 /* Trabajo pendiente que aún puede impedir el compromiso de la Feature.
   Incluye:
   - In Planning
-  - In Progress, incluido User Acceptance Testing
+  - In Progress
 
   Excluye:
   - To Release: no bloquea Sprint Alignment, pero sí participa en
     validaciones individuales de RFV y en Release date passed.
+    Desde el cambio de categorías, esto incluye User Acceptance Testing: son
+    pruebas de otro equipo, no trabajo pendiente del equipo de desarrollo.
   - Completed: no bloquea la entrega actual, pero sí participa en la
     auditoría de RFV cerrado contra RFV de Feature.
   - Removed: no participa. */
