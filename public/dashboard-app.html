@@ -6887,12 +6887,9 @@
         isStoryLikeWorkItem &&
         typeof onShowLinkedItems === 'function';
 
-      /* Sólo ocultamos el badge de To Release cuando ya existe un finding
-      específico de Release Alignment para esta Story/Bug.
-      Si falta RFV, NO se oculta: debe mostrarse el badge amarillo
-      "RFV required". */
-    const shouldHideScheduledReleaseBadge =
-      Boolean(releaseAlignmentFinding);
+      const shouldHideScheduledReleaseBadge =
+        Boolean(releaseAlignmentFinding) &&
+        Boolean(toReleaseAging?.isScheduled);
 
       return (
         <div
@@ -7022,8 +7019,7 @@
               </span>
             )}
             
-            {toReleaseAging &&
-              !shouldHideScheduledReleaseBadge && (
+            {toReleaseAging && !shouldHideScheduledReleaseBadge && (
               <span className={['feature-story-card__to-release-aging',
             
                   toReleaseAging.isDelayed
