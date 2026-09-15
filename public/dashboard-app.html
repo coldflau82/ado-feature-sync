@@ -662,6 +662,16 @@
     .delivery-activity__viewing { margin-top: 9px; color: var(--accent-strong); font-size: 10px; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere;}
     /* Las alertas dejan de ser tarjetas de colores. El estado se comunica mediante el icono de color. */
     .feature-status-details__alerts { display: grid; gap: 8px; margin-top: 8px;}
+    /* Desglose de Risk dentro del panel expandido. Antes esta informacion solo existia en el tooltip de la columna,
+      inalcanzable con teclado y en tactil. El color del nivel reutiliza los tokens semanticos ya definidos. */
+    .feature-status-details__risk-level { padding: 1px 7px; border-radius: var(--radius-chip); font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .feature-status-details__risk-level--critical,.feature-status-details__risk-level--high { background: var(--risk-soft); color: var(--risk); }
+    .feature-status-details__risk-level--moderate { background: var(--warn-soft); color: var(--warn); }
+    .feature-status-details__risk-level--watch { background: var(--ok-soft); color: var(--ok); }
+    .feature-status-details__risk-level--low { background: var(--neutral-soft); color: var(--text-secondary); }
+    .feature-status-details__risk-list { display: grid; gap: 5px; margin: 8px 0 0; padding: 0; list-style: none; }
+    .feature-status-details__risk-item { display: flex; align-items: baseline; gap: 6px; min-width: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
+    .feature-status-details__risk-points { flex: 0 0 auto; min-width: 26px; padding: 0 4px; border-radius: var(--radius-control); background: var(--neutral-soft); color: var(--text-primary); font-size: 10px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
     .delivery-inline-alert { display: block; min-width: 0; max-width: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--text-secondary); font-size: 11px; line-height: 1.45;}
     .delivery-inline-alert__summary { display: flex; align-items: flex-start; gap: 6px; min-width: 0;}
     .delivery-inline-alert__icon { width: 16px; height: 16px; flex: 0 0 16px; display: inline-flex; align-items: center; justify-content: center; margin-top: 1px; border-radius: 50%; color: var(--surface-raised);
@@ -2303,6 +2313,28 @@
       const readiness = getFeatureReadiness(feature);
       const readinessMeta = getReadinessMeta(readiness);
 
+      /* Desglose de Risk.
+
+        Hasta ahora existía ÚNICAMENTE en el tooltip de la columna Risk, que sólo
+        responde al ratón: en tablet y móvil era inalcanzable, y con teclado
+        también. Readiness y Delivery Health sí estaban aquí como texto; Risk era
+        el único de los tres indicadores cuya justificación no se podía leer sin
+        pasar el ratón por encima.
+
+        El tooltip se mantiene como atajo para ratón, pero esta sección es la
+        fuente alcanzable por cualquiera y en cualquier dispositivo.
+
+        No recibe storiesCache ni unavailableStoriesIds a propósito, y no es un
+        descuido: de los cinco sitios donde se monta este panel, cuatro son
+        justamente las ramas de "cargando" y "no disponible", donde no hay
+        Stories en caché que usar. Y desde que el resumen del servidor tiene
+        prioridad (ver getFeatureDeliverySummary), pasar las cachés ya no altera
+        el resultado. */
+      const riskBreakdown = getFeatureRiskBreakdown(feature);
+
+      const riskScore = getRiskScoreFromBreakdown(riskBreakdown);
+      const riskLevel = getFeatureRiskLevel(riskScore);
+
       const missingChecks =
         getFeatureReadinessMissingChecks(feature);
 
@@ -2406,6 +2438,47 @@
                 />
               ))}
             </div>
+          </div>
+
+          <div className="feature-status-details__section">
+            <div className="feature-status-details__heading">
+              <strong className="feature-status-details__title">
+                Risk:
+              </strong>
+
+              <span
+                className={
+                  'feature-status-details__risk-level'
+                  + ` feature-status-details__risk-level--${riskLevel.key}`
+                }
+              >
+                {riskLevel.label} · {riskScore}
+              </span>
+            </div>
+
+            {riskBreakdown.length === 0 ? (
+              <p className="feature-status-details__message">
+                No risk signals detected.
+              </p>
+            ) : (
+              <ul
+                className="feature-status-details__risk-list"
+                aria-label="Risk signals"
+              >
+                {riskBreakdown.map(item => (
+                  <li
+                    key={item.label}
+                    className="feature-status-details__risk-item"
+                  >
+                    <span className="feature-status-details__risk-points">
+                      +{item.points}
+                    </span>
+
+                    <span>{item.label}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </section>
       );
