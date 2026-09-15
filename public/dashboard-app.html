@@ -253,8 +253,10 @@
     .feature-work-items-panel { min-width: 0; padding: 0px; border: 0px; border-radius: 0px; background: var(--surface-raised); border: 1px solid var(--line-hairline); }
     .feature-work-items-panel__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0;}
     .feature-work-items-panel__heading { min-width: 0;}
-    .feature-work-items-panel__title { display: block; color: var(--text-primary); font-size: 13px; font-weight: 700; line-height: 1.35;}
-    .feature-work-items-panel__description { display: block; margin-top: 3px; color: var(--text-tertiary); font-size: 11px; line-height: 1.4;}
+    /* Titulo y descripcion en la MISMA linea. Ambos eran display:block, asi que cada uno
+      ocupaba su propia linea aunque el JSX los pusiera seguidos: el cambio era de CSS, no de markup. */
+    .feature-work-items-panel__title { display: inline; color: var(--text-primary); font-size: 13px; font-weight: 700; line-height: 1.35;}
+    .feature-work-items-panel__description { display: inline; color: var(--text-tertiary); font-size: 11px; line-height: 1.4;}
     /* Muestra el equipo temporalmente aplicado dentro del panel de resultados, evitando que el usuario pierda contexto al filtrar desde Delivery Activity. */
     .feature-work-items-panel__team-context { flex: 0 0 auto; max-width: 42%; padding: 4px 7px; border: 1px solid #bfdbfe; border-radius: 999px; background: var(--accent-soft); color: var(--accent-strong); font-size: 10px;
       font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; text-align: right;}
@@ -658,7 +660,6 @@
     .delivery-activity__team--active { border-color: var(--accent); background: var(--accent); color: var(--surface-raised);}
     .delivery-activity__team:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px;}
     .delivery-activity__empty { color: var(--text-tertiary); font-size: 11px; line-height: 1.45;}
-    .delivery-activity__sprint { margin-top: 10px; padding-top: 9px; border-top: 1px solid #e5edf5; color: var(--text-secondary); font-size: 11px; line-height: 1.45;}
     .delivery-activity__viewing { margin-top: 9px; color: var(--accent-strong); font-size: 10px; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere;}
     /* Las alertas dejan de ser tarjetas de colores. El estado se comunica mediante el icono de color. */
     .feature-status-details__alerts { display: grid; gap: 8px; margin-top: 8px;}
@@ -669,9 +670,34 @@
     .feature-status-details__risk-level--moderate { background: var(--warn-soft); color: var(--warn); }
     .feature-status-details__risk-level--watch { background: var(--ok-soft); color: var(--ok); }
     .feature-status-details__risk-level--low { background: var(--neutral-soft); color: var(--text-secondary); }
-    .feature-status-details__risk-list { display: grid; gap: 5px; margin: 8px 0 0; padding: 0; list-style: none; }
-    .feature-status-details__risk-item { display: flex; align-items: baseline; gap: 6px; min-width: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
-    .feature-status-details__risk-points { flex: 0 0 auto; min-width: 26px; padding: 0 4px; border-radius: var(--radius-control); background: var(--neutral-soft); color: var(--text-primary); font-size: 10px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+    .feature-status-details__risk-list { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 7px 0 0; padding: 0; list-style: none; }
+    .feature-status-details__risk-item { display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px 2px 3px; border-radius: var(--radius-chip); background: var(--surface-sunken); box-shadow: inset 0 0 0 1px var(--line-hairline); color: var(--text-secondary); font-size: 11px; line-height: 1.35; }
+    .feature-status-details__risk-points { flex: 0 0 auto; padding: 0 5px; border-radius: var(--radius-chip); background: var(--neutral-soft); color: var(--text-primary); font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    /* El Owner ya no es un parrafo al pie: va en la linea del estado. */
+    .feature-status-details__owner { color: var(--text-tertiary); font-size: 11px; line-height: 1.35; }
+    .feature-status-details__owner strong { color: var(--text-secondary); }
+    .feature-status-details__separator { color: var(--line-strong); font-size: 11px; }
+    /* Numero de orden de la alerta. Enlaza el diagnostico con su accion en la lista
+      numerada del "What's required?" consolidado. */
+    .delivery-inline-alert__index { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+    /* UN solo disclosure para todas las alertas, con las acciones numeradas.
+      Antes cada alerta tenia el suyo: con tres alertas eran tres lineas de andamiaje
+      para una sola funcion. El texto sale del catalogo de reglas y es identico siempre
+      para una misma regla: es documentacion, no diagnostico de esta Feature. */
+    .feature-status-details__required { margin-top: 7px; }
+    .feature-status-details__required-summary { display: inline-flex; align-items: center; gap: 4px; width: fit-content; padding: 1px 6px; border-radius: var(--radius-chip); background: var(--surface-sunken); color: var(--accent); cursor: pointer; font-size: 10px; font-weight: 700; list-style: none; }
+    .feature-status-details__required-summary::-webkit-details-marker { display: none; }
+    .feature-status-details__required-summary::before { content: '\25B8'; font-size: 9px; }
+    .feature-status-details__required[open] .feature-status-details__required-summary::before { content: '\25BE'; }
+    .feature-status-details__required-summary:hover { background: var(--accent-soft); }
+    .feature-status-details__required-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    /* min-width:0 + max-width:100% + white-space:normal son obligatorios aqui.
+      El texto se desbordaba por el borde derecho de la tarjeta: las acciones son
+      frases largas y sin estas tres reglas la lista no se deja encoger dentro de
+      su contenedor ni parte las lineas. Es el mismo blindaje que ya llevan
+      .delivery-inline-alert y sus hijos. */
+    .feature-status-details__required-list { margin: 6px 0 0; padding-left: 20px; min-width: 0; max-width: 100%; color: var(--text-tertiary); font-size: 11px; line-height: 1.45; }
+    .feature-status-details__required-item { margin-top: 3px; min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
     .delivery-inline-alert { display: block; min-width: 0; max-width: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--text-secondary); font-size: 11px; line-height: 1.45;}
     .delivery-inline-alert__summary { display: flex; align-items: flex-start; gap: 6px; min-width: 0;}
     .delivery-inline-alert__icon { width: 16px; height: 16px; flex: 0 0 16px; display: inline-flex; align-items: center; justify-content: center; margin-top: 1px; border-radius: 50%; color: var(--surface-raised);
@@ -1204,7 +1230,17 @@
       border-radius: var(--radius-chip); background: var(--surface-sunken); color: var(--text-secondary); font-size: 10px; font-weight: 700; line-height: 1.25; }
     .release-alignment-details__metric--risk { border-color: #fbbf24; background: var(--warn-soft); color: #854d0e; }
     .release-alignment-details__metric--error { border-color: #fca5a5; background: var(--risk-soft); color: #991b1b; }
-    .release-alignment-details__next-release { display: block; margin-top: 8px; color: var(--accent-strong); font-size: 10px; font-weight: 700; line-height: 1.4; }
+    /* Los tres chips del compromiso (RFV, Release, Cutoff) son DATOS, no incidencias.
+      Con el estilo neutro se perdian entre los chips de alerta, y son la referencia contra
+      la que se leen los hallazgos de abajo: merecen contraste propio. */
+    .release-alignment-details__metric--commitment { border-color: #bfdbfe; background: var(--accent-soft); color: var(--accent-strong); }
+    /* El RFV siguiente vive en la cabecera, junto al estado, no al final de la tarjeta. */
+    .release-alignment-details__next-release { color: var(--accent-strong); font-size: 10px; font-weight: 700; line-height: 1.4; }
+    .release-alignment-details__separator { color: var(--line-strong); font-size: 11px; }
+    /* Titulo y equipo responsable en la misma linea. */
+    .delivery-activity__heading { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; min-width: 0; }
+    .delivery-activity__heading-separator { color: var(--line-strong); font-size: 11px; }
+    .release-alignment-details__separator { color: var(--line-strong); font-size: 11px; }
     .release-alignment-details__findings { display: grid; gap: 6px; margin-top: 10px; }
     .release-alignment-details__finding { padding: 7px 8px; border-left: 3px solid var(--warn); border-radius: 4px; 
       background: var(--warn-soft); color: #854d0e; font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
@@ -2424,20 +2460,75 @@
                   {delivery.label}
                 </span>
               </span>
+
+              {/* El Owner va en la MISMA linea que el estado, separado por una
+                barra: se lee como una frase continua — "esta en este estado y el
+                responsable es esta persona". Antes ocupaba una linea propia al
+                pie de la seccion. */}
+              {alerts.length > 0 && (
+                <>
+                  <span
+                    className="feature-status-details__separator"
+                    aria-hidden="true"
+                  >
+                    |
+                  </span>
+
+                  <span className="feature-status-details__owner">
+                    Owner:{' '}
+                    <strong>
+                      {getShortAssignedToName(feature.assignedTo)}
+                    </strong>
+                  </span>
+                </>
+              )}
             </div>
 
             <div
               className="feature-status-details__alerts"
               aria-label="Delivery Health alerts"
             >
-              {alerts.map(alert => (
+              {alerts.map((alert, alertIndex) => (
                 <DeliveryHealthAlert
                   key={alert.key}
                   alert={alert}
-                  assignedTo={feature.assignedTo}
+                  index={alertIndex + 1}
                 />
               ))}
             </div>
+
+            {/* UN solo "What's required?" para todas las alertas.
+
+              Antes cada alerta tenia el suyo: con tres alertas eran tres lineas
+              de andamiaje para una sola funcion. Consolidado, la numeracion crea
+              la correspondencia — el 2 del diagnostico es el 2 de la accion — y
+              se lee como una lista de tareas en lugar de tres cajas sueltas.
+
+              El texto sale de delivery-health-rules.json y es identico siempre
+              para una misma regla: es documentacion de la regla, no diagnostico
+              de esta Feature, asi que no merece espacio permanente.
+
+              <details> nativo a proposito: funciona con teclado y con lectores
+              de pantalla sin anadir estado a React ni un manejador propio. */}
+            {alerts.length > 0 && (
+              <details className="feature-status-details__required">
+                <summary className="feature-status-details__required-summary">
+                  What's required?
+                </summary>
+
+                <ol className="feature-status-details__required-list">
+                  {alerts.map(alert => (
+                    <li
+                      key={alert.key}
+                      className="feature-status-details__required-item"
+                    >
+                      {alert.recommendedAction ||
+                        'No recommended action configured.'}
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            )}
           </div>
 
           <div className="feature-status-details__section">
@@ -2461,6 +2552,10 @@
                 No risk signals detected.
               </p>
             ) : (
+              /* Chips en fila, no lista vertical: las mismas señales pasan de
+                una línea cada una a un párrafo que fluye. El score sigue siendo
+                explicable — cada señal con sus puntos — pero deja de empujar las
+                Stories fuera de la pantalla. */
               <ul
                 className="feature-status-details__risk-list"
                 aria-label="Risk signals"
@@ -2900,64 +2995,55 @@
   
             {meta.label}
           </span>
+
+          {/* El RFV siguiente sube a la cabecera, separado por una barra: se lee
+            como una frase continua — "perdi el RFV, y el siguiente viable es
+            este". Antes estaba al final de la tarjeta, lejos del estado que lo
+            hace relevante. */}
+          {normalizedAlignment.nextViableRfv && (
+            <>
+              <span
+                className="release-alignment-details__separator"
+                aria-hidden="true"
+              >
+                |
+              </span>
+
+              <span className="release-alignment-details__next-release">
+                Next viable RFV: {normalizedAlignment.nextViableRfv}
+              </span>
+            </>
+          )}
         </div>
   
         <p className="release-alignment-details__summary">
           {summaryText}
         </p>
 
-        {findings.length > 0 && (
-          <div className="release-alignment-details__findings" aria-label="Story and Bug RFV findings">
-            {findings.map((finding, index) => {
-              const isClosedFinding =
-                finding.type ===
-                'closed-story-rfv-mismatch';
+        {/* ORDEN: primero el estado actual del Feature (su RFV, la fecha de
+          Release y el Cutoff), despues el comportamiento observado (las
+          Stories/Bugs desalineadas).
 
-              return (
-                <div key={`${finding.id || 'unknown'}-${finding.type}-${index}`}
-                  className={[
-                    'release-alignment-details__finding',
-                    isClosedFinding
-                      ? 'release-alignment-details__finding--closed'
-                      : ''
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                >
-                  <span className="release-alignment-details__finding-id">
-                    #{finding.id || '—'}
-                  </span>{' '}
+          Antes estaba al reves: se leian los hallazgos antes de saber contra
+          que RFV se estaban comparando. Ahora se lee de arriba abajo como
+          "esto es lo comprometido" -> "esto es lo que esta pasando".
 
-                  {isClosedFinding
-                    ? 'Closed Story RFV mismatch'
-                    : 'Story not aligned'}
-
-                  {' · '}
-                  {finding.workItemRfv || 'No RFV'} →{' '}
-                  {finding.featureRfv || 'No Feature RFV'}
-
-                  {finding.state && (
-                    <> · {finding.state}</>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-        
+          Los tres primeros chips llevan clase propia porque son DATOS del
+          compromiso, no incidencias: con el estilo neutro anterior se perdian
+          entre los chips de alerta. */}
         {!isNotApplicable && (
           <div className="release-alignment-details__metrics">
-            <span className="release-alignment-details__metric">
+            <span className="release-alignment-details__metric release-alignment-details__metric--commitment">
               RFV: {normalizedAlignment.featureRfv || '—'}
             </span>
   
-            <span className="release-alignment-details__metric">
+            <span className="release-alignment-details__metric release-alignment-details__metric--commitment">
               Release: {formatReleaseAlignmentDate(
                 normalizedAlignment.featureReleaseDate
               )}
             </span>
   
-            <span className="release-alignment-details__metric">
+            <span className="release-alignment-details__metric release-alignment-details__metric--commitment">
               Cutoff: {formatReleaseAlignmentDate(
                 normalizedAlignment.commitmentCutoffDate
               )}
@@ -2997,11 +3083,44 @@
             ))}
           </div>
         )}
-  
-        {normalizedAlignment.nextViableRfv && (
-          <span className="release-alignment-details__next-release">
-            Next viable RFV: {normalizedAlignment.nextViableRfv}
-          </span>
+
+        {findings.length > 0 && (
+          <div className="release-alignment-details__findings" aria-label="Story and Bug RFV findings">
+            {findings.map((finding, index) => {
+              const isClosedFinding =
+                finding.type ===
+                'closed-story-rfv-mismatch';
+
+              return (
+                <div key={`${finding.id || 'unknown'}-${finding.type}-${index}`}
+                  className={[
+                    'release-alignment-details__finding',
+                    isClosedFinding
+                      ? 'release-alignment-details__finding--closed'
+                      : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  <span className="release-alignment-details__finding-id">
+                    #{finding.id || '—'}
+                  </span>{' '}
+
+                  {isClosedFinding
+                    ? 'Closed Story RFV mismatch'
+                    : 'Story not aligned'}
+
+                  {' · '}
+                  {finding.workItemRfv || 'No RFV'} →{' '}
+                  {finding.featureRfv || 'No Feature RFV'}
+
+                  {finding.state && (
+                    <> · {finding.state}</>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </section>
     );
@@ -4462,7 +4581,7 @@
                           techGoLiveRFV &&
                           getReleaseDate(techGoLiveRFV) ===
                             getReleaseDate(releaseFixVersion)
-                            ? ` · Tech Go Live la misma fecha (${techGoLiveRFV})`
+                            ? ` · Tech Go Live same date (${techGoLiveRFV})`
                             : ''
                         )
                       }
@@ -4563,7 +4682,7 @@
                         title={
                           `Tech Go Live RFV: ${techGoLiveRFV} · ` +
                           formatDate(getReleaseDate(techGoLiveRFV)) +
-                          ' · fecha distinta a la del Release Fix Version'
+                          ' · different date from the Release Fix Version'
                         }
                       />
                     </>
@@ -5325,7 +5444,7 @@
                           ' · ' +
                           formatDate(releaseValue) +
                           (isSameDate
-                            ? ' · Tech Go Live la misma fecha'
+                            ? ' · Tech Go Live same date'
                             : '')
                         }
                       />
@@ -5340,7 +5459,7 @@
                           feature.techGoLiveRFV +
                           ' · ' +
                           formatDate(techValue) +
-                          ' · fecha distinta a la del RFV'
+                          ' · different date from the RFV'
                         }
                       />
                     )}
@@ -8202,10 +8321,11 @@
 
     function DeliveryHealthAlert({
       alert,
-      assignedTo
+      /* Numero de orden dentro de la lista de alertas de la Feature.
+        Crea la correspondencia con la lista de acciones del "What's required?"
+        consolidado: el 2 del diagnostico es el 2 de la accion. */
+      index
     }) {
-      const owner = getShortAssignedToName(assignedTo);
-
       const visual = getDeliveryVisualMeta(
         alert.key,
         alert.group
@@ -8234,34 +8354,16 @@
 
             <div className="delivery-inline-alert__summary-content">
               <strong className="delivery-inline-alert__title">
+                {typeof index === 'number' && (
+                  <span className="delivery-inline-alert__index">
+                    {index}.
+                  </span>
+                )}{' '}
                 {alert.label}:
               </strong>{' '}
 
               <span className="delivery-inline-alert__reason">
                 {alert.reason}
-              </span>
-            </div>
-          </div>
-
-          <div className="delivery-inline-alert__details">
-            <div className="delivery-inline-alert__detail">
-              <span className="delivery-inline-alert__detail-label">
-                Action:
-              </span>
-
-              <span className="delivery-inline-alert__detail-value">
-                {alert.recommendedAction ||
-                  'No recommended action configured.'}
-              </span>
-            </div>
-
-            <div className="delivery-inline-alert__detail">
-              <span className="delivery-inline-alert__detail-label">
-                Owner:
-              </span>
-
-              <span className="delivery-inline-alert__detail-value">
-                {owner}
               </span>
             </div>
           </div>
@@ -8290,9 +8392,12 @@
       return (
         <header className="feature-work-items-panel__header">
           <div className="feature-work-items-panel__heading">
+            {/* Subtitulo en la MISMA linea que el titulo, separado por dos puntos.
+              Ocupaba una linea propia para una frase que es una aclaracion, no
+              informacion de la Feature. */}
             <strong className="feature-work-items-panel__title">
-              Stories and Bugs
-            </strong>
+              Stories and Bugs:
+            </strong>{' '}
 
             <span className="feature-work-items-panel__description">
               Filter direct work items associated with this Feature.
@@ -8709,13 +8814,40 @@
               </div>
 
               <section className="delivery-activity" aria-label="Delivery execution activity">
-                <strong className="delivery-activity__title">
-                  Delivery Activity
-                </strong>
-              
-                <div className="delivery-activity__responsible-team">
-                  <strong>Responsible team:</strong>{' '}
-                  {responsibleTeam || '—'}
+                {/* Titulo y equipo responsable en la MISMA linea, separados por una
+                  barra. El equipo responsable es un dato de una sola palabra: no
+                  necesitaba una linea propia debajo del titulo. */}
+                <div className="delivery-activity__heading">
+                  <strong className="delivery-activity__title">
+                    Delivery Activity
+                  </strong>
+
+                  <span className="delivery-activity__heading-separator" aria-hidden="true">
+                    |
+                  </span>
+
+                  <span className="delivery-activity__responsible-team">
+                    <strong>Responsible team:</strong>{' '}
+                    {responsibleTeam || '—'}
+                  </span>
+
+                  {/* La actividad de Sprint tambien sube al titulo: es una cifra,
+                    no un parrafo. "Feature total current Sprint activity" se
+                    condensa a "Sprint activity" porque el contexto de la tarjeta
+                    ya dice que hablamos de esta Feature. */}
+                  {typeof currentSprintWorkItems === 'number' && (
+                    <>
+                      <span className="delivery-activity__heading-separator" aria-hidden="true">
+                        |
+                      </span>
+
+                      <span className="delivery-activity__responsible-team">
+                        <strong>Sprint activity:</strong>{' '}
+                        {currentSprintWorkItems} work item
+                        {currentSprintWorkItems === 1 ? '' : 's'}
+                      </span>
+                    </>
+                  )}
                 </div>
               
                 {executionTeams.length === 0 ? (
@@ -8821,13 +8953,6 @@
                   </div>
                 )}
               
-                {typeof currentSprintWorkItems === 'number' && (
-                  <div className="delivery-activity__sprint">
-                    <strong>Feature total current Sprint activity:</strong>{' '}
-                    {currentSprintWorkItems} work item
-                    {currentSprintWorkItems === 1 ? '' : 's'}
-                  </div>
-                )}
               </section>
             </div>
 
