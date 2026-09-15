@@ -5691,6 +5691,10 @@
     
         isRfvAligned:
           match.isRfvAligned !== false,
+        
+        isRfvMissing: Boolean(
+          match.isRfvMissing
+        ),
     
         evaluationDate:
           match.evaluationDate || null,
@@ -6883,6 +6887,13 @@
         isStoryLikeWorkItem &&
         typeof onShowLinkedItems === 'function';
 
+      /* Sólo ocultamos el badge de To Release cuando ya existe un finding
+      específico de Release Alignment para esta Story/Bug.
+      Si falta RFV, NO se oculta: debe mostrarse el badge amarillo
+      "RFV required". */
+    const shouldHideScheduledReleaseBadge =
+      Boolean(releaseAlignmentFinding);
+
       return (
         <div
           style={{
@@ -6917,8 +6928,7 @@
               </span>
             )}
 
-            <a
-              href={adoLink(story.id)}
+            <a href={adoLink(story.id)}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -7012,7 +7022,8 @@
               </span>
             )}
             
-            {toReleaseAging && (
+            {toReleaseAging &&
+              !shouldHideScheduledReleaseBadge && (
               <span className={['feature-story-card__to-release-aging',
             
                   toReleaseAging.isDelayed
@@ -7020,10 +7031,16 @@
                     : '',
             
                   !toReleaseAging.isDelayed &&
+                  toReleaseAging.isRfvMissing
+                    ? 'feature-story-card__to-release-aging--mismatch'
+                    : '',
+
+                  !toReleaseAging.isDelayed &&
+                  !toReleaseAging.isRfvMissing &&
                   toReleaseAging.isRfvAligned === false
                     ? 'feature-story-card__to-release-aging--mismatch'
                     : '',
-            
+
                   !toReleaseAging.isDelayed &&
                   toReleaseAging.isRfvAligned !== false &&
                   !toReleaseAging.isScheduled
@@ -7049,10 +7066,14 @@
                     ? `Story/Bug RFV: ${toReleaseAging.workItemRfv}`
                     : '',
             
+                  toReleaseAging.isRfvMissing
+                    ? `RFV required: assign an RFV to this ${story.workItemType || 'Story/Bug'}.`
+                    : '',
+            
                   toReleaseAging.expectedRfv
                     ? `Expected RFV: ${toReleaseAging.expectedRfv}`
                     : '',
-            
+
                   toReleaseAging.expectedDate
                     ? `Committed date: ${formatDate(
                         toReleaseAging.expectedDate
@@ -7075,16 +7096,13 @@
                     {toReleaseAging.daysInToRelease === 1 ? '' : 's'}
                     {' '}in To Release
                   </>
+                ) : toReleaseAging.isRfvMissing ? (
+                  <>
+                    ⚠ RFV required
+                  </>
                 ) : toReleaseAging.isRfvAligned === false ? (
                   <>
                     ⚠ Release commitment needs review
-                  </>
-                ) : toReleaseAging.isScheduled &&
-                  toReleaseAging.expectedRfv &&
-                  toReleaseAging.inheritedFromFeature ? (
-                  <>
-                    ✓ Scheduled for Feature RFV{' '}
-                    {toReleaseAging.expectedRfv}
                   </>
                 ) : toReleaseAging.isScheduled &&
                   toReleaseAging.expectedRfv ? (

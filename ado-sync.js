@@ -1953,11 +1953,18 @@ function materializeToReleaseAging(
       workItem
     );
 
-    const featureRfv = getFeatureReleaseFixVersion(feature);
+  const featureRfv = getFeatureReleaseFixVersion(feature);
 
+    /* workItemRfv es el RFV asignado explícitamente a la Story/Bug.
+      Si está vacío, la Feature puede indicar cuál RFV se esperaba,
+      pero NO significa que el Work Item haya sido asignado a ese RFV.*/
     const workItemRfv = String(
-      workItem?.releaseFixVersion || ''
+      workItem?.releaseFixVersion ||
+      workItem?.workItemRfv ||
+      ''
     ).trim();
+
+    const hasExplicitWorkItemRfv = Boolean(workItemRfv);
 
     /* Política de alineación estricta: Si la Feature tiene RFV, cada Story/Bug To Release debe tener el mismo RFV para considerarse alineado.
       Un RFV vacío se considera no alineado. Esto evita ocultar información incompleta como si la Story/Bug estuviera programada
@@ -1970,13 +1977,11 @@ function materializeToReleaseAging(
       ? releaseCalendarReleaseByRfv.get(workItemRfv)
       : null;
     
-    /*
-      Si no hay RFV en Feature, el item puede evaluarse contra Target Date.
-      Si la Feature sí tiene RFV:
-      - Story/Bug sin RFV hereda el RFV de la Feature.
-      - RFV anterior o igual es compatible.
-      - RFV posterior es desalineado.
-    */
+    /*  Alineación:
+    - Si la Feature no tiene RFV, no hay un release de referencia.
+    - Si la Story/Bug tiene RFV, debe ser igual o anterior al RFV de la Feature.
+    - Si la Story/Bug no tiene RFV, no se considera alineada ni
+      programada; se marca explícitamente como RFV missing. */
     const isRfvAligned =
       !featureRfv ||
       !workItemRfv ||
@@ -1985,6 +1990,14 @@ function materializeToReleaseAging(
         workItemRelease &&
         workItemRelease.sequence <= featureRelease.sequence
       );
+    
+    /* Una Story/Bug en To Release debe tener RFV propio.
+      El RFV de la Feature indica el compromiso esperado, pero no sustituye
+      la asignación explícita del RFV en el Work Item. */
+    const isRfvMissing = Boolean(
+      featureRfv &&
+      !hasExplicitWorkItemRfv
+    );
 
     const expectedDateTime = commitment.expectedDate
       ? DateTime.fromISO(commitment.expectedDate, {
@@ -2046,6 +2059,14 @@ function materializeToReleaseAging(
       today >= evaluationDate
     );
 
+    const isScheduled = Boolean(
+      isKnown &&
+      hasExplicitWorkItemRfv &&
+      isRfvAligned &&
+      evaluationDate &&
+      today < evaluationDate
+    );
+
     return {
       id: Number(workItem?.id) || null,
       state: String(workItem?.state || '').trim(),
@@ -2075,20 +2096,17 @@ function materializeToReleaseAging(
       ),
       
       /* Datos para mostrar una condición de alineación en frontend. */
+      releaseFixVersion: workItemRfv, 
       workItemRfv,
+
       isRfvAligned,
+      isRfvMissing,
 
       evaluationDate: evaluationDate
         ? evaluationDate.toISODate()
         : null,
 
-      /* Sólo debe mostrarse como "scheduled" cuando el RFV del work item está alineado con la Feature. */
-      isScheduled: Boolean(
-        isKnown &&
-        isRfvAligned &&
-        evaluationDate &&
-        today < evaluationDate
-      ),
+      isScheduled,
 
       isDelayed,
 
