@@ -5,7 +5,8 @@
   "main": "ado-sync.js",
   "scripts": {
     "start": "node --use-system-ca ado-sync.js",
-    "dev": "nodemon --exec \"node --use-system-ca\" ado-sync.js"
+    "dev": "nodemon --exec \"node --use-system-ca\" ado-sync.js",
+    "verify": "node --use-system-ca --stack-size=8000 tools/verify-dashboard.js"
   },
   "dependencies": {
     "express": "^4.22.2",

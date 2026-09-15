@@ -485,6 +485,39 @@ const releaseCalendarSprintById = new Map(
   ])
 );
 
+/* Proyección pública del calendario de Sprints para el frontend.
+
+  Existe porque el frontend parseaba el NOMBRE del Iteration Path para deducir
+  las fechas de cada Sprint, con un regex más frágil que el de aquí y sin acceso
+  al calendario validado. Eso producía dos fallos: formatos como
+  "2026-Sprint16-..." no se reconocían y el Sprint no se dibujaba, y corregir una
+  fecha en el calendario sin renombrar la ruta dejaba al Gantt con la fecha vieja.
+
+  Con esta proyección el backend es la única fuente de verdad de las fechas.
+
+  Se envía SOLO lo que el Gantt necesita: ni commitmentCutoffDate ni deliveryRfv,
+  que son internos. Y NO se envía `name`: los nombres del JSON son
+  inconsistentes ("Sprint 16" pero también "2027 Sprint 1"), así que la etiqueta
+  se deriva del ID para que la UI muestre siempre el mismo formato.
+
+  endDate es INCLUSIVO, igual que en el JSON. El frontend le suma un día para su
+  geometría de límite exclusivo. */
+const sprintCalendarById = Object.fromEntries(
+  releaseCalendar.sprints.map(sprint => {
+    const id = String(sprint.id).trim();
+
+    return [
+      id,
+      {
+        id,
+        label: `S${id.split('-').pop()}`,
+        startDate: sprint.startDate,
+        endDate: sprint.endDate
+      }
+    ];
+  })
+);
+
 /* Convierte el Iteration Path de Azure DevOps a un ID del calendario.
   Ejemplo: Commercial Engineering\2026\Q3\2026_S16_Jul29-Aug11 -> 2026-sprint-16 */
 function getSprintCalendarIdFromIterationPath(iterationPath) {
@@ -5380,6 +5413,32 @@ function mapFeatureStoryWorkItem(workItem) {
     assignedToIdentity,
   
     deliveryCategory: getDeliveryWorkItemCategory(state),
+
+    /* Resolución del Sprint centralizada aquí, con el regex robusto de
+      getSprintCalendarIdFromIterationPath. El frontend no vuelve a interpretar
+      el texto del Iteration Path.
+
+      sprintId es null cuando la ruta no identifica ningún Sprint (por ejemplo
+      una asignación sólo a trimestre). Se emite incluso para Sprints que NO
+      están en el calendario, lo que permite al frontend distinguir "no hay
+      Sprint" de "hay Sprint pero no está configurado".
+
+      sprintLabel se deriva del número, nunca del `name` del calendario (que es
+      inconsistente) ni de las fechas. Ojo: el año del ID no siempre coincide
+      con el año de sus fechas — 2026-sprint-1 empieza el 2025-12-31. */
+    sprintId: getSprintCalendarIdFromIterationPath(
+      fields['System.IterationPath'] || ''
+    ),
+
+    sprintLabel: (() => {
+      const sprintId = getSprintCalendarIdFromIterationPath(
+        fields['System.IterationPath'] || ''
+      );
+
+      return sprintId
+        ? `S${sprintId.split('-').pop()}`
+        : '';
+    })(),
   
     requiresEstimate: workItemRequiresEstimate(state),
     isUnestimated: isWorkItemUnestimated(deliveryWorkItem)
@@ -8909,6 +8968,10 @@ app.get('/api/features', async (req, res) => {
           - Marcadores Tech Go Live RFV.
           - Preset Next RFV. */
         releaseCalendar: releaseCalendarByRfv,
+      
+        /* Fechas de Sprint validadas. El frontend ya no deduce fechas del nombre
+          del Iteration Path: las resuelve por sprintId contra este mapa. */
+        sprintCalendar: sprintCalendarById,
       
         thresholds: {
           targetDateNearDays: deliveryHealthRules.thresholds.targetDateNearDays,

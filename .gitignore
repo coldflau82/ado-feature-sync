@@ -12,6 +12,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Copia local de Babel que descarga tools/verify-dashboard.js.
+# Son ~2,4 MB y se vuelven a descargar solos cuando hacen falta.
+tools/.cache/
+
 # Archivos del sistema operativo.
 .DS_Store
 Thumbs.db

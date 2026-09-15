@@ -593,11 +593,15 @@
       border-left: 1px solid var(--line-hairline); color: var(--text-secondary); font-size: var(--step--2); font-weight: 700; }
     .dashboard-interaction-hint__legend-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
     .dashboard-interaction-hint__today-marker { width: 2px; height: 13px; flex: 0 0 2px; background: var(--accent-strong); box-shadow: 0 0 3px rgba(29, 78, 216, 0.32); }
-    .dashboard-interaction-hint__target-marker { width: 0; height: 0; flex: 0 0 0; border-top: 9px solid #f43f5e; border-right: 6px solid transparent;
-      border-left: 6px solid transparent; }
+    .dashboard-interaction-hint__target-marker { width: 6px; height: 11px; flex: 0 0 6px;
+      border-top: 2px solid var(--warn); border-right: 2px solid var(--warn); border-bottom: 2px solid var(--warn); }
+    .dashboard-interaction-hint__planned-marker { width: 14px; height: 9px; flex: 0 0 14px; border-radius: 2px;
+      background: repeating-linear-gradient( 135deg, rgba(100, 116, 139, 0.32) 0, rgba(100, 116, 139, 0.32) 3px, transparent 3px, transparent 6px );
+      box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.4); }
+    .dashboard-interaction-hint__overflow-marker { width: 14px; height: 2px; flex: 0 0 14px; border-radius: 999px; background: var(--risk); opacity: 0.85; }
     .dashboard-interaction-hint__rfv-marker { width: 9px; height: 9px; flex: 0 0 9px; background: #1e3a8a; transform: rotate(45deg); }
-    .dashboard-interaction-hint__tech-go-live-marker { display: inline-flex; align-items: center; justify-content: center; width: 13px; color: #f59e0b;
-      flex: 0 0 13px; font-size: 16px; font-weight: 800; line-height: 1; text-shadow: 0 0 1px #78350f, 0 1px 2px rgba(15, 23, 42, 0.35); }
+    .dashboard-interaction-hint__tech-go-live-marker { width: 9px; height: 9px; flex: 0 0 9px; background: var(--surface-raised);
+      box-shadow: inset 0 0 0 2px #1e3a8a; transform: rotate(45deg); }
     @media (max-width: 980px) { .dashboard-interaction-hint__message { white-space: normal; } 
       .dashboard-interaction-hint__legend { width: 100%; padding-top: 6px; padding-left: 0; border-top: 1px solid var(--line-hairline); border-left: 0; }}
     /* Estados visibles del área principal de resultados: loading; sin resultados por filtros; sin Features disponibles; error de carga. Se reutilizan tanto para Feature List como para Roadmap. */
@@ -734,23 +738,23 @@
           repeating-linear-gradient( to right, var(--surface-sunken) 0, var(--surface-sunken) calc(8.333% - 1px), var(--neutral-soft) calc(8.333% - 1px), var(--neutral-soft) 8.333% ); }
       .mobile-roadmap-timeline__baseline { position: absolute; top: 20px; right: 0; left: 0; height: 3px; border-radius: 999px; background: var(--line-strong); }
       .mobile-roadmap-timeline__today { position: absolute; top: 0; bottom: 0; z-index: 3; width: 2px; background: #1e3a8a; }
-      .mobile-roadmap-timeline__target { position: absolute; top: 14px; z-index: 5; width: 0; height: 0; border-top: 11px solid #f43f5e; border-right: 7px solid transparent;
-        border-left: 7px solid transparent; transform: translateX(-50%); }
+      /* Hito de fin de desarrollo: mismo corchete de cierre que el escritorio (.gantt-target-milestone).
+        Marca "el desarrollo debio terminar aqui", no "la Feature termina aqui". */
+      .mobile-roadmap-timeline__target { position: absolute; top: 13px; z-index: 5; width: 6px; height: 16px; transform: translateX(-100%);
+        border-top: 2px solid var(--warn); border-right: 2px solid var(--warn); border-bottom: 2px solid var(--warn); }
       .mobile-roadmap-timeline__release { position: absolute; top: 18px; z-index: 6; width: 10px; height: 10px; background: #1e3a8a; transform: translateX(-50%) rotate(45deg); }
-      .mobile-roadmap-timeline__tech-go-live { position: absolute; top: 23px; z-index: 7; color: #f59e0b; font-size: 17px; font-weight: 700;
-        line-height: 1; text-shadow: 0 0 1px #78350f, 0 1px 2px rgba(15, 23, 42, 0.45); transform: translate(-50%, -50%); pointer-events: auto;}
-      .mobile-roadmap-timeline__tech-go-live--same-release {
-        /* Desplaza la estrella cuando comparte fecha con RFV. El diamante queda abajo/izquierda y la estrella arriba/derecha. */
-        transform: translate(calc(-50% + 10px), calc(-50% - 7px)); }
+      .mobile-roadmap-timeline__tech-go-live { position: absolute; top: 18px; z-index: 7; width: 10px; height: 10px; background: var(--surface-raised);
+        box-shadow: inset 0 0 0 2px #1e3a8a; transform: translateX(-50%) rotate(45deg); }
       .mobile-roadmap-timeline__month-labels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 5px; color: var(--text-tertiary); font-size: 9px; font-weight: 700; }
       .mobile-roadmap-timeline__month-labels span:nth-child(2),.mobile-roadmap-timeline__month-labels span:nth-child(3) { text-align: center; }
       .mobile-roadmap-timeline__month-labels span:last-child { text-align: right; }
       .mobile-roadmap-timeline__legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; color: var(--text-tertiary); font-size: 9px; font-weight: 700; }
       .mobile-roadmap-timeline__legend-item { display: inline-flex; align-items: center; gap: 4px; }
       .mobile-roadmap-timeline__legend-today { width: 2px; height: 11px; background: #1e3a8a; }
-      .mobile-roadmap-timeline__legend-target { width: 0; height: 0; border-top: 7px solid #f43f5e; border-right: 4px solid transparent; border-left: 4px solid transparent; }
+      .mobile-roadmap-timeline__legend-target { width: 6px; height: 10px;
+        border-top: 2px solid var(--warn); border-right: 2px solid var(--warn); border-bottom: 2px solid var(--warn); }
       .mobile-roadmap-timeline__legend-release { width: 8px; height: 8px; background: #1e3a8a; transform: rotate(45deg); }
-      .mobile-roadmap-timeline__legend-tech-go-live { color: #f59e0b; font-size: 15px; font-weight: 700; line-height: 9px; text-shadow: 0 0 1px #78350f; }
+      .mobile-roadmap-timeline__legend-tech-go-live { width: 8px; height: 8px; background: var(--surface-raised); box-shadow: inset 0 0 0 2px #1e3a8a; transform: rotate(45deg); }
       .mobile-story-timeline-card { padding: 10px; border: 1px solid var(--line-hairline); border-left: 3px solid var(--story-state-color, #94a3b8); border-radius: 6px; background: var(--surface-raised); }
       .mobile-story-timeline-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
       .mobile-story-timeline-card__title { flex: 1 1 0; min-width: 0; overflow: visible; color: #334155; font-size: 11px; font-weight: 700;
@@ -758,6 +762,8 @@
       .mobile-story-timeline-card__id { color: var(--accent); font-size: 10px; font-weight: 700; text-decoration: none; white-space: nowrap; }
       .mobile-story-timeline-card__metadata { display: flex; flex-wrap: wrap; gap: 5px 8px; margin-top: 7px; color: var(--text-tertiary); font-size: 10px; }
       .mobile-story-timeline-card__track { position: relative; height: 25px; margin-top: 9px; overflow: hidden; border-radius: 4px; background: var(--neutral-soft); }
+      /* Desborde respecto al Target Date de la Feature, igual que .gantt-overflow-line. */
+      .mobile-story-timeline-card__overflow { position: absolute; top: 21px; height: 2px; z-index: 9; border-radius: 999px; background: var(--risk); opacity: 0.85; }
       .mobile-story-timeline-card__segment { position: absolute; top: 5px; height: 15px; min-width: 5px; border-radius: 3px; opacity: 0.9; }
       .mobile-story-timeline-card__today { position: absolute; top: 0; bottom: 0; z-index: 5; width: 1px; background: #1e3a8a; }
       .mobile-story-timeline-card__empty { display: block; padding-top: 6px; color: #94a3b8; font-size: 10px; }
@@ -863,10 +869,40 @@
       .mobile-feature-activity__timeline { position: relative; padding-bottom: 18px; }
       .mobile-feature-activity__scale { display: flex; align-items: center; justify-content: space-between; min-height: 16px; color: var(--text-tertiary); 
       font-size: 9px; font-weight: 700; line-height: 1; }
-      .mobile-feature-activity__track { position: relative; height: 20px; overflow: hidden; border-radius: 4px; background: var(--neutral-soft); }
-      .mobile-feature-activity__segment { position: absolute; top: 3px; height: 14px; min-width: 5px; border-radius: 3px; opacity: 0.9; }
+      /* La leyenda global de la banda de móvil. display:none por defecto porque
+        el resto del CSS de esta familia vive dentro del @media de 820px. */
+      .mobile-roadmap-legend { margin: 0 0 10px; padding: 8px 10px; border: 1px solid var(--line-hairline); border-radius: 8px; background: var(--surface-raised); }
+      .mobile-feature-activity__track { position: relative; height: 30px; overflow: hidden; border-radius: 4px; background: var(--neutral-soft); }
+      /* Aviso de historia recortada: la ventana está acotada a la izquierda a propósito
+        (ver getMobileFeatureTimelineWindow), así que se marca con un degradado en lugar
+        de fingir que ahí empieza la historia de la Feature. */
+      .mobile-feature-activity__track--clipped::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; z-index: 8; width: 10px;
+        background: linear-gradient( to right, var(--text-tertiary) 0, transparent 100% ); opacity: 0.32; pointer-events: none; }
+      .mobile-feature-activity__segment { position: absolute; top: 6px; height: 18px; min-width: 5px; border-radius: 3px; opacity: 0.9; }
+      /* Plazo pendiente: rayado y sin tono propio, igual que .gantt-planned-band.
+        Comparte franja vertical con los segmentos: la barra de estados y el plazo
+        cuentan la misma historia, una en pasado y otra en futuro. */
+      .mobile-feature-activity__planned { position: absolute; top: 6px; height: 18px; z-index: 3; border-radius: 3px;
+        background: repeating-linear-gradient( 135deg, rgba(100, 116, 139, 0.22) 0, rgba(100, 116, 139, 0.22) 3px, transparent 3px, transparent 7px );
+        box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.32); }
+      /* Desborde del compromiso: linea fina bajo la barra, igual que .gantt-overflow-line. */
+      .mobile-feature-activity__overflow { position: absolute; top: 25px; height: 2px; z-index: 9; border-radius: 999px; background: var(--risk); opacity: 0.85; }
+      /* Hitos SOBRE la barra, igual que en el Gantt de escritorio: comparten la
+        misma franja vertical que los segmentos de estado en lugar de ocupar una
+        fila propia debajo. El corchete del Target ENCIERRA la barra y los rombos
+        se centran en ella.
+
+        El anillo blanco exterior de los rombos no existe en escritorio. Aqui si,
+        porque van encima de una barra de color y a menor tamano: sin el se
+        perderia el contorno del rombo contra el relleno del estado. */
+      .mobile-feature-activity__target { position: absolute; top: 2px; z-index: 6; width: 6px; height: 26px; transform: translateX(-100%);
+        border-top: 2px solid var(--warn); border-right: 2px solid var(--warn); border-bottom: 2px solid var(--warn); }
+      .mobile-feature-activity__release { position: absolute; top: 50%; z-index: 7; width: 9px; height: 9px; background: #1e3a8a;
+        box-shadow: 0 0 0 1px var(--surface-raised); transform: translate(-50%, -50%) rotate(45deg); }
+      .mobile-feature-activity__tech-go-live { position: absolute; top: 50%; z-index: 7; width: 9px; height: 9px; background: var(--surface-raised);
+        box-shadow: inset 0 0 0 2px #1e3a8a, 0 0 0 1px var(--surface-raised); transform: translate(-50%, -50%) rotate(45deg); }
       .mobile-feature-activity__today { position: absolute; top: 0; bottom: 0; z-index: 5; width: 2px; background: #1e3a8a; }
-      .mobile-feature-activity__today-label { position: absolute; top: 39px; z-index: 6; color: #1e3a8a; font-size: 9px; font-weight: 800; line-height: 1;
+      .mobile-feature-activity__today-label { position: absolute; top: 49px; z-index: 6; color: #1e3a8a; font-size: 9px; font-weight: 800; line-height: 1;
         white-space: nowrap; transform: translateX(-50%); pointer-events: none; }
       .mobile-feature-activity__empty { display: block; margin-top: 5px; color: #94a3b8; font-size: 10px; line-height: 1.35; }
       /* Alertas compactas debajo del timeline. No se renderizan para Ready, Healthy ni Not started. */
@@ -1013,6 +1049,59 @@
     .gantt-bar--story { top: 8px; }
     .gantt-bar:hover { filter: brightness(1.06) saturate(1.1); }
     @media (prefers-reduced-motion: reduce) { .gantt-bar { transition: none; }}
+
+    /* ── Lenguaje visual del plazo y del desborde ────────────────────
+      Principio: el RELLENO SÓLIDO es pasado real y usa la paleta de estados.
+      El RAYADO es futuro planificado y no consume ningún tono de esa paleta,
+      porque un plazo no es un estado, es una proyección. La distinción
+      sólido/rayado se lee además en escala de grises y con daltonismo, algo que
+      el color por sí solo no consigue. */
+
+    /* Banda de plazo: desde HOY hasta el Target Date. Sustituye al triángulo. */
+    .gantt-planned-band { position: absolute; top: 13px; height: 20px; z-index: 1; border-radius: 3px;
+      background: repeating-linear-gradient( 135deg, rgba(100, 116, 139, 0.22) 0, rgba(100, 116, 139, 0.22) 3px, transparent 3px, transparent 7px );
+      box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.32); }
+    /* Hito de fin de desarrollo (Target Date).
+      NO es el fin de vida de la Feature: despues viene la ventana de Release y la
+      verificacion del equipo, y la Feature sigue legitimamente In Process hasta
+      que pasa a Closed. Lo que marca este hito es "el desarrollo debio terminar
+      aqui", no "la Feature termina aqui".
+
+      Notacion de COTA de plano tecnico: un corchete de cierre. La regla vertical
+      cae exactamente en la fecha y los dos serifs apuntan hacia atras, sobre el
+      plazo, de modo que el corchete CIERRA la ventana de desarrollo. Una linea
+      suelta no comunicaba nada; un corchete se lee como "hasta aqui".
+
+      Ambar (--warn) y no rojo: el rojo esta reservado al desborde real.
+      Altura acotada a la banda de la barra, a diferencia de la linea de Today,
+      que cruza toda la fila porque su alcance es global y no por Feature. */
+    .gantt-target-milestone { position: absolute; top: 7px; z-index: 10; width: 7px; height: 32px; transform: translateX(-100%);
+      border-top: 2px solid var(--warn); border-right: 2px solid var(--warn); border-bottom: 2px solid var(--warn); }
+
+    /* ── RFV y Tech Go Live: una sola forma, el rombo ───────────────────
+      SÓLIDO  = Release Fix Version, llegó al cliente.
+      HUECO   = Tech Go Live, salió a producción.
+      Lo normal es que ambas fechas coincidan: entonces se dibuja un ÚNICO rombo
+      sólido. Cuando difieren, el conector convierte la separación entre las dos
+      fechas en una magnitud visible, de modo que el caso raro SE VE raro sin
+      necesidad de un icono adicional. Antes Tech Go Live era una estrella. */
+    .gantt-release-marker { position: absolute; top: 55%; z-index: 12; width: 10px; height: 10px; transform: translate(-50%, -50%) rotate(45deg); }
+    .gantt-release-marker--rfv { background: #1e3a8a; }
+    .gantt-release-marker--tech { background: var(--surface-raised); box-shadow: inset 0 0 0 2px #1e3a8a; }
+    .gantt-release-connector { position: absolute; top: 55%; z-index: 11; height: 1px; margin-top: -1px; background: #1e3a8a; opacity: 0.55; }
+
+    /* ── Línea de desborde ────────────────────────────────────
+      Significa siempre lo mismo: "esto va más allá de mi compromiso".
+      Es una línea fina bajo la barra y NO un relleno, deliberadamente: un Gantt
+      inundado de rojo deja de comunicar. Lo que informa es su LONGITUD, que es
+      la magnitud del desvío. */
+    .gantt-overflow-line { position: absolute; z-index: 9; height: 2px; border-radius: 999px; background: var(--risk); opacity: 0.85; }
+    /* Justo bajo .gantt-bar--feature (top 13 + height 20 = 33). */
+    .gantt-overflow-line--feature { top: 35px; }
+    /* Justo bajo .gantt-bar--story (top 8 + height 20 = 28). */
+    .gantt-overflow-line--story { top: 30px; }
+    /* Muestra de la leyenda. */
+    .roadmap-legend__marker--overflow { width: 15px; height: 2px; border-radius: 999px; background: var(--risk); opacity: 0.85; }
     /* ── Roadmap Feature delivery snapshot ────────────────────────── */
     .gantt-bar--feature { top: 13px; }
     /* Distribución Roadmap: 150px fijos: disclosure, priority e ID. La zona Feature ocupa el resto necesario para completar el 60%.
@@ -1195,9 +1284,11 @@
     .gantt-ruler { position: absolute; top: 0; bottom: 0; z-index: 70;  pointer-events: none; }
     .roadmap-table { position: relative; z-index: 1; }
     .dashboard-results-scroll .roadmap-table thead th { z-index: 80; }
-    /* Divisiones alineadas con las doce unidades del encabezado. Son deliberadamente sutiles: proporcionan estructura temporal sin competir con las barras, los markers ni los estados.*/
-    .gantt-ruler__grid { position: absolute; inset: 0; opacity: 0.72; background: repeating-linear-gradient( to right, transparent 0,
-      transparent calc(var(--gantt-unit) - 1px), var(--line-hairline) calc(var(--gantt-unit) - 1px), var(--line-hairline) var(--gantt-unit) ); }
+    /* Divisiones alineadas con las doce unidades del encabezado. Son deliberadamente sutiles: proporcionan estructura temporal sin competir con las barras, los markers ni los estados.
+      Antes era un repeating-linear-gradient de paso fijo, que sólo puede dibujar unidades de ancho idéntico. Los meses miden entre 28 y 31 días, así que ahora
+      cada línea se posiciona individualmente en su frontera real (ver getTimelineUnitBoundaries). */
+    .gantt-ruler__grid { position: absolute; inset: 0; opacity: 0.72; }
+    .gantt-ruler__line { position: absolute; top: 0; bottom: 0; width: 1px; margin-left: -1px; background: var(--line-hairline); }
     /* Today es una sola línea continua para toda la altura del Roadmap. Se lee como una referencia temporal global, no como quince segmentos independientes dentro de las filas. */
     .gantt-ruler__today { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent-strong); opacity: 1;  box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.5), 0 0 7px rgba(29, 78, 216, 0.3); }
@@ -1219,12 +1310,20 @@
     /* Línea vertical equivalente a la línea global de Today. */
     .roadmap-legend__marker--today { width: 2px; height: 13px; border-radius: 999px; background: var(--accent, #2563eb); 
         box-shadow: 0 0 0 1px color-mix( in srgb, var(--accent, #2563eb) 16%, transparent);}
-    /* Marcador circular equivalente a Target Date. */
-    .roadmap-legend__marker--target { width: 9px; height: 9px; border: 2px solid var(--risk, #dc2626); border-radius: 50%; background: var(--surface, #fff);}
-    /* Diamante equivalente al marcador RFV del Gantt. */
-    .roadmap-legend__marker--rfv { color: var(--warn, #d97706); font-size: 14px; font-weight: 800; transform: translateY(-0.5px);}
-    /* Estrella equivalente al marcador Tech Go Live RFV. */
-    .roadmap-legend__marker--tech-go-live { color: var(--accent, #2563eb); font-size: 13px; font-weight: 800; transform: translateY(-0.5px);}
+    /* Marcadores de la leyenda: cada uno replica EXACTAMENTE su equivalente del Gantt.
+      Antes no era así (el Target era un círculo rojo y el RFV un carácter ámbar, cuando en el Gantt
+      eran un triángulo rojo y un rombo azul marino), así que la leyenda describía cosas que no existían. */
+    /* Corchete de cierre: el desarrollo debio terminar aqui. Igual que .gantt-target-milestone. */
+    .roadmap-legend__marker--target { width: 6px; height: 12px;
+      border-top: 2px solid var(--warn); border-right: 2px solid var(--warn); border-bottom: 2px solid var(--warn); }
+    /* Banda de plazo rayada, igual que .gantt-planned-band. */
+    .roadmap-legend__marker--planned { width: 15px; height: 9px; border-radius: 2px;
+      background: repeating-linear-gradient( 135deg, rgba(100, 116, 139, 0.32) 0, rgba(100, 116, 139, 0.32) 3px, transparent 3px, transparent 6px );
+      box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.4); }
+    /* Rombo sólido: Release Fix Version. */
+    .roadmap-legend__marker--rfv { width: 8px; height: 8px; background: #1e3a8a; transform: rotate(45deg); }
+    /* Rombo hueco: Tech Go Live, sólo visible cuando su fecha difiere del RFV. */
+    .roadmap-legend__marker--tech-go-live { width: 8px; height: 8px; background: var(--surface-raised); box-shadow: inset 0 0 0 2px #1e3a8a; transform: rotate(45deg); }
     .dashboard-interaction-hint__message--mobile { display: none;}
     @media (max-width: 820px) { .dashboard-interaction-hint__legend { display: none; }
       .dashboard-interaction-hint__message--desktop { display: none; }
@@ -1822,6 +1921,94 @@
       return (daysFromStart / totalDays) * 100;
     }
 
+    /* Fronteras reales de las unidades del timeline, en porcentaje.
+
+      El encabezado de meses y la regla vertical dibujaban 12 columnas IGUALES
+      (100 / 12 = 8,333% cada una), mientras que las barras, Today, Target Date,
+      RFV y Tech Go Live se posicionan con getTimelinePercent(), que usa días
+      calendario reales.
+
+      Como los meses tienen entre 28 y 31 días, en una ventana de 365 días
+      febrero ocupa 28 / 365 = 7,671% del ancho real frente a una columna de
+      8,333%: una desviación de 0,66 puntos porcentuales, unos 8 px en un Gantt
+      de 1.200 px. Y el error CAMBIA al panear, según qué meses caigan dentro de
+      la ventana, así que las barras parecían saltar respecto a sus etiquetas.
+
+      Esta función devuelve unitCount + 1 fronteras (de 0% a 100%) calculadas con
+      la misma fórmula que las barras, para que encabezado, regla y barras
+      compartan una sola geometría.
+
+      En modo semana todas las unidades son de 7 días, así que el resultado es
+      exactamente 1 / 12 por unidad y nada cambia respecto al comportamiento
+      anterior. */
+    function getTimelineUnitBoundaries(
+      timelineStart,
+      timelineEnd,
+      unitCount = 12,
+      isWeekMode = false
+    ) {
+      const start = getTimelineDateTime(timelineStart);
+
+      if (!start || !(unitCount > 0)) {
+        return [];
+      }
+
+      const boundaries = [];
+
+      for (let index = 0; index <= unitCount; index++) {
+        const unitDate = isWeekMode
+          ? start.plus({ weeks: index })
+          : start.plus({ months: index });
+
+        const percent = getTimelinePercent(
+          unitDate,
+          timelineStart,
+          timelineEnd
+        );
+
+        /* Si una sola frontera no se puede calcular, se descarta el conjunto
+          completo: es mejor caer al reparto uniforme anterior que dibujar una
+          geometría a medias. */
+        if (percent === null) {
+          return [];
+        }
+
+        boundaries.push(percent);
+      }
+
+      return boundaries;
+    }
+
+    /* Ancho de cada unidad en porcentaje, derivado de las fronteras.
+      La suma es exactamente 100. */
+    function getTimelineUnitWidths(
+      timelineStart,
+      timelineEnd,
+      unitCount = 12,
+      isWeekMode = false
+    ) {
+      const boundaries = getTimelineUnitBoundaries(
+        timelineStart,
+        timelineEnd,
+        unitCount,
+        isWeekMode
+      );
+
+      if (boundaries.length !== unitCount + 1) {
+        return [];
+      }
+
+      const widths = [];
+
+      for (let index = 0; index < unitCount; index++) {
+        widths.push(
+          boundaries[index + 1] - boundaries[index]
+        );
+      }
+
+      return widths;
+    }
+
     function formatDashboardMonth(date, options = {}) {
       return DateTime
         .fromJSDate(date)
@@ -1837,6 +2024,15 @@
     Se inicializa vacío para evitar errores durante el primer render, antes de que termine la carga. */
     let releaseCalendar = {};
 
+    /* Fechas de Sprint validadas, proyectadas por el backend en
+      /api/features -> dashboard.sprintCalendar, indexadas por sprintId.
+      Cada entrada es { id, label, startDate, endDate } con endDate INCLUSIVO.
+
+      Sustituye al parseo del nombre del Iteration Path, que era más frágil y no
+      podía conocer casos como 2026-sprint-1, cuyo startDate real es 2025-12-31.
+      El parseo del nombre se conserva sólo como último recurso. */
+    let sprintCalendar = {};
+
     function getReleaseDate(releaseFixVersion) {
       return releaseCalendar?.[releaseFixVersion]?.date || null;
     }
@@ -1851,6 +2047,11 @@
 
     const storyStateColors = {
       'New': '#94a3b8',
+      /* Removed caía al valor por defecto '#cccccc', que se perdía contra el
+        fondo de la pista (--neutral-soft, #f1f5f9). El problema era de
+        CONTRASTE, no de tono: un slate-500 se separa claramente del fondo y
+        también de New (slate-400), sin robarle un color a la paleta de estados. */
+      'Removed': '#64748b',
       'Business Refinement': '#facc15',
       'Technical Refinement': '#fb923c',
       'Ready for Development': '#f97316',
@@ -3236,7 +3437,41 @@
       );
     }
 
-    function getStorySprintInfo(iterationPath) {
+    function getStorySprintInfo(iterationPath, sprintId = null) {
+      /* FUENTE PRINCIPAL: el calendario validado del backend, resuelto por
+        sprintId. Se mira primero a propósito — es la única fuente que conoce
+        las fechas reales. El parseo del nombre que hay más abajo no puede
+        saber, por ejemplo, que 2026-sprint-1 empieza el 2025-12-31. */
+      const calendarSprint = sprintId
+        ? sprintCalendar?.[sprintId]
+        : null;
+
+      if (calendarSprint?.startDate && calendarSprint?.endDate) {
+        const calendarStart = parseDashboardDate(
+          calendarSprint.startDate
+        );
+
+        const calendarInclusiveEnd = parseDashboardDate(
+          calendarSprint.endDate
+        );
+
+        if (calendarStart && calendarInclusiveEnd) {
+          return {
+            label:
+              calendarSprint.label || 'No Sprint assigned',
+            hasAssignedSprint: true,
+            start: calendarStart,
+            /* endDate del calendario es INCLUSIVO, igual que el último día del
+              nombre. La geometría del Roadmap usa end EXCLUSIVO. */
+            end: addDashboardDays(calendarInclusiveEnd, 1)
+          };
+        }
+      }
+
+      /* ÚLTIMO RECURSO: deducir las fechas del nombre del Iteration Path.
+        Es obligatorio conservarlo: el calendario termina en 2027-sprint-5
+        (2027-03-09), así que sin este respaldo todo Sprint posterior perdería su
+        barra en el Gantt de forma silenciosa y progresiva. */
       const rawIterationPath = String(iterationPath || '').trim();
     
       if (!rawIterationPath) {
@@ -3263,7 +3498,17 @@
       if (!sprintRangeMatch) {
         return {
           label,
-          hasAssignedSprint: true,
+          /* Un Iteration Path no vacío NO implica que tenga Sprint. Antes esto
+            era `true` siempre, así que una Story asignada sólo a un trimestre
+            (por ejemplo "Commercial Engineering\2026\Q3") mostraba un badge
+            cuyo tooltip decía, contradiciendose: "Assigned Sprint: No Sprint
+            assigned".
+
+            El flag debe reflejar si se identificó un número de Sprint, que es
+            exactamente lo que determina el `label` unas líneas más arriba.
+            Queda reservado el caso "Sprint identificado pero sin rango de
+            fechas utilizable": ese sí es `true` con start/end nulos. */
+          hasAssignedSprint: Boolean(sprintId || sprintNumberMatch),
           start: null,
           end: null
         };
@@ -3315,12 +3560,29 @@
       const endYear = endMonth < startMonth
         ? year + 1
         : year;
-    
+
+      /* El nombre del Iteration Path expresa el último día del Sprint de forma
+        INCLUSIVA: "2026_S16_Jul29-Aug11" son 14 días contando ambos extremos, y
+        así está declarado en config/release-calendar.json (startDate 2026-07-29,
+        endDate 2026-08-11, con el sprint siguiente empezando el 08-12).
+
+        Pero toda la geometría del Roadmap usa end EXCLUSIVO, así que hay que
+        sumar un día. Sin esta conversión el Sprint se dibujaba un día más corto
+        y la línea de cierre caía al INICIO del último día en vez de a su final:
+        en la escala de 12 semanas ocupaba 13/84 = 15,48% en lugar de 16,67%. */
+      const inclusiveEndDate = createDashboardDate(
+        endYear,
+        endMonth,
+        endDay
+      );
+
       return {
         label,
         hasAssignedSprint: true,
         start: createDashboardDate(year, startMonth, startDay),
-        end: createDashboardDate(endYear, endMonth, endDay)
+        end: inclusiveEndDate
+          ? addDashboardDays(inclusiveEndDate, 1)
+          : null
       };
     }
     
@@ -3330,6 +3592,12 @@
       storyPoints,
       state,
       iterationPath,
+      /* Resuelto por el backend contra el calendario validado. Sustituye al
+        parseo del nombre del Iteration Path. */
+      sprintId,
+      /* Compromiso de la Feature padre. Se usa para decidir si esta Story se
+        sale del plazo comprometido; la Story por si sola no puede saberlo. */
+      featureTargetDate,
       formatDate,
       timelineStart,
       timelineEnd,
@@ -3401,8 +3669,15 @@
             endDate: stateEnd,
 
             startPercent: clampedStart,
+            /* Ancho EXACTO en días calendario. Antes había un mínimo de 1%, que
+              en la escala de 12 meses convertía un estado de un día (0,274%)
+              en 3,65 días aparentes, y dos transiciones el mismo día en dos
+              barras solapadas de 1%.
+              La visibilidad de los tramos muy cortos ya la garantiza el CSS:
+              .gantt-bar tiene min-width 6px. El mínimo debe ser visual, no
+              geométrico, para no mentir sobre la duración. */
             widthPercent: Math.max(
-              1,
+              0,
               clampedEnd - clampedStart
             )
           });
@@ -3410,7 +3685,7 @@
       });
     }
 
-    const sprintInfo = getStorySprintInfo(iterationPath);
+    const sprintInfo = getStorySprintInfo(iterationPath, sprintId);
     const sprintStart = sprintInfo.start;
     const sprintEnd = sprintInfo.end;
     const sprintLabel = sprintInfo.label;
@@ -3432,14 +3707,15 @@
         const rawEnd = getSprintPercent(sprintEnd);
       
         /* Sólo se dibujan las dos líneas cuando el Sprint completo cabe dentro de la ventana visible. */
-        /* El Sprint sólo está completamente dentro de la ventana si:
-          - comienza en timelineStart o después;
-          - termina antes de timelineEnd, que es exclusivo.*/
+        /* sprintInfo.end ya es EXCLUSIVO, igual que timelineEnd. Por eso el
+          límite es <= 100: un Sprint cuyo día siguiente al último coincide
+          exactamente con timelineEnd SÍ está completamente visible. Con < 100
+          se ocultaban las líneas del último Sprint de la ventana. */
         if (
           rawStart !== null &&
           rawEnd !== null &&
           rawStart >= 0 &&
-          rawEnd < 100
+          rawEnd <= 100
         ) {
           sprintStartPercent = rawStart;
           sprintEndPercent = rawEnd;
@@ -3447,6 +3723,60 @@
             (sprintStartPercent + sprintEndPercent) / 2;
       
           isSprintFullyVisible = true;
+        }
+      }
+
+      /* (b) Story fuera del compromiso de la Feature.
+
+        Se pinta una linea roja discreta bajo su barra cuando su Sprint termina
+        despues del Target Date de la Feature. Condiciones:
+
+        - Solo si la Story TIENE fechas de sprint. Sin agendar, su posicion en
+          el Gantt no seria interpretable, asi que no se pinta nada.
+        - Solo si sigue abierta. Una Story cerrada o eliminada que ocurrio
+          despues del Target es historia, no riesgo.
+
+        La linea cubre unicamente el tramo que EXCEDE el compromiso, de modo que
+        su longitud es la magnitud del desvio. Mismo criterio que en la fila de
+        la Feature. */
+      const normalizedStoryState = String(state || '').trim();
+
+      const isStoryOpen =
+        normalizedStoryState !== 'Closed' &&
+        normalizedStoryState !== 'Removed';
+
+      const featureTargetPercent = featureTargetDate
+        ? getSprintPercent(parseDashboardDate(featureTargetDate))
+        : null;
+
+      let storyOverflowStart = null;
+      let storyOverflowWidth = null;
+
+      if (
+        isStoryOpen &&
+        sprintStart &&
+        sprintEnd &&
+        featureTargetPercent !== null
+      ) {
+        const rawSprintStartPercent = getSprintPercent(sprintStart);
+        const rawSprintEndPercent = getSprintPercent(sprintEnd);
+
+        if (
+          rawSprintStartPercent !== null &&
+          rawSprintEndPercent !== null &&
+          rawSprintEndPercent > featureTargetPercent
+        ) {
+          const overflowStart = Math.max(
+            0,
+            Math.max(featureTargetPercent, rawSprintStartPercent)
+          );
+
+          const overflowEnd = Math.min(100, rawSprintEndPercent);
+
+          if (overflowEnd > overflowStart) {
+            storyOverflowStart = overflowStart;
+            storyOverflowWidth = overflowEnd - overflowStart;
+          }
         }
       }
 
@@ -3562,6 +3892,21 @@
                   No data
                 </div>
               ) : null}
+              {!loading && !unavailable && storyOverflowWidth !== null && (
+                <div
+                  className="gantt-overflow-line gantt-overflow-line--story"
+                  style={{
+                    left: `${storyOverflowStart}%`,
+                    width: `${storyOverflowWidth}%`
+                  }}
+                  title={
+                    'This work item runs past the Feature Target Date (' +
+                    formatDate(featureTargetDate) +
+                    ')'
+                  }
+                />
+              )}
+
               {!loading && !unavailable && isSprintFullyVisible && (
                 <>
                   <div
@@ -3747,7 +4092,8 @@
           if (rawStartPercent < 100 && rawEndPercent > 0) {
             const clampedStart = Math.max(0, rawStartPercent);
             const clampedEnd = Math.min(100, rawEndPercent);
-            const widthPercent = Math.max(1, clampedEnd - clampedStart);
+            /* Ancho exacto: el mínimo visible lo aporta .gantt-bar (min-width 6px). */
+            const widthPercent = Math.max(0, clampedEnd - clampedStart);
             segments.push({
               color: stateColors[state.state] || '#cccccc',
               state: state.state,
@@ -3899,6 +4245,14 @@
             <div className="gantt-timeline-canvas gantt-feature-timeline-canvas"
               style={{ minHeight: '46px', background: isExpanded ? '#e0e0e0' : '#f9f9f9', borderRadius: '4px', 
               padding: '0', overflow: 'hidden', position: 'relative' }}>
+              {/* Banda de plazo: desde HOY hasta el Target Date.
+                Sustituye al triángulo rojo que marcaba el Target. Rayada y sin
+                tono propio, porque el plazo no es un estado: es lo que queda de
+                trabajo por delante. Arranca en HOY, no al final del último
+                estado, porque la pregunta que responde es "cuánto plazo me
+                queda", y eso se cuenta desde hoy.
+                El remate de 1px marca la fecha exacta y cumple la función
+                informativa que tenía el triángulo. */}
               {!loading && targetDate && (() => {
                 const target = parseDashboardDate(targetDate);
 
@@ -3912,21 +4266,91 @@
                   timelineEnd
                 );
 
-                /* timelineEnd es exclusivo. Un 100% representa exactamente ese límite y no un día visible del Roadmap. */
-                if (
-                  targetPercent === null ||
-                  targetPercent < 0 ||
-                  targetPercent >= 100
-                ) {
+                if (targetPercent === null) {
                   return null;
                 }
 
+                const todayPercent = getTimelinePercent(
+                  today,
+                  timelineStart,
+                  timelineEnd
+                );
+
+                const isClosed =
+                  String(feature?.state || '').trim() === 'Closed';
+
+                /* Una Feature cerrada no tiene plazo pendiente: su barra acaba
+                  en el cierre y el remate del Target queda a la derecha, vacío.
+                  Eso comunica de un vistazo que se entregó antes de plazo. */
+                const showBand =
+                  !isClosed &&
+                  todayPercent !== null &&
+                  targetPercent > todayPercent;
+
+                const bandStart = showBand
+                  ? Math.max(0, todayPercent)
+                  : 0;
+
+                const bandEnd = showBand
+                  ? Math.min(100, targetPercent)
+                  : 0;
+
+                const showCap =
+                  targetPercent >= 0 &&
+                  targetPercent < 100;
+
                 return (
-                  <div style={{ position: 'absolute', top: '-4px', left: targetPercent + '%', transform: 'translateX(-50%)', zIndex: 11, 
-                    width: '0', height: '0', borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '12px solid #f43f5e' }} 
-                    title={'Target: ' + formatDate(targetDate)} />
+                  <>
+                    {showBand && bandEnd > bandStart && (
+                      <div
+                        className="gantt-planned-band"
+                        style={{
+                          left: `${bandStart}%`,
+                          width: `${bandEnd - bandStart}%`
+                        }}
+                        title={
+                          'Remaining time until Target Date: ' +
+                          formatDate(targetDate)
+                        }
+                      />
+                    )}
+
+                    {showCap && (
+                      <div
+                        className="gantt-target-milestone"
+                        style={{ left: `${targetPercent}%` }}
+                        title={
+                          'Target Date: ' +
+                          formatDate(targetDate) +
+                          ' · development should be complete by this point'
+                        }
+                      />
+                    )}
+                  </>
                 );
               })()}
+              {/* Lineas de desborde del compromiso. La regla vive en
+                getFeatureOverflowLines() y la comparte la banda de movil, para
+                que las dos vistas no puedan divergir. */}
+              {!loading &&
+                getFeatureOverflowLines(
+                  feature,
+                  deliverySummary,
+                  timelineStart,
+                  timelineEnd,
+                  formatDate
+                ).map(line => (
+                  <div
+                    key={line.key}
+                    className="gantt-overflow-line gantt-overflow-line--feature"
+                    style={{
+                      left: `${line.start}%`,
+                      width: `${line.width}%`
+                    }}
+                    title={line.title}
+                  />
+                ))}
+
               {/* Release Fix Version: diamante azul */}
               {!loading &&
                 releaseFixVersion &&
@@ -3956,33 +4380,51 @@
               
                   return (
                     <div
-                      style={{
-                        position: 'absolute',
-                        top: '55%',
-                        left: `${releasePercent}%`,
-                        transform: 'translate(-50%, -50%) rotate(45deg)',
-                        zIndex: 12,
-                        width: '10px',
-                        height: '10px',
-                        background: '#1e3a8a',
-                      }}
+                      className="gantt-release-marker gantt-release-marker--rfv"
+                      style={{ left: `${releasePercent}%` }}
                       title={
                         `Release Fix Version: ${releaseFixVersion} · ` +
-                        formatDate(getReleaseDate(releaseFixVersion))
+                        formatDate(getReleaseDate(releaseFixVersion)) +
+                        (
+                          techGoLiveRFV &&
+                          getReleaseDate(techGoLiveRFV) ===
+                            getReleaseDate(releaseFixVersion)
+                            ? ` · Tech Go Live la misma fecha (${techGoLiveRFV})`
+                            : ''
+                        )
                       }
                     />
                   );
                 })()}
               
-              {/* Tech Go Live RFV: estrella amarilla */}
+              {/* Tech Go Live RFV.
+
+                Caso NORMAL (mismas fechas): no se dibuja nada aquí. El rombo
+                sólido del RFV ya representa el momento y su tooltip menciona
+                ambas. Una sola marca en lugar de dos apiladas.
+
+                Caso EXCEPCIONAL (fechas distintas): rombo HUECO en Tech Go Live
+                más una línea fina que lo une al rombo sólido del RFV. Así la
+                separación entre "salió a producción" y "llegó al cliente" se
+                convierte en una magnitud visible, y el caso raro se ve raro sin
+                añadir un símbolo nuevo. Antes esto era una estrella amarilla. */}
               {!loading &&
                 techGoLiveRFV &&
                 getReleaseDate(techGoLiveRFV) &&
                 (() => {
+                  const isSameDateAsRelease =
+                    releaseFixVersion &&
+                    getReleaseDate(releaseFixVersion) ===
+                      getReleaseDate(techGoLiveRFV);
+
+                  if (isSameDateAsRelease) {
+                    return null;
+                  }
+
                   const techGoLiveDate = parseDashboardDate(
                     getReleaseDate(techGoLiveRFV)
                   );
-              
+
                   if (!techGoLiveDate) {
                     return null;
                   }
@@ -3992,7 +4434,7 @@
                     timelineStart,
                     timelineEnd
                   );
-              
+
                   /* timelineEnd es exclusivo. Si Tech Go Live cae exactamente en 100%, pertenece al período siguiente. */
                   if (
                     techGoLivePercent === null ||
@@ -4001,35 +4443,57 @@
                   ) {
                     return null;
                   }
-              
-                  const isSameDateAsRelease =
-                    releaseFixVersion &&
-                    getReleaseDate(releaseFixVersion) ===
-                      getReleaseDate(techGoLiveRFV);
-              
+
+                  const releaseDate = releaseFixVersion
+                    ? parseDashboardDate(
+                        getReleaseDate(releaseFixVersion)
+                      )
+                    : null;
+
+                  const releasePercent = releaseDate
+                    ? getTimelinePercent(
+                        releaseDate,
+                        timelineStart,
+                        timelineEnd
+                      )
+                    : null;
+
+                  const hasVisibleRelease =
+                    releasePercent !== null &&
+                    releasePercent >= 0 &&
+                    releasePercent < 100;
+
+                  const connectorStart = hasVisibleRelease
+                    ? Math.min(techGoLivePercent, releasePercent)
+                    : 0;
+
+                  const connectorEnd = hasVisibleRelease
+                    ? Math.max(techGoLivePercent, releasePercent)
+                    : 0;
+
                   return (
-                    <span style={{
-                        position: 'absolute',
-                        top: '55%',
-                        left: `${techGoLivePercent}%`,
-                        transform: isSameDateAsRelease
-                          ? 'translate(calc(-50% + 11px), calc(-50% - 7px))'
-                          : 'translate(-50%, -50%)',
-                        zIndex: 13,
-                        color: '#f59e0b',
-                        fontSize: '17px',
-                        fontWeight: '700',
-                        lineHeight: '1',
-                        textShadow:
-                          '0 0 1px #78350f, 0 1px 2px rgba(15, 23, 42, 0.45)',
-                      }}
-                      title={
-                        `Tech Go Live RFV: ${techGoLiveRFV} · ` +
-                        formatDate(getReleaseDate(techGoLiveRFV))
-                      }
-                    >
-                      ★
-                    </span>
+                    <>
+                      {hasVisibleRelease &&
+                        connectorEnd > connectorStart && (
+                          <div
+                            className="gantt-release-connector"
+                            style={{
+                              left: `${connectorStart}%`,
+                              width: `${connectorEnd - connectorStart}%`
+                            }}
+                          />
+                        )}
+
+                      <div
+                        className="gantt-release-marker gantt-release-marker--tech"
+                        style={{ left: `${techGoLivePercent}%` }}
+                        title={
+                          `Tech Go Live RFV: ${techGoLiveRFV} · ` +
+                          formatDate(getReleaseDate(techGoLiveRFV)) +
+                          ' · fecha distinta a la del Release Fix Version'
+                        }
+                      />
+                    </>
                   );
                 })()}
               {loading ? (
@@ -4513,7 +4977,15 @@
       unavailable,
       timelineStart,
       timelineEnd,
-      onRetryTimeline
+      onRetryTimeline,
+      /* La banda de móvil es UNA sola: muestra el historial de estados Y los
+        hitos (Target Date, RFV, Tech Go Live) sobre la MISMA escala. Antes eran
+        dos bandas con ventanas distintas (12 meses y 12 semanas) que no se
+        podían comparar entre sí. */
+      formatDate,
+      /* Necesario para la línea roja de retraso: distingue "queda trabajo sin
+        terminar" de "todo está esperando su Release". */
+      deliverySummary
     }) {
       const stateColors = {
         New: '#94a3b8',
@@ -4583,8 +5055,9 @@
               color:
                 stateColors[stateChange.state] || '#94a3b8',
               startPercent,
+              /* Ancho exacto: .mobile-feature-activity__segment aporta min-width 5px. */
               widthPercent: Math.max(
-                1,
+                0,
                 endPercent - startPercent
               )
             });
@@ -4624,7 +5097,7 @@
           aria-label={`Feature activity timeline for Feature ${feature.id}`}
         >
           <strong className="mobile-feature-activity__heading">
-            Feature activity
+            Feature timeline
           </strong>
     
           <div className="mobile-feature-activity__timeline">
@@ -4633,7 +5106,18 @@
               <span>{formatTimelineDate(visibleTimelineEnd)}</span>
             </div>
     
-            <div className="mobile-feature-activity__track">
+            <div
+              className={[
+                'mobile-feature-activity__track',
+                /* La ventana está acotada por la izquierda: si algún segmento
+                  arranca antes del inicio visible, se avisa con un degradado. */
+                segments.some(segment => segment.startPercent <= 0)
+                  ? 'mobile-feature-activity__track--clipped'
+                  : ''
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
               {!loading &&
                 segments.map((segment, index) => (
                   <span
@@ -4648,6 +5132,51 @@
                   />
                 ))}
     
+              {/* Tramo de plazo pendiente: de hoy al Target Date. Misma regla
+                que el escritorio, vía getPlannedBandRange(). */}
+              {!loading && (() => {
+                const planned = getPlannedBandRange(
+                  feature,
+                  timelineStart,
+                  timelineEnd
+                );
+
+                return planned && (
+                  <span
+                    className="mobile-feature-activity__planned"
+                    style={{
+                      left: `${planned.start}%`,
+                      width: `${planned.width}%`
+                    }}
+                    title={
+                      'Remaining time until Target Date: ' +
+                      formatDate(feature.targetDate)
+                    }
+                  />
+                );
+              })()}
+
+              {/* Líneas de desborde: misma regla que el escritorio, vía
+                getFeatureOverflowLines(). */}
+              {!loading &&
+                getFeatureOverflowLines(
+                  feature,
+                  deliverySummary,
+                  timelineStart,
+                  timelineEnd,
+                  formatDate
+                ).map(line => (
+                  <span
+                    key={line.key}
+                    className="mobile-feature-activity__overflow"
+                    style={{
+                      left: `${line.start}%`,
+                      width: `${line.width}%`
+                    }}
+                    title={line.title}
+                  />
+                ))}
+
               {!loading && isTodayVisible && (
                 <span
                   className="mobile-feature-activity__today"
@@ -4657,6 +5186,94 @@
                   title="Today"
                 />
               )}
+
+              {/* Hitos, con el MISMO lenguaje visual que el escritorio:
+                corchete ámbar de cierre para el Target Date, rombo sólido para
+                el RFV y rombo hueco sólo cuando Tech Go Live cae en otra fecha. */}
+              {!loading && (() => {
+                const getMarkerPercent = value => {
+                  if (!value) {
+                    return null;
+                  }
+
+                  const percent = getPercent(value);
+
+                  return percent !== null &&
+                    percent >= 0 &&
+                    percent <= 100
+                    ? percent
+                    : null;
+                };
+
+                const targetPercent = getMarkerPercent(
+                  feature?.targetDate
+                );
+
+                const releaseValue = feature?.releaseFixVersion
+                  ? getReleaseDate(feature.releaseFixVersion)
+                  : null;
+
+                const techValue = feature?.techGoLiveRFV
+                  ? getReleaseDate(feature.techGoLiveRFV)
+                  : null;
+
+                const releasePercent = getMarkerPercent(releaseValue);
+
+                const isSameDate =
+                  releaseValue &&
+                  techValue &&
+                  releaseValue === techValue;
+
+                const techPercent = isSameDate
+                  ? null
+                  : getMarkerPercent(techValue);
+
+                return (
+                  <>
+                    {targetPercent !== null && (
+                      <span
+                        className="mobile-feature-activity__target"
+                        style={{ left: `${targetPercent}%` }}
+                        title={
+                          'Target Date: ' +
+                          formatDate(feature.targetDate) +
+                          ' · development should be complete by this point'
+                        }
+                      />
+                    )}
+
+                    {releasePercent !== null && (
+                      <span
+                        className="mobile-feature-activity__release"
+                        style={{ left: `${releasePercent}%` }}
+                        title={
+                          'RFV ' +
+                          feature.releaseFixVersion +
+                          ' · ' +
+                          formatDate(releaseValue) +
+                          (isSameDate
+                            ? ' · Tech Go Live la misma fecha'
+                            : '')
+                        }
+                      />
+                    )}
+
+                    {techPercent !== null && (
+                      <span
+                        className="mobile-feature-activity__tech-go-live"
+                        style={{ left: `${techPercent}%` }}
+                        title={
+                          'Tech Go Live RFV ' +
+                          feature.techGoLiveRFV +
+                          ' · ' +
+                          formatDate(techValue) +
+                          ' · fecha distinta a la del RFV'
+                        }
+                      />
+                    )}
+                  </>
+                );
+              })()}
             </div>
     
             {!loading && isTodayVisible && (
@@ -4692,6 +5309,346 @@
           ) : null}
         </section>
       );
+    }
+
+    /* ── Lineas de desborde del compromiso ───────────────────────────────────
+
+      Regla UNICA compartida por el Gantt de escritorio y por la banda de movil.
+      Una sola implementacion a proposito: dos copias de esta regla acabarian
+      divergiendo, que es exactamente como aparecieron las dos bandas de movil y
+      el componente muerto MobileRoadmapTimeline.
+
+      Dos causas distintas, mismo significado y mismo trazo:
+
+      (c) RETRASO - del Target Date a HOY. Solo si queda trabajo sin terminar.
+          Si todo esta To Release NO se pinta: no esta retrasado, esta esperando
+          su Release.
+
+      (a) DESBORDE DE RELEASE - del RFV del Feature al RFV posterior mas lejano
+          de sus Stories. El anclaje es el RFV y NO el Target Date, a proposito:
+          el tramo Target -> RFV propio es plazo legitimo, y pintarlo marcaria
+          como incidencia el comportamiento normal de casi todas las Features.
+
+          Se lee de feature.releaseAlignment.findings, que ya trae el
+          workItemRfv de cada Story desalineada. Por eso funciona sin abrir las
+          Stories. */
+    function getFeatureOverflowLines(
+      feature,
+      deliverySummary,
+      timelineStart,
+      timelineEnd,
+      formatDate
+    ) {
+      const lines = [];
+
+      const formatValue = value =>
+        typeof formatDate === 'function'
+          ? formatDate(value)
+          : String(value || '');
+
+      const toPercent = value => {
+        const parsed = value ? parseDashboardDate(value) : null;
+
+        return parsed
+          ? getTimelinePercent(parsed, timelineStart, timelineEnd)
+          : null;
+      };
+
+      const targetDate = feature?.targetDate || null;
+      const targetPercent = toPercent(targetDate);
+
+      const todayPercent = getTimelinePercent(
+        getDashboardToday(),
+        timelineStart,
+        timelineEnd
+      );
+
+      const isClosed =
+        String(feature?.state || '').trim() === 'Closed';
+
+      /* (c) Retraso. "Sin terminar" = In Planning + In Process. */
+      const unfinishedWorkItems =
+        Number(deliverySummary?.inPlanningWorkItems || 0) +
+        Number(deliverySummary?.inProgressWorkItems || 0);
+
+      if (
+        !isClosed &&
+        unfinishedWorkItems > 0 &&
+        targetPercent !== null &&
+        todayPercent !== null &&
+        todayPercent > targetPercent
+      ) {
+        const start = Math.max(0, targetPercent);
+        const end = Math.min(100, todayPercent);
+
+        if (end > start) {
+          lines.push({
+            key: 'overdue',
+            start,
+            width: end - start,
+            title:
+              'Past Target Date (' +
+              formatValue(targetDate) +
+              ') with ' +
+              unfinishedWorkItems +
+              ' unfinished work item(s)'
+          });
+        }
+      }
+
+      /* (a) Desborde de release. */
+      const featureRfv = feature?.releaseFixVersion || '';
+
+      const featureReleaseDateValue = featureRfv
+        ? getReleaseDate(featureRfv)
+        : null;
+
+      const releaseFindings = Array.isArray(
+        feature?.releaseAlignment?.findings
+      )
+        ? feature.releaseAlignment.findings
+        : [];
+
+      if (featureReleaseDateValue && releaseFindings.length > 0) {
+        let furthestDateValue = null;
+        let furthestRfv = '';
+
+        releaseFindings.forEach(finding => {
+          const workItemRfv = String(
+            finding?.workItemRfv || ''
+          ).trim();
+
+          if (!workItemRfv) {
+            return;
+          }
+
+          const workItemDateValue = getReleaseDate(workItemRfv);
+
+          /* Fechas ISO YYYY-MM-DD: la comparacion lexicografica equivale a la
+            cronologica. */
+          if (
+            !workItemDateValue ||
+            workItemDateValue <= featureReleaseDateValue
+          ) {
+            return;
+          }
+
+          if (
+            !furthestDateValue ||
+            workItemDateValue > furthestDateValue
+          ) {
+            furthestDateValue = workItemDateValue;
+            furthestRfv = workItemRfv;
+          }
+        });
+
+        if (furthestDateValue) {
+          const fromPercent = toPercent(featureReleaseDateValue);
+          const untilPercent = toPercent(furthestDateValue);
+
+          if (fromPercent !== null && untilPercent !== null) {
+            const start = Math.max(0, fromPercent);
+            const end = Math.min(100, untilPercent);
+
+            if (end > start) {
+              lines.push({
+                key: 'release-overflow',
+                start,
+                width: end - start,
+                title:
+                  'Work scheduled up to ' +
+                  furthestRfv +
+                  ' (' +
+                  formatValue(furthestDateValue) +
+                  '), later than Feature RFV ' +
+                  featureRfv
+              });
+            }
+          }
+        }
+      }
+
+      return lines;
+    }
+
+    /* Tramo de plazo pendiente: de HOY al Target Date. Compartido por escritorio
+      y movil.
+
+      Devuelve null cuando no queda plazo por delante o la Feature ya esta
+      cerrada: una Feature cerrada antes de su Target no tiene plazo pendiente,
+      su barra acaba en el cierre y el corchete del Target queda a la derecha,
+      vacio. */
+    function getPlannedBandRange(
+      feature,
+      timelineStart,
+      timelineEnd
+    ) {
+      const targetDate = feature?.targetDate || null;
+
+      if (!targetDate) {
+        return null;
+      }
+
+      const target = parseDashboardDate(targetDate);
+
+      if (!target) {
+        return null;
+      }
+
+      const targetPercent = getTimelinePercent(
+        target,
+        timelineStart,
+        timelineEnd
+      );
+
+      const todayPercent = getTimelinePercent(
+        getDashboardToday(),
+        timelineStart,
+        timelineEnd
+      );
+
+      const isClosed =
+        String(feature?.state || '').trim() === 'Closed';
+
+      if (
+        isClosed ||
+        targetPercent === null ||
+        todayPercent === null ||
+        targetPercent <= todayPercent
+      ) {
+        return null;
+      }
+
+      const start = Math.max(0, todayPercent);
+      const end = Math.min(100, targetPercent);
+
+      return end > start
+        ? { start, width: end - start }
+        : null;
+    }
+
+    /* ── Ventana temporal de la banda única de móvil ─────────────────────────
+
+      En móvil no hay sitio para dos bandas ni para un control de escala, así
+      que la ventana se calcula por Feature. Cuatro reglas, en este orden de
+      prioridad:
+
+      1. NINGÚN HITO QUEDA FUERA. El final de la ventana es el más lejano de
+         {hoy, Target Date, RFV, Tech Go Live} más un margen. Los hitos son la
+         razón de existir de esta banda: si uno no cabe, la banda no sirve.
+
+      2. SIEMPRE HAY ALGO DE HISTORIA. El inicio nunca queda a menos de
+         MIN_HISTORY días de hoy, para que se vea el estado actual y
+         normalmente también el anterior.
+
+      3. LA HISTORIA ESTÁ ACOTADA. Nunca se mira más atrás de MAX_HISTORY días.
+         Sin este tope, una Feature que llevara un año en el mismo estado
+         estiraría la ventana y aplastaría todo lo demás contra el borde
+         derecho: una franja de color plana con los hitos indistinguibles. Lo
+         que se sale por la izquierda se marca con un degradado de "continúa
+         antes" en lugar de fingir que ahí empieza la historia.
+
+      4. Se prefiere arrancar en el último cambio de estado, para que el
+         encuadre siga el ritmo real de la Feature y no una constante fija. */
+    const MOBILE_TIMELINE_MIN_HISTORY_DAYS = 42;
+    const MOBILE_TIMELINE_MAX_HISTORY_DAYS = 120;
+    const MOBILE_TIMELINE_TAIL_DAYS = 10;
+
+    function getMobileFeatureTimelineWindow(feature, states = []) {
+      const todayDateTime = getTimelineDateTime(
+        getDashboardToday()
+      );
+
+      if (!todayDateTime) {
+        return { start: null, end: null };
+      }
+
+      /* (1) Final: el hito más lejano, nunca antes de hoy.
+        Y también se anota el hito MÁS ANTIGUO: un Target Date ya vencido debe
+        seguir siendo visible, porque es precisamente el caso que interesa
+        mirar. Sin esto, una Feature con el Target hace dos meses perdía su
+        corchete ámbar por quedar antes del inicio de la ventana. */
+      let furthest = todayDateTime;
+      let earliestMilestone = null;
+
+      [
+        feature?.targetDate,
+        feature?.releaseFixVersion
+          ? getReleaseDate(feature.releaseFixVersion)
+          : null,
+        feature?.techGoLiveRFV
+          ? getReleaseDate(feature.techGoLiveRFV)
+          : null
+      ].forEach(value => {
+        const dateTime = value
+          ? getTimelineDateTime(value)
+          : null;
+
+        if (!dateTime) {
+          return;
+        }
+
+        if (dateTime > furthest) {
+          furthest = dateTime;
+        }
+
+        if (
+          !earliestMilestone ||
+          dateTime < earliestMilestone
+        ) {
+          earliestMilestone = dateTime;
+        }
+      });
+
+      /* (4) Inicio preferido: comienzo del estado actual. */
+      let preferredStart = null;
+
+      (Array.isArray(states) ? states : []).forEach(stateChange => {
+        const changed = getTimelineDateTime(
+          stateChange?.changedDate
+        );
+
+        if (!changed) {
+          return;
+        }
+
+        if (!preferredStart || changed > preferredStart) {
+          preferredStart = changed;
+        }
+      });
+
+      /* (2) y (3): piso y techo de historia. */
+      const earliestStart = todayDateTime.minus({
+        days: MOBILE_TIMELINE_MAX_HISTORY_DAYS
+      });
+
+      const latestStart = todayDateTime.minus({
+        days: MOBILE_TIMELINE_MIN_HISTORY_DAYS
+      });
+
+      let start = preferredStart || latestStart;
+
+      /* Un hito pasado tiene prioridad sobre el encuadre por historia. */
+      if (earliestMilestone && earliestMilestone < start) {
+        start = earliestMilestone.minus({
+          days: MOBILE_TIMELINE_TAIL_DAYS
+        });
+      }
+
+      if (start > latestStart) {
+        start = latestStart;
+      }
+
+      if (start < earliestStart) {
+        start = earliestStart;
+      }
+
+      return {
+        start: start.toJSDate(),
+        end: furthest
+          .plus({ days: MOBILE_TIMELINE_TAIL_DAYS })
+          .toJSDate()
+      };
     }
 
     function MobileFeatureTimelineAlerts({ feature }) {
@@ -4817,15 +5774,15 @@
             '--feature-state-color': featureStateColor
           }}
         >
-            <MobileFeatureCardHeader
-              feature={feature}
-              adoLink={adoLink}
-              formatDate={formatDate}
-              isExpanded={isExpanded}
-              onToggle={onToggle}
-              expandLabel="Tap to view Feature details"
-              collapseLabel="Collapse Feature details"
-            >
+          <MobileFeatureCardHeader
+            feature={feature}
+            adoLink={adoLink}
+            formatDate={formatDate}
+            isExpanded={isExpanded}
+            onToggle={onToggle}
+            expandLabel="Tap to view Feature details"
+            collapseLabel="Collapse Feature details"
+          >
             <MobileFeatureProgress
               feature={feature}
               storiesCache={storiesCache}
@@ -4877,232 +5834,46 @@
       );
     }
 
-    function getMobileTimelinePercentage(
-      date,
-      timelineStart,
-      timelineEnd
-    ) {
-      if (!date) {
-        return null;
-      }
+    /* Leyenda de la banda de movil.
 
-      /* Los tres valores pueden ser DateTime de Luxon. getTimelinePercent() los normaliza al día calendario de dashboardTimeZone y aplica el contrato end-exclusive. */
-      const percent = getTimelinePercent(
-        date,
-        timelineStart,
-        timelineEnd
-      );
+      Se monta UNA sola vez sobre la lista del Roadmap, no dentro de cada
+      tarjeta. Antes vivia dentro del componente de la banda, asi que con 15
+      Features por pagina se repetia 15 veces; mostrarla solo en la primera
+      tarjeta dejaba sin referencia a quien bajaba por la lista. Fuera de las
+      tarjetas resuelve las dos cosas: esta siempre visible al llegar y no se
+      duplica.
 
-      /* timelineEnd es exclusivo. Un marcador en 100% corresponde exactamente al primer día fuera de la ventana mostrada. */
-      if (
-        percent === null ||
-        percent < 0 ||
-        percent >= 100
-      ) {
-        return null;
-      }
-
-      return Math.max(
-        0,
-        Math.min(100, percent)
-      );
-    }
-
-    function MobileRoadmapTimeline({
-      feature,
-      timelineOffset,
-      formatDate
-    }) {
-      const timelineStart = getDashboardNow()
-        .startOf('month')
-        .plus({ months: timelineOffset });
-
-      const timelineEnd = timelineStart
-        .plus({ months: 12 });
-
-      const today = getDashboardNow().startOf('day');
-
-      const targetDate = getDashboardDateTime(
-        feature.targetDate
-      );
-
-      const releaseDate = feature.releaseFixVersion
-        ? getDashboardDateTime(
-            getReleaseDate(feature.releaseFixVersion)
-          )
-        : null;
-
-      const techGoLiveDate = feature.techGoLiveRFV
-        ? getDashboardDateTime(
-            getReleaseDate(feature.techGoLiveRFV)
-          )
-        : null;
-
-      const todayPercent = getMobileTimelinePercentage(
-        today,
-        timelineStart,
-        timelineEnd
-      );
-
-      const targetPercent = getMobileTimelinePercentage(
-        targetDate,
-        timelineStart,
-        timelineEnd
-      );
-
-      const releasePercent = getMobileTimelinePercentage(
-        releaseDate,
-        timelineStart,
-        timelineEnd
-      );
-
-      const techGoLivePercent = getMobileTimelinePercentage(
-        techGoLiveDate,
-        timelineStart,
-        timelineEnd
-      );
-      
-      const isTechGoLiveOnSameReleaseDate =
-        feature.releaseFixVersion &&
-        feature.techGoLiveRFV &&
-        getReleaseDate(feature.releaseFixVersion) ===
-          getReleaseDate(feature.techGoLiveRFV);
-      
-      const middleDate = timelineStart.plus({ months: 4 });
-      const laterDate = timelineStart.plus({ months: 8 });
-      const finalDate = timelineEnd.minus({ days: 1 });
-
+      Los marcadores replican exactamente los de la banda y los del Gantt de
+      escritorio. */
+    function MobileRoadmapLegend() {
       return (
-        <>
-          <div
-            className="mobile-roadmap-timeline"
-              aria-label={
-                `Roadmap timeline. Target Date: ${
-                  formatDate(feature.targetDate)
-                }. Release Fix Version: ${
-                  feature.releaseFixVersion || 'not assigned'
-                }. Tech Go Live RFV: ${
-                  feature.techGoLiveRFV || 'not assigned'
-                }.`
-              }
-          >
-            <div className="mobile-roadmap-timeline__baseline" />
+        <div
+          className="mobile-roadmap-timeline__legend mobile-roadmap-legend"
+          aria-label="Roadmap timeline legend"
+        >
+          <span className="mobile-roadmap-timeline__legend-item">
+            <span className="mobile-roadmap-timeline__legend-today" />
+            Today
+          </span>
 
-            {todayPercent !== null && (
-              <div
-                className="mobile-roadmap-timeline__today"
-                style={{
-                  left: `${todayPercent}%`
-                }}
-                title="Today"
-              />
-            )}
+          <span className="mobile-roadmap-timeline__legend-item">
+            <span className="mobile-roadmap-timeline__legend-target" />
+            Target Date
+          </span>
 
-            {targetPercent !== null && (
-              <div
-                className="mobile-roadmap-timeline__target"
-                style={{
-                  left: `${targetPercent}%`
-                }}
-                title={`Target Date: ${formatDate(feature.targetDate)}`}
-              />
-            )}
+          <span className="mobile-roadmap-timeline__legend-item">
+            <span className="mobile-roadmap-timeline__legend-release" />
+            RFV
+          </span>
 
-            {releasePercent !== null && (
-              <div
-                className="mobile-roadmap-timeline__release"
-                style={{
-                  left: `${releasePercent}%`
-                }}
-                title={
-                  `${feature.releaseFixVersion}: ${
-                    formatDate(
-                      getReleaseDate(feature.releaseFixVersion)
-                    )
-                  }`
-                }
-              />
-            )}
-
-            {techGoLivePercent !== null && (
-              <span
-                className={[
-                  'mobile-roadmap-timeline__tech-go-live',
-                  isTechGoLiveOnSameReleaseDate
-                    ? 'mobile-roadmap-timeline__tech-go-live--same-release'
-                    : ''
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                style={{
-                  left: `${techGoLivePercent}%`
-                }}
-                title={
-                  `Tech Go Live RFV: ${feature.techGoLiveRFV} · ${
-                    formatDate(
-                      getReleaseDate(feature.techGoLiveRFV)
-                    )
-                  }`
-                }
-              >
-                ★
-              </span>
-            )}
-            
-          </div>
-
-          <div className="mobile-roadmap-timeline__month-labels">
-            <span>
-              {timelineStart
-                .setLocale('en-US')
-                .toLocaleString({ month: 'short', year: '2-digit' })}
-            </span>
-
-            <span>
-              {middleDate
-                .setLocale('en-US')
-                .toLocaleString({ month: 'short' })}
-            </span>
-
-            <span>
-              {laterDate
-                .setLocale('en-US')
-                .toLocaleString({ month: 'short' })}
-            </span>
-
-            <span>
-              {finalDate
-                .setLocale('en-US')
-                .toLocaleString({ month: 'short', year: '2-digit' })}
-            </span>
-          </div>
-
-          <div className="mobile-roadmap-timeline__legend">
-            <span className="mobile-roadmap-timeline__legend-item">
-              <span className="mobile-roadmap-timeline__legend-today" />
-              Today
-            </span>
-
-            <span className="mobile-roadmap-timeline__legend-item">
-              <span className="mobile-roadmap-timeline__legend-target" />
-              Target Date
-            </span>
-
-            <span className="mobile-roadmap-timeline__legend-item">
-              <span className="mobile-roadmap-timeline__legend-release" />
-              RFV
-            </span>
-
-            <span className="mobile-roadmap-timeline__legend-item">
-              <span className="mobile-roadmap-timeline__legend-tech-go-live">
-                ★
-              </span>
-              Tech Go Live
-            </span>
-          </div>
-        </>
+          <span className="mobile-roadmap-timeline__legend-item">
+            <span className="mobile-roadmap-timeline__legend-tech-go-live" />
+            Tech Go Live
+          </span>
+        </div>
       );
     }
+
 
     function MobileStoryTimelineCard({
       story,
@@ -5112,7 +5883,10 @@
       adoLink,
       timelineStart,
       timelineEnd,
-      onRetryTimeline
+      onRetryTimeline,
+      /* Compromiso de la Feature padre, para la línea roja de desborde.
+        Misma regla que StoryRow en el Gantt de escritorio. */
+      featureTargetDate
     }) {
       const stateColor =
         storyStateColors[story.state] || '#94a3b8';
@@ -5177,8 +5951,9 @@
                 storyStateColors[stateChange.state] ||
                 '#94a3b8',
               startPercent: clampedStart,
+              /* Ancho exacto: .mobile-story-timeline-card__segment aporta min-width 5px. */
               widthPercent: Math.max(
-                1,
+                0,
                 clampedEnd - clampedStart
               )
             });
@@ -5210,24 +5985,68 @@
         : null;
     
       const sprintInfo = getStorySprintInfo(
-        story.iterationPath
+        story.iterationPath,
+        story.sprintId
       );
     
       let sprintStartPercent = null;
       let sprintEndPercent = null;
       let sprintMidPercent = null;
       let isSprintFullyVisible = false;
+
+      /* Desborde de la Story respecto al Target Date de su Feature. Misma regla
+        que StoryRow en escritorio: sólo si está abierta y tiene fechas de
+        sprint, y sólo se pinta el tramo que EXCEDE el compromiso. */
+      let storyOverflowStart = null;
+      let storyOverflowWidth = null;
+
+      const isMobileStoryOpen =
+        String(story?.state || '').trim() !== 'Closed' &&
+        String(story?.state || '').trim() !== 'Removed';
+
+      if (
+        isMobileStoryOpen &&
+        featureTargetDate &&
+        sprintInfo.start &&
+        sprintInfo.end
+      ) {
+        const featureTargetPercent = getPercent(
+          parseDashboardDate(featureTargetDate)
+        );
+
+        const rawStart = getPercent(sprintInfo.start);
+        const rawEnd = getPercent(sprintInfo.end);
+
+        if (
+          featureTargetPercent !== null &&
+          rawStart !== null &&
+          rawEnd !== null &&
+          rawEnd > featureTargetPercent
+        ) {
+          const overflowStart = Math.max(
+            0,
+            Math.max(featureTargetPercent, rawStart)
+          );
+
+          const overflowEnd = Math.min(100, rawEnd);
+
+          if (overflowEnd > overflowStart) {
+            storyOverflowStart = overflowStart;
+            storyOverflowWidth = overflowEnd - overflowStart;
+          }
+        }
+      }
     
       if (sprintInfo.start && sprintInfo.end) {
         const rawSprintStart = getPercent(sprintInfo.start);
         const rawSprintEnd = getPercent(sprintInfo.end);
     
-        /* timelineEnd es exclusivo; por eso un Sprint que termina exactamente en 100% no está completamente visible. */
+        /* sprintInfo.end es EXCLUSIVO, igual que timelineEnd: un Sprint que cierra justo en 100% SÍ está completamente visible. */
         if (
           rawSprintStart !== null &&
           rawSprintEnd !== null &&
           rawSprintStart >= 0 &&
-          rawSprintEnd < 100
+          rawSprintEnd <= 100
         ) {
           sprintStartPercent = rawSprintStart;
           sprintEndPercent = rawSprintEnd;
@@ -5368,6 +6187,21 @@
                   title={segment.state}
                 />
               ))}
+
+              {/* Desborde respecto al Target Date de la Feature. Igual que en el
+                Gantt de escritorio: línea fina bajo la barra, no relleno. */}
+              {!loading && !unavailable && storyOverflowWidth !== null && (
+                <span
+                  className="mobile-story-timeline-card__overflow"
+                  style={{
+                    left: `${storyOverflowStart}%`,
+                    width: `${storyOverflowWidth}%`
+                  }}
+                  title={
+                    'This work item runs past the Feature Target Date'
+                  }
+                />
+              )}
     
               {!loading && isTodayVisible && (
                 <span
@@ -5433,10 +6267,21 @@
         featureHistory,
         loadingFeatureHistory,
         unavailableFeatureHistory,
-        weekOffset
+        weekOffset,
+        /* Para la línea roja de retraso de la banda de la Feature. */
+        deliverySummary
       }) {
       const featureStateColor = getFeatureStateColor(feature.state);
 
+      /* Una sola ventana para la única banda de móvil: contiene los hitos y
+        algo de historia acotada. Ver getMobileFeatureTimelineWindow(). */
+      const mobileTimelineWindow = getMobileFeatureTimelineWindow(
+        feature,
+        featureHistory
+      );
+
+      /* Las Stories siguen usando la ventana semanal: su unidad de trabajo es el
+        Sprint, no el hito de release de la Feature. */
       const weekTimelineStart = getDashboardNow()
         .startOf('week')
         .plus({ weeks: weekOffset })
@@ -5459,25 +6304,32 @@
             '--feature-state-color': featureStateColor
           }}
         >
-            <MobileFeatureCardHeader
-              feature={feature}
-              adoLink={adoLink}
-              formatDate={formatDate}
-              isExpanded={isExpanded}
-              onToggle={onToggle}
-              expandLabel="Tap to view Story and Bug timelines"
-              collapseLabel="Collapse Story and Bug timelines"
-            >
-              
-          <MobileFeatureActivityTimeline
+          <MobileFeatureCardHeader
             feature={feature}
-            states={featureHistory}
-            loading={loadingFeatureHistory}
-            unavailable={unavailableFeatureHistory}
-            timelineStart={weekTimelineStart}
-            timelineEnd={weekTimelineEnd}
-            onRetryTimeline={onRetryFeatureTimeline}         
-          />
+            adoLink={adoLink}
+            formatDate={formatDate}
+            isExpanded={isExpanded}
+            onToggle={onToggle}
+            expandLabel="Tap to view Story and Bug timelines"
+            collapseLabel="Collapse Story and Bug timelines"
+          >
+              
+            {/* UNA sola banda: historial de estados con barras de color e hitos
+              (Target Date, RFV, Tech Go Live) sobre la MISMA escala, en una
+              ventana calculada para esta Feature. Antes había dos bandas con
+              ventanas distintas — 12 meses y 12 semanas — que no se podían
+              comparar entre sí y no dejaban claro de qué fechas hablaba cada una. */}
+            <MobileFeatureActivityTimeline
+              feature={feature}
+              states={featureHistory}
+              loading={loadingFeatureHistory}
+              unavailable={unavailableFeatureHistory}
+              timelineStart={mobileTimelineWindow.start}
+              timelineEnd={mobileTimelineWindow.end}
+              onRetryTimeline={onRetryFeatureTimeline}
+              formatDate={formatDate}
+              deliverySummary={deliverySummary}
+            />
           
           </MobileFeatureCardHeader>
 
@@ -5523,6 +6375,7 @@
                         adoLink={adoLink}
                         timelineStart={weekTimelineStart}
                         timelineEnd={weekTimelineEnd}
+                        featureTargetDate={feature.targetDate}
                       />
                     ))}
                   </div>
@@ -6119,18 +6972,31 @@
     /* Returns one comparable score answering: "Which Feature should I review first?"
       Risk does not replace Delivery Health. Delivery Health explains the
       delivery issue; Risk accumulates signals to support prioritization.  */
+    /* Suma los puntos de un breakdown YA calculado.
+       Existe para poder pedir el breakdown una sola vez y derivar el score de él.
+       Antes, pedir score + breakdown para la misma Feature ejecutaba el cálculo
+       completo dos veces, y el cálculo recorre las alertas de Delivery Health y
+       todos los work items de la Feature. */
+    function getRiskScoreFromBreakdown(breakdown) {
+      return (breakdown || []).reduce(
+        (total, item) => total + item.points,
+        0
+      );
+    }
+
+    /* Se conserva para quien sólo necesita el número y no el desglose:
+       hoy, el comparador de ordenamiento por la columna Risk. */
     function getFeatureRiskScore(
       feature,
       storiesCache = {},
       unavailableStoriesIds = {}
     ) {
-      return getFeatureRiskBreakdown(
-        feature,
-        storiesCache,
-        unavailableStoriesIds
-      ).reduce(
-        (total, item) => total + item.points,
-        0
+      return getRiskScoreFromBreakdown(
+        getFeatureRiskBreakdown(
+          feature,
+          storiesCache,
+          unavailableStoriesIds
+        )
       );
     }
 
@@ -6140,19 +7006,16 @@
       storiesCache = {},
       unavailableStoriesIds = {}
     ) {
-      const score = getFeatureRiskScore(
-        feature,
-        storiesCache,
-        unavailableStoriesIds
-      );
-
-      const level = getFeatureRiskLevel(score);
-
+      /* Un solo breakdown. El score se deriva de él. */
       const breakdown = getFeatureRiskBreakdown(
         feature,
         storiesCache,
         unavailableStoriesIds
       );
+
+      const score = getRiskScoreFromBreakdown(breakdown);
+
+      const level = getFeatureRiskLevel(score);
 
       if (breakdown.length === 0) {
         return `${level.label} risk · ${score}\nNo risk signals detected.`;
@@ -6169,14 +7032,19 @@
 
     /* Risk Indicator compacto para la tabla. El score exacto sigue disponible en el tooltip porque es útil para
       ordenar y auditar, pero la tabla prioriza el nivel visual de riesgo. */
+    /* Recibe SÓLO el breakdown y deriva el score. Antes recibía las dos cosas,
+       lo que obligaba a cada sitio a calcular el breakdown dos veces (el score
+       no es más que el breakdown sumado). Además hacía posible pasar un score
+       que no correspondiera a su desglose. */
     function RiskIndicator({
-      score,
       breakdown = [],
       showTooltip,
       moveTooltip,
       hideTooltip
     }) {
-      const level = getFeatureRiskLevel(score);
+      const score = getRiskScoreFromBreakdown(breakdown);
+
+	      const level = getFeatureRiskLevel(score);
 
       /* El modelo tiene cinco niveles internos, pero la columna usa tres intensidades visuales para conservar lectura rápida:
         - Low: sin señales detectadas;
@@ -6390,12 +7258,7 @@
           unavailableStoriesIds
         );
     
-        const riskScore = getFeatureRiskScore(
-          feature,
-          storiesCache,
-          unavailableStoriesIds
-        );
-    
+        /* Sólo el breakdown: RiskIndicator deriva el score por su cuenta. */
         const riskBreakdown = getFeatureRiskBreakdown(
           feature,
           storiesCache,
@@ -6485,12 +7348,11 @@
     
                 <div className="sticky-feature-context__cell sticky-feature-context__cell--center">
                   <RiskIndicator
-                    score={riskScore}
-                    breakdown={riskBreakdown}
-                    showTooltip={showTooltip}
-                    moveTooltip={moveTooltip}
-                    hideTooltip={hideTooltip}
-                  />
+	                    breakdown={riskBreakdown}
+	                    showTooltip={showTooltip}
+	                    moveTooltip={moveTooltip}
+	                    hideTooltip={hideTooltip}
+	                  />
                 </div>
     
                 <div className="sticky-feature-context__cell sticky-feature-context__cell--center">
@@ -6627,12 +7489,11 @@
     
                 <div className="sticky-feature-context__compact-risk">
                   <RiskIndicator
-                    score={riskScore}
-                    breakdown={riskBreakdown}
-                    showTooltip={showTooltip}
-                    moveTooltip={moveTooltip}
-                    hideTooltip={hideTooltip}
-                  />
+	                    breakdown={riskBreakdown}
+	                    showTooltip={showTooltip}
+	                    moveTooltip={moveTooltip}
+	                    hideTooltip={hideTooltip}
+	                  />
                 </div>
     
                 <div className="sticky-feature-context__compact-identity">
@@ -6884,13 +7745,27 @@
           )
         : null;
       
+      /* Etiqueta del Sprint. Viene resuelta del backend, que la deriva del
+        número de Sprint con un regex más tolerante. Esto unifica el formato:
+        antes aquí se pintaba "2026 S16" mientras las filas del Gantt pintaban
+        "S16", y este regex más estricto fallaba con rutas tipo
+        "2026-Sprint16-..." que el backend sí reconoce.
+        El parseo local queda como último recurso. */
       const sprintLabel = (() => {
+        const backendLabel = String(
+          story.sprintLabel || ''
+        ).trim();
+
+        if (backendLabel) {
+          return backendLabel;
+        }
+
         const match =
           story.iterationPath &&
           story.iterationPath.match(/(\d{4})_(S\d+)_/);
 
         if (match) {
-          return `${match[1]} ${match[2]}`;
+          return match[2];
         }
 
         return story.iterationPath
@@ -8034,6 +8909,16 @@
     
             <div className="roadmap-legend__item">
               <span
+                className="roadmap-legend__marker roadmap-legend__marker--planned"
+                aria-hidden="true"
+              />
+              <span className="roadmap-legend__text">
+                Remaining time
+              </span>
+            </div>
+    
+            <div className="roadmap-legend__item">
+              <span
                 className="roadmap-legend__marker roadmap-legend__marker--target"
                 aria-hidden="true"
               />
@@ -8044,9 +8929,7 @@
               <span
                 className="roadmap-legend__marker roadmap-legend__marker--rfv"
                 aria-hidden="true"
-              >
-                ◆
-              </span>
+              />
               <span className="roadmap-legend__text">RFV</span>
             </div>
     
@@ -8054,11 +8937,19 @@
               <span
                 className="roadmap-legend__marker roadmap-legend__marker--tech-go-live"
                 aria-hidden="true"
-              >
-                ★
-              </span>
+              />
               <span className="roadmap-legend__text">
                 Tech Go Live RFV
+              </span>
+            </div>
+
+            <div className="roadmap-legend__item">
+              <span
+                className="roadmap-legend__marker roadmap-legend__marker--overflow"
+                aria-hidden="true"
+              />
+              <span className="roadmap-legend__text">
+                Beyond commitment
               </span>
             </div>
           </div>
@@ -8639,7 +9530,8 @@
       box,
       timelineStart,
       timelineEnd,
-      unitCount = 12
+      unitCount = 12,
+      isWeekMode = false
     }) {
       if (!box || !timelineStart || !timelineEnd) {
         return null;
@@ -8668,6 +9560,16 @@
         todayPercent !== null &&
         todayPercent >= 0 &&
         todayPercent < 100;
+
+      /* Fronteras internas de las unidades. Se descartan 0% y 100% porque
+        coinciden con los bordes del área y no necesitan línea propia.
+        Comparten geometría exacta con el encabezado de meses. */
+      const unitBoundaries = getTimelineUnitBoundaries(
+        timelineStart,
+        timelineEnd,
+        unitCount,
+        isWeekMode
+      ).slice(1, -1);
     
       return (
         <div
@@ -8678,9 +9580,15 @@
           }}
           aria-hidden="true"
         >
-          <div className="gantt-ruler__grid"
-            style={{'--gantt-unit': `${100 / unitCount}%`}}
-          />
+          <div className="gantt-ruler__grid">
+            {unitBoundaries.map((percent, index) => (
+              <div
+                key={index}
+                className="gantt-ruler__line"
+                style={{ left: `${percent}%` }}
+              />
+            ))}
+          </div>
     
           {isTodayVisible && (
             <div className="gantt-ruler__today"
@@ -9084,9 +9992,63 @@
       );
     }
     
+    /* Punto de corte móvil.
+       DEBE COINCIDIR EXACTAMENTE con el @media (max-width: 820px) del CSS
+       (líneas 696 y 701). Si se cambia uno, hay que cambiar el otro: si se
+       desincronizan habría un rango de anchos en el que no se renderiza
+       ninguna de las dos vistas y la pantalla quedaría vacía. */
+    const MOBILE_VIEWPORT_QUERY = '(max-width: 820px)';
+
+    /* Hasta ahora la vista móvil y la de escritorio se ocultaban SOLO con CSS,
+       así que React construía las dos siempre, en cualquier ancho de pantalla,
+       y la mitad del trabajo se descartaba visualmente.
+
+       Este hook expone el ancho como estado de React para poder renderizar sólo
+       la rama que se ve. Usa matchMedia en lugar de window.innerWidth + resize
+       porque el navegador sólo notifica cuando se CRUZA el umbral, no en cada
+       píxel de redimensionado. */
+    function useIsMobileViewport() {
+      const [isMobileViewport, setIsMobileViewport] = useState(
+        () =>
+          typeof window !== 'undefined' &&
+          typeof window.matchMedia === 'function' &&
+          window.matchMedia(MOBILE_VIEWPORT_QUERY).matches
+      );
+
+      useEffect(() => {
+        if (
+          typeof window === 'undefined' ||
+          typeof window.matchMedia !== 'function'
+        ) {
+          return;
+        }
+
+        const mediaQuery = window.matchMedia(MOBILE_VIEWPORT_QUERY);
+
+        const handleViewportChange = event => {
+          setIsMobileViewport(event.matches);
+        };
+
+        /* Resincroniza por si el ancho cambió entre el primer render y este
+           efecto, por ejemplo al rotar el móvil durante la carga. */
+        setIsMobileViewport(mediaQuery.matches);
+
+        mediaQuery.addEventListener('change', handleViewportChange);
+
+        return () => {
+          mediaQuery.removeEventListener('change', handleViewportChange);
+        };
+      }, []);
+
+      return isMobileViewport;
+    }
+
     function Dashboard() {
       const { tooltip, showTooltip, moveTooltip, hideTooltip } = useTooltip();
-    
+
+      /* Fuente única de verdad para decidir qué rama se renderiza. */
+      const isMobileViewport = useIsMobileViewport();
+
       /*  checking: valida si ya existe cookie de sesión. required: muestra el popup de UAT. authenticated: permite cargar y navegar el dashboard. */
       const [authStatus, setAuthStatus] = useState('checking');
     
@@ -9130,6 +10092,55 @@
       const [expandedRoadmapFeatureId, setExpandedRoadmapFeatureId] = useState(null);
       /* -7 conserva el encuadre actual: siete unidades antes de hoy y cinco unidades futuras. */
       const resetTimelineToToday = () => { setTimelineOffset(-7); setWeekOffset(-7); };
+
+      /* Cambiar de escala conservando el período que el usuario está mirando.
+
+        Antes, Months y Weeks guardaban su offset por separado y no se hablaban:
+        si te desplazabas hasta 2028 en Months y pulsabas Weeks, recuperabas el
+        weekOffset anterior, normalmente cerca de hoy, y la vista saltaba a 2026.
+        El usuario perdía el sitio y tenía que reorientarse.
+
+        La solución es traducir el offset: se calcula la fecha que está en el
+        CENTRO de la ventana actual (12 unidades, así que el centro cae en la
+        unidad 6) y se resuelve el offset de la escala destino que deja esa misma
+        fecha en su centro. */
+      const changeTimelineScale = (nextScale) => {
+        if (nextScale === timelineScale) {
+          return;
+        }
+
+        const dashboardToday = getDashboardNow().startOf('day');
+        const monthAnchor = dashboardToday.startOf('month');
+        const weekAnchor = dashboardToday.startOf('week');
+
+        if (nextScale === 'week') {
+          const centerDate = monthAnchor.plus({
+            months: timelineOffset + 6
+          });
+
+          const weeksFromAnchor = Math.round(
+            centerDate.diff(weekAnchor, 'weeks').weeks
+          );
+
+          setWeekOffset(
+            Math.max(-60, Math.min(36, weeksFromAnchor - 6))
+          );
+        } else {
+          const centerDate = weekAnchor.plus({
+            weeks: weekOffset + 6
+          });
+
+          const monthsFromAnchor = Math.round(
+            centerDate.diff(monthAnchor, 'months').months
+          );
+
+          setTimelineOffset(
+            Math.max(-60, Math.min(36, monthsFromAnchor - 6))
+          );
+        }
+
+        setTimelineScale(nextScale);
+      };
       const timelinePan = useTimelinePan({ unitCount: 12, offset: timelineUnitOffset, onOffsetChange: setTimelineUnitOffset, minOffset: -60, maxOffset: 36 });
       const setRoadmapGanttNode = (node) => { roadmapGanttRef.current = node; timelinePan.panHandlers.ref.current = node; };
    
@@ -9967,6 +10978,13 @@
             typeof json.dashboard.releaseCalendar === 'object'
           ) {
             releaseCalendar = json.dashboard.releaseCalendar;
+          }
+
+          if (
+            json.dashboard?.sprintCalendar &&
+            typeof json.dashboard.sprintCalendar === 'object'
+          ) {
+            sprintCalendar = json.dashboard.sprintCalendar;
           }
 
           /* Solo una respuesta válida y vigente reemplaza los datos visibles. React recalculará automáticamente:
@@ -11436,7 +12454,7 @@
     
             {feature.techGoLiveRFV && (
               <div>
-                ★ Tech Go Live: {feature.techGoLiveRFV}
+                ◇ Tech Go Live: {feature.techGoLiveRFV}
               </div>
             )}
           </div>
@@ -11589,6 +12607,35 @@
           .startOf('month')
           .plus({ months: timelineOffset });
 
+        /* Fin exclusivo de la ventana. Debe coincidir con monthTimelineEnd de
+          Dashboard, que es la ventana con la que se posicionan las barras. */
+        const timelineEnd = dashboardToday
+          .startOf('month')
+          .plus({ months: timelineOffset + 12 });
+
+        /* Los meses miden entre 28 y 31 días, así que 12 columnas iguales NO
+          coinciden con la posición real de las barras. Las columnas se hacen
+          proporcionales a los días reales de cada mes (ver
+          getTimelineUnitBoundaries). Si el cálculo no fuera posible, se cae al
+          reparto uniforme anterior. */
+        const monthWidths = getTimelineUnitWidths(
+          timelineStart,
+          timelineEnd,
+          12,
+          false
+        );
+
+        const monthGridTemplate = monthWidths.length === 12
+          ? monthWidths
+              .map(width => width.toFixed(6) + '%')
+              .join(' ')
+          : 'repeat(12, 1fr)';
+
+        /* La separación visual se hace con margin dentro de cada celda y no con
+          gap: gap consume ancho del contenedor y desplazaría las fronteras
+          respecto a las barras, que es justo el bug que se corrige. */
+        const headerCellSpacing = '0 1px';
+
         const groups = [];
         let currentGroup = null;
 
@@ -11609,10 +12656,11 @@
 
         return (
           <div className="gantt-timeline-header-canvas" style={{ width: '100%', minWidth: 0 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px', marginBottom: '2px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: monthGridTemplate, marginBottom: '2px' }}>
               {groups.map((g, gi) => (
                 <div key={gi} style={{
                     gridColumn: 'span ' + g.months.length,
+                    margin: headerCellSpacing,
                     background: gi % 2 === 0 ? '#1e3a8a' : 'var(--accent)',
                     color: 'white',
                     textAlign: 'center',
@@ -11627,12 +12675,12 @@
               ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '2px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: monthGridTemplate }}>
               {groups.map((g, gi) =>
                 g.months.map((month, mi) => (
                   <div
                     key={gi + '-' + mi}
-                    style={{ background: 'var(--neutral-soft)', textAlign: 'center', fontSize: '10px', fontWeight: 'bold', padding: '3px 0', borderRadius: '3px', color: '#334155' }}
+                    style={{ margin: headerCellSpacing, background: 'var(--neutral-soft)', textAlign: 'center', fontSize: '10px', fontWeight: 'bold', padding: '3px 0', borderRadius: '3px', color: '#334155' }}
                   >
                     {month}
                   </div>
@@ -12538,7 +13586,8 @@
                   className="mobile-feature-list"
                   aria-label="Feature List mobile cards"
                 >
-                  {featuresPageItems.map(feature => (
+            {/* Sólo se construyen las cards si la vista móvil es la visible. */}
+            {(isMobileViewport ? featuresPageItems : []).map(feature => (
                     <MobileFeatureListCard
                       key={feature.id}
                       feature={feature}
@@ -12730,7 +13779,7 @@
                         </td>
                       </tr>
                     ) : (
-                      featuresPageItems.map(f => {
+              (isMobileViewport ? [] : featuresPageItems).map(f => {
                         const featureStateDot = {
                           New: '#94a3b8',
                           'In Shaping': '#fbbf24',
@@ -12832,20 +13881,15 @@
 
                               <td className="feature-list-centered-cell">
                                 <RiskIndicator
-                                  score={getFeatureRiskScore(
-                                    f,
-                                    storiesCache,
-                                    unavailableStoriesIds
-                                  )}
-                                  breakdown={getFeatureRiskBreakdown(
-                                    f,
-                                    storiesCache,
-                                    unavailableStoriesIds
-                                  )}
-                                  showTooltip={showTooltip}
-                                  moveTooltip={moveTooltip}
-                                  hideTooltip={hideTooltip}
-                                />
+	                                  breakdown={getFeatureRiskBreakdown(
+	                                    f,
+	                                    storiesCache,
+	                                    unavailableStoriesIds
+	                                  )}
+	                                  showTooltip={showTooltip}
+	                                  moveTooltip={moveTooltip}
+	                                  hideTooltip={hideTooltip}
+	                                />
                               </td>
 
                               <td>{f.priority || '-'}</td>
@@ -13089,6 +14133,14 @@
 
                   <span className="dashboard-interaction-hint__legend-item">
                     <span
+                      className="dashboard-interaction-hint__planned-marker"
+                      aria-hidden="true"
+                    />
+                    Remaining time
+                  </span>
+
+                  <span className="dashboard-interaction-hint__legend-item">
+                    <span
                       className="dashboard-interaction-hint__target-marker"
                       aria-hidden="true"
                     />
@@ -13107,19 +14159,30 @@
                     <span
                       className="dashboard-interaction-hint__tech-go-live-marker"
                       aria-hidden="true"
-                    >
-                      ★
-                    </span>
+                    />
                     Tech Go Live RFV
+                  </span>
+
+                  <span className="dashboard-interaction-hint__legend-item">
+                    <span
+                      className="dashboard-interaction-hint__overflow-marker"
+                      aria-hidden="true"
+                    />
+                    Beyond commitment
                   </span>
                 </span>
               </div>
+
+              {/* Leyenda de la banda de móvil: una sola vez, sobre la lista.
+                Dentro de las tarjetas se repetía 15 veces; sólo en la primera
+                dejaba sin referencia a quien bajaba por la lista. */}
+              {isMobileViewport && <MobileRoadmapLegend />}
 
               <section
                 className="mobile-roadmap-list"
                 aria-label="Roadmap mobile cards"
               >
-                {pageItems.map(feature => (
+          {(isMobileViewport ? pageItems : []).map(feature => (
                   <MobileRoadmapCard
                     key={feature.id}
                     feature={feature}
@@ -13139,6 +14202,7 @@
                     onRetryFeatureTimeline={() => loadFeatureHistoryForFeatures([feature.id],{ retry: true })}
                     onRetryStoryTimeline={(storyId) => loadStoryHistoryForWorkItems([storyId],{ retry: true })}
                     weekOffset={weekOffset}
+                    deliverySummary={getFeatureDeliverySummary( feature, storiesCache, unavailableStoriesIds )}
                   />
                 ))}
               </section>
@@ -13213,7 +14277,7 @@
                           <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                             <TimelineScaleControl
                               scale={timelineScale}
-                              onScaleChange={setTimelineScale}
+                              onScaleChange={changeTimelineScale}
                               onResetToToday={resetTimelineToToday}
                             />
                           </div>
@@ -13230,7 +14294,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {pageItems.map(f => {
+              {(isMobileViewport ? [] : pageItems).map(f => {
                       const isExpanded = expandedRoadmapFeatureId === f.id;
                         return (
                           <React.Fragment key={f.id}>
@@ -13344,6 +14408,8 @@
                                   storyPoints={s.storyPoints}
                                   state={s.state}
                                   iterationPath={s.iterationPath}
+                                  sprintId={s.sprintId}
+                                  featureTargetDate={f.targetDate}
                                   formatDate={formatDate}
                                   timelineStart={timelineStart}
                                   timelineEnd={timelineEnd}
@@ -13369,6 +14435,7 @@
                   timelineStart={timelineStart}
                   timelineEnd={timelineEnd}
                   unitCount={12}
+                  isWeekMode={isWeekScale}
                 />
               </div>
             </div>
