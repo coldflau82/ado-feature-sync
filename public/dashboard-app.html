@@ -11230,20 +11230,53 @@
         });
       };
 
-      /* ── Reencuadre reactivo de paginación y de filas expandidas ────────────
-      Problema que resuelve:
-      Los 7 filtros avanzados y el buscador cambian el conjunto de resultados
-      sin tocar featuresPage / roadmapPage. Estando en la página 4, un filtro
-      que deje 6 resultados dejaba la tabla VACÍA mostrando "Page 4 of 1", con
-      el botón Next todavía activo.
+      /* ── Toda búsqueda nueva empieza por el principio ───────────────────────
+      Cambiar un filtro, el buscador o el orden es declarar una intención
+      nueva: interesa el primer resultado del conjunto nuevo, no la posición
+      que se ocupaba en el conjunto anterior. Conservar la página antigua da
+      continuidad falsa, porque el contenido de esa página ya es otro.
 
-      Se reacciona al VALOR DERIVADO (el total de páginas) en lugar de añadir
-      un setFeaturesPage(1) manual en cada onChange. Así queda cubierto también
-      "Refresh Live devuelve menos Features", y cualquier filtro que se añada
-      en el futuro hereda el arreglo sin tener que acordarse de nada.
+      Una sola firma cubre los 7 selectores avanzados, el buscador, las KPI,
+      los dropdowns de Readiness/Health y el orden. Cualquier filtro que se
+      añada en el futuro sólo tiene que entrar en esta lista: no hace falta
+      tocar su onChange.
 
-      Math.min sobre el valor previo devuelve el MISMO número cuando la página
-      ya es válida. React descarta ese update, así que no hay bucle infinito. */
+      JSON.stringify da una firma sin ambigüedad (los Area Path contienen
+      barras invertidas, así que unir con separadores sería frágil). */
+      const dashboardFilterSignature = JSON.stringify([
+        filterAreaPath,
+        filterDeliveryTeam,
+        filterIteration,
+        filterAssignedTo,
+        filterState,
+        filterTargetDate,
+        filterReleaseVersion,
+        searchTitle,
+        readinessKpiFilter,
+        healthGroupKpiFilter,
+        readinessDropdownFilter,
+        healthRuleFilter,
+        sortColumn,
+        sortOrder
+      ]);
+
+      useEffect(() => {
+        setFeaturesPage(1);
+        setRoadmapPage(1);
+        setExpandedFeatureId(null);
+        setExpandedRoadmapFeatureId(null);
+        setStickyFeatureContext(null);
+
+        requestAnimationFrame(() => {
+          scrollResultsToTop('auto');
+        });
+      }, [dashboardFilterSignature]);
+
+      /* Red de seguridad, no navegación.
+          Cubre el único caso que la firma no puede ver: un Refresh Live que
+          devuelve menos Features y deja la página actual fuera de rango.
+          Math.min devuelve el mismo número cuando la página ya es válida, así
+          que React descarta el update y no hay bucle. */
       useEffect(() => {
         setFeaturesPage(previousPage =>
           Math.min(previousPage, featuresTotalPages)
@@ -11255,45 +11288,7 @@
           Math.min(previousPage, totalPages)
         );
       }, [totalPages]);
-
-      /* Identidad de las Features visibles en Feature List.
-          Mismo patrón que pageItemIds del Roadmap, unas líneas más arriba. */
-      const featuresPageItemIds = featuresPageItems
-        .map(item => item.id)
-        .join(',');
-
-      /* Si la fila expandida deja de estar en la página visible tras un cambio
-          de filtro, se colapsa. Sin esto, expandedFeatureId apunta a una Feature
-          ausente: el overlay sticky se limpia en cada frame de scroll y, al quitar
-          el filtro, la fila reaparece expandida sin que el usuario lo pidiera.
-
-          Se comprueba PERTENENCIA en vez de colapsar siempre, para no cerrar la
-          fila cuando el cambio de filtro no la afecta. */
-      useEffect(() => {
-        if (expandedFeatureId === null) { return; }
-
-        const isStillVisible = featuresPageItems.some(
-          item => item.id === expandedFeatureId
-        );
-
-        if (!isStillVisible) {
-          setExpandedFeatureId(null);
-          setStickyFeatureContext(null);
-        }
-      }, [featuresPageItemIds, expandedFeatureId]);
-
-      useEffect(() => {
-        if (expandedRoadmapFeatureId === null) { return; }
-
-        const isStillVisible = pageItems.some(
-          item => item.id === expandedRoadmapFeatureId
-        );
-
-        if (!isStillVisible) {
-          setExpandedRoadmapFeatureId(null);
-        }
-      }, [pageItemIds, expandedRoadmapFeatureId]);
-    
+      
       const expandedRoadmapStories = expandedRoadmapFeatureId ? (storiesCache[expandedRoadmapFeatureId] || []) : [];
       const expandedStoryIds = expandedRoadmapStories.map(s => s.id).join(',');
 
