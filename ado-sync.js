@@ -1992,13 +1992,11 @@ function materializeToReleaseAging(
       ? releaseCalendarReleaseByRfv.get(workItemRfv)
       : null;
     
-    /*
-      Si no hay RFV en Feature, el item puede evaluarse contra Target Date.
-      Si la Feature sí tiene RFV:
-      - Story/Bug sin RFV hereda el RFV de la Feature.
-      - RFV anterior o igual es compatible.
-      - RFV posterior es desalineado.
-    */
+    /*  Alineación:
+    - Si la Feature no tiene RFV, no hay un release de referencia.
+    - Si la Story/Bug tiene RFV, debe ser igual o anterior al RFV de la Feature.
+    - Si la Story/Bug no tiene RFV, no se considera alineada ni
+      programada; se marca explícitamente como RFV missing. */
     const isRfvAligned =
       !featureRfv ||
       !workItemRfv ||
@@ -2007,6 +2005,14 @@ function materializeToReleaseAging(
         workItemRelease &&
         workItemRelease.sequence <= featureRelease.sequence
       );
+    
+    /* Una Story/Bug en To Release debe tener RFV propio.
+      El RFV de la Feature indica el compromiso esperado, pero no sustituye
+      la asignación explícita del RFV en el Work Item. */
+    const isRfvMissing = Boolean(
+      featureRfv &&
+      !hasExplicitWorkItemRfv
+    );
 
     const expectedDateTime = commitment.expectedDate
       ? DateTime.fromISO(commitment.expectedDate, {
@@ -2108,7 +2114,9 @@ function materializeToReleaseAging(
         workItemRfv se mantiene como contrato de UI/compatibilidad. */
       releaseFixVersion: workItemRfv,
       workItemRfv,
+
       isRfvAligned,
+      isRfvMissing,
 
       evaluationDate: evaluationDate
         ? evaluationDate.toISODate()

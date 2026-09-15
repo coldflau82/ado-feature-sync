@@ -5691,6 +5691,10 @@
     
         isRfvAligned:
           match.isRfvAligned !== false,
+        
+        isRfvMissing: Boolean(
+          match.isRfvMissing
+        ),
     
         evaluationDate:
           match.evaluationDate || null,
@@ -6921,8 +6925,7 @@
               </span>
             )}
 
-            <a
-              href={adoLink(story.id)}
+            <a href={adoLink(story.id)}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -7024,10 +7027,16 @@
                     : '',
             
                   !toReleaseAging.isDelayed &&
+                  toReleaseAging.isRfvMissing
+                    ? 'feature-story-card__to-release-aging--mismatch'
+                    : '',
+
+                  !toReleaseAging.isDelayed &&
+                  !toReleaseAging.isRfvMissing &&
                   toReleaseAging.isRfvAligned === false
                     ? 'feature-story-card__to-release-aging--mismatch'
                     : '',
-            
+
                   !toReleaseAging.isDelayed &&
                   toReleaseAging.isRfvAligned !== false &&
                   !toReleaseAging.isScheduled
@@ -7053,10 +7062,14 @@
                     ? `Story/Bug RFV: ${toReleaseAging.workItemRfv}`
                     : '',
             
+                  toReleaseAging.isRfvMissing
+                    ? `RFV required: assign an RFV to this ${story.workItemType || 'Story/Bug'}.`
+                    : '',
+            
                   toReleaseAging.expectedRfv
                     ? `Expected RFV: ${toReleaseAging.expectedRfv}`
                     : '',
-            
+
                   toReleaseAging.expectedDate
                     ? `Committed date: ${formatDate(
                         toReleaseAging.expectedDate
@@ -7079,16 +7092,13 @@
                     {toReleaseAging.daysInToRelease === 1 ? '' : 's'}
                     {' '}in To Release
                   </>
+                ) : toReleaseAging.isRfvMissing ? (
+                  <>
+                    ⚠ RFV required
+                  </>
                 ) : toReleaseAging.isRfvAligned === false ? (
                   <>
                     ⚠ Release commitment needs review
-                  </>
-                ) : toReleaseAging.isScheduled &&
-                  toReleaseAging.expectedRfv &&
-                  toReleaseAging.inheritedFromFeature ? (
-                  <>
-                    ✓ Scheduled for Feature RFV{' '}
-                    {toReleaseAging.expectedRfv}
                   </>
                 ) : toReleaseAging.isScheduled &&
                   toReleaseAging.expectedRfv ? (
