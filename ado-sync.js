@@ -1960,7 +1960,11 @@ function materializeToReleaseAging(
       ''
     ).trim();
 
-      const normalizedWorkItem = {
+    const hasExplicitWorkItemRfv = Boolean(
+      workItemRfv
+    );
+
+    const normalizedWorkItem = {
       ...workItem,
       releaseFixVersion: workItemRfv
     };
@@ -1992,15 +1996,19 @@ function materializeToReleaseAging(
       ? releaseCalendarReleaseByRfv.get(workItemRfv)
       : null;
     
-    /*  Alineación:
-    - Si la Feature no tiene RFV, no hay un release de referencia.
-    - Si la Story/Bug tiene RFV, debe ser igual o anterior al RFV de la Feature.
-    - Si la Story/Bug no tiene RFV, no se considera alineada ni
-      programada; se marca explícitamente como RFV missing. */
+    /*Alineación:
+      - Si la Feature no tiene RFV, no existe un release de referencia
+        para comparar la Story/Bug.
+      - Una Story/Bug sin RFV explícito no se considera alineada:
+        debe mostrar "RFV required".
+      - Una Story/Bug con RFV es compatible si su release es igual o
+        anterior al RFV de la Feature.
+      - Un RFV posterior al de la Feature es una desalineación.
+    */
     const isRfvAligned =
       !featureRfv ||
-      !workItemRfv ||
       (
+        hasExplicitWorkItemRfv &&
         featureRelease &&
         workItemRelease &&
         workItemRelease.sequence <= featureRelease.sequence
@@ -2074,8 +2082,13 @@ function materializeToReleaseAging(
       today >= evaluationDate
     );
 
+    /* Scheduled significa que la Story/Bug tiene un RFV propio asignado,
+      está alineada con la Feature y todavía no alcanzó su fecha de
+      evaluación/release.
+      Nunca debe mostrarse Scheduled para una Story/Bug sin RFV. */
     const isScheduled = Boolean(
       isKnown &&
+      hasExplicitWorkItemRfv &&
       isRfvAligned &&
       !isFeatureReleasePassed &&
       evaluationDate &&

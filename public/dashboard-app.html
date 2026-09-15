@@ -7062,14 +7062,16 @@
                     ? `Story/Bug RFV: ${toReleaseAging.workItemRfv}`
                     : '',
             
-                  toReleaseAging.isRfvMissing
-                    ? `RFV required: assign an RFV to this ${story.workItemType || 'Story/Bug'}.`
-                    : '',
-            
                   toReleaseAging.expectedRfv
                     ? `Expected RFV: ${toReleaseAging.expectedRfv}`
                     : '',
 
+                  toReleaseAging.isRfvMissing
+                    ? `RFV required: assign an RFV to this ${
+                        story.workItemType || 'Story/Bug'
+                      }.`
+                    : '',
+                    
                   toReleaseAging.expectedDate
                     ? `Committed date: ${formatDate(
                         toReleaseAging.expectedDate
