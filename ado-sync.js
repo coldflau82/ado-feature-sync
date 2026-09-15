@@ -2273,7 +2273,42 @@ let liveFeaturesFetchInFlight = null;
   tarde de lo esperado o ADO falla durante una actualización, exista un shard previo válido al cual volver temporalmente.
   El Cron sigue intentando actualizar los datos cada día; este TTL sólo evita perder el fallback seguro entre ejecuciones. */
 const OLD_FEATURES_CACHE_TTL_SECONDS = 36 * 60 * 60;
-const RECENT_DAYS_THRESHOLD = 10;
+/* Duración de la ventana Live, en días.
+
+  14 días = un sprint completo. Con 10 días, una Story movida al principio de un
+  sprint de dos semanas quedaba FUERA de la ventana antes de que el sprint
+  terminara, así que su Feature caía al shard cacheado y sus contadores podían
+  tener hasta 24 h de antigüedad. Medido sobre el portafolio real (1.053
+  Features, ~11,6 cambios/día): 10 días = 115 Features en vivo, 14 días = ~162.
+
+  El techo está en WIQL_SATURATION_LIMIT (200): a partir de ~17 días la consulta
+  se partiría en sub-rangos recursivos y los tiempos SUBIRÍAN. 14 deja margen. */
+const RECENT_DAYS_THRESHOLD = 14;
+
+/* Caché de la ventana Live.
+
+  Antes NO había caché: cada carga de /api/features volvía a consultar a ADO las
+  Features de la ventana completa. Medido en producción: 8,08 s de "waiting for
+  server response" sobre 8,24 s totales — el 98% del tiempo. La descarga de los
+  4 MB de payload eran 144 ms. El patrón single-flight sólo evitaba duplicar
+  consultas SIMULTÁNEAS, nunca repetirlas entre cargas.
+
+  La clave incluye dos cosas a propósito:
+  - la fecha de negocio, para que un resultado calculado ayer no sobreviva al
+    cruce de medianoche con la ventana ya desplazada;
+  - el tamaño de la ventana, para que cambiar RECENT_DAYS_THRESHOLD invalide la
+    caché por sí solo y no se reutilice un conjunto con otros límites.
+
+  El TTL es corto a propósito, y el botón Refresh del dashboard la ignora y la
+  reescribe. Así una carga normal es barata y el usuario conserva el control
+  manual: cuando quiere la verdad del momento, la pide. */
+const LIVE_FEATURES_CACHE_TTL_SECONDS = 10 * 60;
+
+function getLiveFeaturesCacheKey() {
+  return 'liveFeaturesCache:v1'
+    + `:${getTodayDateKey()}`
+    + `:${RECENT_DAYS_THRESHOLD}d`;
+}
 
 /* Clave histórica heredada.
   Se conserva únicamente como fallback durante la migración a los shards incrementales v2. No debe usarse para nuevas escrituras.
@@ -2303,9 +2338,26 @@ const ITERATION_CALENDAR_CACHE_KEY =
 const ITERATION_CALENDAR_CACHE_TTL_SECONDS =
   15 * 60;
 
-/* Los rangos no se superponen:
-  - Reciente en vivo: @today - 10 <= ChangedDate < @today + 1
-  - Histórico cacheado: @today - 180 <= ChangedDate < @today - 10 */
+/* Los rangos no se superponen con la ventana Live:
+  - Reciente en vivo:  @today - RECENT_DAYS_THRESHOLD <= ChangedDate < @today + 1
+  - Histórico cacheado: @today - 180 <= ChangedDate < @today - RECENT_DAYS_THRESHOLD
+  El primer rango deriva su límite del mismo constante, así que cambiar la ventana
+  Live NO deja hueco entre ambos conjuntos.
+
+  ⚠️ EL cacheSuffix NO DEBE DERIVARSE DE RECENT_DAYS_THRESHOLD.
+  Es la clave del shard en Redis, y los shards históricos SÓLO los reconstruye el
+  Cron con forceRefresh (una petición pública nunca lo hace, a propósito, para que
+  una visita normal no dispare consultas históricas pesadas a ADO).
+
+  Si el suffix cambia, el shard queda huérfano: hasta la siguiente ejecución del
+  Cron faltaría un rango, y /api/features responde 503 "Historical Features could
+  not be fully retrieved". Probado en carne propia al subir la ventana de 10 a 14
+  días: el dashboard se quedó sin Features.
+
+  Con el suffix fijo se reutiliza el shard existente. El solapamiento que queda es
+  inofensivo: el shard trae 10-20 días y la ventana Live 0-14, así que la
+  deduplicación de /api/features da prioridad a Live en el tramo 10-14 y no hay
+  ni hueco ni pérdida. El siguiente Cron lo reconstruye ya con el límite de 14. */
 const OLD_FEATURES_DATE_RANGES = [
   {
     cacheSuffix: 'changed-10-to-20-days',
@@ -6940,7 +6992,29 @@ async function fetchRecentFeatures(c) {
   Promise. Esto evita duplicar consultas WIQL, batches de Features, Delivery Health, Aging e Iteration Calendar para el mismo período.
   No es una caché: cuando fetchRecentFeatures() termina —con éxito o con error— la referencia se limpia. Una solicitud posterior hará una nueva
   consulta Live. */
-async function getLiveFeatures(c) {
+async function getLiveFeatures(c, { bypassCache = false } = {}) {
+  const cacheKey = getLiveFeaturesCacheKey();
+
+  if (!bypassCache) {
+    try {
+      const cached = await redis.get(cacheKey);
+
+      if (cached?.features) {
+        debugLog('Serving Live Features from cache.', {
+          featureCount: cached.features.length,
+          cachedAt: cached.cachedAt
+        });
+
+        return cached;
+      }
+    } catch (error) {
+      /* Un fallo de Redis no debe tumbar el dashboard: se consulta en vivo. */
+      console.warn('Unable to read Live Features cache.', {
+        message: error.message
+      });
+    }
+  }
+
   if (liveFeaturesFetchInFlight) {
     debugLog('Reusing in-flight Live Features request.');
   
@@ -6961,7 +7035,37 @@ async function getLiveFeatures(c) {
       rangeDetails: result.rangeDetails
     });
 
-    return result;
+    const entry = {
+      ...result,
+      cachedAt: new Date().toISOString()
+    };
+
+    /* Sólo se guarda un resultado COMPLETO.
+      Si la consulta a ADO falló o se satureó parcialmente, fetchIdsForRange
+      marca ese rango con complete: false. Cachear eso propagaría un portafolio
+      truncado durante todo el TTL, y el usuario vería Features desaparecer sin
+      ninguna señal. Ante la duda, se prefiere repetir la consulta. */
+    const isCompleteResult = Object
+      .values(result.rangeDetails || {})
+      .every(detail => detail?.complete !== false);
+
+    if (isCompleteResult) {
+      try {
+        await redis.set(cacheKey, entry, {
+          ex: LIVE_FEATURES_CACHE_TTL_SECONDS
+        });
+      } catch (error) {
+        console.warn('Unable to write Live Features cache.', {
+          message: error.message
+        });
+      }
+    } else {
+      console.warn(
+        'Live Features result was incomplete: cache intentionally not written.'
+      );
+    }
+
+    return entry;
     } finally {
       /* Es indispensable limpiar la Promise también ante errores. De lo contrario, un fallo temporal de Azure DevOps dejaría
         una Promise rechazada reutilizándose indefinidamente. */
@@ -8850,7 +8954,15 @@ app.get('/api/features', async (req, res) => {
 
     /* 4. La consulta reciente siempre es Live y nunca se guarda en Redis.
      Si ya hay una consulta Live en curso en esta instancia Node.js, se reutiliza la misma Promise para no duplicar tráfico a ADO. */
-    const recentResult = await getLiveFeatures(c);
+    const recentResult = await getLiveFeatures(
+      c,
+      {
+        /* El botón Refresh del dashboard ignora la caché Live y la reescribe.
+          Es el control manual del usuario: una carga normal es barata, y cuando
+          quiere la verdad del momento la pide explícitamente. */
+        bypassCache: liveRefreshRequested
+      }
+    );
 
     /* 5. Deduplicación: si un ID aparece en más de un origen, gana la versión más reciente.
       Prioridad de datos, de más reciente a más antiguo:
