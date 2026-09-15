@@ -1122,6 +1122,46 @@ app.use((req, res, next) => {
   );
 });
 
+/* Identidad del build desplegado.
+
+  Responde a una pregunta operativa concreta: "¿este entorno está sirviendo el
+  commit que yo creo?". Antes sólo se podía inferir comparando el tamaño del HTML
+  servido contra el archivo local, que es un proxy y no una prueba: dos versiones
+  distintas pueden pesar lo mismo.
+
+  Vercel inyecta estas variables durante el build. En local no existen, y se
+  reportan como null con environment 'local' en lugar de inventar un valor: un
+  dato de versión que miente es peor que no tenerlo.
+
+  IMPORTANTE, el orden de registro importa: esta ruta se declara DESPUÉS del
+  middleware de autenticación de arriba, así que queda protegida. Si se moviera
+  por encima de ese app.use quedaría pública sin que nada avise.
+
+  Y NO va dentro de /api/health a propósito: /api/health está exento del login
+  para permitir health checks, así que cualquiera en Internet lo puede leer. La
+  identidad del build es información interna; no es un secreto, pero no tiene por
+  qué ser pública.
+
+  Uso: abrir /api/version en el navegador donde ya hay sesión y comparar
+  commitShort contra `git rev-parse --short HEAD`. */
+app.get('/api/version', (req, res) => {
+  res.setHeader(
+    'Cache-Control',
+    'no-store, no-cache, must-revalidate, private'
+  );
+
+  const commit = process.env.VERCEL_GIT_COMMIT_SHA || null;
+
+  res.json({
+    commit,
+    commitShort: commit
+      ? commit.slice(0, 7)
+      : null,
+    branch: process.env.VERCEL_GIT_COMMIT_REF || null,
+    environment: process.env.VERCEL_ENV || 'local'
+  });
+});
+
 /* Login con las credenciales compartidas de UAT. La contraseña sólo viaja por HTTPS en producción y nunca se devuelve,
   registra ni almacena en el navegador.
   El rate limit se evalúa antes de comparar credenciales para limitar automatizaciones y fuerza bruta sobre el endpoint.*/
