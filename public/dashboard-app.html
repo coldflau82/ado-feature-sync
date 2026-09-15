@@ -6697,30 +6697,50 @@
         server.source !== 'unknown' &&
         Number.isInteger(server.includedWorkItems);
 
-      /* If the detail request failed or was incomplete, never interpret storiesCache[featureId] = [] as a confirmed absence of work items. */
-      if (
-        unavailableStoriesIds?.[featureId] &&
-        hasAvailableServerSummary
-      ) {
+      /* ── El resumen del SERVIDOR gana SIEMPRE ────────────────────────────────
+
+        Antes ganaba el cálculo local desde storiesCache. Y como el frontend
+        precarga automáticamente las Stories de las 15 filas visibles, esa rama
+        se activaba sin que el usuario tocara nada.
+
+        Consecuencia: la columna Progress se pintaba con datos en vivo mientras
+        Delivery Health, los KPI de cabecera y el Risk Score seguían saliendo del
+        resumen del servidor, que el frontend NUNCA recalcula (getDeliveryHealth
+        sólo lee feature.deliveryHealth). Se podía ver Progress 100% junto a un
+        badge que decía "Overdue", y los KPI no podían cuadrar con la tabla POR
+        CONSTRUCCIÓN.
+
+        Ahora Progress, Health, KPIs y Risk salen todos del MISMO instante.
+
+        El precio es antigüedad: el resumen puede tener hasta ~24 h, porque el
+        Cron reconstruye los shards históricos a diario. Y sólo afecta a Features
+        sin cambios PROPIOS en 10 días, que por definición no se están moviendo.
+
+        El panel de detalle expandido sigue mostrando las Stories EN VIVO: ahí es
+        donde uno se asoma al trabajo real, y ahí no hay ningún indicador que
+        pueda contradecirlo. */
+      if (hasAvailableServerSummary) {
         return {
           ...server,
           source: 'server'
         };
       }
 
+      /* Sin resumen del servidor (source 'unknown', o un Feature cuyos hijos no
+        se pudieron consultar), calcular desde las Stories ya cargadas es mejor
+        que no mostrar nada.
+
+        Nota: el guard de unavailableStoriesIds que había aquí desapareció por
+        innecesario. Existía para que un storiesCache vacío no se interpretara
+        como "no hay trabajo" cuando la petición de detalle había fallado; con el
+        servidor teniendo prioridad, ese caso ya está cubierto por la rama de
+        arriba. */
       const cached = storiesCache?.[featureId];
 
       if (Array.isArray(cached)) {
         return {
           ...getWorkItemsDeliverySummary(cached),
           source: 'stories'
-        };
-      }
-
-      if (hasAvailableServerSummary) {
-        return {
-          ...server,
-          source: 'server'
         };
       }
 
@@ -9620,6 +9640,23 @@
     
       const [dragOffsetPx, setDragOffsetPx] = useState(0);
       const [isDragging, setIsDragging] = useState(false);
+
+      /* El nodo también vive en estado, no sólo en un ref, porque hace falta
+        disparar el efecto que registra el listener nativo de rueda cuando el
+        nodo aparece o se sustituye (por ejemplo al volver del panel Feature
+        List al Roadmap, que desmonta y remonta el Gantt). */
+      const [trackNode, setTrackNode] = useState(null);
+
+      /* Callback ref ESTABLE.
+        Antes el sitio de montaje pasaba una función nueva en cada render, así
+        que React la invocaba con null y después con el nodo en CADA render; y
+        durante un pan eso ocurre decenas de veces por segundo. Con
+        dependencias vacías la identidad queda fija y React sólo la llama al
+        montar y al desmontar. */
+      const registerTrackNode = React.useCallback(node => {
+        trackRef.current = node;
+        setTrackNode(node);
+      }, []);
     
       const getUnitWidth = () => {
         const width =
@@ -9811,15 +9848,58 @@
     
         didDragRef.current = false;
       };
+
+      /* handleWheel tiene que ser un listener NATIVO y NO PASIVO.
+
+        React 17+ registra onWheel, onTouchStart y onTouchMove como listeners
+        PASIVOS en la raíz de la app. En un listener pasivo preventDefault() no
+        hace nada, y el navegador lo avisa por consola en CADA evento de rueda:
+        "Unable to preventDefault inside passive event listener invocation".
+
+        El efecto visible no era sólo el ruido en consola: al hacer swipe
+        horizontal con el trackpad o Shift+rueda sobre el Gantt, el timeline
+        avanzaba Y ADEMÁS el panel de resultados hacía scroll. Doble efecto en
+        cada gesto.
+
+        El handler se guarda en un ref para que el listener se registre una sola
+        vez por nodo en lugar de re-registrarse en cada cambio de offset, pero
+        invocando siempre la versión más reciente. */
+      const wheelHandlerRef = useRef(handleWheel);
+
+      useEffect(() => {
+        wheelHandlerRef.current = handleWheel;
+      });
+
+      useEffect(() => {
+        if (!trackNode) {
+          return;
+        }
+
+        const handleNativeWheel = event => {
+          wheelHandlerRef.current(event);
+        };
+
+        trackNode.addEventListener(
+          'wheel',
+          handleNativeWheel,
+          { passive: false }
+        );
+
+        return () => {
+          trackNode.removeEventListener(
+            'wheel',
+            handleNativeWheel
+          );
+        };
+      }, [trackNode]);
     
       return {
         panHandlers: {
-          ref: trackRef,
+          ref: registerTrackNode,
           onPointerDown: handlePointerDown,
           onPointerMove: handlePointerMove,
           onPointerUp: finishGesture,
           onPointerCancel: finishGesture,
-          onWheel: handleWheel,
           onClickCapture: handleClickCapture
         },
         dragOffsetPx,
@@ -10142,7 +10222,22 @@
         setTimelineScale(nextScale);
       };
       const timelinePan = useTimelinePan({ unitCount: 12, offset: timelineUnitOffset, onOffsetChange: setTimelineUnitOffset, minOffset: -60, maxOffset: 36 });
-      const setRoadmapGanttNode = (node) => { roadmapGanttRef.current = node; timelinePan.panHandlers.ref.current = node; };
+
+      /* Un solo elemento necesita dos destinos de ref: roadmapGanttRef, que mide
+        useTimelineColumnBox, y el registro del hook de pan. Se combinan aquí.
+
+        Envuelto en useCallback para que la identidad sea estable: antes era una
+        función nueva por render, así que React desanclaba y reanclaba el ref
+        constantemente, y durante un pan eso ocurre decenas de veces por segundo.
+
+        panHandlers.ref es ahora un callback (no un objeto ref) y su identidad la
+        fija el propio hook, así que la dependencia se mantiene constante. */
+      const registerTimelinePanNode = timelinePan.panHandlers.ref;
+
+      const setRoadmapGanttNode = React.useCallback(node => {
+        roadmapGanttRef.current = node;
+        registerTimelinePanNode(node);
+      }, [registerTimelinePanNode]);
    
       useEffect(() => {
         if (currentPage !== 'roadmap') {
@@ -10867,8 +10962,25 @@
       
       useEffect(() => { const timer = setTimeout(() => { setSearchTitle(searchInput); }, 300); return () => clearTimeout(timer); }, [searchInput]);
       
+      /* Al cambiar de panel: si se ha arrastrado una Feature abierta, se la lleva
+        a la vista; si no, se vuelve al principio de la lista. */
       useEffect(() => {
         requestAnimationFrame(() => {
+          const carriedRow = currentPage === 'features'
+            ? featureListRowRefs.current.get(
+                Number(expandedFeatureId)
+              )
+            : null;
+
+          if (carriedRow) {
+            carriedRow.scrollIntoView({
+              block: 'center',
+              behavior: 'auto'
+            });
+
+            return;
+          }
+
           scrollResultsToTop('auto');
         });
       }, [currentPage]);
@@ -11118,8 +11230,31 @@
       
         loadFeatures(false);
       }, [authStatus]);
-      useEffect(() => { setExpandedRoadmapFeatureId(null); }, [roadmapPage]);
-      useEffect(() => { setExpandedFeatureId(null); setStickyFeatureContext(null); }, [featuresPage]);
+      useEffect(() => {
+        setExpandedRoadmapFeatureId(previous =>
+          previous === null ||
+          pageItems.some(item => item.id === previous)
+            ? previous
+            : null
+        );
+      }, [roadmapPage]);
+
+      /* Al cambiar de página la fila expandida se colapsa SÓLO si ya no está en
+        la página visible. Antes se colapsaba siempre, y eso impedía llevar la
+        Feature abierta de un panel al otro: al sincronizar la página, el efecto
+        la cerraba. Comprobar pertenencia hace innecesaria cualquier bandera, y
+        la paginación normal sigue colapsando porque la Feature no estará en la
+        página nueva. */
+      useEffect(() => {
+        setStickyFeatureContext(null);
+
+        setExpandedFeatureId(previous =>
+          previous === null ||
+          featuresPageItems.some(item => item.id === previous)
+            ? previous
+            : null
+        );
+      }, [featuresPage]);
 
       const areaPaths = [...new Set(features.map(f => f.areaPath).filter(a => a))].sort();
       const iterations = [...new Set(features.map(f => f.iterationPath).filter(a => a))].sort();
@@ -12248,6 +12383,53 @@
         });
       };
 
+      /* ── Cambiar de panel conserva el sujeto ─────────────────────────────────
+
+        Cambiar de panel NO es una intención nueva, al contrario que cambiar un
+        filtro: es "el mismo sujeto, la otra vista". Por eso aquí SÍ se conserva
+        el contexto — la Feature que tengas abierta viaja al otro panel y la
+        página se sincroniza para que quede visible.
+
+        Funciona porque los dos paneles cortan el MISMO sortedFiltered con el
+        mismo tamaño de página, así que el índice de página de una Feature es
+        idéntico en ambos. Si algún día divergieran los tamaños, cada rama ya usa
+        su propia constante y el cálculo seguiría siendo correcto. */
+      const changeDashboardPanel = (nextPage) => {
+        if (nextPage === currentPage) {
+          return;
+        }
+
+        const carriedFeatureId = nextPage === 'features'
+          ? expandedRoadmapFeatureId
+          : expandedFeatureId;
+
+        if (carriedFeatureId) {
+          const featureIndex = sortedFiltered.findIndex(
+            item => item.id === carriedFeatureId
+          );
+
+          /* Si la Feature ya no está en el conjunto filtrado no se arrastra
+            nada: el panel destino se comporta con normalidad. */
+          if (featureIndex >= 0) {
+            if (nextPage === 'features') {
+              setFeaturesPage(
+                Math.floor(featureIndex / featuresItemsPerPage) + 1
+              );
+
+              setExpandedFeatureId(carriedFeatureId);
+            } else {
+              setRoadmapPage(
+                Math.floor(featureIndex / itemsPerPage) + 1
+              );
+
+              setExpandedRoadmapFeatureId(carriedFeatureId);
+            }
+          }
+        }
+
+        setCurrentPage(nextPage);
+      };
+
       /* ── Toda búsqueda nueva empieza por el principio ───────────────────────
       Cambiar un filtro, el buscador o el orden es declarar una intención
       nueva: interesa el primer resultado del conjunto nuevo, no la posición
@@ -12814,7 +12996,7 @@
                         ? 'view-switcher__button--active'
                         : ''
                     ].filter(Boolean).join(' ')}
-                    onClick={() => setCurrentPage('features')}
+                    onClick={() => changeDashboardPanel('features')}
                     aria-current={
                       currentPage === 'features'
                         ? 'page'
@@ -12857,7 +13039,7 @@
                         ? 'view-switcher__button--active'
                         : ''
                     ].filter(Boolean).join(' ')}
-                    onClick={() => setCurrentPage('roadmap')}
+                    onClick={() => changeDashboardPanel('roadmap')}
                     aria-current={
                       currentPage === 'roadmap'
                         ? 'page'
@@ -13520,7 +13702,7 @@
     
        <MobileWorkspaceControls
         currentPage={currentPage}
-        onChangePage={setCurrentPage}
+        onChangePage={changeDashboardPanel}
         refreshing={refreshing}
         onRefresh={() => loadFeatures(true)}
         selectedFilterPreset={selectedFilterPreset}
