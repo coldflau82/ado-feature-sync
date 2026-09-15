@@ -518,6 +518,27 @@ const sprintCalendarById = Object.fromEntries(
   })
 );
 
+/* Reglas de Delivery Health realmente HABILITADAS, en el mismo formato kebab
+  que viajan las claves de las alertas.
+
+  Existe porque el desplegable "Delivery Health rule" del frontend tenia sus 19
+  opciones a fuego, y dos de ellas — no-active-work y to-release-pending — estan
+  con "enabled": false en la config. El backend nunca emite esas claves, asi que
+  filtrar por ellas garantizaba CERO resultados sin ninguna explicacion: el PM
+  concluia "no tengo trabajo parado" cuando la regla simplemente estaba apagada.
+
+  Enviando la lista, el desplegable se mantiene solo: habilitar o deshabilitar
+  una regla en el JSON se refleja en la interfaz sin tocar codigo. */
+const enabledDeliveryHealthRuleKeys = Object
+  .entries(deliveryHealthRules.rules || {})
+  .filter(([, rule]) => rule?.enabled !== false)
+  .map(([ruleKey]) =>
+    ruleKey.replace(
+      /[A-Z]/g,
+      letter => `-${letter.toLowerCase()}`
+    )
+  );
+
 /* Convierte el Iteration Path de Azure DevOps a un ID del calendario.
   Ejemplo: Commercial Engineering\2026\Q3\2026_S16_Jul29-Aug11 -> 2026-sprint-16 */
 function getSprintCalendarIdFromIterationPath(iterationPath) {
@@ -9126,6 +9147,11 @@ app.get('/api/features', async (req, res) => {
         /* Fechas de Sprint validadas. El frontend ya no deduce fechas del nombre
           del Iteration Path: las resuelve por sprintId contra este mapa. */
         sprintCalendar: sprintCalendarById,
+      
+        /* Reglas de Delivery Health habilitadas. El desplegable de filtro del
+          frontend se deriva de esta lista para no ofrecer opciones que el
+          backend nunca puede emitir. */
+        enabledDeliveryHealthRules: enabledDeliveryHealthRuleKeys,
       
         thresholds: {
           targetDateNearDays: deliveryHealthRules.thresholds.targetDateNearDays,

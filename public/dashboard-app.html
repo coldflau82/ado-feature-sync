@@ -2079,6 +2079,12 @@
       El parseo del nombre se conserva sólo como último recurso. */
     let sprintCalendar = {};
 
+    /* Reglas de Delivery Health habilitadas, proyectadas por el backend en
+      /api/features -> dashboard.enabledDeliveryHealthRules. El desplegable de
+      filtro se deriva de aqui para no ofrecer opciones que el backend nunca
+      puede emitir. Ver getAvailableDeliveryHealthRuleOptions(). */
+    let enabledDeliveryHealthRules = null;
+
     function getReleaseDate(releaseFixVersion) {
       return releaseCalendar?.[releaseFixVersion]?.date || null;
     }
@@ -3373,10 +3379,14 @@
           currentSuppressed &&
           currentSuppressed.element !== element
         ) {
-          currentSuppressed.element.setAttribute(
-            'title',
-            currentSuppressed.title
-          );
+          if (currentSuppressed.element.isConnected) {
+            currentSuppressed.element.setAttribute(
+              'title',
+              currentSuppressed.title
+            );
+          }
+
+          suppressedNativeTitleRef.current = null;
         }
 
         suppressedNativeTitleRef.current = {
@@ -3395,10 +3405,15 @@
           return;
         }
 
-        suppressed.element.setAttribute(
-          'title',
-          suppressed.title
-        );
+        /* isConnected: si el elemento ya se desmonto, escribirle el title no
+          sirve de nada y ademas mantendria vivo un nodo DOM desprendido.
+          Se limpia la referencia en cualquier caso. */
+        if (suppressed.element.isConnected) {
+          suppressed.element.setAttribute(
+            'title',
+            suppressed.title
+          );
+        }
 
         suppressedNativeTitleRef.current = null;
       };
@@ -3431,6 +3446,31 @@
           visible: false
         }));
       }, []);
+
+      /* B4: el hook no tenia NINGUN cleanup.
+
+        suppressNativeTitle arranca el atributo title del DOM y guarda
+        { element, title } en un ref. Solo hideTooltip lo restauraba, y
+        hideTooltip llega por onMouseLeave. Si el elemento se DESMONTA mientras
+        el tooltip esta visible — pan por teclado, un Refresh Live que repinta la
+        fila, cambiar de pagina — ese evento nunca llega. Consecuencias:
+
+        - tooltip.visible se queda en true para siempre: un tooltip congelado
+          flotando con contenido obsoleto hasta que el raton pase por otro
+          elemento;
+        - el ref retiene una referencia fuerte a un nodo DOM desprendido y a todo
+          su subarbol: fuga de memoria real.
+
+        Este cleanup restaura el title y suelta la referencia al desmontar. Los
+        guardas de isConnected de arriba cubren el caso de un nodo ya
+        desaparecido. Y quien consume el hook debe llamar a hideTooltip cuando
+        cambie el contexto que puede desmontar el elemento ancla. */
+      React.useEffect(
+        () => () => {
+          restoreNativeTitle();
+        },
+        []
+      );
 
       return {
         tooltip,
@@ -10867,6 +10907,25 @@
       const [areAdvancedFiltersOpen, setAreAdvancedFiltersOpen] = useState(false);
       
       const FILTER_STORAGE_KEY = 'featureTracker_myFilter';
+
+      /* B8: el preset activo se persiste aparte.
+
+        El comentario de clearAllFilters afirmaba que la configuracion vacia se
+        guardaba "automaticamente en localStorage mediante el useEffect
+        existente". Ese useEffect NO EXISTE: el unico setItem esta en
+        saveMyFilter, que es manual. Resultado: el usuario pulsaba Clear filters,
+        recargaba, y el efecto de arranque le restauraba en silencio el My filter
+        que creia haber limpiado.
+
+        La solucion no es que Clear filters borre My filter — eso seria
+        destructivo y no es lo que el boton promete — sino recordar QUE PRESET
+        eligio el usuario. Clear filters es una declaracion explicita de
+        intencion: se persiste como 'custom' y el arranque deja de auto-aplicar.
+        My filter sigue guardado y se puede volver a seleccionar.
+
+        Clave separada a proposito: los valores ya guardados en navegadores del
+        equipo siguen siendo validos y conservan su comportamiento actual. */
+      const FILTER_PRESET_STORAGE_KEY = 'featureTracker_activePreset';
       /*  Referencia al único contenedor desplazable de resultados. En desktop/tablet este será el único scroll vertical disponible. */
       const resultsScrollRef = useRef(null);
       /* Referencias exclusivas de Feature List para controlar el Sticky Feature Header de la Feature expandida.
@@ -10916,13 +10975,26 @@
         setSearchTitle('');
         setAreAdvancedFiltersOpen(false);
       };
-      /* Limpia todos los filtros del dashboard desde el único botón Clear filters. Save as default filter no se modifica: si está activo, la configuración vacía se guardará automáticamente en localStorage mediante el useEffect existente. */
+      /* Limpia todos los filtros del dashboard desde el unico boton Clear filters.
+        NO borra My filter: sigue guardado y se puede volver a seleccionar desde el
+        desplegable. Lo que si persiste es la eleccion de preset, para que al
+        recargar no reaparezca el filtro que el usuario acaba de limpiar. */
      const clearAllFilters = () => {
         resetAllDashboardFilters();
       
         /* Filtros vacíos no necesariamente corresponden a My filter.
           Se muestran como Custom para que el usuario pueda volver a seleccionar My filter explícitamente si quiere restaurarlo. */
         setSelectedFilterPreset('custom');
+
+        try {
+          localStorage.setItem(
+            FILTER_PRESET_STORAGE_KEY,
+            'custom'
+          );
+        } catch (error) {
+          /* Un localStorage lleno o bloqueado no debe impedir limpiar filtros. */
+          console.error('Unable to persist the active preset:', error);
+        }
       
         resetResultsAfterMainFilterChange();
       };
@@ -11167,6 +11239,17 @@
       };
         localStorage.setItem( FILTER_STORAGE_KEY, JSON.stringify(filtersToSave) );
         setSelectedFilterPreset('my-filter');
+
+        /* Guardar My filter es tambien elegirlo: a partir de ahora el arranque
+          debe volver a aplicarlo aunque antes se hubiera limpiado. */
+        try {
+          localStorage.setItem(
+            FILTER_PRESET_STORAGE_KEY,
+            'my-filter'
+          );
+        } catch (error) {
+          console.error('Unable to persist the active preset:', error);
+        }
       };
       
       useEffect(() => { const timer = setTimeout(() => { setSearchTitle(searchInput); }, 300); return () => clearTimeout(timer); }, [searchInput]);
@@ -11306,6 +11389,15 @@
             typeof json.dashboard.sprintCalendar === 'object'
           ) {
             sprintCalendar = json.dashboard.sprintCalendar;
+          }
+
+          if (
+            Array.isArray(
+              json.dashboard?.enabledDeliveryHealthRules
+            )
+          ) {
+            enabledDeliveryHealthRules =
+              json.dashboard.enabledDeliveryHealthRules;
           }
 
           /* Solo una respuesta válida y vigente reemplaza los datos visibles. React recalculará automáticamente:
@@ -11534,9 +11626,29 @@
       };
       
       useEffect(() => { const saved = localStorage.getItem(FILTER_STORAGE_KEY);
+
+        /* B9: sin nada guardado, el desplegable NO debe decir "My filter".
+          selectedFilterPreset arranca en 'my-filter', asi que un usuario nuevo
+          veia un preset que describe un filtro que nunca guardo. */
         if (!saved) {
+          setSelectedFilterPreset('custom');
+
           return;
         }
+
+        /* B8: si el usuario limpio los filtros deliberadamente, no se le
+          reaplica My filter al recargar. Ausencia de clave = navegador que ya
+          venia de antes: se conserva el comportamiento anterior de aplicarlo. */
+        const savedPreset = localStorage.getItem(
+          FILTER_PRESET_STORAGE_KEY
+        );
+
+        if (savedPreset && savedPreset !== 'my-filter') {
+          setSelectedFilterPreset('custom');
+
+          return;
+        }
+
         try {
           const parsed = JSON.parse(saved);
           setFilterAreaPath(parsed.filterAreaPath || []);
@@ -12132,7 +12244,7 @@
           });
       };
 
-    const deliveryHealthRuleOptions = [
+    const allDeliveryHealthRuleOptions = [
       { key: 'healthy', label: 'Healthy' },
       { key: 'overdue', label: 'Overdue' },
       { key: 'target-date-near-unscheduled-discovery', label: 'Target date near' },
@@ -12153,6 +12265,32 @@
       { key: 'unestimated-work', label: 'No estimated work' },
       { key: 'not-started', label: 'Not started' }
     ];
+
+    /* N4: el desplegable solo ofrece reglas que el backend puede emitir.
+
+      Dos opciones — no-active-work y to-release-pending — estan con
+      "enabled": false en config/delivery-health-rules.json, asi que el backend
+      nunca emite esas claves y filtrar por ellas daba SIEMPRE cero resultados,
+      sin ninguna explicacion. El PM concluia "no tengo trabajo parado" cuando la
+      regla estaba apagada.
+
+      La lista de reglas habilitadas llega en dashboard.enabledDeliveryHealthRules.
+      Si no llegara — backend antiguo, respuesta incompleta — se muestran todas:
+      es preferible ofrecer una opcion inutil que esconder una valida. */
+    function getAvailableDeliveryHealthRuleOptions() {
+      if (
+        !Array.isArray(enabledDeliveryHealthRules) ||
+        enabledDeliveryHealthRules.length === 0
+      ) {
+        return allDeliveryHealthRuleOptions;
+      }
+
+      const enabled = new Set(enabledDeliveryHealthRules);
+
+      return allDeliveryHealthRuleOptions.filter(
+        option => enabled.has(option.key)
+      );
+    }
 
       const featuresItemsPerPage = 15;
       const featuresTotalPages =  Math.max( 1, Math.ceil(sortedFiltered.length / featuresItemsPerPage));
@@ -12638,6 +12776,27 @@
 
         setCurrentPage(nextPage);
       };
+
+      /* B4, lado del consumidor: ocultar el tooltip cuando cambia el contexto
+        que puede DESMONTAR el elemento que lo ancla.
+
+        El tooltip se cierra con onMouseLeave. Si la fila, la barra o el
+        marcador desaparecen sin que el raton salga de ellos \u2014 paginar, cambiar
+        de panel, panear el Gantt con el teclado, cambiar de escala \u2014 ese evento
+        nunca llega y queda un tooltip congelado flotando con contenido viejo.
+
+        hideTooltip es estable (useCallback con dependencias vacias), asi que
+        este efecto no se re-registra en cada render. */
+      useEffect(() => {
+        hideTooltip();
+      }, [
+        currentPage,
+        featuresPage,
+        roadmapPage,
+        timelineUnitOffset,
+        timelineScale,
+        hideTooltip
+      ]);
 
       /* ── Toda búsqueda nueva empieza por el principio ───────────────────────
       Cambiar un filtro, el buscador o el orden es declarar una intención
@@ -13471,7 +13630,7 @@
               >
                   <option value="All">All health rules</option>
           
-                  {deliveryHealthRuleOptions.map(rule => (
+                  {getAvailableDeliveryHealthRuleOptions().map(rule => (
                     <option key={rule.key} value={rule.key}>
                       {rule.label}
                     </option>
