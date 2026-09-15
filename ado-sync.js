@@ -4666,10 +4666,9 @@ function buildDeliveryHealth(feature) {
     alerts.push(createRuleAlert('overdue'));
   }
 
-  /*
-    Prioridad 2: Target Date cercana con trabajo Discovery sin Sprint.
-    El umbral de días viene de thresholds.targetDateNearDays.
-  */
+  /* Prioridad 2: Si la Story/Bug no tiene RFV, se usa el RFV de la
+    Feature únicamente como referencia esperada para calcular la fecha
+    de compromiso. Esto no asigna ni hereda un RFV al Work Item. */
   const targetDateNearRule = getDeliveryHealthRule(
     'targetDateNearUnscheduledDiscovery'
   );
